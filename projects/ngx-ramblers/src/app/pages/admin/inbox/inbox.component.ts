@@ -1,10 +1,15 @@
+import {EmailCompositionListComponent} from "../../../modules/common/email-compositions/email-composition-list.component";
+import {InboxMessageComponent} from "./inbox-message.component";
+import {InboxLayoutService} from "../../../services/inbox/inbox-layout.service";
+import {InboxMessageRenderingService} from "../../../services/inbox/inbox-message-rendering.service";
+import {InboxConversationsService} from "../../../services/inbox/inbox-conversations.service";
 import { AfterViewInit, Component, ElementRef, HostBinding, HostListener, inject, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBan, faBars, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCircleCheck, faCompress, faDownload, faEnvelope, faEnvelopeOpen, faExpand, faEye, faFilter, faGripLines, faIdBadge, faInbox, faLayerGroup, faListCheck, faPaperclip, faPaperPlane, faPenToSquare, faFileLines, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faSpinner, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo, faUser, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBan, faBars, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCircleCheck, faCompress, faEnvelope, faEnvelopeOpen, faExpand, faFilter, faGripLines, faIdBadge, faInbox, faLayerGroup, faListCheck, faPaperPlane, faPenToSquare, faFileLines, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faSpinner, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo, faUser, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { AdminSettingsPath, AdminPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { isUndefined, kebabCase, uniqBy, values } from "es-toolkit/compat";
@@ -13,7 +18,7 @@ import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
 import { InboxReplyHandoffService } from "../../../services/inbox/inbox-reply-handoff.service";
-import { addressLabel, aliasMailboxAddresses, aliasMailboxExtraCaption, aliasMailboxHeading, aliasMailboxLabel, collapseInboxSends, formatInboxAddress, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadRoleLine, inboxThreadRowFrom, inboxThreadRowPreview, inboxThreadRowTo, inboxThreadSlug, replyAllRecipients, validatedInboxColumnShare } from "../../../functions/inbox-thread";
+import { addressLabel, aliasMailboxAddresses, aliasMailboxExtraCaption, aliasMailboxHeading, aliasMailboxLabel, collapseInboxSends, formatInboxAddress, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadRoleLine, inboxThreadRowFrom, inboxThreadRowPreview, inboxThreadRowTo, replyAllRecipients, validatedInboxColumnShare } from "../../../functions/inbox-thread";
 import { InboxPushSubscriptionService } from "../../../services/inbox/inbox-push-subscription.service";
 import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
@@ -48,16 +53,12 @@ import { UrlService } from "../../../services/url.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
-import { NumberUtilsService } from "../../../services/number-utils.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { PageComponent } from "../../../page/page.component";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
-import { AttachmentPreviewComponent } from "../../../modules/common/attachment-preview/attachment-preview";
-import { InboxCalendarInviteComponent } from "./inbox-calendar-invite";
 import { InboxOrphanedThreadsComponent } from "./inbox-orphaned-threads.component";
 import { CommitteeUnassignedRolesComponent } from "../system-settings/committee/committee-unassigned-roles";
-import { HtmlFrameComponent } from "../../../modules/common/html-frame/html-frame.component";
 import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../../modules/common/resizer/resizer";
 import { MaximisablePanelComponent } from "../../../modules/common/maximisable-panel/maximisable-panel";
 import { UIDateFormat } from "../../../models/date-format.model";
@@ -67,30 +68,31 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
 
 @Component({
   selector: "app-inbox",
-  imports: [CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, HtmlFrameComponent, ResizerComponent, RouterLink, MaximisablePanelComponent, AttachmentPreviewComponent, InboxCalendarInviteComponent, InboxOrphanedThreadsComponent, CommitteeUnassignedRolesComponent, SectionToggle, ThumbnailHeadingFrameComponent],
+  providers: [InboxLayoutService, InboxMessageRenderingService, InboxConversationsService],
+  imports: [EmailCompositionListComponent, InboxMessageComponent, CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, ResizerComponent, RouterLink, MaximisablePanelComponent, InboxOrphanedThreadsComponent, CommitteeUnassignedRolesComponent, SectionToggle, ThumbnailHeadingFrameComponent],
   styleUrls: ["./inbox.component.sass"],
   template: `
-    <app-page pageTitle="Mail" [showTitle]="false" [showBreadcrumb]="!mobile">
+    <app-page pageTitle="Mail" [showTitle]="false" [showBreadcrumb]="!layout.mobile">
       <app-maximisable-panel #panel="maximisablePanel" class="inbox-scroll-contained"
-                             [showHeader]="!readingOnMobile || !compactDetailHeader"
+                             [showHeader]="!readingOnMobile || !layout.compactDetailHeader"
                              [showToggleButton]="false">
       <div panelControls class="d-flex gap-2 align-items-center flex-grow-1 inbox-toolbar">
           @if (!readingOnMobile) {
             <div class="d-flex align-items-center gap-2 flex-shrink-0 inbox-toolbar-brand">
-              @if (mobile) {
-                <button class="inbox-nav-toggle flex-shrink-0" type="button" aria-label="Show folders" (click)="mobileNavOpen = true">
+              @if (layout.mobile) {
+                <button class="inbox-nav-toggle flex-shrink-0" type="button" aria-label="Show folders" (click)="layout.mobileNavOpen = true">
                   <fa-icon [icon]="faBars"/>
                 </button>
               }
               <fa-icon [icon]="faInbox" class="ramblers" size="lg"></fa-icon>
-              @if (!mobile) {
+              @if (!layout.mobile) {
                 <span class="inbox-toolbar-title">Mail</span>
               }
-              @if (!mobile) {
-                <button class="inbox-nav-toggle flex-shrink-0" type="button" (click)="toggleNavCollapsed()"
-                        [class.active]="!navCollapsed" [attr.aria-pressed]="!navCollapsed"
-                        [tooltip]="navCollapsed ? 'Show folders' : 'Hide folders'">
-                  <fa-icon [icon]="navCollapsed ? faBars : faTableColumns"/>
+              @if (!layout.mobile) {
+                <button class="inbox-nav-toggle flex-shrink-0" type="button" (click)="layout.toggleNavCollapsed()"
+                        [class.active]="!layout.navCollapsed" [attr.aria-pressed]="!layout.navCollapsed"
+                        [tooltip]="layout.navCollapsed ? 'Show folders' : 'Hide folders'">
+                  <fa-icon [icon]="layout.navCollapsed ? faBars : faTableColumns"/>
                 </button>
               }
             </div>
@@ -120,13 +122,13 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openComposer()" tooltip="Start a new email in the Email Composer">
               <fa-icon [icon]="faPenToSquare"/>Compose
             </button>
-            @if (mobile) {
-              <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="mobileFiltersOpen = !mobileFiltersOpen">
+            @if (layout.mobile) {
+              <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="layout.mobileFiltersOpen = !layout.mobileFiltersOpen">
                 <fa-icon [icon]="faSliders"/>Filter and sort
               </button>
             }
           }
-          @if (mobile && mobileShowDetail) {
+          @if (layout.mobile && layout.mobileShowDetail) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="backToList()" tooltip="Back to inbox">
               <fa-icon [icon]="faArrowLeft"/>Inbox
             </button>
@@ -145,31 +147,31 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
               </button>
             }
           }
-          @if (threadListTotalCount > 0 && !mobile) {
+          @if (threadListTotalCount > 0 && !layout.mobile) {
             <button type="button" class="btn btn-quiet inbox-filter-toggle d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" [class.active]="readFilter === InboxReadFilter.UNREAD"
                     (click)="toggleUnreadFilter()"
                     [tooltip]="readFilter === InboxReadFilter.UNREAD ? 'Showing unread only — click to show all' : 'Show unread only'">
               <fa-icon [icon]="faFilter"/>{{ readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All' }}
             </button>
           }
-          @if (threads.length > 0 && !mobile) {
+          @if (threads.length > 0 && !layout.mobile) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="toggleMessageSort()"
                     [tooltip]="messageSortDescending ? 'Showing newest first — click for oldest first' : 'Showing oldest first — click for newest first'">
               <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort"/>{{ messageSortDescending ? 'Newest' : 'Oldest' }}
             </button>
           }
-          @if (!mobile) {
-            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="toggleLayout()" [tooltip]="stackedLayout ? 'Switch to side-by-side view' : 'Switch to stacked view'">
-              <fa-icon [icon]="stackedLayout ? faTableColumns : faTableList"/>
-              {{ stackedLayout ? 'Split' : 'Stacked' }}
+          @if (!layout.mobile) {
+            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="layout.toggleLayout()" [tooltip]="layout.stackedLayout ? 'Switch to side-by-side view' : 'Switch to stacked view'">
+              <fa-icon [icon]="layout.stackedLayout ? faTableColumns : faTableList"/>
+              {{ layout.stackedLayout ? 'Split' : 'Stacked' }}
             </button>
-            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="toggleDensity()" [tooltip]="compactList ? 'Switch to comfortable rows with subject and preview lines' : 'Switch to compact single-line rows'">
-              <fa-icon [icon]="compactList ? faTableList : faGripLines"/>
-              {{ compactList ? 'Roomy' : 'Compact' }}
+            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="layout.toggleDensity()" [tooltip]="layout.compactList ? 'Switch to comfortable rows with subject and preview lines' : 'Switch to compact single-line rows'">
+              <fa-icon [icon]="layout.compactList ? faTableList : faGripLines"/>
+              {{ layout.compactList ? 'Roomy' : 'Compact' }}
             </button>
           }
           @if ((pushStatus$ | async); as pushStatus) {
-            @if (pushStatus.supported && !mobile) {
+            @if (pushStatus.supported && !layout.mobile) {
               @if (pushStatus.subscribed) {
                 <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="disableBrowserNotifications()" [disabled]="busy" tooltip="Stop showing browser notifications for new inbox messages">
                   <fa-icon [icon]="faBellSlash"/>Alerts
@@ -181,28 +183,28 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
               }
             }
           }
-          @if (!mobile) {
+          @if (!layout.mobile) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="syncAndRefresh()" [disabled]="busy" tooltip="Reload conversations and the open message, and fetch any new mail from connected mailboxes">
               <fa-icon [icon]="faRotateRight"/>Refresh
             </button>
           }
-          @if (!mobile) {
+          @if (!layout.mobile) {
             <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="panel.toggle()" [tooltip]="panel.maximised ? panel.restoreTooltip : panel.maximiseTooltip">
               <fa-icon [icon]="panel.maximised ? faCompress : faExpand"/>{{ panel.maximised ? 'Restore' : 'Maximise' }}
             </button>
           }
           </div>
       </div>
-      @if (mobile && mobileFiltersOpen && !mobileShowDetail) {
-        <div class="inbox-mobile-filters">
+      @if (layout.mobile && layout.mobileFiltersOpen && !layout.mobileShowDetail) {
+        <div class="inbox-layout.mobile-filters">
           <button type="button" class="btn btn-quiet inbox-filter-toggle" [class.active]="readFilter === InboxReadFilter.UNREAD" (click)="toggleUnreadFilter()">
             <fa-icon [icon]="faFilter" class="me-1"/>{{readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All'}}
           </button>
           <button type="button" class="btn btn-quiet" (click)="toggleMessageSort()">
             <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort" class="me-1"/>{{messageSortDescending ? 'Newest' : 'Oldest'}}
           </button>
-          <button type="button" class="btn btn-quiet" (click)="toggleDensity()">
-            <fa-icon [icon]="compactList ? faTableList : faGripLines" class="me-1"/>{{ compactList ? 'Roomy' : 'Compact' }}
+          <button type="button" class="btn btn-quiet" (click)="layout.toggleDensity()">
+            <fa-icon [icon]="layout.compactList ? faTableList : faGripLines" class="me-1"/>{{ layout.compactList ? 'Roomy' : 'Compact' }}
           </button>
           <button type="button" class="btn btn-quiet" (click)="syncAndRefresh()" [disabled]="busy">
             <fa-icon [icon]="faRotateRight" class="me-1"/>Refresh
@@ -262,26 +264,26 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
         }
       }
       <div #inboxShell class="inbox-shell">
-        @if (!mobile && !navCollapsed && aliases.length > 0) {
-          <app-thumbnail-heading-frame class="inbox-pane inbox-nav" heading="Folders" [fill]="true" [compact]="true" [style.flex]="'0 0 ' + navSize + 'px'">
+        @if (!layout.mobile && !layout.navCollapsed && aliases.length > 0) {
+          <app-thumbnail-heading-frame class="inbox-pane inbox-nav" heading="Folders" [fill]="true" [compact]="true" [style.flex]="'0 0 ' + layout.navSize + 'px'">
             <div class="inbox-nav-body">
             <ng-container [ngTemplateOutlet]="folderNavContent"/>
             </div>
           </app-thumbnail-heading-frame>
           <app-resizer [variant]="ResizerVariant.BAR"
                        [orientation]="ResizerOrientation.HORIZONTAL"
-                       [size]="navSize"
-                       [minSize]="minNavSize"
-                       [maxSize]="maxNavSize"
-                       (sizeChange)="onNavSizeChange($event)"
-                       (resizeEnd)="persistNavSize()"/>
+                       [size]="layout.navSize"
+                       [minSize]="layout.minNavSize"
+                       [maxSize]="layout.maxNavSize"
+                       (sizeChange)="layout.onNavSizeChange($event)"
+                       (resizeEnd)="layout.persistNavSize()"/>
         }
-        @if (mobile && mobileNavOpen) {
-          <div class="inbox-drawer-backdrop" (click)="mobileNavOpen = false"></div>
+        @if (layout.mobile && layout.mobileNavOpen) {
+          <div class="inbox-drawer-backdrop" (click)="layout.mobileNavOpen = false"></div>
           <div class="inbox-drawer" role="dialog" aria-label="Mail folders">
             <div class="inbox-drawer-header">
               <span class="inbox-toolbar-title">Mail</span>
-              <button class="inbox-nav-toggle" type="button" aria-label="Close folders" (click)="mobileNavOpen = false">
+              <button class="inbox-nav-toggle" type="button" aria-label="Close folders" (click)="layout.mobileNavOpen = false">
                 <fa-icon [icon]="faXmark"/>
               </button>
             </div>
@@ -359,87 +361,21 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
               </div>
             </div>
         </ng-template>
-      <div #inboxLayout class="inbox-layout" [class.stacked]="stackedLayout"
-           [style.grid-template-columns]="gridTemplateColumns"
-           [style.grid-template-rows]="gridTemplateRows">
-        @if (!mobile || !mobileShowDetail) {
-        <app-thumbnail-heading-frame class="inbox-pane" [heading]="conversationCountCaption" [fill]="true" [compact]="true" [class.inbox-list-flush]="mobile">
+      <div #inboxLayout class="inbox-layout" [class.stacked]="layout.stackedLayout"
+           [style.grid-template-columns]="viewingDrafts ? 'minmax(0, 1fr)' : layout.gridTemplateColumns"
+           [style.grid-template-rows]="viewingDrafts ? 'minmax(0, 1fr)' : layout.gridTemplateRows">
+        @if (!layout.mobile || !layout.mobileShowDetail) {
+        <app-thumbnail-heading-frame class="inbox-pane" [heading]="conversationCountCaption" [fill]="true" [compact]="true" [class.inbox-list-flush]="layout.mobile">
           <div class="inbox-pane-body">
-          @if (threadListTotalCount > 0 || conversationSearchTerm) {
-            <div class="p-2">
-              <div class="d-flex align-items-center gap-2">
-                <app-section-toggle small class="inbox-grouping-mode flex-shrink-0"
-                  [tabs]="groupingTabs"
-                  [selectedTab]="groupingMode"
-                  [queryParamKey]="StoredValue.MAIL_GROUPING"
-                  (selectedTabChange)="onGroupingModeChange($event)"/>
-                <div class="input-group input-group-sm flex-grow-1">
-                  <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
-                  <input type="text" class="form-control" [ngModel]="conversationSearchTerm"
-                         (ngModelChange)="onConversationSearchChange($event)"
-                         [disabled]="selectingAllConversations"
-                         placeholder="Search conversations...">
-                </div>
-              </div>
-            </div>
-          } @else {
-            <div class="p-2">
-              <app-section-toggle small class="inbox-grouping-mode"
+          <div class="p-2">
+            <div class="d-flex align-items-center gap-2">
+              <app-section-toggle small class="inbox-grouping-mode flex-shrink-0"
                 [tabs]="groupingTabs"
-                [selectedTab]="groupingMode"
+                [selectedTab]="layout.groupingMode"
                 [queryParamKey]="StoredValue.MAIL_GROUPING"
                 (selectedTabChange)="onGroupingModeChange($event)"/>
-            </div>
-          }
-          @if (viewingDrafts && filteredDrafts.length > 0) {
-            <div class="d-flex align-items-center gap-2 pe-2 pb-2 inbox-list-toolbar">
-              <input type="checkbox" class="form-check-input mt-0" id="inbox-select-all-drafts"
-                     [checked]="allDraftsSelected()"
-                     [indeterminate]="selectedDraftIds.size > 0 && !allDraftsSelected()"
-                     (change)="toggleSelectAllDrafts()">
-              @if (selectedDraftIds.size > 0) {
-                <button type="button" class="btn btn-sm btn-danger text-nowrap" [disabled]="busy || confirmingDraftDelete" (click)="requestDeleteSelectedDrafts()">
-                  <fa-icon [icon]="faTrash" class="me-2"/>Delete {{ stringUtils.pluraliseWithCount(selectedDraftIds.size, "draft") }}
-                </button>
-              } @else {
-                <label class="text-muted small mb-0" for="inbox-select-all-drafts">Select all</label>
-              }
-            </div>
-            @if (confirmingDraftDelete) {
-              <div class="alert alert-warning d-flex align-items-start gap-2 mx-2 mb-2 px-2 py-2">
-                <fa-icon [icon]="faTriangleExclamation" class="mt-1"/>
-                <div class="flex-grow-1">
-                  <strong class="d-block">Delete {{ stringUtils.pluraliseWithCount(selectedDraftIds.size, "draft") }}?</strong>
-                  Deleted drafts cannot be recovered, and a shared draft disappears for everyone.
-                  <div class="d-flex gap-2 mt-2">
-                    <button type="button" class="btn btn-sm btn-danger" [disabled]="deletingDrafts" (click)="deleteSelectedDrafts()">
-                      @if (deletingDrafts) {
-                        <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Deleting…
-                      } @else {
-                        <fa-icon [icon]="faTrash" class="me-2"/>Delete
-                      }
-                    </button>
-                    <button type="button" class="btn btn-sm btn-quiet" [disabled]="deletingDrafts" (click)="cancelDeleteSelectedDrafts()">Cancel</button>
-                  </div>
-                </div>
-              </div>
-            }
-          }
-          @if (!viewingDrafts && threads.length > 0 && (!compactList || selectedConversationCount > 0)) {
-            <div class="d-flex align-items-center gap-2 pe-2 pb-2 inbox-list-toolbar">
-              @if (!compactList) {
-                <input type="checkbox" class="form-check-input mt-0"
-                       aria-label="Select all visible conversations"
-                       tooltip="Select all"
-                       placement="top"
-                       container="body"
-                       [adaptivePosition]="false"
-                       [checked]="allSelected()"
-                       [indeterminate]="selectedConversationCount > 0 && !allSelected()"
-                       (change)="toggleSelectAll()">
-              }
-              @if (selectedConversationCount > 0) {
-                <div class="btn-group" dropdown container="body" placement="bottom left" [isDisabled]="busy">
+              @if (!viewingDrafts && selectedConversationCount > 0) {
+                <div class="btn-group flex-shrink-0" dropdown container="body" placement="bottom left" [isDisabled]="busy">
                   <button dropdownToggle type="button" class="btn btn-sm btn-primary dropdown-toggle text-nowrap" [disabled]="busy">
                     @if (deletingSelected) {
                       <fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Deleting {{selectedConversationCount}}…
@@ -461,6 +397,28 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                   </ul>
                 </div>
               }
+              @if (threadListTotalCount > 0 || conversationSearchTerm) {
+                <div class="input-group input-group-sm flex-grow-1 min-w-0">
+                  <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+                  <input type="text" class="form-control" [ngModel]="conversationSearchTerm"
+                         (ngModelChange)="onConversationSearchChange($event)"
+                         [disabled]="selectingAllConversations"
+                         placeholder="Search conversations...">
+                </div>
+              }
+            </div>
+          </div>
+          @if (!viewingDrafts && threads.length > 0 && !layout.compactList) {
+            <div class="d-flex align-items-center gap-2 pe-2 pb-2 inbox-list-toolbar">
+              <input type="checkbox" class="form-check-input mt-0"
+                     aria-label="Select all visible conversations"
+                     tooltip="Select all"
+                     placement="top"
+                     container="body"
+                     [adaptivePosition]="false"
+                     [checked]="allSelected()"
+                     [indeterminate]="selectedConversationCount > 0 && !allSelected()"
+                     (change)="toggleSelectAll()">
             </div>
           }
           @if ((allSelected() || selectingAllConversations) && (canLoadMoreConversations || selectingAllConversations)) {
@@ -493,12 +451,13 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
               }
             </div>
           }
-          <div class="inbox-thread-list" [class.inbox-list-compact]="compactList" tabindex="0" (keydown)="onThreadListKeydown($event)" (scroll)="rememberListPosition($event)"
-               [style.--inbox-from]="columnShare.from + 'fr'"
-               [style.--inbox-to]="columnShare.to + 'fr'"
-               [style.--inbox-subject]="columnShare.subject + 'fr'"
-               [style.--inbox-date]="columnShare.date + 'fr'">
-          @if (compactList && !viewingDrafts) {
+          <div class="inbox-thread-list" [class.inbox-list-compact]="layout.compactList" [class.inbox-list-drag-selecting]="dragSelectActive" tabindex="0" (keydown)="onThreadListKeydown($event)" (scroll)="rememberListPosition($event)"
+               (mousedown)="onThreadListMouseDown($event)" (mousemove)="onThreadListMouseMove($event)" (mouseup)="onThreadListMouseUp()"
+               [style.--inbox-from]="layout.columnShare.from + 'fr'"
+               [style.--inbox-to]="layout.columnShare.to + 'fr'"
+               [style.--inbox-subject]="layout.columnShare.subject + 'fr'"
+               [style.--inbox-date]="layout.columnShare.date + 'fr'">
+          @if (layout.compactList && !viewingDrafts) {
             <div class="inbox-column-head inbox-column-tracks">
               <input type="checkbox" class="form-check-input m-0"
                      aria-label="Select all visible conversations"
@@ -509,32 +468,15 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                      [checked]="allSelected()"
                      [indeterminate]="selectedConversationCount > 0 && !allSelected()"
                      (change)="toggleSelectAll()">
-              <span class="inbox-column-label"><span class="inbox-column-text">From</span><button type="button" class="inbox-col-resize" aria-label="Resize From" (pointerdown)="startColumnResize($event, InboxColumnResizeEdge.FROM)"></button></span>
-              <span class="inbox-column-label"><span class="inbox-column-text">To</span><button type="button" class="inbox-col-resize" aria-label="Resize To" (pointerdown)="startColumnResize($event, InboxColumnResizeEdge.TO)"></button></span>
-              <span class="inbox-column-label"><span class="inbox-column-text">Subject</span><button type="button" class="inbox-col-resize" aria-label="Resize Subject" (pointerdown)="startColumnResize($event, InboxColumnResizeEdge.SUBJECT)"></button></span>
+              <span class="inbox-column-label"><span class="inbox-column-text">From</span><button type="button" class="inbox-col-resize" aria-label="Resize From" (pointerdown)="layout.startColumnResize($event, InboxColumnResizeEdge.FROM)"></button></span>
+              <span class="inbox-column-label"><span class="inbox-column-text">To</span><button type="button" class="inbox-col-resize" aria-label="Resize To" (pointerdown)="layout.startColumnResize($event, InboxColumnResizeEdge.TO)"></button></span>
+              <span class="inbox-column-label"><span class="inbox-column-text">Subject</span><button type="button" class="inbox-col-resize" aria-label="Resize Subject" (pointerdown)="layout.startColumnResize($event, InboxColumnResizeEdge.SUBJECT)"></button></span>
               <span class="inbox-column-label">Date</span>
             </div>
           }
           @if (viewingDrafts) {
-            @if (filteredDrafts.length === 0) {
-              <div class="p-3 text-muted">{{ conversationSearchTerm ? 'No drafts match "' + conversationSearchTerm + '".' : "No drafts yet. Anything you save in the email composer, and drafts other committee members have shared, will appear here." }}</div>
-            }
-            @for (draft of filteredDrafts; track draft.id) {
-              <div class="inbox-thread-row d-flex align-items-center gap-2" [class.active]="selectedDraftIds.has(draft.id)" (click)="openDraft(draft)">
-                <input type="checkbox" class="form-check-input flex-shrink-0 m-0"
-                       [checked]="selectedDraftIds.has(draft.id)"
-                       (click)="$event.stopPropagation(); toggleDraftSelection(draft)">
-                <fa-icon [icon]="faFileLines" class="flex-shrink-0 inbox-draft-icon"/>
-                <div class="flex-grow-1 min-w-0">
-                  <div class="d-flex align-items-center gap-2">
-                    <div class="inbox-thread-from flex-grow-1 text-truncate">{{ draftOwnerLabel(draft) }}</div>
-                    <div class="inbox-thread-time flex-shrink-0">{{ draft.savedAt | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS }}</div>
-                  </div>
-                  <div class="inbox-thread-subject">{{ draft.title || "(untitled draft)" }}</div>
-                  <div class="inbox-thread-preview">{{ draft.shared ? "Shared with the committee" : "Only you can see this draft" }} · Click to continue in the email composer</div>
-                </div>
-              </div>
-            }
+            <app-email-composition-list [showActions]="false" [embedded]="true" [records]="drafts" [searchTerm]="conversationSearchTerm" [busy]="busy"
+                                        (open)="openDraft($event)" (deleted)="loadDrafts()"/>
           } @else if (threadListTotalCount === 0) {
             <div class="p-3 text-muted">No conversations yet. Once an alias is connected and synced, threads will appear here.</div>
           } @else if (filteredThreads.length === 0) {
@@ -549,19 +491,20 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
               <div class="p-3 text-muted">No conversations.</div>
             }
           }
-          @for (thread of filteredThreads; track threadRowKey(thread)) {
+          @for (thread of filteredThreads; track threadRowKey(thread); let threadIndex = $index) {
             <div class="inbox-thread-row"
-                 [class.inbox-column-tracks]="compactList"
-                 [class.d-flex]="!compactList"
-                 [class.align-items-center]="!compactList"
-                 [class.gap-2]="!compactList"
+                 [class.inbox-column-tracks]="layout.compactList"
+                 [class.d-flex]="!layout.compactList"
+                 [class.align-items-center]="!layout.compactList"
+                 [class.gap-2]="!layout.compactList"
                  [class.active]="threadRowActive(thread)"
                  [class.unread]="conversationUnread(thread)"
-                 [attr.data-thread-id]="threadIdOf(thread)"
+                 [attr.data-thread-id]="threadRowKey(thread)"
+                 [attr.data-thread-index]="threadIndex"
                  (touchstart)="startThreadSwipe($event)"
                  (touchend)="finishThreadSwipe($event, thread)"
                  (click)="selectThread(thread)">
-              @if (compactList) {
+              @if (layout.compactList) {
                 <input type="checkbox" class="form-check-input m-0"
                        [checked]="conversationSelected(thread)"
                        (click)="$event.stopPropagation(); toggleThreadSelection(thread)">
@@ -601,19 +544,19 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
           </div>
         </app-thumbnail-heading-frame>
         }
-        @if (!mobile) {
+        @if (!layout.mobile && !viewingDrafts) {
           <app-resizer [variant]="ResizerVariant.BAR"
-                       [orientation]="stackedLayout ? ResizerOrientation.VERTICAL : ResizerOrientation.HORIZONTAL"
-                       [size]="listSize"
-                       [minSize]="minListSize"
-                       [maxSize]="maxListSize"
-                       (sizeChange)="onListSizeChange($event)"
-                       (resizeEnd)="persistListSize()"/>
+                       [orientation]="layout.stackedLayout ? ResizerOrientation.VERTICAL : ResizerOrientation.HORIZONTAL"
+                       [size]="layout.listSize"
+                       [minSize]="layout.minListSize"
+                       [maxSize]="layout.maxListSize"
+                       (sizeChange)="layout.onListSizeChange($event)"
+                       (resizeEnd)="layout.persistListSize()"/>
         }
-        @if (!mobile || mobileShowDetail) {
+        @if (!viewingDrafts && (!layout.mobile || layout.mobileShowDetail)) {
         <div class="thumbnail-heading-frame-compact inbox-pane inbox-pane-messages">
           @if (selectedThread) {
-            <div class="d-flex align-items-start gap-2 mb-3 inbox-detail-header" [class.compact]="compactDetailHeader">
+            <div class="d-flex align-items-start gap-2 mb-3 inbox-detail-header" [class.compact]="layout.compactDetailHeader">
               <div class="me-auto">
                 <h5 class="mb-1">{{selectedThread.subject || selectedThread.normalisedSubject || "(no subject)"}}</h5>
                 @if (threadFromLabel(); as fromLabel) {
@@ -654,85 +597,12 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
             <div class="text-muted">Loading conversation...</div>
           } @else {
             @for (message of displayMessages; track message.messageId) {
-              <div class="inbox-message" [attr.data-message-id]="message.messageId" [class.outbound]="message.direction === InboxMessageDirection.OUTBOUND" [class.collapsed]="!isMessageExpanded(message)">
-                <div class="inbox-message-headers inbox-message-toggle d-flex align-items-start gap-2" (click)="toggleMessage(message)">
-                  <fa-icon [icon]="isMessageExpanded(message) ? faChevronDown : faChevronRight" class="mt-1 text-muted"/>
-                  <div class="flex-grow-1 min-w-0">
-                    <strong>{{ messageFromLabel(message) }}</strong>
-                    &middot; {{(message.receivedAt ?? message.sentAt) | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}
-                    @if (isMessageExpanded(message)) {
-                      @if (messageToLabel(message); as toLabel) {
-                        <div>To {{ toLabel }}</div>
-                      }
-                      @if (message.cc?.length) {
-                        <div>Cc {{ formatAddresses(message.cc) }}</div>
-                      }
-                    } @else {
-                      @if (messageToLabel(message); as toLabel) {
-                        <div class="inbox-message-preview text-truncate">To {{ toLabel }}</div>
-                      }
-                      <div class="inbox-message-preview text-truncate">
-                        @if (visibleAttachments(message).length) {
-                          <fa-icon [icon]="faPaperclip" class="me-1 text-muted"/>
-                        }{{ messagePreview(message) }}</div>
-                    }
-                  </div>
-                  <div class="inbox-reply-actions d-flex gap-1 flex-shrink-0">
-                    <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
-                            tooltip="Reply in email composer" placement="left" container="body" (click)="$event.stopPropagation(); prepareReply(message)">
-                      <fa-icon [icon]="faReply"/>
-                      <span class="inbox-reply-label">Reply</span>
-                    </button>
-                    @if (hasMultipleRecipients(message)) {
-                      <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
-                              tooltip="Reply all in email composer" placement="left" container="body" (click)="$event.stopPropagation(); prepareReplyAll(message)">
-                        <fa-icon [icon]="faReplyAll"/>
-                        <span class="inbox-reply-label">Reply all</span>
-                      </button>
-                    }
-                    <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
-                            tooltip="Forward in email composer with attachments" placement="left" container="body" (click)="$event.stopPropagation(); prepareForward(message)">
-                      <fa-icon [icon]="faShare"/>
-                      <span class="inbox-reply-label">Forward</span>
-                    </button>
-                  </div>
-                </div>
-                @if (hasOpenedMessage(message)) {
-                  <div class="inbox-message-content" [class.d-none]="!isMessageExpanded(message)">
-                    <app-inbox-calendar-invite [message]="message"/>
-                    @if (visibleAttachments(message).length) {
-                      <div class="inbox-attachments d-flex flex-wrap gap-2 mb-3">
-                        @for (attachment of visibleAttachments(message); track attachment.s3Key) {
-                          <div class="btn-group" dropdown container="body" placement="bottom left">
-                            <button dropdownToggle type="button" class="inbox-attachment dropdown-toggle">
-                              <fa-icon [icon]="faPaperclip"/>
-                              <span class="inbox-attachment-name">{{ attachment.filename }}</span>
-                              <span class="text-muted">{{ numberUtils.humanFileSize(attachment.sizeBytes) }}</span>
-                            </button>
-                            <ul *dropdownMenu class="dropdown-menu" role="menu">
-                              <li role="menuitem">
-                                <button class="dropdown-item" type="button" (click)="attachmentPreview.open({filename: attachment.filename, url: attachmentUrl(attachment), contentType: attachment.contentType})">
-                                  <fa-icon [icon]="faEye" class="me-2"/>Preview
-                                </button>
-                              </li>
-                              <li role="menuitem">
-                                <a class="dropdown-item" [href]="attachmentUrl(attachment)" [attr.download]="attachment.filename">
-                                  <fa-icon [icon]="faDownload" class="me-2"/>Download
-                                </a>
-                              </li>
-                            </ul>
-                          </div>
-                        }
-                      </div>
-                    }
-                    <app-html-frame class="inbox-message-body" [html]="renderableBody(message)"/>
-                  </div>
-                }
-              </div>
+              <app-inbox-message [message]="message" [busy]="busy" [initiallyExpanded]="message.messageId === initiallyExpandedMessageId"
+                                 (reply)="prepareReply($event)" (replyAll)="prepareReplyAll($event)" (forward)="prepareForward($event)"/>
             }
           }
           </div>
-          @if (mobile && latestActionMessage(); as actionMessage) {
+          @if (layout.mobile && latestActionMessage(); as actionMessage) {
             <div class="inbox-sticky-actions">
               <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareReply(actionMessage)"><fa-icon [icon]="faReply"/> Reply</button>
               @if (hasMultipleRecipients(actionMessage)) {
@@ -765,7 +635,6 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
           </div>
         </div>
       }
-      <app-attachment-preview #attachmentPreview/>
     </app-page>
   `
 })
@@ -773,7 +642,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly UIDateFormat = UIDateFormat;
 
   private logger: Logger = inject(LoggerFactory).createLogger("InboxComponent", NgxLoggerLevel.ERROR);
+  protected layout = inject(InboxLayoutService);
   private inboxService = inject(InboxService);
+  private messageRendering = inject(InboxMessageRenderingService);
+  private conversations = inject(InboxConversationsService);
   private inboxReplyHandoff = inject(InboxReplyHandoffService);
   private pushSubscriptionService = inject(InboxPushSubscriptionService);
   private inboxNotificationService = inject(InboxNotificationService);
@@ -794,7 +666,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private urlService = inject(UrlService);
-  protected numberUtils = inject(NumberUtilsService);
   protected readonly faInbox = faInbox;
   protected readonly faBars = faBars;
   protected readonly faBan = faBan;
@@ -820,9 +691,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly faChevronDown = faChevronDown;
   protected readonly faChevronLeft = faChevronLeft;
   protected readonly faChevronRight = faChevronRight;
-  protected readonly faPaperclip = faPaperclip;
-  protected readonly faEye = faEye;
-  protected readonly faDownload = faDownload;
   protected readonly faReplyAll = faReplyAll;
   protected readonly faShare = faShare;
   protected readonly faArrowDownWideShort = faArrowDownWideShort;
@@ -853,17 +721,12 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly ResizerVariant = ResizerVariant;
   protected readonly isInboxGeneralRoleType = isInboxGeneralRoleType;
   public displayMessages: InboxMessage[] = [];
-  private messagePreviewById = new Map<string, string>();
-  private visibleAttachmentsById = new Map<string, InboxAttachment[]>();
-  private renderableBodyById = new Map<string, string>();
-  private siblingsByConversationKey = new Map<string, InboxThread[]>();
   private cachedFilteredThreads: InboxThread[] = [];
   private filteredThreadsDirty = true;
 
   private clearSelectedMessages(): void {
     this.selectedMessages = [];
-    this.expandedMessageIds = new Set();
-    this.openedMessageIds = new Set();
+    this.initiallyExpandedMessageId = null;
     this.rebuildDisplayMessages();
   }
 
@@ -873,15 +736,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       const rightAt = right.receivedAt ?? right.sentAt ?? 0;
       return this.messageSortDescending ? rightAt - leftAt : leftAt - rightAt;
     });
-    this.messagePreviewById = new Map(
-      this.displayMessages.map(message => [message.messageId, this.buildMessagePreview(message)])
-    );
-    this.visibleAttachmentsById = new Map(
-      this.displayMessages.map(message => [message.messageId, this.buildVisibleAttachments(message)])
-    );
-    this.renderableBodyById = new Map(
-      this.displayMessages.map(message => [message.messageId, this.buildRenderableBody(message)])
-    );
+    this.messageRendering.prepare(this.displayMessages);
   }
 
   toggleMessageSort(): void {
@@ -911,7 +766,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostBinding("class.inbox-reading")
   get readingOnMobile(): boolean {
-    return this.mobile && this.mobileShowDetail;
+    return this.layout.mobile && this.layout.mobileShowDetail;
   }
 
   private matchingThread(threads: InboxThread[], slugOrId: string): InboxThread | null {
@@ -928,7 +783,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         return alreadyLoaded;
       } else {
         try {
-          const response = await this.inboxService.getThread(requestedSlug);
+          const response = await this.inboxService.getThread(requestedSlug, this.aliases.find(alias => alias.roleType === this.selectedMailboxView)?.roleType ?? null);
           const requested = response.thread;
           if (!this.threadBelongsToCurrentView(requested) && this.route.snapshot.queryParams[StoredValue.MAILBOX_VIEW]) {
             return null;
@@ -1004,77 +859,11 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.selectedMailboxView === InboxThreadFolder.DRAFTS;
   }
 
-  get filteredDrafts(): EmailCompositionSummary[] {
-    const term = this.conversationSearchTerm.trim().toLowerCase();
-    return term ? this.drafts.filter(draft => (draft.title || "").toLowerCase().includes(term)) : this.drafts;
-  }
-
-  draftOwnerLabel(draft: EmailCompositionSummary): string {
-    const memberId = this.memberLoginService.loggedInMember()?.memberId;
-    return draft.ownerMemberId === memberId ? "Your draft" : "Shared draft";
-  }
-
   openDraft(draft: EmailCompositionSummary): void {
     void this.router.navigate(["/" + AdminPath.EMAIL_COMPOSER], {queryParams: {[StoredValue.DRAFT_ID]: draft.id}});
   }
 
-  toggleDraftSelection(draft: EmailCompositionSummary): void {
-    if (this.selectedDraftIds.has(draft.id)) {
-      this.selectedDraftIds.delete(draft.id);
-    } else {
-      this.selectedDraftIds.add(draft.id);
-    }
-    if (this.selectedDraftIds.size === 0) {
-      this.confirmingDraftDelete = false;
-    }
-  }
-
-  allDraftsSelected(): boolean {
-    const visible = this.filteredDrafts;
-    return visible.length > 0 && visible.every(draft => this.selectedDraftIds.has(draft.id));
-  }
-
-  toggleSelectAllDrafts(): void {
-    const visible = this.filteredDrafts;
-    if (this.allDraftsSelected()) {
-      visible.forEach(draft => this.selectedDraftIds.delete(draft.id));
-      this.confirmingDraftDelete = false;
-    } else {
-      visible.forEach(draft => this.selectedDraftIds.add(draft.id));
-    }
-  }
-
-  requestDeleteSelectedDrafts(): void {
-    this.confirmingDraftDelete = this.selectedDraftIds.size > 0;
-  }
-
-  cancelDeleteSelectedDrafts(): void {
-    this.confirmingDraftDelete = false;
-  }
-
-  async deleteSelectedDrafts(): Promise<void> {
-    const ids = [...this.selectedDraftIds];
-    if (ids.length > 0) {
-      this.deletingDrafts = true;
-      this.busy = true;
-      try {
-        await Promise.all(ids.map(id => this.emailCompositionsService.remove(id)));
-        this.selectedDraftIds.clear();
-        this.confirmingDraftDelete = false;
-        await this.loadDrafts();
-        this.notify.success({title: "Drafts", message: `${this.stringUtils.pluraliseWithCount(ids.length, "draft")} deleted`});
-      } catch (error) {
-        this.notify.error({title: "Delete drafts", message: (error as Error).message});
-        this.logger.error("Failed to delete drafts:", error);
-        await this.loadDrafts();
-      } finally {
-        this.busy = false;
-        this.deletingDrafts = false;
-      }
-    }
-  }
-
-  private async loadDrafts(): Promise<void> {
+  protected async loadDrafts(): Promise<void> {
     try {
       this.drafts = (await this.emailCompositionsService.listSummaries(EmailCompositionStatus.Draft)).sort((first, second) => second.savedAt - first.savedAt);
     } catch (error) {
@@ -1088,12 +877,13 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   selectMailboxView(view: string): void {
+    if (view !== this.selectedMailboxView) {
+      this.clearThreadSelection();
+    }
     this.selectedMailboxView = view;
-    this.selectedDraftIds.clear();
-    this.confirmingDraftDelete = false;
-    this.mobileNavOpen = false;
-    if (this.mobile) {
-      this.mobileShowDetail = false;
+    this.layout.mobileNavOpen = false;
+    if (this.layout.mobile) {
+      this.layout.mobileShowDetail = false;
     }
     void this.roleMailboxChanged();
   }
@@ -1104,14 +894,14 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.mailboxAlertTimer);
       this.mailboxAlertTimer = null;
     }
-    if (this.mobile) {
+    if (this.layout.mobile) {
       this.mailboxAlertTimer = setTimeout(() => {
         this.mailboxAlertVisible = false;
         this.mailboxAlertTimer = null;
-        this.scheduleFitShellToWindow();
+        this.layout.scheduleFitShellToWindow();
       }, 4000);
     }
-    this.scheduleFitShellToWindow();
+    this.layout.scheduleFitShellToWindow();
   }
 
   dismissMailboxAlert(): void {
@@ -1120,14 +910,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.mailboxAlertTimer);
       this.mailboxAlertTimer = null;
     }
-    this.scheduleFitShellToWindow();
-  }
-
-  toggleNavCollapsed(): void {
-    this.navCollapsed = !this.navCollapsed;
-    if (!isUndefined(window)) {
-      window.localStorage.setItem(InboxComponent.NAV_KEY, this.navCollapsed ? "collapsed" : "expanded");
-    }
+    this.layout.scheduleFitShellToWindow();
   }
 
   public aliases: InboxAliasConfigView[] = [];
@@ -1138,25 +921,22 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
   public set threads(value: InboxThread[]) {
     this._threads = value ?? [];
-    this.reindexSiblings();
+    this.conversations.index(this._threads);
     this.invalidateFilteredThreads();
   }
   public conversationSearchTerm = "";
   public readFilter: InboxReadFilter = InboxReadFilter.ALL;
   public selectedThreadIds = new Set<string>();
+  private keyboardSelectionAnchorIndex: number | null = null;
   public threadListUnreadCount = 0;
   public threadListTotalCount = 0;
   public drafts: EmailCompositionSummary[] = [];
-  public selectedDraftIds = new Set<string>();
-  public confirmingDraftDelete = false;
-  public deletingDrafts = false;
   private emailCompositionsService = inject(EmailCompositionsService);
   private memberLoginService = inject(MemberLoginService);
   public selectedThread: InboxThread | null = null;
   public selectedThreadId: string | null = null;
+  protected initiallyExpandedMessageId: string | null = null;
   public selectedMessages: InboxMessage[] = [];
-  public expandedMessageIds = new Set<string>();
-  public openedMessageIds = new Set<string>();
   public loadingThread = false;
   public selectedMailboxView: string = InboxViewScope.ALL_ACCESSIBLE;
   public busy = false;
@@ -1166,63 +946,29 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   public loadedOnce = false;
   public notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
-
-  public stackedLayout = false;
-  public mobile = false;
-  public mobileShowDetail = false;
-  public mobileFiltersOpen = false;
-  public compactDetailHeader = false;
   public pendingDelete: InboxPendingDelete | null = null;
-  public listSize = 352;
-  public readonly minListSize = 140;
-  private static readonly LAYOUT_KEY = "inbox-layout";
-  private static readonly SIZE_KEY = "inbox-list-size";
-  private static readonly NAV_KEY = "inbox-nav";
-  private static readonly NAV_SIZE_KEY = "inbox-nav-size";
-  private static readonly GROUPING_KEY = "inbox-grouping-mode";
-  private static readonly DENSITY_KEY = "inbox-list-density";
-  public compactList = false;
-  public columnShare = {from: 1.1, to: 1.4, subject: 2, date: 1.5};
   public mailboxLabelMode: InboxMailboxLabelMode = InboxMailboxLabelMode.ROLE;
-  public groupingMode: InboxGroupingMode = InboxGroupingMode.CONVERSATIONS;
-  public mobileNavOpen = false;
   public mailboxAlertVisible = true;
   private mailboxAlertTimer: ReturnType<typeof setTimeout> | null = null;
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   public sentFocusMessageId: string | null = null;
   public unreadTotal = 0;
   public unreadByRole = new Map<string, number>();
-  public navCollapsed = false;
   public inboxNodeExpanded = true;
-  public navSize = 220;
-  public readonly minNavSize = 150;
-
-  get maxNavSize(): number {
-    if (isUndefined(window)) {
-      return Number.POSITIVE_INFINITY;
-    }
-    return window.innerWidth * 0.5;
-  }
   @ViewChild("inboxLayout") set inboxLayout(ref: ElementRef<HTMLElement> | null) {
-    this.inboxLayoutRef = ref;
-    this.observeLayoutSize();
+    this.layout.attachLayout(ref);
+    this.layout.observeLayoutSize();
   }
 
   @ViewChild("inboxShell") set inboxShell(ref: ElementRef<HTMLElement> | null) {
-    this.inboxShellRef = ref;
-    this.observeLayoutSize();
-    this.scheduleFitShellToWindow();
+    this.layout.attachShell(ref);
+    this.layout.observeLayoutSize();
+    this.layout.scheduleFitShellToWindow();
   }
 
-  @ViewChild("panel") panel: MaximisablePanelComponent | null = null;
-
-  private inboxLayoutRef: ElementRef<HTMLElement> | null = null;
-  private inboxShellRef: ElementRef<HTMLElement> | null = null;
-  private zone = inject(NgZone);
-  private layoutResizeObserver: ResizeObserver | null = null;
-  private listRatio: number | null = null;
-  private navRatio: number | null = null;
-  private splitterDragging = false;
+  @ViewChild("panel") set panel(ref: MaximisablePanelComponent | null) {
+    this.layout.panel = ref;
+  }
   private static readonly DELETE_UNDO_MS = 6000;
   private static readonly THREAD_PAGE_SIZE = 50;
   private static readonly SWIPE_THRESHOLD_PX = 72;
@@ -1230,6 +976,11 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private touchStartX = 0;
   private touchStartY = 0;
   private suppressThreadClick = false;
+  private dragSelectAnchorIndex: number | null = null;
+  protected dragSelectActive = false;
+  private dragSelectStartY = 0;
+  private dragSelectAdditive = false;
+  private static readonly DRAG_SELECT_THRESHOLD_PX = 12;
 
   private subscriptions: Subscription[] = [];
   private openThreadRequestId = 0;
@@ -1237,13 +988,21 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener("window:resize")
   onResize(): void {
-    this.updateMobile();
-    this.fitShellToWindow();
+    this.layout.updateMobile();
+    this.layout.fitShellToWindow();
   }
 
-  private updateMobile(): void {
-    this.mobile = !isUndefined(window) && (window.innerWidth < DeviceSize.MEDIUM
-      || (window.innerWidth > window.innerHeight && window.innerHeight < DeviceSize.SMALL));
+  @HostListener("window:keydown", ["$event"])
+  onWindowKeydown(event: KeyboardEvent): void {
+    if (event.key === "Escape" && this.selectedThreadIds.size > 0) {
+      event.preventDefault();
+      this.clearThreadSelection();
+    }
+  }
+
+  @HostListener("window:mouseup")
+  onWindowMouseUp(): void {
+    this.onThreadListMouseUp();
   }
 
   async ngOnInit(): Promise<void> {
@@ -1254,8 +1013,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.subscriptions.push(this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data));
     this.subscriptions.push(this.inboxNotificationService.breakdown$.subscribe(rows =>
       this.unreadByRole = new Map(rows.map(row => [row.roleType, row.unreadCount]))));
-    this.updateMobile();
-    this.restoreLayout();
+    this.layout.updateMobile();
+    this.layout.restoreLayout();
     await this.refresh();
     this.showMailboxAlert();
     await this.pushSubscriptionService.refresh();
@@ -1292,7 +1051,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
-    this.layoutResizeObserver?.disconnect();
+
     if (this.mailboxAlertTimer) {
       clearTimeout(this.mailboxAlertTimer);
     }
@@ -1302,34 +1061,26 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.dismissPendingDelete();
   }
 
-  get gridTemplateColumns(): string {
-    return this.mobile
-      ? "minmax(0, 1fr)"
-      : this.stackedLayout ? "minmax(0, 1fr)" : `${this.listSize}px 8px minmax(0, 1fr)`;
-  }
-
-  get gridTemplateRows(): string {
-    return this.mobile
-      ? "minmax(0, 1fr)"
-      : this.stackedLayout ? `${this.listSize}px 8px minmax(0, 1fr)` : "minmax(0, 1fr)";
-  }
-
   selectThread(thread: InboxThread): void {
     if (this.suppressThreadClick) {
       this.suppressThreadClick = false;
       return;
     }
-    if (this.mobile) {
-      this.mobileShowDetail = true;
-      this.mobileFiltersOpen = false;
-      this.compactDetailHeader = false;
+    if (this.layout.mobile) {
+      this.layout.mobileShowDetail = true;
+      this.layout.mobileFiltersOpen = false;
+      this.layout.compactDetailHeader = false;
     }
+    this.selectedThreadIds.clear();
+    this.allAvailableSelected = false;
+    this.selectedThreadIds.add(this.threadRowKey(thread));
+    this.keyboardSelectionAnchorIndex = this.filteredThreads.findIndex(candidate => this.threadRowKey(candidate) === this.threadRowKey(thread));
     void this.openThread(thread);
   }
 
   backToList(): void {
-    this.mobileShowDetail = false;
-    this.compactDetailHeader = false;
+    this.layout.mobileShowDetail = false;
+    this.layout.compactDetailHeader = false;
     if (!isUndefined(window)) {
       window.requestAnimationFrame(() => {
         const list = window.document.querySelector<HTMLElement>(".inbox-thread-list");
@@ -1345,11 +1096,11 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onMessageScroll(event: Event): void {
-    this.compactDetailHeader = this.mobile && (event.target as HTMLElement).scrollTop > 32;
+    this.layout.compactDetailHeader = this.layout.mobile && (event.target as HTMLElement).scrollTop > 32;
   }
 
   private currentConversationIndex(): number {
-    return this.filteredThreads.findIndex(thread => this.threadIdOf(thread) === this.selectedThreadId);
+    return this.filteredThreads.findIndex(thread => this.threadRowActive(thread));
   }
 
   hasAdjacentConversation(offset: number): boolean {
@@ -1360,7 +1111,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   openAdjacentConversation(offset: number): void {
     const thread = this.filteredThreads[this.currentConversationIndex() + offset];
     if (thread) {
-      this.compactDetailHeader = false;
+      this.layout.compactDetailHeader = false;
       void this.openThread(thread);
     }
   }
@@ -1375,7 +1126,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   openNextUnread(): void {
     const thread = this.nextUnreadConversation();
     if (thread) {
-      this.compactDetailHeader = false;
+      this.layout.compactDetailHeader = false;
       void this.openThread(thread);
     }
   }
@@ -1389,6 +1140,50 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       const messageAt = message.receivedAt ?? message.sentAt ?? 0;
       return messageAt > latestAt ? message : latest;
     }, null);
+  }
+
+  onThreadListMouseDown(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (event.button === 0 && !target.closest("input, button, a")) {
+      const index = this.threadIndexAtPoint(event.clientX, event.clientY);
+      this.dragSelectAnchorIndex = index >= 0 ? index : null;
+      this.dragSelectActive = false;
+      this.dragSelectStartY = event.clientY;
+      this.dragSelectAdditive = event.shiftKey;
+    }
+  }
+
+  onThreadListMouseMove(event: MouseEvent): void {
+    if (this.dragSelectAnchorIndex !== null && (event.buttons & 1) === 1) {
+      const index = this.threadIndexAtPoint(event.clientX, event.clientY);
+      if (!this.dragSelectActive
+        && index >= 0
+        && index !== this.dragSelectAnchorIndex
+        && Math.abs(event.clientY - this.dragSelectStartY) >= InboxComponent.DRAG_SELECT_THRESHOLD_PX) {
+        this.dragSelectActive = true;
+        this.suppressThreadClick = true;
+      }
+      if (this.dragSelectActive && index >= 0) {
+        this.keyboardSelectionAnchorIndex = this.dragSelectAnchorIndex;
+        this.applyDragSelection(this.dragSelectAnchorIndex, index);
+      }
+    }
+  }
+
+  private threadIndexAtPoint(clientX: number, clientY: number): number {
+    const hit = document.elementFromPoint(clientX, clientY);
+    const row = hit instanceof Element ? hit.closest(".inbox-thread-row") : null;
+    const raw = row?.getAttribute("data-thread-index");
+    const index = raw ? Number(raw) : -1;
+    return Number.isFinite(index) ? index : -1;
+  }
+
+  onThreadListMouseUp(): void {
+    if (this.dragSelectActive) {
+      setTimeout(() => this.suppressThreadClick = false, 0);
+    }
+    this.dragSelectAnchorIndex = null;
+    this.dragSelectActive = false;
   }
 
   startThreadSwipe(event: TouchEvent): void {
@@ -1429,152 +1224,9 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  get maxListSize(): number {
-    if (isUndefined(window)) {
-      return Number.POSITIVE_INFINITY;
-    }
-    return (this.stackedLayout ? window.innerHeight : window.innerWidth) * 0.7;
-  }
-
-  persistListSize(): void {
-    if (!isUndefined(window)) {
-      window.localStorage.setItem(InboxComponent.SIZE_KEY, String(Math.round(this.listSize)));
-    }
-    const span = this.layoutSpan();
-    if (span > 0) {
-      this.listRatio = this.listSize / span;
-    }
-    this.splitterDragging = false;
-  }
-
-  persistNavSize(): void {
-    if (!isUndefined(window)) {
-      window.localStorage.setItem(InboxComponent.NAV_SIZE_KEY, String(Math.round(this.navSize)));
-    }
-    const width = this.shellWidth();
-    if (width > 0) {
-      this.navRatio = this.navSize / width;
-    }
-    this.splitterDragging = false;
-    this.applyPaneRatios();
-  }
-
   ngAfterViewInit(): void {
-    this.observeLayoutSize();
-    this.scheduleFitShellToWindow();
-  }
-
-  private scheduleFitShellToWindow(): void {
-    requestAnimationFrame(() => this.fitShellToWindow());
-  }
-
-  private fitShellToWindow(): void {
-    const el = this.inboxShellRef?.nativeElement ?? null;
-    if (el && !isUndefined(window)) {
-      if (this.mobile || this.panel?.maximised) {
-        el.style.height = "";
-      } else {
-        const top = el.getBoundingClientRect().top;
-        const height = Math.max(240, window.innerHeight - top - 16);
-        el.style.height = `${height}px`;
-      }
-    }
-  }
-
-  private observeLayoutSize(): void {
-    if (!isUndefined(window) && "ResizeObserver" in window && this.inboxLayoutRef?.nativeElement) {
-      this.layoutResizeObserver?.disconnect();
-      this.layoutResizeObserver = new ResizeObserver(() => this.zone.run(() => this.applyPaneRatios()));
-      this.layoutResizeObserver.observe(this.inboxLayoutRef.nativeElement);
-      if (this.inboxShellRef?.nativeElement) {
-        this.layoutResizeObserver.observe(this.inboxShellRef.nativeElement);
-      }
-      this.applyPaneRatios();
-    }
-  }
-
-  private layoutSpan(): number {
-    const rect = this.inboxLayoutRef?.nativeElement?.getBoundingClientRect();
-    return rect ? (this.stackedLayout ? rect.height : rect.width) : 0;
-  }
-
-  private shellWidth(): number {
-    return this.inboxShellRef?.nativeElement?.getBoundingClientRect()?.width ?? 0;
-  }
-
-  private applyPaneRatios(): void {
-    if (!this.splitterDragging) {
-      const width = this.shellWidth();
-      if (width > 0 && !this.mobile && !this.navCollapsed) {
-        if (this.navRatio === null) {
-          this.navRatio = this.navSize / width;
-        } else {
-          this.navSize = Math.min(Math.max(Math.round(this.navRatio * width), this.minNavSize), this.maxNavSize);
-        }
-      }
-      const span = this.layoutSpan();
-      if (span > 0 && !this.mobile) {
-        if (this.listRatio === null) {
-          this.listRatio = this.listSize / span;
-        } else {
-          this.listSize = Math.min(Math.max(Math.round(this.listRatio * span), this.minListSize), this.maxListSize);
-        }
-      }
-    }
-  }
-
-  onNavSizeChange(size: number): void {
-    this.splitterDragging = true;
-    this.navSize = size;
-  }
-
-  onListSizeChange(size: number): void {
-    this.splitterDragging = true;
-    this.listSize = size;
-  }
-
-  private restoreLayout(): void {
-    if (isUndefined(window)) {
-      return;
-    }
-    this.stackedLayout = window.localStorage.getItem(InboxComponent.LAYOUT_KEY) === "stacked";
-    const storedSize = Number(window.localStorage.getItem(InboxComponent.SIZE_KEY));
-    this.listSize = Number.isFinite(storedSize) && storedSize >= this.minListSize ? storedSize : this.defaultListSize();
-    this.navCollapsed = window.localStorage.getItem(InboxComponent.NAV_KEY) === "collapsed";
-    const storedGrouping = window.localStorage.getItem(InboxComponent.GROUPING_KEY);
-    this.groupingMode = values(InboxGroupingMode).includes(storedGrouping as InboxGroupingMode) ? storedGrouping as InboxGroupingMode : InboxGroupingMode.CONVERSATIONS;
-    this.compactList = window.localStorage.getItem(InboxComponent.DENSITY_KEY) === "compact";
-    const storedColumns = window.localStorage.getItem("inbox-column-share");
-    if (storedColumns) {
-      try {
-        this.columnShare = validatedInboxColumnShare(JSON.parse(storedColumns), this.columnShare);
-      } catch (error) {
-        this.logger.warn("Ignoring invalid saved inbox column widths", error);
-      }
-    }
-    const storedNavSize = Number(window.localStorage.getItem(InboxComponent.NAV_SIZE_KEY));
-    this.navSize = Number.isFinite(storedNavSize) && storedNavSize >= this.minNavSize ? Math.min(storedNavSize, this.maxNavSize) : this.navSize;
-  }
-
-  private defaultListSize(): number {
-    return this.stackedLayout ? 240 : 352;
-  }
-
-  toggleDensity(): void {
-    this.compactList = !this.compactList;
-    if (!isUndefined(window)) {
-      window.localStorage.setItem(InboxComponent.DENSITY_KEY, this.compactList ? "compact" : "comfortable");
-    }
-  }
-
-  toggleLayout(): void {
-    this.stackedLayout = !this.stackedLayout;
-    this.listRatio = null;
-    this.listSize = this.defaultListSize();
-    if (!isUndefined(window)) {
-      window.localStorage.setItem(InboxComponent.LAYOUT_KEY, this.stackedLayout ? "stacked" : "side-by-side");
-      window.localStorage.setItem(InboxComponent.SIZE_KEY, String(this.listSize));
-    }
+    this.layout.observeLayoutSize();
+    this.layout.scheduleFitShellToWindow();
   }
 
   async refresh(reloadAccess = true): Promise<void> {
@@ -1635,8 +1287,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         this.threadListUnreadCount = listResponse.unreadCount;
         this.threadListTotalCount = listResponse.totalCount;
         const requestedThread = await this.threadRequestedInUrl();
-        if (this.mobile && !this.selectedThreadId && requestedThread) {
-          this.mobileShowDetail = true;
+        if (this.layout.mobile && !this.selectedThreadId && requestedThread) {
+          this.layout.mobileShowDetail = true;
         }
         await this.reloadVisibleConversation(requestedThread);
       }
@@ -1749,10 +1401,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onGroupingModeChange(mode: InboxGroupingMode): void {
-    this.groupingMode = mode;
-    if (!isUndefined(window)) {
-      window.localStorage.setItem(InboxComponent.GROUPING_KEY, mode);
-    }
+    this.layout.changeGrouping(mode);
     this.invalidateFilteredThreads();
   }
 
@@ -1826,83 +1475,44 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   threadRowActive(thread: InboxThread): boolean {
-    return this.threadIdOf(thread) === this.selectedThreadId
-      && (!this.viewingSent || (thread.sentMessageId ?? null) === this.sentFocusMessageId);
+    if (this.selectedThread) {
+      return this.threadRowKey(thread) === this.threadRowKey(this.selectedThread);
+    } else {
+      return this.threadIdOf(thread) === this.selectedThreadId
+        && (!this.viewingSent || (thread.sentMessageId ?? null) === this.sentFocusMessageId);
+    }
   }
 
   siblingConversationThreads(thread: InboxThread): InboxThread[] {
-    const key = thread.conversationKey;
-    return key ? (this.siblingsByConversationKey.get(key) ?? [thread]) : [thread];
+    return this.conversations.siblingConversationThreads(thread);
   }
 
-  private reindexSiblings(): void {
-    const byKey = new Map<string, InboxThread[]>();
-    this._threads.forEach(thread => {
-      const key = thread.conversationKey;
-      if (key) {
-        const group = byKey.get(key);
-        if (group) {
-          group.push(thread);
-        } else {
-          byKey.set(key, [thread]);
-        }
-      }
-    });
-    this.siblingsByConversationKey = byKey;
-  }
+
 
   private invalidateFilteredThreads(): void {
     this.filteredThreadsDirty = true;
   }
 
   private representativeThread(threads: InboxThread[]): InboxThread {
-    return threads.reduce((latest, candidate) =>
-      (candidate.lastSeenAt ?? candidate.firstSeenAt ?? 0) > (latest.lastSeenAt ?? latest.firstSeenAt ?? 0) ? candidate : latest);
+    return this.conversations.representativeThread(threads);
   }
 
   private conversationRepresentatives(threads: InboxThread[]): InboxThread[] {
-    if (this.groupingMode === InboxGroupingMode.MESSAGES) {
-      return threads;
-    } else if (this.viewingSent) {
-      const seenKeys = new Set<string>();
-      return threads.filter(thread => {
-        const key = thread.conversationKey || thread.normalisedSubject || this.threadIdOf(thread);
-        if (seenKeys.has(key)) {
-          return false;
-        } else {
-          seenKeys.add(key);
-          return true;
-        }
-      });
-    } else {
-      const seenKeys = new Set<string>();
-      const representatives: InboxThread[] = [];
-      threads.forEach(thread => {
-        const key = thread.conversationKey;
-        if (!key) {
-          representatives.push(thread);
-        } else if (!seenKeys.has(key)) {
-          seenKeys.add(key);
-          representatives.push(this.representativeThread(this.siblingsByConversationKey.get(key) ?? [thread]));
-        }
-      });
-      return representatives;
-    }
+    return this.conversations.conversationRepresentatives(threads, this.layout.groupingMode, this.viewingSent);
   }
 
   conversationUnread(thread: InboxThread): boolean {
     return this.siblingConversationThreads(thread).some(candidate => candidate.unread);
   }
 
-
   conversationSelected(thread: InboxThread): boolean {
-    return this.siblingConversationThreads(thread).every(candidate => this.selectedThreadIds.has(this.threadIdOf(candidate)));
+    return this.selectedThreadIds.has(this.threadRowKey(thread));
   }
 
   get conversationCountCaption(): string {
     const shown = this.filteredThreads.length;
     const unreadOnly = this.readFilter === InboxReadFilter.UNREAD;
-    const groupingNoun = this.groupingMode === InboxGroupingMode.MESSAGES ? "message" : "conversation";
+    const groupingNoun = this.layout.groupingMode === InboxGroupingMode.MESSAGES ? "message" : "conversation";
     const noun = unreadOnly ? `unread ${groupingNoun}` : groupingNoun;
     const searching = !!this.conversationSearchTerm?.trim();
     const inMailbox = unreadOnly ? this.threadListUnreadCount : this.threadListTotalCount;
@@ -1960,16 +1570,12 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleThreadSelection(thread: InboxThread): void {
     this.allAvailableSelected = false;
-    const siblings = this.siblingConversationThreads(thread);
-    const currentlySelected = siblings.every(candidate => this.selectedThreadIds.has(this.threadIdOf(candidate)));
-    siblings.forEach(candidate => {
-      const id = this.threadIdOf(candidate);
-      if (currentlySelected) {
-        this.selectedThreadIds.delete(id);
-      } else {
-        this.selectedThreadIds.add(id);
-      }
-    });
+    const key = this.threadRowKey(thread);
+    if (this.selectedThreadIds.has(key)) {
+      this.selectedThreadIds.delete(key);
+    } else {
+      this.selectedThreadIds.add(key);
+    }
   }
 
   allSelected(): boolean {
@@ -1977,18 +1583,22 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get selectedConversationCount(): number {
-    return this.conversationRepresentatives(this.threads).filter(thread => this.conversationSelected(thread)).length;
+    return this.filteredThreads.filter(thread => this.conversationSelected(thread)).length;
+  }
+
+  private selectedActionIds(): string[] {
+    return [...new Set(this.filteredThreads
+      .filter(thread => this.selectedThreadIds.has(this.threadRowKey(thread)))
+      .map(thread => this.threadIdOf(thread)))];
   }
 
   toggleSelectAll(): void {
     this.allAvailableSelected = false;
-    const filteredThreadIds = this.filteredThreads
-      .flatMap(thread => this.siblingConversationThreads(thread))
-      .map(thread => this.threadIdOf(thread));
+    const keys = this.filteredThreads.map(thread => this.threadRowKey(thread));
     if (this.allSelected()) {
-      filteredThreadIds.forEach(id => this.selectedThreadIds.delete(id));
+      keys.forEach(key => this.selectedThreadIds.delete(key));
     } else {
-      filteredThreadIds.forEach(id => this.selectedThreadIds.add(id));
+      keys.forEach(key => this.selectedThreadIds.add(key));
     }
   }
 
@@ -1998,9 +1608,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       await this.loadEveryRemainingConversation();
       this.filteredThreads
-        .flatMap(thread => this.siblingConversationThreads(thread))
-        .map(thread => this.threadIdOf(thread))
-        .forEach(id => this.selectedThreadIds.add(id));
+        .map(thread => this.threadRowKey(thread))
+        .forEach(key => this.selectedThreadIds.add(key));
       this.allAvailableSelected = true;
     } catch (error) {
       this.notify.error({title: "Select matching conversations", message: (error as Error).message});
@@ -2036,7 +1645,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async deleteSelected(): Promise<void> {
-    const ids = [...this.selectedThreadIds];
+    const ids = this.selectedActionIds();
     if (ids.length === 0) {
       return;
     }
@@ -2069,7 +1678,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async markSelected(unread: boolean): Promise<void> {
-    const ids = [...this.selectedThreadIds];
+    const ids = this.selectedActionIds();
     if (ids.length === 0) {
       return;
     }
@@ -2088,7 +1697,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async moveSelectedJunk(): Promise<void> {
-    const ids = [...this.selectedThreadIds];
+    const ids = this.selectedActionIds();
     if (ids.length === 0) {
       return;
     }
@@ -2112,7 +1721,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async restoreSelectedDeleted(): Promise<void> {
-    const ids = [...this.selectedThreadIds];
+    const ids = this.selectedActionIds();
     if (ids.length === 0) {
       return;
     }
@@ -2146,7 +1755,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedThread = null;
       this.selectedThreadId = null;
       this.clearSelectedMessages();
-      this.mobileShowDetail = false;
+      this.layout.mobileShowDetail = false;
       await this.refresh(false);
       this.notify.success({title: "Inbox", message: "Moved out of junk into the inbox"});
     } catch (error) {
@@ -2168,7 +1777,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.dismissPendingDelete();
     const threadId = this.threadIdOf(thread);
     const list = this.filteredThreads;
-    const currentIndex = list.findIndex(thread => this.threadIdOf(thread) === threadId);
+    const currentIndex = this.currentConversationIndex();
     const nextThread = list[currentIndex + 1] ?? list[currentIndex - 1] ?? null;
     const insertionIndex = this.threads.findIndex(candidate => this.threadIdOf(candidate) === threadId);
     const removedThreads = this.threads.filter(candidate => this.threadIdOf(candidate) === threadId);
@@ -2178,7 +1787,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     if (wasUnread) {
       this.threadListUnreadCount = Math.max(0, this.threadListUnreadCount - 1);
     }
-    this.selectedThreadIds.delete(threadId);
+    this.selectedThreadIds.delete(this.threadRowKey(thread));
     this.selectedThread = nextThread;
     this.selectedThreadId = nextThread ? this.threadIdOf(nextThread) : null;
     this.clearSelectedMessages();
@@ -2199,7 +1808,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       if (nextThread) {
         await this.openThread(nextThread);
       } else {
-        this.mobileShowDetail = false;
+        this.layout.mobileShowDetail = false;
         this.syncThreadToUrl(null);
       }
     } catch (error) {
@@ -2235,7 +1844,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.inboxService.restoreThread(pending.threadId);
       this.restoreRemovedThreads(pending.removedThreads, pending.insertionIndex, pending.selectedThread);
       if (pending.selectedThread) {
-        this.mobileShowDetail = this.mobile;
+        this.layout.mobileShowDetail = this.layout.mobile;
         void this.openThread(pending.selectedThread, false);
       }
     } catch (error) {
@@ -2252,7 +1861,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private syncThreadToUrl(thread: InboxThread | null): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {[StoredValue.THREAD]: thread ? this.threadSlug(thread) : null},
+      queryParams: {[StoredValue.THREAD]: thread ? this.threadIdOf(thread) : null},
       queryParamsHandling: "merge",
       replaceUrl: true
     });
@@ -2260,33 +1869,61 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onThreadListKeydown(event: KeyboardEvent): void {
     if (event.key === "Delete" || event.key === "Backspace") {
-      if (this.selectedThreadId) {
+      if (this.selectedThreadIds.size > 0) {
+        event.preventDefault();
+        void this.deleteSelected();
+      } else if (this.selectedThreadId) {
         event.preventDefault();
         void this.deleteFocusedThread(event.currentTarget as HTMLElement);
       }
-      return;
-    }
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
-      return;
-    }
-    const list = this.filteredThreads;
-    if (list.length === 0) {
-      return;
-    }
-    event.preventDefault();
-    const currentIndex = list.findIndex(thread => this.threadIdOf(thread) === this.selectedThreadId);
-    const nextIndex = currentIndex === -1
-      ? (event.key === "ArrowDown" ? 0 : list.length - 1)
-      : Math.min(list.length - 1, Math.max(0, currentIndex + (event.key === "ArrowDown" ? 1 : -1)));
-    const nextThread = list[nextIndex];
-    if (nextThread && this.threadIdOf(nextThread) !== this.selectedThreadId) {
-      const listElement = event.currentTarget as HTMLElement;
-      void this.openThread(nextThread).then(() => this.scrollThreadRowIntoView(listElement, this.threadIdOf(nextThread)));
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      const list = this.filteredThreads;
+      if (list.length > 0) {
+        event.preventDefault();
+        const currentIndex = this.currentConversationIndex();
+        const nextIndex = currentIndex === -1
+          ? (event.key === "ArrowDown" ? 0 : list.length - 1)
+          : Math.min(list.length - 1, Math.max(0, currentIndex + (event.key === "ArrowDown" ? 1 : -1)));
+        const nextThread = list[nextIndex];
+        if (event.shiftKey) {
+          const anchor = this.keyboardSelectionAnchorIndex ?? Math.max(0, currentIndex);
+          this.keyboardSelectionAnchorIndex = anchor;
+          this.selectThreadRange(anchor, nextIndex);
+        } else {
+          this.keyboardSelectionAnchorIndex = nextIndex;
+        }
+        if (nextThread && (currentIndex === -1 || this.threadRowKey(nextThread) !== this.threadRowKey(list[currentIndex]))) {
+          const listElement = event.currentTarget as HTMLElement;
+          void this.openThread(nextThread).then(() => this.scrollThreadRowIntoView(listElement, this.threadRowKey(nextThread)));
+        }
+      }
     }
   }
 
+  private clearThreadSelection(): void {
+    this.selectedThreadIds.clear();
+    this.allAvailableSelected = false;
+    this.keyboardSelectionAnchorIndex = this.currentConversationIndex();
+  }
+
+  private applyDragSelection(fromIndex: number, toIndex: number): void {
+    if (!this.dragSelectAdditive) {
+      this.selectedThreadIds.clear();
+    }
+    this.selectThreadRange(fromIndex, toIndex);
+  }
+
+  private selectThreadRange(fromIndex: number, toIndex: number): void {
+    this.allAvailableSelected = false;
+    const start = Math.min(fromIndex, toIndex);
+    const end = Math.max(fromIndex, toIndex);
+    this.filteredThreads.slice(start, end + 1).forEach(thread => {
+      this.selectedThreadIds.add(this.threadRowKey(thread));
+    });
+  }
+
   private scrollThreadRowIntoView(listElement: HTMLElement, threadId: string): void {
-    listElement.querySelector(`[data-thread-id="${threadId}"]`)?.scrollIntoView({block: "nearest"});
+    listElement.querySelector(`[data-thread-id="${CSS.escape(threadId)}"]`)?.scrollIntoView({block: "nearest"});
   }
 
   private async deleteFocusedThread(listElement: HTMLElement): Promise<void> {
@@ -2295,12 +1932,15 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const list = this.filteredThreads;
-    const currentIndex = list.findIndex(thread => this.threadIdOf(thread) === threadId);
+    const currentIndex = this.currentConversationIndex();
     const nextThread = list[currentIndex + 1] ?? list[currentIndex - 1] ?? null;
+    const focused = this.selectedThread;
     this.busy = true;
     try {
       await this.inboxService.deleteThread(threadId);
-      this.selectedThreadIds.delete(threadId);
+      if (focused) {
+        this.selectedThreadIds.delete(this.threadRowKey(focused));
+      }
       this.selectedThreadId = nextThread ? this.threadIdOf(nextThread) : null;
       this.selectedThread = nextThread;
       this.clearSelectedMessages();
@@ -2326,7 +1966,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   async openThread(thread: InboxThread, markRead = true): Promise<void> {
     this.sentFocusMessageId = this.viewingSent ? thread.sentMessageId ?? null : null;
     const siblings = uniqBy(this.siblingConversationThreads(thread), sibling => this.threadIdOf(sibling));
-    const representative = this.viewingSent ? thread : this.representativeThread(siblings);
+    const keepOpenedRow = this.viewingSent || this.layout.groupingMode === InboxGroupingMode.MESSAGES;
+    const representative = keepOpenedRow ? thread : this.representativeThread(siblings);
     const threadId = this.threadIdOf(representative);
     const requestId = this.openThreadRequestId + 1;
     this.openThreadRequestId = requestId;
@@ -2364,8 +2005,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
           (candidate.sentAt ?? candidate.receivedAt ?? 0) > (latest.sentAt ?? latest.receivedAt ?? 0) ? candidate : latest)
         : null;
       const focusMessage = this.viewingSent ? sentFocus ?? newestOutbound ?? newestMessage : newestMessage;
-      this.expandedMessageIds = new Set(focusMessage ? [focusMessage.messageId] : []);
-      this.openedMessageIds = new Set(focusMessage ? [focusMessage.messageId] : []);
+      this.initiallyExpandedMessageId = focusMessage?.messageId ?? null;
       this.loadingThread = false;
       this.markThreadsRead(markRead ? siblings : []);
     } catch (error) {
@@ -2450,7 +2090,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         queryParams: {
           [StoredValue.BRANDING]: BrandingMode.UNBRANDED,
           [StoredValue.TAB]: EmailComposerStepKey.COMPOSE,
-          [StoredValue.THREAD]: inboxThreadSlug(this.selectedThread),
+          [StoredValue.THREAD]: this.threadIdOf(this.selectedThread),
           [StoredValue.MESSAGE]: target.messageId,
           ...(options.replyAll ? {[StoredValue.REPLY_ALL]: "true"} : {}),
           ...(options.forward ? {[StoredValue.FORWARD]: "true"} : {}),
@@ -2473,34 +2113,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   formatAddress(address: InboxAddress): string {
     return formatInboxAddress(address);
-  }
-
-  isMessageExpanded(message: InboxMessage): boolean {
-    return this.expandedMessageIds.has(message.messageId);
-  }
-
-  hasOpenedMessage(message: InboxMessage): boolean {
-    return this.openedMessageIds.has(message.messageId);
-  }
-
-  toggleMessage(message: InboxMessage): void {
-    const nextExpanded = new Set(this.expandedMessageIds);
-    if (nextExpanded.has(message.messageId)) {
-      nextExpanded.delete(message.messageId);
-    } else {
-      nextExpanded.add(message.messageId);
-      if (!this.openedMessageIds.has(message.messageId)) {
-        this.openedMessageIds = new Set(this.openedMessageIds).add(message.messageId);
-      }
-    }
-    this.expandedMessageIds = nextExpanded;
-  }
-
-  recipientSummary(message: InboxMessage): string {
-    return [...(message.to ?? []), ...(message.cc ?? [])]
-      .map(address => address.email?.trim())
-      .filter(email => email)
-      .join(", ");
   }
 
   outboundThreadRecipientLabel(): string {
@@ -2542,16 +2154,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     }, [...(existing ?? [])]);
   }
 
-  messagePreview(message: InboxMessage): string {
-    return this.messagePreviewById.get(message.messageId) ?? this.buildMessagePreview(message);
-  }
 
-  private buildMessagePreview(message: InboxMessage): string {
-    const raw = message.bodyHtml?.trim() ? message.bodyHtml : (message.bodyText ?? "");
-    const cleaned = this.stringUtils.htmlToPlainText(raw)
-      .replace(/[^{}]*\{[^{}]*:[^{}]*\}/g, " ");
-    return cleaned.replace(/\s+/g, " ").trim().slice(0, 500);
-  }
 
   recipientForThread(thread: InboxThread): InboxAddress | null {
     const alias = this.aliases.find(candidate => candidate.roleType === thread.roleType);
@@ -2576,43 +2179,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   inboxThreadRowPreview = inboxThreadRowPreview;
-
-  startColumnResize(event: PointerEvent, edge: InboxColumnResizeEdge): void {
-    event.preventDefault();
-    event.stopPropagation();
-    const left = (event.currentTarget as HTMLElement).parentElement as HTMLElement;
-    const right = left.nextElementSibling as HTMLElement | null;
-    const leftBox = left.getBoundingClientRect();
-    const rightBox = right?.getBoundingClientRect();
-    const pairWidth = Math.max((rightBox ? rightBox.right : leftBox.right) - leftBox.left, 1);
-    const startShare = {...this.columnShare};
-    const move = (pointer: PointerEvent) => {
-      const leftPx = Math.min(Math.max(pointer.clientX - leftBox.left, 48), pairWidth - 48);
-      const rightPx = pairWidth - leftPx;
-      const next = {...startShare};
-      if (edge === InboxColumnResizeEdge.FROM) {
-        const scale = (startShare.from + startShare.to) / pairWidth;
-        next.from = leftPx * scale;
-        next.to = rightPx * scale;
-      } else if (edge === InboxColumnResizeEdge.TO) {
-        const scale = (startShare.to + startShare.subject) / pairWidth;
-        next.to = leftPx * scale;
-        next.subject = rightPx * scale;
-      } else {
-        const scale = (startShare.subject + startShare.date) / pairWidth;
-        next.subject = leftPx * scale;
-        next.date = rightPx * scale;
-      }
-      this.columnShare = next;
-    };
-    const stop = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", stop);
-      window.localStorage.setItem("inbox-column-share", JSON.stringify(this.columnShare));
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", stop);
-  }
 
   sentPartyLabel(thread: InboxThread, from: boolean): string {
     const address = from ? thread.sentFrom : thread.externalAddress;
@@ -2650,18 +2216,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     return to.length ? this.formatAddresses(to) : null;
   }
 
-  messageFromLabel(message: InboxMessage): string {
-    return message.direction === InboxMessageDirection.OUTBOUND
-      ? "Sent - " + this.formatAddress(message.from)
-      : "From " + this.formatAddress(message.from);
-  }
-
-  messageToLabel(message: InboxMessage): string | null {
-    return message.to?.length
-      ? this.formatAddresses(message.to)
-      : (this.recipientSummary(message) || null);
-  }
-
   selectedThreadRecipient(): string | null {
     if (!this.selectedThread) {
       return null;
@@ -2677,45 +2231,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       : isInboxGeneralRoleType(this.selectedThread.roleType) ? "Other inbox mail" : null;
   }
 
-  renderableBody(message: InboxMessage): string {
-    return this.renderableBodyById.get(message.messageId) ?? this.buildRenderableBody(message);
-  }
 
-  private buildRenderableBody(message: InboxMessage): string {
-    if (message.bodyHtml) {
-      return this.resolveInlineImages(message.bodyHtml, message.attachments);
-    }
-    if (message.bodyText) {
-      return `<pre>${message.bodyText}</pre>`;
-    }
-    return "<em>(empty message body)</em>";
-  }
-
-  protected visibleAttachments(message: InboxMessage): InboxAttachment[] {
-    return this.visibleAttachmentsById.get(message.messageId) ?? this.buildVisibleAttachments(message);
-  }
-
-  private buildVisibleAttachments(message: InboxMessage): InboxAttachment[] {
-    const bodyHtml = (message.bodyHtml || "").toLowerCase();
-    return (message.attachments ?? []).filter(attachment => attachment.s3Key
-      && !(attachment.contentId && bodyHtml.includes(`cid:${attachment.contentId.trim().toLowerCase()}`)));
-  }
-
-  protected attachmentUrl(attachment: InboxAttachment): string {
-    return this.urlService.resourceRelativePathForAWSFileName(attachment.s3Key);
-  }
-
-  private resolveInlineImages(html: string, attachments: InboxAttachment[]): string {
-    const inlineImages = (attachments ?? []).filter(attachment => attachment.contentId && attachment.s3Key);
-    if (inlineImages.length === 0) {
-      return html;
-    }
-    return html.replace(/(["'])cid:([^"']+)\1/gi, (match, quote, cid) => {
-      const target = cid.trim().toLowerCase();
-      const attachment = inlineImages.find(candidate => candidate.contentId?.toLowerCase() === target);
-      return attachment ? `${quote}${this.urlService.resourceRelativePathForAWSFileName(attachment.s3Key)}${quote}` : match;
-    });
-  }
 
   private async handleNewMessageEvent(event: InboxNewMessageEvent): Promise<void> {
     this.logger.info("Inbox websocket event:", event);

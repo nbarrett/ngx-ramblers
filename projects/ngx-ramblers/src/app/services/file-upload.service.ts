@@ -91,11 +91,15 @@ export class FileUploadService {
     const formData = new FormData();
     formData.append("file", file, fileName);
     const response = await firstValueFrom(this.http.post<AwsFileUploadResponse>(`${S3_BASE_URL}/file-upload?root-folder=${RootFolder.emailAttachments}`, formData));
+    return this.emailAttachmentFromUpload(response, fileName, file.size);
+  }
+
+  emailAttachmentFromUpload(response: AwsFileUploadResponse, fileName: string, sizeBytes: number): EmailAttachment | null {
     const fileNameData = response?.responses?.[0]?.fileNameData;
     if (fileNameData) {
       const relative = this.urlService.resourceRelativePathForAWSFileName(`${fileNameData.rootFolder}/${fileNameData.awsFileName}`);
       const url = `${stripTrailingSlash(this.urlService.publicBaseUrl())}/${relative}`;
-      return {name: fileName, url, sizeBytes: file.size};
+      return {name: fileName, url, sizeBytes};
     } else {
       this.logger.warn("uploadEmailAttachment: no fileNameData returned for", fileName, response);
       return null;

@@ -11,16 +11,20 @@ import { AlertPanelVariant } from "../../../models/alert-panel.model";
   styleUrl: "./alert-panel.sass",
   template: `
     <div class="alert-panel alert-panel-{{ variant }}"
+         [class.alert-panel-grouped]="grouped"
+         [class.alert-panel-compact]="compact"
          [class.d-flex]="actionsEnd"
          [class.align-items-center]="actionsEnd"
          [class.justify-content-between]="actionsEnd"
          [class.flex-wrap]="actionsEnd"
          [class.gap-3]="actionsEnd">
       <div>
+        @if (!grouped) {
         <div class="alert-panel-title" [class.mb-0]="actionsEnd">
           <fa-icon [icon]="icon"/>
           <span>{{ title }}</span>
         </div>
+        }
         <div class="alert-panel-message">
           <ng-content/>
         </div>
@@ -35,6 +39,15 @@ export class AlertPanelComponent {
   @Input() icon: IconDefinition = faTriangleExclamation;
   @Input() variant: AlertPanelVariant = AlertPanelVariant.WARNING;
   actionsEnd = false;
+  grouped = false;
+  compact = false;
+  @Input({alias: "compact"}) set compactValue(value: boolean) {
+    this.compact = coerceBooleanProperty(value);
+  }
+  @Input({alias: "grouped"}) set groupedValue(value: boolean) {
+    this.grouped = coerceBooleanProperty(value);
+  }
+
 
   @Input({alias: "actionsEnd"}) set actionsEndValue(value: boolean) {
     this.actionsEnd = coerceBooleanProperty(value);

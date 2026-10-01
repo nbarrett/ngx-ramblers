@@ -43,7 +43,7 @@ import { composerRecipientIsExpandableSet } from "../../../functions/email-compo
             }
             <div class="recipient-line-tokens">
               @for (recipient of valueFor(field.key); track recipient.email; let idx = $index) {
-                <span class="recipient-chip"
+                <span class="recipient-chip" [class.is-unavailable]="!!unavailableReasons[recipient.email.toLowerCase()]"
                       [class.is-editing]="isEditing(field.key, idx)"
                       draggable="true"
                       (pointerdown)="onChipPointerDown($event, field.key, recipient)"
@@ -53,7 +53,9 @@ import { composerRecipientIsExpandableSet } from "../../../functions/email-compo
                       placement="bottom">
                   <button type="button" class="recipient-chip-label" (click)="expandableSet(recipient) ? expandList.emit({field: field.key, recipient}) : openEditor(field.key, idx)">
                     <span class="recipient-chip-name">{{ recipient.name || recipient.email }}</span>
-                    @if (recipient.listId) {
+                    @if (unavailableReasons[recipient.email.toLowerCase()]; as reason) {
+                      <span class="recipient-chip-qualifier">{{ reason }}</span>
+                    } @else if (recipient.listId) {
                       <span class="recipient-chip-qualifier">everyone on this list</span>
                     } @else if (expandableSet(recipient)) {
                       <span class="recipient-chip-qualifier">everyone in this set</span>
@@ -261,11 +263,13 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   private host = inject(ElementRef);
   @ViewChild("editorEmailInput") private editorEmailInput: ElementRef<HTMLInputElement>;
 
+  @Input() unavailableReasons: Record<string, string> = {};
   @Input() to: ComposerExternalRecipient[] = [];
   @Input() cc: ComposerExternalRecipient[] = [];
   @Input() bcc: ComposerExternalRecipient[] = [];
   @Input() savedRecipients: ExternalRecipient[] = [];
   @Input() members: Member[] = [];
+  @Input() knownMembers: Member[] | null = null;
   @Input() committeeAddresses: ComposerExternalRecipient[] = [];
   @Input() listRecipients: ComposerExternalRecipient[] = [];
   @Input() ccAllowedEmails: string[] | null = null;
@@ -345,8 +349,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["savedRecipients"] || changes["to"] || changes["cc"] || changes["bcc"] || changes["audienceFilter"] || changes["memberBulkLoadDateMap"]) {
-      if (changes["members"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["audienceFilter"] || changes["memberBulkLoadDateMap"]) {
+    if (changes["members"] || changes["knownMembers"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["savedRecipients"] || changes["to"] || changes["cc"] || changes["bcc"] || changes["audienceFilter"] || changes["memberBulkLoadDateMap"]) {
+      if (changes["members"] || changes["knownMembers"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["audienceFilter"] || changes["memberBulkLoadDateMap"]) {
         this.rebuildMemberIndex();
       }
       this.refreshVisibleSuggestions();
@@ -614,7 +618,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     if (this.expandableSet(recipient)) {
       return "Click to show each member so you can remove individuals";
     } else {
-      return recipient.email;
+      const reason = this.unavailableReasons[recipient.email.toLowerCase()];
+      return reason ? `${recipient.email}: ${reason}` : recipient.email;
     }
   }
 
@@ -636,7 +641,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
           holder?.membershipNumber ? this.memberBulkLoadDateMap?.[holder.membershipNumber] ?? null : null
         );
       } else {
-        return "external";
+        const member = this.memberFor(recipient);
+        return member ? this.qualifierForMember(member) : "external";
       }
     }
   }
@@ -848,8 +854,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   private rebuildMemberIndex(): void {
     const now = this.dateUtils.dateTimeNowNoTime().toMillis();
     const displayDate = (millis: number) => this.dateUtils.displayDate(millis);
-    const membersById = new Map((this.members || []).filter(member => member.id).map(member => [member.id as string, member]));
-    this.memberById = new Map((this.members || []).filter(member => member.id).map(member => [member.id as string, member]));
+    const membersById = new Map((this.knownMembers ?? this.members ?? []).filter(member => member.id).map(member => [member.id as string, member]));
+    this.memberById = membersById;
     this.memberByEmail = new Map((this.members || [])
       .filter(member => (member.email || "").trim())
       .map(member => [(member.email || "").trim().toLowerCase(), member]));

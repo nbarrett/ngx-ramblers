@@ -1,23 +1,108 @@
+import {parseEmailHeadersFromMarkdown, emailHeadersNearTop, buildForwardedIntroMarkdown} from "../../functions/email-composer-intro-paste";
+import { EmailComposerSenderService } from "../../services/email-composer/email-composer-sender.service";
+import {EmailComposerDraftingComponent} from "./email-composer-drafting.component";
+import {EmailComposerDraftingMode} from "../../models/email-composer.model";
+import { EmailComposerDraftingService } from "../../services/email-composer/email-composer-drafting.service";
+import { EmailComposerEventSelectionService } from "../../services/email-composer/email-composer-event-selection.service";
+import {EmailComposerDocumentComponent} from "./email-composer-document.component";
+import { EmailComposerDocumentsService } from "../../services/email-composer/email-composer-documents.service";
+import { FocusInputDirective } from "../../modules/common/focus-input/focus-input.directive";
+import { AlertMessageComponent } from "../../modules/common/alert-panel/alert-message";
+import { EmailComposerRecipientsComponent } from "./email-composer-recipients.component";
+import { EmailComposerSessionService } from "../../services/email-composer/email-composer-session.service";
+import { EmailComposerRecipientsService } from "../../services/email-composer/email-composer-recipients.service";
+import {
+  EmailComposerRecipientResolutionService
+} from "../../services/email-composer/email-composer-recipient-resolution.service";
+import {
+  EmailComposerRecipientSourcesService
+} from "../../services/email-composer/email-composer-recipient-sources.service";
+import {
+  EmailComposerUpdateSettingsService
+} from "../../services/email-composer/email-composer-update-settings.service";
+import {
+  ADDRESSEE_OPTIONS,
+  AddresseeType,
+  ArticleBlock,
+  BatchSendEntryStatus,
+  BatchSendProgress,
+  BatchSendStatus,
+  BatchTransactionalSendRequest,
+  BRANDING_MODE_OPTIONS,
+  BrandingMode,
+  CommitteeFileEmailInclude,
+  ComposerExternalRecipient,
+  ComposerFragment,
+  ComposerFragmentKind,
+  DEFAULT_COLUMN_GAP_PX,
+  DragHoverPosition,
+  EMAIL_COMPOSER_STEPS,
+  EmailComposerContextSource,
+  EmailComposerState,
+  EmailComposerStepKey,
+  EmailComposition,
+  EmailCompositionKind,
+  EmailCompositionStatus,
+  EmailCompositionSummary,
+  EventInclusionMode,
+  MERGE_FIELD_CATALOGUE,
+  MergeFieldGroup,
+  NewsletterWindow,
+  PreviewStepDirection,
+  PriorSendExclusion,
+  PROMOTIONAL_LANGUAGE_PATTERN,
+  RecipientAddressMode,
+  RecipientField,
+  RecipientMode,
+  REPLY_OR_FORWARD_SUBJECT_PATTERN,
+  SectionDividerStyle,
+  SendingChannel,
+  UNBRANDED_HARD_CAP_RECIPIENTS,
+  UNBRANDED_LONG_BODY_CHAR_THRESHOLD,
+  ValidationError,
+  ValidationErrorWithLink,
+  VOLUNTEER_MERGE_FIELD_CATALOGUE
+} from "../../models/email-composer.model";
+import { EmailComposerAttachmentsComponent } from "./email-composer-attachments.component";
+import {
+  EmailCompositionListComponent
+} from "../../modules/common/email-compositions/email-composition-list.component";
+import { EmailComposerFragmentsComponent } from "./email-composer-fragments.component";
+import { EmailComposerFragmentsService } from "../../services/email-composer/email-composer-fragments.service";
+import { EmailComposerEventsComponent } from "./email-composer-events.component";
+import { applyMediaSelection, clampMediaIndex } from "../../functions/email-composer-event-media";
 import { AdminMembersPath, AdminPath } from "../../models/admin-route-paths.model";
-import { ChangeDetectorRef, Component, DoCheck, ElementRef, HostListener, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import {
+  ChangeDetectorRef,
+  Component,
+  DoCheck,
+  ElementRef,
+  HostListener,
+  inject,
+  OnDestroy,
+  OnInit,
+  ViewChild
+} from "@angular/core";
 import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
 import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { firstValueFrom, Subscription, timer } from "rxjs";
 import { VolunteerManagementService } from "../../services/volunteer-management.service";
 import { volunteerAudience } from "../../functions/volunteer-audiences";
-import { VolunteerAudience, VolunteerAudienceType, VolunteerManagementSnapshot, VolunteerWorkspaceView } from "../../models/volunteer-management.model";
+import {
+  VolunteerAudience,
+  VolunteerAudienceType,
+  VolunteerManagementSnapshot,
+  VolunteerWorkspaceView
+} from "../../models/volunteer-management.model";
 import { volunteerLetterSeed } from "../../functions/volunteer-letters";
 import { volunteerMergeFieldsFor } from "../../functions/volunteer-management";
-import { committeeRoleEmailDiffersFromPersonal, memberHoldsCommitteeRole } from "../../functions/committee-members";
 import { HttpClient } from "@angular/common/http";
 import { MemberResourcesReferenceDataService } from "../../services/member/member-resources-reference-data.service";
 import { switchMap } from "rxjs/operators";
-import { cloneDeep, isArray, isNumber, isString, isUndefined, kebabCase, keys, values } from "es-toolkit/compat";
+import { cloneDeep, isArray, isNumber, isString, kebabCase, keys, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
-  faAddressCard,
-  faAlignLeft,
   faAngleDoubleLeft,
   faAngleDoubleRight,
   faAngleLeft,
@@ -25,27 +110,19 @@ import {
   faArrowLeft,
   faArrowRight,
   faArrowRotateLeft,
-  faCalendarDays,
   faCheckCircle,
-  faChevronDown,
-  faChevronRight,
   faCircleInfo,
   faCompress,
   faExpand,
   faFile,
   faFloppyDisk,
   faFolderOpen,
-  faGripLines,
-  faGripVertical,
-  faPaperclip,
   faPaperPlane,
   faPlus,
-  faSignature,
   faSpinner,
   faTableColumns,
   faTrash,
   faTriangleExclamation,
-  faWandMagicSparkles,
   faXmark
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -54,108 +131,29 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../services/notifier.service";
 import { AlertTarget } from "../../models/alert-target.model";
 import { PageComponent } from "../../page/page.component";
-import { Member, MemberBulkLoadDateMap, MemberTerm } from "../../models/member.model";
+import { Member, MemberBulkLoadDateMap } from "../../models/member.model";
 import { MemberBulkLoadAuditService } from "../../services/member/member-bulk-load-audit.service";
 import {
-  ADDRESSEE_OPTIONS,
-  AddresseeType,
-  ArticleBlock,
-  ArticleBlockPosition,
-  BatchSendEntryStatus,
-  BatchSendProgress,
-  BatchSendStatus,
-  BatchTransactionalSendRequest,
-  BRANDING_MODE_OPTIONS,
-  BrandingMode,
-  ComposerExternalRecipient,
-  CommitteeFileEmailInclude,
-  ComposerFragment,
-  ComposerFragmentKind,
-  ComposerSenderIdentity,
-  DateInputMode,
-  DEFAULT_COLUMN_GAP_PX,
-  DragHoverPosition,
-  EMAIL_COMPOSER_STEPS,
-  EmailComposerState,
-  EmailComposerStepKey,
-  EmailComposition,
-  EmailCompositionKind,
-  EmailCompositionStatus,
-  EmailCompositionSummary,
-  EventInclusionMode,
-  DEFAULT_NEWSLETTER_CADENCE,
-  NEWSLETTER_CADENCE_OPTIONS,
-  NewsletterCadence,
-  NewsletterCadenceOption,
-  NewsletterStartMode,
-  NewsletterWindow,
-  ReleaseNoteUpdateCoverage,
-  ReleaseNoteUpdateCategory,
-  ReleaseNoteUpdateConfiguration,
-  ReleaseNoteUpdateDefaults,
-  ReleaseNoteUpdateOption,
-  ReleaseNoteUpdateSettings,
-  ReleaseNoteUpdateWindow,
-  PreviousNewsletter,
-  PreviousReleaseNoteUpdate,
-  EXPANDABLE_FRAGMENT_KINDS,
-  EmailComposerContextSource,
-  PreviewStepDirection,
-  PROMOTIONAL_LANGUAGE_PATTERN,
-  RecipientAddressMode,
-  RecipientField,
-  RecipientMode,
-  RECIPIENT_PRE_FILTERS,
-  REPLY_OR_FORWARD_SUBJECT_PATTERN,
-  SECTION_DIVIDER_OPTIONS,
-  SectionDividerStyle,
-  SendingChannel,
-  UNBRANDED_HARD_CAP_RECIPIENTS,
-  UNBRANDED_LONG_BODY_CHAR_THRESHOLD,
-  PriorSendExclusion,
-  ValidationError,
-  ValidationErrorWithLink,
-  MergeFieldGroup,
-  MERGE_FIELD_CATALOGUE,
-  VOLUNTEER_MERGE_FIELD_CATALOGUE
-} from "../../models/email-composer.model";
-import {
-  buildDefaultFragmentOrder,
-  composerSenderIdentities,
-  defaultBrandedSenderEmail,
-  COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT,
-  composerCommitteeRecipients,
-  appendUniqueRecipients,
-  composerEveryoneFilterToken,
-  composerFilterToken,
-  COMPOSER_EVERYONE_FILTER_EMAIL,
-  composerListToken,
-  composerRecipientCount,
-  composerRecipientFromMember,
-  composerRecipientsForAddressMode,
-  composerRecipientIsExpandableSet,
-  composerSelectedMembersAreCommitteeAudience,
   batchSendRecipientSplit,
+  buildDefaultFragmentOrder,
+  composerCommitteeRecipients,
   composerContentHasPersonalisation,
   composerRecipientAddressesArePrivate,
-  composerSendsAsCampaign,
-  memberIsCoveredByComposerHeaders,
+  composerRecipientCount,
+  composerSenderIdentities,
   defaultAddresseeTypeForBranding,
+  defaultBrandedSenderEmail,
   defaultEmailComposerState,
-  fragmentIdsWithContent,
-  syncedRecipientAddressMode,
-  unbrandedCommitteeSharedTo,
   defaultNewsletterSettings,
-  defaultReleaseNoteUpdateDefaults,
   defaultReleaseNoteUpdateSettings,
-  releaseNoteUpdateSettingsFrom,
-  releaseNoteUpdateSubject,
   dividerHtml,
   findRecycledTrackingUrls,
-  newDividerFragment,
-  newMultiColumnFragment,
+  fragmentIdsWithContent,
   releaseNoteUpdateArticlesFrom,
-  releaseNoteUpdateFragmentOrder
+  releaseNoteUpdateFragmentOrder,
+  releaseNoteUpdateSettingsFrom,
+  releaseNoteUpdateSubject,
+  unbrandedCommitteeSharedTo
 } from "../../functions/email-composer";
 import {
   committeeFileEmailHtml,
@@ -169,7 +167,6 @@ import {
   newEventCount,
   newsletterWindowFrom
 } from "../../functions/newsletter-window";
-import { releaseNoteUpdateWindowFrom } from "../../functions/release-note-update-window";
 import { AiService } from "../../services/ai/ai.service";
 import {
   DEFAULT_NEWSLETTER_INTRO_PURPOSE,
@@ -187,15 +184,12 @@ import {
   ComposerDrafting,
   ComposerRoleDefaults,
   CreateCampaignRequest,
-  ListInfo,
-  MailMessagingConfig,
   MemberSelection,
   NotificationConfig,
   SendSmtpEmailParams,
   SendStatus,
   StatusMappedResponseSingleInput,
-  TemplateRenderRequest,
-  WorkflowAction
+  TemplateRenderRequest
 } from "../../models/mail.model";
 import { toCampaignContactTokens } from "../../common/campaign-contact-tokens";
 import { MailMessagingService } from "../../services/mail/mail-messaging.service";
@@ -208,27 +202,23 @@ import { notificationConfigIdFor } from "../../functions/event-type-notification
 import { SalesforceConfigService } from "../../services/salesforce/salesforce-config.service";
 import { StringUtilsService } from "../../services/string-utils.service";
 import { ListSubscriberService } from "../../services/mail/list-subscriber.service";
-import { MailingListRadiosComponent } from "../../modules/common/mail/mailing-list-radios";
 import { UrlService } from "../../services/url.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { TiptapMarkdownEditor } from "../../modules/common/tiptap-editor/tiptap-markdown-editor";
 import { MaximisablePanelComponent } from "../../modules/common/maximisable-panel/maximisable-panel";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { MemberAdminModalComponent } from "../admin/member-admin-modal/member-admin-modal.component";
-import { MemberMultiSelect } from "../../modules/common/member-multi-select/member-multi-select";
-import { RecipientFieldComponent } from "../../modules/common/recipient-field/recipient-field";
 import { ArticleBlockSingleEditor } from "../../modules/common/article-blocks/article-block-single-editor";
 import { SectionDividerSelectComponent } from "../../modules/common/section-divider-select/section-divider-select";
-import { AttachmentPreviewComponent } from "../../modules/common/attachment-preview/attachment-preview";
 import { EmailComposerRenderingService } from "../../services/email-composer/email-composer-rendering.service";
 import { EmailComposerSendService } from "../../services/email-composer/email-composer-send.service";
 import { InboxReplyHandoffService } from "../../services/inbox/inbox-reply-handoff.service";
 import { VideoMeetingInviteHandoffService } from "../../services/video-meetings/video-meeting-invite-handoff.service";
 import { InboxService } from "../../services/inbox/inbox.service";
 import {
+  aliasMailboxAddresses,
   inboxMessageMatchingId,
   inboxThreadId,
-  inboxThreadMatchingSlug,
   newestInboxMessage,
   replyAllRecipients
 } from "../../functions/inbox-thread";
@@ -241,7 +231,7 @@ import {
   subjectTextFromPaste
 } from "../../functions/email-composer-intro-paste";
 import { parseEmailAddressList } from "../../functions/email-addresses";
-import { InboxAttachment, InboxReplyComposeResponse, InboxReplyOutboundContext } from "../../models/inbox.model";
+import { InboxAttachment, InboxReplyComposeResponse } from "../../models/inbox.model";
 import TurndownService from "turndown";
 import { EmailCompositionsService } from "../../services/email-composer/email-compositions.service";
 import { ReleaseNoteUpdateConfigService } from "../../services/email-composer/release-note-update-config.service";
@@ -250,44 +240,28 @@ import { SenderRepliesAndSignoff } from "../admin/send-emails/sender-replies-and
 import { EmailPreviewComponent } from "../../modules/common/email-preview/email-preview.component";
 import { NotificationDirective } from "../../notifications/common/notification.directive";
 import { SystemConfig } from "../../models/system.model";
-import { FileUploadService } from "../../services/file-upload.service";
-import { NumberUtilsService } from "../../services/number-utils.service";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
-import { CommitteeQueryService } from "../../services/committee/committee-query.service";
-import { WalksAndEventsService } from "../../services/walks-and-events/walks-and-events.service";
-import { GoogleMapsService } from "../../services/google-maps.service";
+
 import {
   CommitteeFile,
+  committeeMailboxAddresses,
   CommitteeMailboxKind,
   CommitteeMember,
   GroupEventSummary,
   Notification,
   NotificationItem,
-  committeeMailboxAddresses,
   roleEmailAddresses
 } from "../../models/committee.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
-import { CommitteeFileService } from "../../services/committee/committee-file.service";
 import { DocumentConversionService } from "../../services/committee/document-conversion.service";
 import { CONVERTIBLE_DOCUMENT_EXTENSIONS } from "../../models/aws-object.model";
-import { MediaQueryService } from "../../services/committee/media-query.service";
 import { CommitteeDisplayService } from "../committee/committee-display.service";
-import { PageService } from "../../services/page.service";
-import { PageContentService } from "../../services/page-content.service";
 import { EM_DASH_WITH_SPACES, PageContent } from "../../models/content-text.model";
-import { SiteLinkInputComponent } from "../../modules/common/site-link-input/site-link-input";
-import { CommitteeFileMultiSelectComponent } from "../../modules/common/committee-file-multi-select/committee-file-multi-select";
-import { ExternalRecipient } from "../../models/external-recipient.model";
 import { ExternalRecipientService } from "../../services/external-recipient/external-recipient.service";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { eventSlug } from "../../functions/walks/event-slug";
 import { DateValue } from "../../models/date.model";
-import { DatePicker } from "../../date-and-time/date-picker";
-import { dateRangeSliderBounds, DateRange, DateRangeSlider } from "../../components/date-range-slider/date-range-slider";
-import { DurationPickerComponent } from "../../modules/common/duration-picker/duration-picker";
-import { LinkComponent } from "../../link/link";
-import { MarkdownComponent } from "ngx-markdown";
 import {
   CommitteeNotificationDetailsComponent
 } from "../../notifications/committee/templates/committee-notification-details.component";
@@ -299,16 +273,6 @@ import { BsModalService } from "ngx-bootstrap/modal";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { NgSelectModule } from "@ng-select/ng-select";
-import {
-  AdvancedSearchPreset,
-  createAllTimePreset,
-  createFuturePreset,
-  createPastPreset,
-  DateRangeUnit,
-  NO_DATE_FILTER,
-  RANGE_UNIT_OPTIONS
-} from "../../models/search.model";
-import { DateTime } from "luxon";
 import { campaignOverflowNotice } from "../../functions/brevo-campaigns";
 import { CampaignOverflowNotice, NGX_BREVO_CAMPAIGN_TAG } from "../../models/brevo-campaign-queue.model";
 import { ScheduledTaskId } from "../../models/scheduled-task.model";
@@ -318,17 +282,32 @@ import { StickyControlsDirective } from "../../modules/common/tiptap-editor/stic
 
 const HIDDEN_STYLE_PATTERN = /display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|max-height\s*:\s*0/i;
 const TRACKING_PIXEL_MAX_DIMENSION = 2;
-
 @Component({
   selector: "app-email-composer",
   styleUrls: ["./email-composer.sass"],
   host: {
     "[attr.data-sticky-offset-root]": "''"
   },
+  providers: [
+    EmailComposerDocumentsService,
+    EmailComposerSessionService,
+    EmailComposerRecipientSourcesService,
+    EmailComposerRecipientResolutionService,
+    EmailComposerRecipientsService,
+    EmailComposerUpdateSettingsService,
+    EmailComposerFragmentsService,
+    EmailComposerDraftingService,
+    EmailComposerSenderService,
+    EmailComposerEventSelectionService
+  ],
   imports: [
+    EmailComposerDraftingComponent,
+    EmailComposerDocumentComponent,
+    FocusInputDirective,
+    AlertMessageComponent,
+    EmailComposerRecipientsComponent, EmailComposerAttachmentsComponent, EmailCompositionListComponent, EmailComposerFragmentsComponent, EmailComposerEventsComponent,
     PageComponent,
     AlertPanelComponent,
-    MailingListRadiosComponent,
     FormsModule,
     NgClass,
     NgTemplateOutlet,
@@ -344,29 +323,19 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     BsDropdownToggleDirective,
     BsDropdownMenuDirective,
     NgSelectModule,
-    SiteLinkInputComponent,
-    CommitteeFileMultiSelectComponent,
     TiptapMarkdownEditor,
     StickyControlsDirective,
     MaximisablePanelComponent,
     SectionDividerSelectComponent,
-    MemberMultiSelect,
-    RecipientFieldComponent,
     ArticleBlockSingleEditor,
     NotificationConfigSelectorComponent,
     SenderRepliesAndSignoff,
     EmailPreviewComponent,
     NotificationDirective,
-    DatePicker,
-    DateRangeSlider,
-    DurationPickerComponent,
-    LinkComponent,
-    MarkdownComponent,
     CommitteeNotificationDetailsComponent,
     DisplayDatePipe,
     FullNameWithAliasPipe,
     RouterLink,
-    AttachmentPreviewComponent
   ],
   template: `
     <app-page autoTitle pageTitle="Email Composer" [showTitle]="false">
@@ -387,52 +356,21 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           }
         </div>
       </div>
-      @let recipientsValidationVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && (recipientsStepErrors().length > 0 || priorSendExclusions.length > 0);
+      @let recipientsValidationVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && !emptyWorkflowNextConfig() && (recipientsStepErrors().length > 0 || priorSendExclusions.length > 0);
       @let templateValidationVisible = stepperActiveTab === EmailComposerStepKey.TEMPLATE && templateStepErrors().length > 0;
       @let composeUnbrandedNoRecipients = state.brandingMode === BrandingMode.UNBRANDED && !recipientsStepValid();
-      @let composeValidationVisible = stepperActiveTab === EmailComposerStepKey.COMPOSE && (composeUnbrandedNoRecipients || composeStepErrors().length > 0);
+        @let subjectNeedsEditVisible = subjectStartsWithCopyOf() || subjectUnchangedFromDefault();
+        @let
+        composeValidationVisible = stepperActiveTab === EmailComposerStepKey.COMPOSE && (composeUnbrandedNoRecipients || (!subjectNeedsEditVisible && composeStepErrors().length > 0));
       @let unbrandedSenderOnTemplateStep = state.brandingMode === BrandingMode.UNBRANDED && stepperActiveTab === EmailComposerStepKey.TEMPLATE;
-      @let unbrandedSenderReady = unbrandedSenderOnTemplateStep && !!unbrandedSenderInfo().email && !unbrandedSenderAlertDismissed;
-      @let unbrandedSenderLoading = unbrandedSenderOnTemplateStep && !unbrandedSenderInfo().email && !unbrandedSenderCheckReady();
-      @let recipientsChosenVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && recipientsStepErrors().length === 0 && totalRecipientCount() > 0;
-      @let subjectNeedsEditVisible = subjectStartsWithCopyOf() || subjectUnchangedFromDefault();
-      <ng-template #composerStatusAlerts>
-      @if (inboxReplyLoading || creatingReleaseNoteUpdate || postSendActionWarningVisible() || precedingConfig() || templateValidationVisible || recipientsValidationVisible || composeValidationVisible || unbrandedSenderReady || unbrandedSenderLoading || recipientsChosenVisible || subjectNeedsEditVisible) {
-        <div class="email-composer-validation-summary" [attr.role]="inboxReplyLoading || creatingReleaseNoteUpdate ? 'status' : null" [attr.aria-live]="inboxReplyLoading || creatingReleaseNoteUpdate ? 'polite' : null">
-          @if (inboxReplyLoading) {
-            <h5><fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Loading reply…</h5>
-            <ul class="list-arrow">
-              <li>Fetching the conversation and preparing recipients, subject and quoted message.</li>
-            </ul>
-          } @else if (creatingReleaseNoteUpdate) {
-            <h5><fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Generating update…</h5>
-            <ul class="list-arrow">
-              <li>Reading the release notes, preparing the summary and setting up Compose. You will be taken there automatically when it is ready.</li>
-            </ul>
-          } @else {
-            @if (unbrandedSenderReady || unbrandedSenderLoading || recipientsChosenVisible) {
-              <h5>
-                <fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ composerStatusTitle(unbrandedSenderReady, unbrandedSenderLoading, recipientsChosenVisible, templateValidationVisible) }}
-                @if (unbrandedSenderReady) {
-                  <button type="button" class="email-composer-alert-dismiss" (click)="dismissUnbrandedSenderAlert()"
-                          tooltip="Dismiss" placement="bottom" container="body" aria-label="Dismiss">
-                    <fa-icon [icon]="faXmark"/>
-                  </button>
-                }
-              </h5>
-              <ul class="list-arrow">
-                @if (unbrandedSenderLoading) {
-                  <li>Checking which committee role will send this email.</li>
-                }
-                @if (unbrandedSenderReady) {
-                  <li>Unbranded emails will go from your {{ unbrandedSenderInfo().description }} role ({{ unbrandedSenderInfo().name }} &lt;{{ unbrandedSenderInfo().email }}&gt;). Sign off the email however you like in the body.</li>
-                }
-                @if (recipientsChosenVisible) {
-                  <li>Recipients chosen: {{ recipientCountSummary() }}</li>
-                }
-                @if (templateValidationVisible) {
-                  @for (error of templateStepErrors(); track $index) {
-                    <li>
+      @let unbrandedSenderReady = unbrandedSenderOnTemplateStep && !!sender.unbrandedSenderInfo().email && !unbrandedSenderAlertDismissed;
+      @let unbrandedSenderLoading = unbrandedSenderOnTemplateStep && !sender.unbrandedSenderInfo().email && !unbrandedSenderCheckReady();
+        @let
+        recipientsChosenVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && recipientsStepErrors().length === 0 && recipientResolution.totalRecipientCount() > 0 && !recipientsChosenAlertDismissed;
+      @let recipientAddressesPrivateVisible = recipientAddressesArePrivate() && !recipientAddressesPrivateAlertDismissed;
+        <ng-template #templateStatusErrors>
+          @for (error of templateStepErrors(); track $index) {
+            <div>
                       @if (isPlainError(error)) {
                         {{ error }}
                       } @else {
@@ -442,79 +380,147 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                           <span>{{ error.after }}</span>
                         }
                       }
-                    </li>
-                  }
-                }
-              </ul>
-            }
-            @if (templateValidationVisible && !(unbrandedSenderReady || unbrandedSenderLoading || recipientsChosenVisible)) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
-              <ul class="list-arrow">
-                @for (error of templateStepErrors(); track $index) {
-                  <li>
-                    @if (isPlainError(error)) {
-                      {{ error }}
-                    } @else {
-                      <span>{{ error.before }}</span><a [routerLink]="error.linkRouterLink"
-                                                        [queryParams]="error.linkQueryParams"
-                                                        [target]="error.linkTarget ?? null">{{ error.linkText }}</a>@if (error.after) {
-                        <span>{{ error.after }}</span>
-                      }
+            </div>
+          }
+        </ng-template>
+        <ng-template #composerStatusAlerts>
+          <app-alert-panel grouped compact class="mb-3"
+                           [attr.role]="inboxReplyLoading || drafting.creatingReleaseNoteUpdate ? 'status' : null"
+                           [attr.aria-live]="inboxReplyLoading || drafting.creatingReleaseNoteUpdate ? 'polite' : null">
+            @if (inboxReplyLoading) {
+              <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
+                                 title="Loading reply…" [icon]="faSpinner" [spinning]="true">
+
+                <div>
+                  <div>Fetching the conversation and preparing recipients, subject and quoted message.</div>
+                </div>
+
+              </app-alert-message>
+            } @else if (drafting.creatingReleaseNoteUpdate) {
+              <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
+                                 title="Generating update…" [icon]="faSpinner" [spinning]="true">
+
+                <div>
+                  <div>Reading the release notes, preparing the summary and setting up Compose. You will be taken there
+                    automatically when it is ready.
+                  </div>
+                </div>
+
+              </app-alert-message>
+            } @else {
+              @if (unbrandedSenderReady || unbrandedSenderLoading) {
+                <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
+                                   title="{{ composerStatusTitle(unbrandedSenderReady, unbrandedSenderLoading, templateValidationVisible) }}">
+
+                  <div>
+                    @if (unbrandedSenderLoading) {
+                      <div>Checking which committee role will send this email.</div>
                     }
-                  </li>
+                    @if (unbrandedSenderReady) {
+                      <div>Unbranded emails will go from your {{ sender.unbrandedSenderInfo().description }} role
+                        ({{ sender.unbrandedSenderInfo().name }} &lt;{{ sender.unbrandedSenderInfo().email }}&gt;). Sign off the email
+                        however you like in the body.
+                      </div>
                 }
-              </ul>
+                    @if (templateValidationVisible) {
+                      <ng-container *ngTemplateOutlet="templateStatusErrors"/>
+                    }
+                  </div>
+
+                </app-alert-message>
+            }
+            @if (templateValidationVisible && !(unbrandedSenderReady || unbrandedSenderLoading)) {
+              <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
+                                 title="Before you can continue">
+
+                <div>
+                  <ng-container *ngTemplateOutlet="templateStatusErrors"/>
+                </div>
+
+              </app-alert-message>
+            }
+            @if (emptyWorkflowNextConfig(); as next) {
+              <app-alert-message title="No members remain for this workflow step" [messageKey]="state.notificationConfig?.id"
+                                 actionLabel="Continue to {{ next.subject?.text }}"
+                                 (action)="continueToNextConfig(next)">
+                Next will open "{{ next.subject?.text }}". This step will not send an email or run its post-send actions.
+              </app-alert-message>
             }
             @if (precedingConfig(); as preceding) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>"{{ state.notificationConfig?.subject?.text }}" is usually sent after "{{ preceding.subject?.text }}"</h5>
-              <ul class="list-arrow">
-                <li>The "{{ preceding.subject?.text }}" email type is set to run this email as its next step, so normally you would start there.</li>
-                <li>Send this on its own only if that step has already been done.</li>
-              </ul>
-              <button type="button" class="btn btn-primary mb-2" (click)="onEmailConfigChanged(preceding)">
-                <fa-icon [icon]="faArrowRight" class="me-1"/>Start with "{{ preceding.subject?.text }}"
-              </button>
+              <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
+                                 title="&quot;{{ state.notificationConfig?.subject?.text }}&quot; is usually sent after &quot;{{ preceding.subject?.text }}&quot;"
+                                 actionLabel="Start with &quot;{{ preceding.subject?.text }}&quot;"
+                                 (action)="onEmailConfigChanged(preceding)">
+
+                <div>
+                  <div>The "{{ preceding.subject?.text }}" email type is set to run this email as its next step, so
+                    normally you would start there.
+                  </div>
+                  <div>Send this on its own only if that step has already been done.</div>
+                </div>
+
+
+              </app-alert-message>
             }
-            @if (bulkDeletionPending()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow deletes its recipients</h5>
-              <ul class="list-arrow">
-                <li>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete its recipients from the database once the email has gone out. This cannot be undone.</li>
-                <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be removed after the send.</li>
-              </ul>
+              @if (recipientSources.bulkDeletionPending()) {
+                <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
+                                   title="This email workflow deletes its recipients">
+
+                  <div>
+                    <div>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete its
+                      recipients from the database once the email has gone out. This cannot be undone.
+                    </div>
+                    <div>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be removed after
+                      the send.
+                    </div>
+                  </div>
+
+                </app-alert-message>
             }
-            @if (memberDisablePending()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This email workflow disables its recipients</h5>
-              <ul class="list-arrow">
-                <li>The "{{ state.notificationConfig?.subject?.text }}" email type will remove its recipients from the group (unticking Approved Group Member) once the email has gone out.</li>
-                <li>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be disabled after the send.</li>
-              </ul>
+              @if (recipientSources.memberDisablePending()) {
+                <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
+                                   title="This email workflow disables its recipients">
+
+                  <div>
+                    <div>The "{{ state.notificationConfig?.subject?.text }}" email type will remove its recipients from
+                      the group (unticking Approved Group Member) once the email has gone out.
+                    </div>
+                    <div>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be disabled
+                      after the send.
+                    </div>
+                  </div>
+
+                </app-alert-message>
             }
             @if (recipientsValidationVisible) {
               @if (recipientsStepErrors().length > 0) {
-                <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
-                <ul class="list-arrow">
-                  @for (error of recipientsStepErrors(); track error) { <li>{{ error }}</li> }
-                </ul>
+                <app-alert-message title="Before you can continue" [messageKey]="recipientsStepErrors().join()">
+                  <div>
+                    @for (error of recipientsStepErrors(); track error) {
+                      <div>{{ error }}</div>
+                    }
+                  </div>
+                </app-alert-message>
               }
               @if (priorSendExclusions.length > 0) {
-                <h5>
-                  <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
+                <app-alert-message title="Previously sent recipients" [messageKey]="priorSendDateRangeLabel()"
+                                   [actionLabel]="priorSendDetailsExpanded ? 'Hide who' : 'Show who'" (action)="togglePriorSendDetails()">
+                  <div>
                   @if (!includeAlreadySent) {
                     {{ priorSendExclusions.length }} {{ priorSendExclusions.length === 1 ? "member was" : "members were" }} excluded because they already received this email{{ priorSendDateRangeLabel() }}.
                   } @else {
                     Including {{ priorSendExclusions.length }} already-sent {{ priorSendExclusions.length === 1 ? "member" : "members" }} in this re-send (originally sent{{ priorSendDateRangeLabel() }}).
                   }
-                  <button type="button" class="email-composer-inline-toggle ms-2"
-                          (click)="togglePriorSendDetails()">
-                    {{ priorSendDetailsExpanded ? "Hide who" : "Show who" }}
-                  </button>
-                </h5>
+
+                  </div>
                 @if (priorSendDetailsExpanded) {
-                  <ul class="list-arrow mt-1">
+                  <div>
                     @for (exclusion of priorSendExclusions; track exclusion.member.id) {
-                      <li>{{ exclusion.member | fullNameWithAlias }} - sent {{ priorSendDateLabel(exclusion.sentAt) }}</li>
+                      <div>{{ exclusion.member | fullNameWithAlias }} -
+                        sent {{ priorSendDateLabel(exclusion.sentAt) }}
+                      </div>
                     }
-                  </ul>
+                  </div>
                 }
                 <div class="form-check mt-2">
                   <input class="form-check-input"
@@ -524,42 +530,163 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                          (change)="toggleIncludeAlreadySent()">
                   <label class="form-check-label small" for="include-already-sent">Re-send to members already sent this email</label>
                 </div>
+                </app-alert-message>
               }
             }
             @if (composeValidationVisible) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Before you can continue:</h5>
-              <ul class="list-arrow">
+              <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
+                                 title="Before you can continue">
+
+                <div>
                 @if (composeUnbrandedNoRecipients) {
-                  <li>Paste a forwarded email (with <code>To:</code>, <code>Cc:</code>, <code>Subject:</code> headers) into the body below and the addresses and subject will be picked up automatically, or go back to the Recipients step to add them by hand.</li>
+                  <div>Paste a forwarded email (with <code>To:</code>, <code>Cc:</code>, <code>Subject:</code> headers)
+                    into the body below and the addresses and subject will be picked up automatically, or go back to the
+                    Recipients step to add them by hand.
+                  </div>
                 }
-                @for (error of composeStepErrors(); track error) { <li>{{ error }}</li> }
-              </ul>
+                  @for (error of composeStepErrors(); track error) {
+                    <div>{{ error }}</div>
+                  }
+                </div>
+
+              </app-alert-message>
             }
+            <ng-template #subjectCorrection let-outcome="outcome">
+              <span><a href="" (click)="$event.preventDefault(); goToCompose()">Update the subject</a> before sending so recipients don't see {{ outcome }}.</span>
+            </ng-template>
             @if (subjectStartsWithCopyOf()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Subject still says "Copy of …":</h5>
-              <ul class="list-arrow">
-                <li>Update the subject line on Compose before sending so recipients don't see "Copy of …".</li>
-              </ul>
+              <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
+                                 title="Subject still says &quot;Copy of …&quot;">
+                <ng-container *ngTemplateOutlet="subjectCorrection; context: {outcome: 'a generated heading'}"/>
+              </app-alert-message>
             }
             @if (subjectUnchangedFromDefault()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Subject still has the automatic title:</h5>
-              <ul class="list-arrow">
-                <li>The subject is still "{{ state.subject }}", filled in by this email type. Change it on the <a href="javascript:void(0)" (click)="goToCompose()">Compose</a> step before sending so recipients don't see a generated heading.</li>
-              </ul>
-              @if (stepperActiveTab !== EmailComposerStepKey.COMPOSE) {
-                <button type="button" class="btn btn-primary btn-sm mt-2" (click)="goToCompose()">
-                  <fa-icon [icon]="faArrowLeft"/> Go and fix
-                </button>
+              <app-alert-message [messageKey]="state.subject" title="Subject still has the default text">
+                <div>The subject is still "{{ state.subject }}", filled in by this email type.
+                  <ng-container *ngTemplateOutlet="subjectCorrection; context: {outcome: 'a generated heading'}"/>
+                </div>
+              </app-alert-message>
+            }
+            }
+
+
+            @if (recipientsChosenVisible) {
+              <app-alert-message title="Recipients chosen" (dismissedChange)="dismissRecipientsChosenAlert()">
+                {{ recipientCountSummary() }}
+              </app-alert-message>
+      }
+      @if (recipientAddressesPrivateVisible) {
+        <app-alert-message title="Recipient addresses are private"
+                           (dismissedChange)="dismissRecipientAddressesPrivateAlert()">
+          @if (recipientResolution.sendingAsCampaign()) {
+            Brevo sends this campaign separately to each subscriber on {{ recipientCountSummary(false) }}. Names and email addresses are not shown to other recipients. Click the list to see who is on it.
+          } @else {
+            Each person receives their own copy. Names and email addresses are not shown to other recipients.
+          }
+        </app-alert-message>
+      }
+
+            @if (session.notifyTarget.showAlert) {
+              <app-alert-message [title]="session.notifyTarget.alertTitle || 'Composer'"
+                                 [messageKey]="session.notifyTarget.alertMessage || ''">
+                {{ session.notifyTarget.alertMessage }}
+              </app-alert-message>
+            }
+            @if (stepperActiveTab === EmailComposerStepKey.COMPOSE || stepperActiveTab === EmailComposerStepKey.SEND) {
+              @if (pendingForwardedHeaderLines.length > 0 && stepperActiveTab === EmailComposerStepKey.COMPOSE) {
+                <app-alert-message title="Forwarded email detected" (dismissedChange)="dismissForwardedHeaderOffer()">
+                  <div>Recipients and subject were extracted from the headers and placed in the Recipients step and
+                    Subject field.
+                  </div>
+                  <div>The original sender details are included between two horizontal rules. Edit or remove them in the
+                    body if you do not want them included.
+                  </div>
+                  <div>Type your own reply above the first rule.</div>
+                </app-alert-message>
+              }
+              @if (unbrandedListSendBlocked()) {
+                <app-alert-message
+                  title="Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked"
+                  [messageKey]="recipientCountSummary()" actionLabel="Switch to Branded"
+                  [actionIcon]="faArrowRotateLeft" (action)="switchToBrandedFromWarning()">
+                  <div>This send is for {{ recipientResolution.totalRecipientCount() }} recipients. At this volume PECR
+                    and GDPR require the unsubscribe link and sender identity that the Branded format includes.
+                  </div>
+                  <div>Switch to Branded mode to continue, or reduce the recipient count.</div>
+                </app-alert-message>
+              } @else if (showUnbrandedListSendWarning()) {
+                <app-alert-message title="This looks like a broadcast rather than a one-to-one reply"
+                                   actionLabel="Switch to Branded" [actionIcon]="faArrowRotateLeft"
+                                   (action)="switchToBrandedFromWarning()"
+                                   (dismissedChange)="dismissUnbrandedListSendWarning()">
+                  <div>Branded format includes the unsubscribe link and sender identity that PECR and GDPR require for
+                    marketing-style sends to a list. Unbranded omits both, so it is best kept for replies and one-to-few
+                    correspondence.
+                  </div>
+                  @for (reason of unbrandedListSendWarningReasons(); track reason) {
+                    <div>{{ reason }}</div>
+                  }
+                </app-alert-message>
               }
             }
-            @if (postSendActionWarningVisible()) {
-              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="dismissPostSendActionWarning()">
-                <fa-icon [icon]="faXmark"/> Dismiss
-              </button>
+            @if (stepperActiveTab === EmailComposerStepKey.REVIEW || stepperActiveTab === EmailComposerStepKey.SEND) {
+              @if (campaignQueueNotice(); as notice) {
+                <app-alert-message [title]="notice.title" [messageKey]="notice.message">{{ notice.message }}
+                </app-alert-message>
+              }
             }
-          }
-        </div>
-      }
+            @if (stepperActiveTab === EmailComposerStepKey.TEMPLATE || stepperActiveTab === EmailComposerStepKey.COMPOSE) {
+              @if (newsletterMode()) {
+                <app-alert-message [title]="drafting.newsletterWindowTitle()" [messageKey]="drafting.newsletterWindowDescription()">
+                  {{ drafting.newsletterWindowDescription() }} The period, the events and the drafted intro can all be changed.
+                </app-alert-message>
+              } @else if (releaseNoteUpdateMode() && !drafting.creatingReleaseNoteUpdate) {
+                <app-alert-message [title]="updateSettings.releaseNoteUpdateWindowTitle(state, session.currentDraftId)"
+                                   [messageKey]="updateSettings.releaseNoteUpdateWindowDescription(state, session.currentDraftId)">
+                  {{ updateSettings.releaseNoteUpdateWindowDescription(state, session.currentDraftId) }} The drafted copy stays
+                  editable on Compose, and nothing is sent until you review it.
+                </app-alert-message>
+              }
+            }
+            @if (stepperActiveTab === EmailComposerStepKey.SEND) {
+              @if (sendRefusalMessage(); as message) {
+                <app-alert-message title="Sending is switched off for this site" [messageKey]="message">
+                  <div>{{ message }}</div>
+                  <div>Nothing will be sent until it is switched back on. A site administrator can check Mail Settings →
+                    API, and the platform administrator if sending has been suspended centrally.
+                  </div>
+                </app-alert-message>
+              }
+              @if (sendInProgress) {
+                <app-alert-message [title]="sendProgressDescription()" [icon]="faSpinner" [spinning]="true"/>
+              }
+              @if (batchProgress && nextConfigAfterSend) {
+                <app-alert-message title="Next step: {{ nextConfigAfterSend.subject?.text }}"
+                                   actionLabel="Continue to {{ nextConfigAfterSend.subject?.text }}"
+                                   (action)="continueToNextConfig()">
+                  This email type is set to run "{{ nextConfigAfterSend.subject?.text }}" afterwards. Continue to select
+                  its recipients and send it.
+                </app-alert-message>
+              }
+            }
+            @if (session.attachmentWarning && stepperActiveTab === EmailComposerStepKey.COMPOSE) {
+              <app-alert-message title="Attachments"
+                                 [messageKey]="session.attachmentWarning">{{ session.attachmentWarning }}
+              </app-alert-message>
+            }
+            @if (stepperActiveTab === EmailComposerStepKey.RECIPIENTS && !recipientResolution.sendingAsCampaign() && state.brandingMode === BrandingMode.UNBRANDED && recipients.replyCcSuggestion.length > 0) {
+              <app-alert-message title="Replying from a shared inbox"
+                                 (dismissedChange)="recipients.replyCcSuggestion = []">
+                <span>Also Cc the other roles?
+                  <a class="ms-2 me-2" href="" (click)="$event.preventDefault(); recipients.applyReplyCcSuggestion()">Cc All</a>
+                  @for (suggestion of recipients.replyCcSuggestion; track suggestion.email) {
+                    <a class="me-2" href="" (click)="$event.preventDefault(); recipients.applyReplyCcSuggestion(suggestion)">{{ suggestion.name || suggestion.email }}</a>
+                  }
+                </span>
+              </app-alert-message>
+            }
+        </app-alert-panel>
+
       </ng-template>
       @if (!inboxReplyLoading) {
       <div class="row mb-3">
@@ -594,7 +721,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                     placement="bottom">
               <fa-icon [icon]="faFloppyDisk" class="me-1"/>Save
             </button>
-            @if (currentDraftId) {
+            @if (session.currentDraftId) {
               <button type="button" class="btn btn-quiet"
                       (click)="revertToSavedDraft()"
                       tooltip="Discard unsaved changes and reload the last saved version"
@@ -602,7 +729,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Revert
               </button>
             }
-            <div class="btn-group" dropdown [container]="'body'">
+            <div class="btn-group" dropdown>
               <button type="button" class="btn btn-quiet dropdown-toggle" dropdownToggle>
                 <fa-icon [icon]="faFolderOpen" class="me-1"/>Show
               </button>
@@ -630,7 +757,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               }
               @case (EmailComposerStepKey.RECIPIENTS) {
                 <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!recipientsStepValid() && state.brandingMode !== BrandingMode.UNBRANDED" [title]="recipientsStepValid() ? '' : recipientsStepValidationMessage()">
+                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!recipientsStepValid() && !emptyWorkflowNextConfig() && state.brandingMode !== BrandingMode.UNBRANDED" [title]="emptyWorkflowNextConfig() ? 'Continue to the next workflow email' : recipientsStepValid() ? '' : recipientsStepValidationMessage()">
                   Next <fa-icon [icon]="faArrowRight"/>
                 </button>
               }
@@ -689,18 +816,16 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           </button>
           </div>
         </div>
-            <ng-container *ngTemplateOutlet="composerStatusAlerts"/>
-            </div>
-            @if (notifyTarget.showAlert) {
-              <div class="email-composer-validation-summary">
-                <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ notifyTarget.alertTitle || "Composer" }}</h5>
-                <ul class="list-arrow">
-                  <li>{{ notifyTarget.alertMessage }}</li>
-                </ul>
-              </div>
+            @if (!draftsPanelOpen && !sentEmailsPanelOpen) {
+              <ng-container *ngTemplateOutlet="composerStatusAlerts"/>
             }
-            <h3 class="email-composer-step-title">{{ currentStepTitle() }}</h3>
-            <p-step-panels>
+            </div>
+            <h3 class="email-composer-step-title">{{ draftsPanelOpen ? "Drafts" : sentEmailsPanelOpen ? "Sent" : currentStepTitle() }}</h3>
+            @if (draftsPanelOpen || sentEmailsPanelOpen) {
+              <app-email-composition-list [records]="draftsPanelOpen ? drafts : sentEmails" [members]="recipientSources.members" [busy]="sendInProgress"
+                                          (open)="openSavedComposition($event.id)" (deleted)="onCompositionsDeleted($event)"/>
+            }
+            <p-step-panels [class.d-none]="draftsPanelOpen || sentEmailsPanelOpen">
               <p-step-panel [value]="$any(EmailComposerStepKey.RECIPIENTS)">
                 <ng-template #content>
                   <ng-container *ngTemplateOutlet="recipientsStep"/>
@@ -735,75 +860,12 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           </p-stepper>
         </div>
       </div>
-      @if (draftsPanelOpen) {
-        <div class="email-composer-drafts-panel">
-          @if (drafts.length === 0) {
-            <div class="text-muted">No saved drafts yet.</div>
-          } @else {
-            <ul class="list-unstyled mb-0">
-              @for (draft of drafts; track draft.id) {
-                <li class="email-composer-draft-row">
-                  <div class="email-composer-draft-meta" (click)="loadDraft(draft.id)" title="Click to load this draft">
-                    <strong>{{ draft.title }}</strong>
-                    @if (draft.shared) {
-                      <span class="badge-cloudy ms-2" title="Shared with other committee members">Shared</span>
-                    }
-                    <span class="text-muted small ms-2">{{ draftSavedDescription(draft) }}</span>
-                  </div>
-                  <div class="email-composer-draft-actions">
-                    <button type="button" class="btn btn-primary btn-sm" (click)="loadDraft(draft.id)">Load</button>
-                    @if (pendingDraftDeleteId === draft.id) {
-                      <button type="button" class="btn btn-danger btn-sm" (click)="confirmDeleteDraft(draft.id)">Confirm delete</button>
-                      <button type="button" class="btn btn-primary btn-sm" (click)="cancelDeleteDraft()">Cancel</button>
-                    } @else {
-                      <button type="button" class="btn btn-danger btn-sm" (click)="requestDeleteDraft(draft.id)">Delete</button>
-                    }
-                  </div>
-                </li>
-              }
-            </ul>
-          }
-        </div>
-      }
-      @if (sentEmailsPanelOpen) {
-        <div class="email-composer-drafts-panel">
-          @if (sentEmails.length === 0) {
-            <div class="text-muted">No sent emails yet.</div>
-          } @else {
-            <ul class="list-unstyled mb-0">
-              @for (sent of sentEmails; track sent.id) {
-                <li class="email-composer-draft-row">
-                  <div class="email-composer-draft-meta" (click)="useAsTemplate(sent.id)" title="Click to use this sent email as a starting point">
-                    <strong>{{ sent.title }}</strong>
-                    @if (sent.shared) {
-                      <span class="badge-cloudy ms-2" title="Shared with other committee members">Shared</span>
-                    }
-                    <span class="text-muted small ms-2">{{ sentDescription(sent) }}</span>
-                    @if (sent.sentRecipientCount) {
-                      <span class="text-muted small ms-2">to {{ stringUtils.pluraliseWithCount(sent.sentRecipientCount, "recipient") }}</span>
-                    }
-                  </div>
-                  <div class="email-composer-draft-actions">
-                    <button type="button" class="btn btn-primary btn-sm" (click)="useAsTemplate(sent.id)">Use as template</button>
-                    @if (pendingDraftDeleteId === sent.id) {
-                      <button type="button" class="btn btn-danger btn-sm" (click)="confirmDeleteDraft(sent.id)">Confirm delete</button>
-                      <button type="button" class="btn btn-primary btn-sm" (click)="cancelDeleteDraft()">Cancel</button>
-                    } @else {
-                      <button type="button" class="btn btn-danger btn-sm" (click)="requestDeleteDraft(sent.id)">Delete</button>
-                    }
-                  </div>
-                </li>
-              }
-            </ul>
-          }
-        </div>
-      }
       }
       <div class="d-none" #eventsContent>
         @if (!eventsStepOmitted() && (state.eventInclusion === EventInclusionMode.AUTO_INCLUDE || state.eventInclusion === EventInclusionMode.SINGLE_EVENT) && committeeNotification) {
           <app-committee-notification-details
             [notification]="committeeNotification"
-            [members]="members"
+            [members]="recipientSources.members"
             [sourcePagePath]="state.context?.sourcePagePath ?? ''"
             [sourcePageTitle]="state.context?.sourcePageTitle ?? ''"
             [betweenEventsDivider]="state.betweenEventsDivider"/>
@@ -814,179 +876,19 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       </div>
       </app-maximisable-panel>
     </app-page>
-    <app-attachment-preview #attachmentPreview/>
 
     <ng-template #recipientsStep>
-      <div class="email-composer-section">
-        @if (forcedMemberId) {
-          <div class="row mb-3">
-            <div class="col-sm-12">
-              <p class="mb-0">
-                <fa-icon [icon]="faAddressCard" class="me-2"/>
-                <strong>Single member</strong> - this email will be sent individually to
-                <strong>{{ forcedMemberLabel() }}</strong>. To send to more people,
-                <button type="button" class="btn btn-link p-0 align-baseline" (click)="clearForcedMember()">choose recipients</button>.
-              </p>
-            </div>
-          </div>
-        } @else {
-          @if (state.brandingMode !== BrandingMode.UNBRANDED) {
-            <fieldset class="email-composer-fieldset">
-            <legend>
-              <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset"
-                      (click)="narrowMembersExpanded = !narrowMembersExpanded"
-                      [attr.aria-expanded]="narrowMembersExpanded">
-                <fa-icon [icon]="narrowMembersExpanded ? faChevronDown : faChevronRight" class="me-1"/>
-                Recipient selection
-              </button>
-            </legend>
-            @if (!narrowMembersExpanded) {
-              <button type="button" class="email-composer-fieldset-summary"
-                      (click)="narrowMembersExpanded = true">
-                {{ recipientSelectionSummary() }}
-              </button>
-            }
-            <div [class.d-none]="!narrowMembersExpanded">
-              @if (showRecipientSourceRadios()) {
-                <div class="row mb-3">
-                  <div class="col-sm-12">
-                    <div class="form-check">
-                      <input id="mode-list" type="radio" class="form-check-input" name="recipient-mode"
-                             [checked]="state.recipientMode === RecipientMode.ENTIRE_LIST"
-                             (change)="chooseRecipientMode(RecipientMode.ENTIRE_LIST)">
-                      <label class="form-check-label" for="mode-list">
-                        <strong>A whole mailing list</strong> - sent to everyone on the list
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input id="mode-selected" type="radio" class="form-check-input" name="recipient-mode"
-                             [checked]="state.recipientMode === RecipientMode.SELECTED_MEMBERS"
-                             (change)="chooseRecipientMode(RecipientMode.SELECTED_MEMBERS)">
-                      <label class="form-check-label" for="mode-selected">
-                        <strong>Specific members</strong> - choose members directly or from a mailing list
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              }
-              @if (state.recipientMode === RecipientMode.ENTIRE_LIST) {
-                <label>Choose a list:</label>
-                <app-mailing-list-radios
-                  [lists]="nonEmptyLists()"
-                  [members]="members"
-                  groupName="send-list"
-                  idPrefix="send-list"
-                  [selectedId]="state.selectedListId"
-                  (selectedIdChange)="onSendListIdChange($event)"/>
-              } @else {
-                <div class="row g-3">
-                  <div class="col-12 col-lg-6">
-                    <div class="fw-semibold mb-1">Member audience</div>
-                    <app-mailing-list-radios
-                      [lists]="nonEmptyLists()"
-                      [members]="members"
-                      groupName="narrow-list"
-                      idPrefix="narrow-list"
-                      [selectedId]="state.narrowListId"
-                      noneLabel="Everyone in the group"
-                      listsHeading="Mailing lists"
-                      itemClass="ms-3"
-                      (selectedIdChange)="setNarrowListId($event)"/>
-                  </div>
-                  <div class="col-12 col-lg-6">
-                    <app-member-multi-select
-                      [members]="candidateMembers()"
-                      [selectedIds]="state.selectedMemberIds"
-                      [preFilterKey]="state.preFilterKey"
-                      [notificationConfig]="state.notificationConfig"
-                      [memberBulkLoadDateMap]="memberBulkLoadDateMap"
-                      [requireConsent]="requiresConsent()"
-                      [respectBlocks]="respectsBlocks()"
-                      [unsubscribedDates]="unsubscribedMemberDates()"
-                      [includeAlreadySent]="includeAlreadySent"
-                      [showMemberPicker]="false"
-                      (selectedIdsChange)="onFilteredMemberIdsChange($event)"
-                      (preFilterKeyChange)="onPreFilterKeyChange($event)"
-                      (priorSendExclusionsChange)="onPriorSendExclusionsChange($event)"/>
-                  </div>
-                </div>
-              }
-            </div>
-            </fieldset>
-          }
-          @if (state.brandingMode === BrandingMode.UNBRANDED && unbrandedCommitteeLists().length > 0) {
-            <fieldset class="email-composer-fieldset">
-              <legend>Choose recipients</legend>
-              <app-mailing-list-radios
-                [lists]="unbrandedCommitteeLists()"
-                [members]="members"
-                groupName="unbranded-recipient-list"
-                idPrefix="unbranded-recipient-list"
-                [selectedId]="unbrandedSelectedListId()"
-                noneLabel="Select individual members"
-                (selectedIdChange)="onUnbrandedListIdChange($event)"/>
-            </fieldset>
-          }
-          <fieldset class="email-composer-fieldset mt-3">
-              <legend>This email is going to</legend>
-              @if (recipientAddressesArePrivate()) {
-                <app-alert-panel class="mb-3" title="Recipient addresses are private">
-                  @if (sendingAsCampaign()) {
-                    Brevo sends this campaign separately to each subscriber on {{ recipientCountSummary(false) }}. Names and email addresses are not shown to other recipients. Click the list to see who is on it.
-                  } @else {
-                    Each person receives their own copy. Names and email addresses are not shown to other recipients.
-                  }
-                </app-alert-panel>
-              }
-              <app-recipient-field
-                unframed
-                [knownOnly]="state.brandingMode !== BrandingMode.UNBRANDED"
-                [to]="state.externalRecipients" (toChange)="onUnbrandedToChange($event)"
-                [cc]="state.ccRecipients" (ccChange)="onUnbrandedCcChange($event)"
-                [bcc]="state.bccRecipients" (bccChange)="onUnbrandedBccChange($event)"
-                [members]="unbrandedSuggestionMembers()"
-                [committeeAddresses]="state.brandingMode === BrandingMode.UNBRANDED && unbrandedSelectedListId() ? [] : committeeRecipientAddresses()"
-                [listRecipients]="unbrandedSelectedListId() ? [] : unbrandedCommitteeListRecipients()"
-                [ccAllowedEmails]="committeeCcEmails()"
-                [audienceFilter]="state.preFilterKey"
-                [memberBulkLoadDateMap]="memberBulkLoadDateMap"
-                [savedRecipients]="unbrandedSuggestionSavedRecipients()"
-                [bulkSourceName]="recipientBulkSourceName()"
-                [(saveForReuse)]="newExternalSaveForReuse"
-                (openMember)="openMemberRecord($event)"
-                (openSavedAddress)="openSavedAddress($event)"
-                (addAll)="addAllFromSelectedList($event)"
-                (expandList)="expandListToken($event.field, $event.recipient)"
-                (activeFieldChange)="onUnbrandedActiveFieldChange($event)"/>
-              @if (!sendingAsCampaign() && state.brandingMode === BrandingMode.UNBRANDED && replyCcSuggestion.length > 0) {
-                <app-alert-panel class="mt-2" title="Replying from a shared inbox">
-                  Also Cc the other roles?
-                  <span alertActions class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-sm btn-quiet" (click)="applyReplyCcSuggestion()">Cc All</button>
-                    @for (suggestion of replyCcSuggestion; track suggestion.email) {
-                      <button type="button" class="btn btn-sm btn-quiet" (click)="applyReplyCcSuggestion(suggestion)">{{ suggestion.name || suggestion.email }}</button>
-                    }
-                    <button type="button" class="btn btn-sm btn-quiet" (click)="replyCcSuggestion = []">Dismiss</button>
-                  </span>
-                </app-alert-panel>
-              }
-              @if (committeeRoleSendOffered()) {
-                <label class="recipient-save" for="send-to-role-addresses">
-                  <input class="form-check-input" type="checkbox" id="send-to-role-addresses"
-                         [checked]="state.recipientAddressMode === RecipientAddressMode.COMMITTEE_ROLE"
-                         (change)="onSendToCommitteeRoleAddressesChange($event)">
-                  Send to committee role addresses
-                </label>
-                <small class="text-muted">Everyone on this send is a committee member. Leave this off to use their personal addresses. Turn it on to use each person's committee role address instead.</small>
-              }
-            </fieldset>
-        }
-      </div>
+      <app-email-composer-recipients [forcedMemberLabel]="forcedMemberLabel()"
+                                     [recipientSummary]="recipientCountSummary()"
+                                     [includeAlreadySent]="includeAlreadySent" [unavailableReasons]="unavailableRecipientReasons()" (clearForced)="clearForcedMember()"
+                                     (openMember)="openMemberRecord($event)"
+                                     (openSavedAddress)="openSavedAddress($event)"
+                                     (priorSendExclusionsChange)="onPriorSendExclusionsChange($event)"/>
     </ng-template>
 
     <ng-template #templateStep>
-      <div class="email-composer-section" [class.email-composer-section-busy]="creatingReleaseNoteUpdate"
-           [attr.inert]="creatingReleaseNoteUpdate ? '' : null" [attr.aria-busy]="creatingReleaseNoteUpdate">
+      <div class="email-composer-section" [class.email-composer-section-busy]="drafting.creatingReleaseNoteUpdate"
+           [attr.inert]="drafting.creatingReleaseNoteUpdate ? '' : null" [attr.aria-busy]="drafting.creatingReleaseNoteUpdate">
         <p class="text-muted small mb-3">Pick the email type (which determines the visual template, banner and any built-in content), then choose which of your addresses the email is from, who replies should go to, and which committee roles sign off.</p>
         <fieldset class="email-composer-fieldset">
           <legend>Style</legend>
@@ -1013,7 +915,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               [notificationConfig]="state.notificationConfig"
               [notificationConfigListing]="state.notificationConfigListing"
               [showBranding]="true"/>
-            @if (draftingOffered() || platformAdminEnabled || newsletterMode() || releaseNoteUpdateMode()) {
+            @if (drafting.draftingOffered() || session.platformAdminEnabled || newsletterMode() || releaseNoteUpdateMode()) {
               <ng-container *ngTemplateOutlet="composerStartUi"/>
             }
           </fieldset>
@@ -1023,13 +925,13 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             <legend>Sender, reply to and sign-off</legend>
             <p class="text-muted small mb-2">{{ composerRoleDefaultsHelp() }}</p>
             <app-sender-replies-and-sign-off
-              [mailMessagingConfig]="mailMessagingConfig"
+              [mailMessagingConfig]="recipientSources.mailMessagingConfig"
               [notificationConfig]="state.notificationConfig"
               [signOffRolesOverride]="state.signoffRoles"
               (signOffRolesOverrideChange)="state.signoffRoles = $event"
-              [senderIdentities]="brandedSenderIdentities()"
-              [senderEmail]="resolvedBrandedSenderEmail()"
-              (senderEmailChange)="onBrandedSenderEmailChange($event)"
+              [senderIdentities]="sender.brandedSenderIdentities()"
+              [senderEmail]="sender.resolvedBrandedSenderEmail()"
+              (senderEmailChange)="sender.onBrandedSenderEmailChange($event)"
               [allowSelectAllAsMe]="true"
               [omitSender]="true"
               omitSenders
@@ -1038,28 +940,28 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           </fieldset>
         }
         @if (state.brandingMode === BrandingMode.UNBRANDED) {
-          @let roleOptions = unbrandedRoleOptions();
-          @let senderInfo = unbrandedSenderInfo();
+          @let roleOptions = sender.unbrandedRoleOptions();
+          @let senderInfo = sender.unbrandedSenderInfo();
           @if (senderInfo.email) {
             @if (roleOptions.length > 1) {
               <fieldset class="email-composer-fieldset">
                 <legend>Send from which committee role?</legend>
                 <p class="text-muted small mb-2">You are linked to more than one role - pick which identity recipients should see.</p>
-                <select class="form-control" [ngModel]="resolvedUnbrandedRole()?.type"
-                        (ngModelChange)="onUnbrandedSenderRoleChange($event)">
+                <select class="form-control" [ngModel]="sender.resolvedUnbrandedRole()?.type"
+                        (ngModelChange)="sender.onUnbrandedSenderRoleChange($event)">
                   @for (role of roleOptions; track role.type) {
                     <option [ngValue]="role.type">{{ role.description }} - {{ role.fullName || '—' }} &lt;{{ role.email }}&gt;</option>
                   }
                 </select>
               </fieldset>
             }
-            @if (unbrandedSenderAddressOptions().length > 1) {
+            @if (sender.unbrandedSenderAddressOptions().length > 1) {
               <fieldset class="email-composer-fieldset">
                 <legend>Send from which address?</legend>
                 <p class="text-muted small mb-2">This role has more than one email address - pick which one recipients should see.</p>
-                <select class="form-control" [ngModel]="resolvedUnbrandedSenderEmail()"
-                        (ngModelChange)="onUnbrandedSenderEmailChange($event)">
-                  @for (choice of unbrandedSenderAddressChoices(); track choice.email) {
+                <select class="form-control" [ngModel]="sender.resolvedUnbrandedSenderEmail()"
+                        (ngModelChange)="sender.onUnbrandedSenderEmailChange($event)">
+                  @for (choice of sender.unbrandedSenderAddressChoices(); track choice.email) {
                     <option [ngValue]="choice.email">{{ choice.label }}</option>
                   }
                 </select>
@@ -1071,256 +973,19 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     </ng-template>
 
     <ng-template #composerStartUi>
-      <div class="mt-3 pt-3 border-top">
-        @if (newsletterMode()) {
-          <div class="email-composer-validation-summary">
-            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ newsletterWindowTitle() }}</h5>
-            <div>{{ newsletterWindowDescription() }} The period, the events and the drafted intro can all be changed further on.</div>
-          </div>
-        } @else if (releaseNoteUpdateMode() && !creatingReleaseNoteUpdate) {
-          <div class="email-composer-validation-summary">
-            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ releaseNoteUpdateWindowTitle() }}</h5>
-            <div>{{ releaseNoteUpdateWindowDescription() }} The drafted copy stays editable on the Compose step, and nothing is sent until you review it.</div>
-          </div>
-          <ng-container *ngTemplateOutlet="previousReleaseNoteUpdateUi"/>
-        } @else {
-          <p class="text-muted small mb-3">{{ startModeHint() }}</p>
-          <div class="row mb-3">
-            <div class="col-sm-12">
-              @for (mode of availableStartModes(); track mode) {
-                <div class="form-check form-check-inline">
-                  <input class="form-check-input" type="radio" [id]="'composer-start-' + mode" name="composer-start-mode"
-                         [checked]="effectiveStartMode() === mode"
-                         (change)="newsletterStartMode = mode">
-                  <label class="form-check-label" [for]="'composer-start-' + mode">{{ startModeLabel(mode) }}</label>
-                </div>
-              }
-            </div>
-          </div>
-          @if (effectiveStartMode() === NewsletterStartMode.UPDATE) {
-            <ng-container *ngTemplateOutlet="releaseNoteUpdateSettingsUi; context: {showCreateButton: true}"/>
-          } @else {
-            <div class="row align-items-end">
-              @if (effectiveStartMode() === NewsletterStartMode.PERIOD) {
-                <div class="col-sm-6 col-lg-4">
-                  <label for="newsletter-start-period-select">Create a newsletter covering:</label>
-                  <ng-select id="newsletter-start-period-select"
-                             [items]="newsletterPeriodOptions"
-                             bindLabel="periodLabel"
-                             bindValue="key"
-                             [clearable]="false"
-                             [searchable]="false"
-                             [(ngModel)]="newsletterStartPeriod"/>
-                </div>
-              } @else {
-                <div class="col-sm-8 col-lg-6">
-                  <label for="newsletter-free-text">Describe the newsletter you want:</label>
-                  <input id="newsletter-free-text" type="text" class="form-control"
-                         placeholder="everything up to the end of September, and mention the coach trip"
-                         [(ngModel)]="newsletterFreeText">
-                </div>
-              }
-              <div class="col-sm-4 mt-3 mt-sm-0">
-                <button type="button" class="btn btn-primary"
-                        [disabled]="creatingNewsletter || !templateStepValid()"
-                        [title]="templateStepValid() ? '' : templateStepValidationMessage()"
-                        (click)="createNewsletter()">
-                  <fa-icon [icon]="creatingNewsletter ? faSpinner : faWandMagicSparkles" [spin]="creatingNewsletter" class="me-1"/>
-                  {{ creatingNewsletter ? "Creating…" : "Create newsletter" }}
-                </button>
-              </div>
-            </div>
-            @if (!templateStepValid()) {
-              <div class="text-muted small mt-2">{{ templateStepValidationMessage() }}</div>
-            }
-          }
-        }
-      </div>
-    </ng-template>
-
-    <ng-template #releaseNoteUpdateSettingsUi let-showCreateButton="showCreateButton">
-      <fieldset class="email-composer-fieldset mt-3">
-        <legend>
-          <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset"
-                  (click)="releaseNoteUpdateSettingsExpanded = !releaseNoteUpdateSettingsExpanded"
-                  [attr.aria-expanded]="releaseNoteUpdateSettingsExpanded">
-            <fa-icon [icon]="releaseNoteUpdateSettingsExpanded ? faChevronDown : faChevronRight" class="me-1"/>
-            Update content and date range
-          </button>
-        </legend>
-        @if (releaseNoteUpdateSettingsExpanded) {
-          @if (releaseNoteUpdateConfiguration.profiles.length > 1) {
-            <div class="mb-3">
-              <label for="release-note-update-profile">Saved configuration</label>
-              <ng-select id="release-note-update-profile" [items]="releaseNoteUpdateConfiguration.profiles" bindLabel="name" bindValue="id"
-                         [clearable]="false" [searchable]="false" [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
-                         [ngModel]="selectedReleaseNoteUpdateProfileId" (ngModelChange)="applyReleaseNoteUpdateProfile($event)"/>
-            </div>
-          }
-          <ng-container *ngTemplateOutlet="releaseNoteUpdatePeriodUi"/>
-          <ng-container *ngTemplateOutlet="previousReleaseNoteUpdateUi"/>
-          <ng-container *ngTemplateOutlet="releaseNoteUpdateMessageChoicesUi"/>
-        } @else {
-          <p class="text-muted small mb-0">{{ releaseNoteUpdateSettingsSummary() }}</p>
-        }
-        @if (showCreateButton) {
-          <div class="mt-3">
-            <button type="button" class="btn btn-primary"
-                    [disabled]="creatingReleaseNoteUpdate || !templateStepValid()"
-                    [title]="templateStepValid() ? '' : templateStepValidationMessage()"
-                    (click)="createReleaseNoteUpdate()">
-              <fa-icon [icon]="creatingReleaseNoteUpdate ? faSpinner : faWandMagicSparkles" [spin]="creatingReleaseNoteUpdate" class="me-1"/>
-              {{ creatingReleaseNoteUpdate ? "Generating…" : "Create update" }}
-            </button>
-          </div>
-          @if (!templateStepValid()) {
-            <div class="text-muted small mt-2">{{ templateStepValidationMessage() }}</div>
-          }
-        }
-      </fieldset>
-    </ng-template>
-
-    <ng-template #previousReleaseNoteUpdateUi>
-      @if (previousReleaseNoteUpdateExists()) {
-        <div class="thumbnail-heading-frame thumbnail-heading-frame-compact mt-3 mb-3">
-          <div class="thumbnail-heading">Previously sent update</div>
-          <p class="mb-2"><strong>{{ previousReleaseNoteUpdate?.title }}</strong> was sent on {{ previousReleaseNoteUpdateSentDate() }}.</p>
-          <div class="form-check mb-2">
-            <input id="release-note-update-exclude-previous" class="form-check-input" type="checkbox"
-                   [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
-                   [(ngModel)]="releaseNoteUpdateSettings().excludePreviouslyIncluded">
-            <label class="form-check-label" for="release-note-update-exclude-previous">Leave out release notes already covered by this update</label>
-          </div>
-          @if (previousReleaseNoteUpdate?.includedPaths?.length) {
-            <details>
-              <summary>{{ stringUtils.pluraliseWithCount(previousReleaseNoteUpdate!.includedPaths.length, "release note") }} previously included</summary>
-              <ul class="mb-0 mt-2">
-                @for (path of previousReleaseNoteUpdate!.includedPaths; track path) {
-                  <li><a [href]="'/' + path" target="_blank" rel="noopener noreferrer">{{ path }}</a></li>
-                }
-              </ul>
-            </details>
-          } @else {
-            <p class="text-muted small mb-0">No individual release-note references were recorded for this update.</p>
-          }
-        </div>
-      }
-    </ng-template>
-
-    <ng-template #releaseNoteUpdatePeriodUi>
-      <div class="row mb-2">
-        <div class="col-sm-12 col-lg-8">
-          <app-duration-picker
-            [amount]="releaseNoteUpdateSettings().periodAmount"
-            (amountChange)="onReleaseNoteUpdatePeriodAmountChange($event)"
-            [unit]="releaseNoteUpdateSettings().periodUnit"
-            (unitChange)="onReleaseNoteUpdatePeriodUnitChange($event)"
-            [units]="rangeUnitOptions"
-            [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
-            amountLabel="Report on information from the last"
-            unitLabel="Unit"
-            idPrefix="update-period"/>
-        </div>
-      </div>
-      <div class="row mb-3">
-        <div class="col-sm-12">
-          <app-date-range-slider class="w-100"
-                                 [minDate]="releaseNoteUpdateSliderMinDate"
-                                 [maxDate]="releaseNoteUpdateSliderMaxDate"
-                                 [range]="releaseNoteUpdateSliderRange()"
-                                 [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
-                                 (rangeChange)="onReleaseNoteUpdateDateRangeChange($event)"/>
-        </div>
-      </div>
-    </ng-template>
-
-    <ng-template #releaseNoteUpdateMessageChoicesUi>
-      <div class="mt-3 mb-3">
-        <h4 class="mb-3">Content for this update</h4>
-        <div class="row">
-          <div class="col-md-6">
-            <div class="mb-1">Content to include</div>
-            @for (option of releaseNoteUpdateCategoryOptions; track option.value) {
-              <div class="form-check mb-2">
-                <input class="form-check-input" type="checkbox" [id]="'release-note-update-category-' + option.value"
-                       [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate || releaseNoteUpdateCategoryIsLastSelected(option.value)"
-                       [ngModel]="releaseNoteUpdateSettings().categories.includes(option.value)"
-                       (ngModelChange)="setReleaseNoteUpdateCategory(option.value, $event)">
-                <label class="form-check-label" [for]="'release-note-update-category-' + option.value">
-                  <strong>{{ option.label }}</strong>
-                  <span class="d-block text-muted small">{{ option.hint }}</span>
-                </label>
-              </div>
-            }
-          </div>
-          <div class="col-md-6 mt-3 mt-md-0">
-            <label for="release-note-update-coverage">Coverage</label>
-            <ng-select id="release-note-update-coverage" [items]="releaseNoteUpdateCoverageOptions" bindLabel="label" bindValue="value"
-                       [clearable]="false" [searchable]="false" [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
-                       [(ngModel)]="releaseNoteUpdateSettings().coverage"/>
-            <div class="text-muted small mt-1">{{ releaseNoteUpdateCoverageHint() }}</div>
-          </div>
-        </div>
-        <div class="form-check mt-3">
-          <input id="release-note-update-include-images" class="form-check-input" type="checkbox"
-                 [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
-                 [(ngModel)]="releaseNoteUpdateSettings().includeImages">
-          <label class="form-check-label" for="release-note-update-include-images">
-            <strong>Include suitable release-note images</strong>
-            <span class="d-block text-muted small">Add a relevant image to a subject when one is available in its supporting release notes.</span>
-          </label>
-        </div>
-      </div>
+      <app-email-composer-drafting [mode]="EmailComposerDraftingMode.START"
+                                  [templateValid]="templateStepValid()" [validationMessage]="templateStepValidationMessage()"/>
     </ng-template>
 
     <ng-template #composeStep>
       <div class="email-composer-section">
-        @if (pendingForwardedHeaderLines.length > 0 || unbrandedListSendBlocked() || showUnbrandedListSendWarning()) {
-          <div class="email-composer-validation-summary">
-            @if (pendingForwardedHeaderLines.length > 0) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Forwarded email detected:</h5>
-              <ul class="list-arrow">
-                <li>Recipients and subject were extracted from the headers below and placed in the Recipients step and Subject field.</li>
-                <li>The original sender details have been re-inserted into the body between two horizontal rules - edit or remove them in the editor below if you do not want them included.</li>
-                <li>Type your own reply above the first rule.</li>
-              </ul>
-              <button type="button" class="btn btn-primary btn-sm mt-2 mb-3" (click)="dismissForwardedHeaderOffer()">
-                <fa-icon [icon]="faXmark"/> Dismiss
-              </button>
-            }
-            @if (unbrandedListSendBlocked()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked:</h5>
-              <ul class="list-arrow">
-                <li>This send is for {{ totalRecipientCount() }} recipients - at this volume PECR and GDPR require the unsubscribe link and sender identity that only the Branded format includes. Unbranded omits both.</li>
-                <li>Switch to Branded mode to continue, or reduce the recipient count.</li>
-              </ul>
-              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="switchToBrandedFromWarning()">
-                <fa-icon [icon]="faArrowRotateLeft"/> Switch to Branded
-              </button>
-            } @else if (showUnbrandedListSendWarning()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This looks like a broadcast rather than a one-to-one reply:</h5>
-              <ul class="list-arrow">
-                <li>Branded format includes the unsubscribe link and sender identity that PECR and GDPR require for marketing-style sends to a list. Unbranded omits both, so it is best kept for replies and one-to-few correspondence.</li>
-                @for (reason of unbrandedListSendWarningReasons(); track reason) {
-                  <li>{{ reason }}</li>
-                }
-              </ul>
-              <div class="d-flex flex-wrap gap-2 mt-2">
-                <button type="button" class="btn btn-primary btn-sm" (click)="switchToBrandedFromWarning()">
-                  <fa-icon [icon]="faArrowRotateLeft"/> Switch to Branded
-                </button>
-                <button type="button" class="btn btn-primary btn-sm" (click)="dismissUnbrandedListSendWarning()">
-                  <fa-icon [icon]="faXmark"/> Dismiss
-                </button>
-              </div>
-            }
-          </div>
-        }
         <fieldset class="email-composer-fieldset">
           <legend>Subject</legend>
           <div>
             <label for="email-subject">Subject line</label>
-            <input id="email-subject" type="text" class="form-control" [(ngModel)]="state.subject"
+            <input id="email-subject" [appFocusInput]="pendingSubjectFocus"
+                   (focusCompleted)="pendingSubjectFocus = false" type="text" class="form-control"
+                   [(ngModel)]="state.subject"
                    [class.is-invalid]="!state.subject?.trim()"
                    placeholder="Enter the subject as it will appear in inboxes"
                    (paste)="onSubjectPaste($event)"/>
@@ -1336,35 +1001,8 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           }
         </fieldset>
 
-        <fieldset class="email-composer-fieldset">
-          <legend>Attachments</legend>
-          <div class="d-flex flex-wrap align-items-center gap-2">
-            @for (attachment of state.attachments ?? []; track attachment.url; let index = $index) {
-              <span class="composer-attachment">
-                <button type="button" class="composer-attachment-open" [tooltip]="attachment.name" container="body"
-                        (click)="attachmentPreview.open({filename: attachment.name, url: attachment.url, contentType: attachmentContentType(attachment.name)})">
-                  <fa-icon [icon]="faPaperclip" class="composer-attachment-icon"/>
-                  <span class="composer-attachment-name">{{ attachment.name }}</span>
-                  <span class="composer-attachment-size text-muted">{{ numberUtils.humanFileSize(attachment.sizeBytes) }}</span>
-                </button>
-                <button type="button" class="composer-attachment-remove" tooltip="Remove attachment" container="body"
-                        (click)="removeAttachment(index)">
-                  <fa-icon [icon]="faXmark"/>
-                </button>
-              </span>
-            }
-            <input #attachmentFileElement class="d-none" type="file" multiple (change)="onAttachmentFilesSelected($event)">
-            <button type="button" class="btn btn-sm btn-quiet" [disabled]="attachmentUploading"
-                    (click)="attachmentFileElement.click()">
-              <fa-icon [icon]="attachmentUploading ? faSpinner : faPaperclip"
-                       [animation]="attachmentUploading ? 'spin' : null" class="me-1"/>
-              {{ attachmentUploading ? "Uploading…" : "Add attachment" }}
-            </button>
-          </div>
-          @if (state.sendingChannel === SendingChannel.CAMPAIGN && (state.attachments ?? []).length > 1) {
-            <small class="text-muted d-block mt-1">Emails sent to an entire list include only the first attachment — send to selected members or external recipients to include them all.</small>
-          }
-        </fieldset>
+        <app-email-composer-attachments [attachments]="state.attachments ?? []" [channel]="state.sendingChannel"
+                                        (attachmentsChange)="state.attachments = $event"/>
 
         <fieldset class="email-composer-fieldset">
           <legend>Salutation</legend>
@@ -1384,7 +1022,8 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
         <fieldset class="email-composer-fieldset">
           <legend>Sections</legend>
           <p class="text-muted small mb-2">Drag sections to reorder. Use multi-column rows to place sections side by side.</p>
-          <ng-container *ngTemplateOutlet="fragmentListTemplate; context: { $implicit: state.fragmentOrder, parentPath: [] }"/>
+          <app-email-composer-fragments [state]="state" [bodyTemplate]="fragmentBodyTemplate"
+                                        [committeeFiles]="documents.committeeFiles" [eventSummary]="eventsPreviewSummary()"/>
           <div class="composer-add-row">
             <div class="btn-group" dropdown>
               <button type="button" class="btn btn-sm btn-quiet dropdown-toggle" dropdownToggle>
@@ -1392,46 +1031,54 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               </button>
               <ul *dropdownMenu class="dropdown-menu" role="menu">
                 <li role="menuitem">
-                  <button type="button" class="dropdown-item" [disabled]="hasFragmentKindAtTopLevel(ComposerFragmentKind.INTRO)" (click)="addIntroFragment()">
+                  <button type="button" class="dropdown-item"
+                          [disabled]="fragmentEditor.hasFragmentKindAtTopLevel(state, ComposerFragmentKind.INTRO)"
+                          (click)="fragmentEditor.addIntroFragment(state)">
                     <fa-icon [icon]="faPlus" class="me-2"/>Intro
                   </button>
                 </li>
                 @if (state.brandingMode !== BrandingMode.UNBRANDED) {
                   <li role="menuitem">
-                    <button type="button" class="dropdown-item" (click)="addArticleFragment([])">
+                    <button type="button" class="dropdown-item" (click)="fragmentEditor.addArticleFragment(state, [])">
                       <fa-icon [icon]="faPlus" class="me-2"/>Article block
                     </button>
                   </li>
                   <li role="menuitem">
-                    <button type="button" class="dropdown-item" [disabled]="hasFragmentKindAtTopLevel(ComposerFragmentKind.EVENTS)" (click)="addEventsFragment()">
+                    <button type="button" class="dropdown-item"
+                            [disabled]="fragmentEditor.hasFragmentKindAtTopLevel(state, ComposerFragmentKind.EVENTS)"
+                            (click)="events.addEventsFragment()">
                       <fa-icon [icon]="faPlus" class="me-2"/>Events
                     </button>
                   </li>
                 }
                 <li role="menuitem">
-                  <button type="button" class="dropdown-item" [disabled]="hasFragmentKindAtTopLevel(ComposerFragmentKind.SIGNOFF)" (click)="addSignoffFragment()">
+                  <button type="button" class="dropdown-item"
+                          [disabled]="fragmentEditor.hasFragmentKindAtTopLevel(state, ComposerFragmentKind.SIGNOFF)"
+                          (click)="fragmentEditor.addSignoffFragment(state)">
                     <fa-icon [icon]="faPlus" class="me-2"/>Signoff
                   </button>
                 </li>
                 <li role="menuitem">
-                  <button type="button" class="dropdown-item" (click)="onAddCommitteeFileFragmentClicked()">
+                  <button type="button" class="dropdown-item" (click)="documents.onAddCommitteeFileFragmentClicked()">
                     <fa-icon [icon]="faFile" class="me-2"/>Committee file
                   </button>
                 </li>
                 <li role="menuitem">
-                  <button type="button" class="dropdown-item" (click)="addDividerFragment([])">
+                  <button type="button" class="dropdown-item" (click)="fragmentEditor.addDividerFragment(state, [])">
                     <fa-icon [icon]="faPlus" class="me-2"/>Divider
                   </button>
                 </li>
                 @if (state.brandingMode !== BrandingMode.UNBRANDED) {
                   <li class="dropdown-divider"></li>
                   <li role="menuitem">
-                    <button type="button" class="dropdown-item" (click)="addMultiColumnFragment(2)">
+                    <button type="button" class="dropdown-item"
+                            (click)="fragmentEditor.addMultiColumnFragment(state, 2)">
                       <fa-icon [icon]="faTableColumns" class="me-2"/>2-column row
                     </button>
                   </li>
                   <li role="menuitem">
-                    <button type="button" class="dropdown-item" (click)="addMultiColumnFragment(3)">
+                    <button type="button" class="dropdown-item"
+                            (click)="fragmentEditor.addMultiColumnFragment(state, 3)">
                       <fa-icon [icon]="faTableColumns" class="me-2"/>3-column row
                     </button>
                   </li>
@@ -1447,123 +1094,11 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       </div>
     </ng-template>
 
-    <ng-template #fragmentListTemplate let-fragments let-parentPath="parentPath">
-      <div class="fragment-list">
-        @for (fragment of fragments; let i = $index; track fragment.id + ':' + i) {
-          @if (showComposerFragment(fragment)) {
-          <div class="fragment-row"
-               [class.fragment-row-hover-before]="isDragHover(parentPath.concat([i])) && dragHoverPosition === DragHoverPosition.Before"
-               [class.fragment-row-hover-after]="isDragHover(parentPath.concat([i])) && dragHoverPosition === DragHoverPosition.After"
-               (dragover)="onFragmentDragOver(parentPath.concat([i]), $event)"
-               (drop)="onFragmentDrop(parentPath.concat([i]))">
-            <div class="fragment-row-header" [attr.draggable]="true"
-                 (dragstart)="onFragmentDragStart(parentPath.concat([i]), $event)"
-                 (dragend)="onFragmentDragEnd()"
-                 [class.fragment-row-header-clickable]="fragmentIsExpandable(fragment) || fragment.kind === ComposerFragmentKind.EVENTS || fragment.kind === ComposerFragmentKind.TEMPLATE_CONTENT"
-                 (click)="(fragmentIsExpandable(fragment) || fragment.kind === ComposerFragmentKind.EVENTS || fragment.kind === ComposerFragmentKind.TEMPLATE_CONTENT) && toggleFragmentExpanded(fragment.id)">
-              <span class="fragment-handle" title="Drag to reorder this section">
-                <fa-icon [icon]="faGripVertical"/>
-              </span>
-              <span class="fragment-icon">
-                @switch (fragment.kind) {
-                  @case (ComposerFragmentKind.INTRO) { <fa-icon [icon]="faAlignLeft"/> }
-                  @case (ComposerFragmentKind.ARTICLE) { <fa-icon [icon]="faAddressCard"/> }
-                  @case (ComposerFragmentKind.EVENTS) { <fa-icon [icon]="faCalendarDays"/> }
-                  @case (ComposerFragmentKind.SIGNOFF) { <fa-icon [icon]="faSignature"/> }
-                  @case (ComposerFragmentKind.TEMPLATE_CONTENT) { <fa-icon [icon]="faCircleInfo"/> }
-                  @case (ComposerFragmentKind.MULTI_COLUMN) { <fa-icon [icon]="faTableColumns"/> }
-                  @case (ComposerFragmentKind.DIVIDER) { <fa-icon [icon]="faGripLines"/> }
-                  @case (ComposerFragmentKind.COMMITTEE_FILE) { <fa-icon [icon]="faFile"/> }
-                }
-              </span>
-              <div class="fragment-meta">
-                <div class="fragment-label">{{ fragmentLabel(fragment) }}</div>
-                <div class="fragment-preview text-muted small">{{ fragmentPreview(fragment) }}</div>
-              </div>
-              @if (fragmentIsExpandable(fragment)) {
-                <span class="fragment-chevron"
-                      [title]="isFragmentExpanded(fragment.id) ? 'Collapse' : 'Expand'">
-                  <fa-icon [icon]="isFragmentExpanded(fragment.id) ? faChevronDown : faChevronRight"/>
-                </span>
-              }
-              @if (fragment.kind !== ComposerFragmentKind.TEMPLATE_CONTENT) {
-                <button type="button" class="btn btn-sm btn-danger"
-                        (click)="$event.stopPropagation(); removeFragment(parentPath.concat([i]))"
-                        title="Remove section">
-                  <fa-icon [icon]="faTrash"/>
-                </button>
-              }
-            </div>
-            <div class="fragment-divider-cell" (click)="$event.stopPropagation()">
-              <app-section-divider-select [label]="fragment.kind === ComposerFragmentKind.DIVIDER ? 'Style' : 'Divider after'"
-                                          [value]="fragment.dividerAfter"
-                                          (valueChange)="onFragmentDividerChange(parentPath.concat([i]), $event)"/>
-            </div>
-            @if (isFragmentExpanded(fragment.id)) {
-              <div class="fragment-row-body">
+    <ng-template #fragmentBodyTemplate let-fragment>
                 @switch (fragment.kind) {
                   @case (ComposerFragmentKind.INTRO) {
-                    @if (releaseNoteUpdateMode()) {
-                      <ng-container *ngTemplateOutlet="releaseNoteUpdateComposeUi"/>
-                    }
-                    @if (newsletterMode()) {
-                      <div class="mb-2">
-                        <div class="form-check">
-                          <input class="form-check-input" type="checkbox" id="composer-offer-drafted-intro"
-                                 [checked]="composerDrafting().offerDraftedIntro"
-                                 (change)="setOfferDraftedIntro($any($event.target).checked)">
-                          <label class="form-check-label" for="composer-offer-drafted-intro">
-                            <strong>Offer a drafted intro</strong> — the coming walks and social events are pulled in for you, with an intro drafted from them. Everything stays editable afterwards.
-                          </label>
-                        </div>
-                        @if (composerDrafting().offerDraftedIntro) {
-                          <div class="form-check ms-4 mt-1">
-                            <input class="form-check-input" type="checkbox" id="composer-only-approved-walks"
-                                   [checked]="composerDrafting().onlyApprovedWalks"
-                                   (change)="setOnlyApprovedWalks($any($event.target).checked)">
-                            <label class="form-check-label" for="composer-only-approved-walks">
-                              Only include walks that have been approved, so the draft does not mention walks still awaiting their details
-                            </label>
-                          </div>
-                        }
-                      </div>
-                      @if (composerDrafting().offerDraftedIntro) {
-                        <div class="row mb-2">
-                          <div class="col-sm-6 col-lg-4">
-                            <label for="draft-purpose">What should the intro do?</label>
-                            <ng-select id="draft-purpose"
-                                       [items]="draftPurposeOptions"
-                                       bindLabel="label"
-                                       bindValue="key"
-                                       [clearable]="false"
-                                       [searchable]="false"
-                                       [(ngModel)]="draftPurpose"/>
-                            <div class="text-muted small mt-1">{{ draftPurposeHint() }}</div>
-                          </div>
-                        </div>
-                        <div class="mb-2 d-flex align-items-center flex-wrap gap-2">
-                          <button type="button" class="btn btn-primary btn-sm"
-                                  [disabled]="draftingIntro || selectedGroupEventCount() === 0"
-                                  (click)="draftNewsletterIntro()">
-                            <fa-icon [icon]="draftingIntro ? faSpinner : faWandMagicSparkles" [spin]="draftingIntro" class="me-1"/>
-                            {{ draftingIntro ? "Drafting…" : introDraftUndoAvailable() ? "Draft it again" : "Draft the intro" }}
-                          </button>
-                          @if (introDraftUndoAvailable()) {
-                            <button type="button" class="btn btn-sunset btn-sm" (click)="undoDraftedIntro()">
-                              <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Undo draft
-                            </button>
-                          }
-                          @let draftEventCount = eventsForDraftPurpose().length;
-                          <span class="text-muted small">
-                            @if (draftEventCount === 0) {
-                              Nothing on the Events step matches {{ draftPurposeLabel() }} yet.
-                            } @else {
-                              Written from {{ draftEventCount }} of the {{ selectedGroupEventCount() }} selected {{ selectedGroupEventCount() === 1 ? "event" : "events" }}. Read it before you send.
-                            }
-                          </span>
-                        </div>
-                      }
-                    }
+                    <app-email-composer-drafting [mode]="EmailComposerDraftingMode.INTRO"
+                                                [templateValid]="templateStepValid()" [validationMessage]="templateStepValidationMessage()"/>
                     <app-tiptap-markdown-editor #introEditor
                                                 [value]="state.introMarkdown"
                                                 (valueChange)="onIntroMarkdownChange($event)"
@@ -1604,11 +1139,11 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                   }
                   @case (ComposerFragmentKind.EVENTS) {
                     <div class="fragment-events-summary">
-                      @if (selectedGroupEventCount() === 0) {
-                        <div class="text-muted small">No events selected. Choose events on the <a href="javascript:void(0)" (click)="goToStep(3)">Events step</a>.</div>
+                      @if (events.selectedGroupEventCount() === 0) {
+                        <div class="text-muted small">No events selected. Choose events on the <a href="javascript:void(0)" (click)="goToStepKey(EmailComposerStepKey.EVENTS)">Events step</a>.</div>
                       } @else {
                         <ul class="list-unstyled mb-0 small">
-                          @for (event of selectedGroupEventsList(); track event.id) {
+                          @for (event of events.selectedGroupEventsList(); track event.id) {
                             <li>
                               <strong>{{ event.eventDate | displayDate }}</strong>
                               @if (event.eventTime) { <span> &bull; {{ event.eventTime }}</span> }
@@ -1616,7 +1151,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                             </li>
                           }
                         </ul>
-                        <div class="text-muted small mt-1">Edit the list on the <a href="javascript:void(0)" (click)="goToStep(3)">Events step</a>.</div>
+                        <div class="text-muted small mt-1">Edit the list on the <a href="javascript:void(0)" (click)="goToStepKey(EmailComposerStepKey.EVENTS)">Events step</a>.</div>
                       }
                       <app-section-divider-select label="Divider between consecutive events"
                                                   [value]="state.betweenEventsDivider"
@@ -1624,102 +1159,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                     </div>
                   }
                   @case (ComposerFragmentKind.COMMITTEE_FILE) {
-                    <div class="fragment-committee-file">
-                      @let files = committeeFilesFor(fragment);
-                      @if (committeeFileFragmentHasMarkdown(fragment)) {
-                        <div class="mb-3">
-                          <p class="form-label small mb-1">Include in the email</p>
-                          <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio"
-                                   [name]="'committee-file-include-' + fragment.id"
-                                   [id]="'committee-file-include-link-' + fragment.id"
-                                   [checked]="committeeFileInclude(fragment) === CommitteeFileEmailInclude.LINK"
-                                   (change)="setCommitteeFileInclude(fragment, CommitteeFileEmailInclude.LINK)">
-                            <label class="form-check-label" [for]="'committee-file-include-link-' + fragment.id">Link</label>
-                          </div>
-                          <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio"
-                                   [name]="'committee-file-include-' + fragment.id"
-                                   [id]="'committee-file-include-content-' + fragment.id"
-                                   [checked]="committeeFileInclude(fragment) === CommitteeFileEmailInclude.CONTENT"
-                                   (change)="setCommitteeFileInclude(fragment, CommitteeFileEmailInclude.CONTENT)">
-                            <label class="form-check-label" [for]="'committee-file-include-content-' + fragment.id">Content</label>
-                          </div>
-                          <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio"
-                                   [name]="'committee-file-include-' + fragment.id"
-                                   [id]="'committee-file-include-both-' + fragment.id"
-                                   [checked]="committeeFileInclude(fragment) === CommitteeFileEmailInclude.BOTH"
-                                   (change)="setCommitteeFileInclude(fragment, CommitteeFileEmailInclude.BOTH)">
-                            <label class="form-check-label" [for]="'committee-file-include-both-' + fragment.id">Both</label>
-                          </div>
-                        </div>
-                      }
-                      @if (files.length > 0) {
-                        <ul class="list-unstyled mb-2">
-                          @for (file of files; track file.id) {
-                            <li class="py-1">
-                              <div class="d-flex align-items-center justify-content-between gap-2">
-                                <div>
-                                  <strong>{{ file.fileType }}</strong>
-                                  @if (committeeFileDateLabel(file)) {
-                                    <span class="text-muted"> · {{ committeeFileDateLabel(file) }}</span>
-                                  }
-                                  @if (committeeFileShowsDownloadLink(fragment, file)) {
-                                    <a class="ms-2" [href]="committeeDisplayService.fileUrl(file, committeeFileLinkPath(file))"
-                                       target="_blank">{{ committeeFileDownloadFilename(file) }}</a>
-                                  }
-                                </div>
-                                <button type="button" class="btn btn-danger btn-icon flex-shrink-0"
-                                        tooltip="Remove this file" container="body"
-                                        (click)="removeCommitteeFile(fragment, file.id)">
-                                  <fa-icon [icon]="faTrash"/>
-                                </button>
-                              </div>
-                              @if (committeeFileShowsContent(fragment, file)) {
-                                <div class="mt-3">
-                                  <app-tiptap-markdown-editor
-                                    [value]="committeeFileMarkdownForEmail(file)"
-                                    [editable]="false"/>
-                                </div>
-                              }
-                            </li>
-                          }
-                        </ul>
-                      }
-                      @let unresolved = unresolvedCommitteeFileIdsFor(fragment);
-                      @if (unresolved.length > 0) {
-                        <div class="text-danger small mb-2">
-                          Couldn't find committee file{{ unresolved.length === 1 ? '' : 's' }}:
-                          @for (missingId of unresolved; track missingId) { <code class="ms-1">{{ missingId }}</code> }
-                        </div>
-                      }
-                      <div class="row g-2 align-items-end">
-                        <div class="col-md-12">
-                          <label class="form-label small mb-1">Filter by page URL <span class="text-muted">(optional - narrows the dropdown to files on that page)</span>:</label>
-                          <app-site-link-input cssClass="form-control form-control-sm"
-                                               placeholder="Pick a site page to filter committee files"
-                                               [value]="committeeFileUrlInput"
-                                               (valueChange)="onCommitteeFileUrlChanged($event)"/>
-                        </div>
-                      </div>
-                      @if (committeeFileUrlError) {
-                        <div class="text-danger small mt-1">{{ committeeFileUrlError }}</div>
-                      }
-                      <div class="row g-2 align-items-end mt-2">
-                        <div class="col-md-12">
-                          <label class="form-label small mb-1">Choose committee files:</label>
-                          <app-committee-file-multi-select placeholder="Search committee files..."
-                                                           [value]="fragment.committeeFileIds ?? []"
-                                                           [allowedFileIds]="committeeFileUrlAllowedIds"
-                                                           (valueChange)="onCommitteeFileIdsChanged(fragment, $event)"
-                                                           (filesLoaded)="onPickerFilesLoaded($event)"/>
-                        </div>
-                      </div>
-                      @if (files.length === 0 && unresolved.length === 0) {
-                        <div class="text-muted small mt-2">Pick one or more committee files from the dropdown, optionally narrowing them by typing a page URL above.</div>
-                      }
-                    </div>
+                    <app-email-composer-document [fragment]="fragment"/>
                   }
                   @case (ComposerFragmentKind.TEMPLATE_CONTENT) {
                     <div class="fragment-template-content">
@@ -1741,361 +1181,12 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                       }
                     </div>
                   }
-                  @case (ComposerFragmentKind.MULTI_COLUMN) {
-                    <div class="composer-multi-column-row">
-                      @for (column of fragment.columns ?? []; let columnIndex = $index; track columnIndex) {
-                        <div class="composer-column"
-                             [class.composer-column-hover]="isColumnDragHover(parentPath.concat([i, columnIndex]))">
-                          <div class="composer-column-heading text-muted small">Column {{ columnIndex + 1 }}</div>
-                          <ng-container *ngTemplateOutlet="fragmentListTemplate; context: { $implicit: column, parentPath: parentPath.concat([i, columnIndex]) }"/>
-                          <div class="composer-column-tail"
-                               (dragover)="onColumnDragOver(parentPath.concat([i, columnIndex]), $event)"
-                               (drop)="onColumnDrop(parentPath.concat([i, columnIndex]))">
-                            Drop section here
-                          </div>
-                          <div class="composer-column-add">
-                            <button type="button" class="btn btn-sm btn-primary"
-                                    (click)="addArticleFragment(parentPath.concat([i, columnIndex]))">
-                              <fa-icon [icon]="faPlus"/> Add article to column
-                            </button>
-                          </div>
-                        </div>
-                      }
-                    </div>
-                  }
                 }
-              </div>
-            }
-          </div>
-          }
-        }
-        <div class="fragment-list-tail"
-             (dragover)="onColumnDragOver(parentPath, $event)"
-             (drop)="onColumnDrop(parentPath)"
-             [class.fragment-list-tail-hover]="isColumnDragHover(parentPath)"></div>
-      </div>
     </ng-template>
 
     <ng-template #eventsStep>
       <div class="email-composer-section">
-        <ng-container *ngTemplateOutlet="eventsSection"/>
-      </div>
-    </ng-template>
-
-    <ng-template #eventsSection>
-      <div class="row mb-3">
-        <div class="col-sm-12">
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="event-inclusion" id="event-inclusion-none"
-                   [checked]="state.eventInclusion === EventInclusionMode.NONE"
-                   (change)="setEventInclusionMode(EventInclusionMode.NONE)">
-            <label class="form-check-label" for="event-inclusion-none">No events</label>
-          </div>
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="event-inclusion" id="event-inclusion-auto"
-                   [checked]="state.eventInclusion === EventInclusionMode.AUTO_INCLUDE"
-                   (change)="setEventInclusionMode(EventInclusionMode.AUTO_INCLUDE)">
-            <label class="form-check-label" for="event-inclusion-auto">Auto-include from date range</label>
-          </div>
-          @if (state.singleEvent) {
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="event-inclusion" id="event-inclusion-single"
-                     [checked]="state.eventInclusion === EventInclusionMode.SINGLE_EVENT"
-                     (change)="setEventInclusionMode(EventInclusionMode.SINGLE_EVENT)">
-              <label class="form-check-label" for="event-inclusion-single">This event only ({{ state.singleEvent?.groupEvent?.title }})</label>
-            </div>
-          }
-        </div>
-      </div>
-      @if (state.eventInclusion === EventInclusionMode.AUTO_INCLUDE) {
-        <div class="row mb-3">
-          <div class="col-sm-12">
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="newsletter-mode"
-                     [checked]="newsletterMode()"
-                     (change)="onNewsletterModeToggled($any($event.target).checked)">
-              <label class="form-check-label" for="newsletter-mode">
-                <strong>Newsletter</strong> — carry on from where the last newsletter finished. Newsletters are normally created on the Sender &amp; Template step; tick this to turn an email you have already started into one.
-              </label>
-            </div>
-          </div>
-        </div>
-        @if (newsletterMode() && state.newsletter) {
-          <ng-container *ngTemplateOutlet="newsletterUi"/>
-        }
-      }
-      @if (state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && state.groupEventsFilter) {
-        <ng-container *ngTemplateOutlet="autoIncludeUi"/>
-      } @else if (state.eventInclusion === EventInclusionMode.SINGLE_EVENT && state.singleEvent) {
-        <ng-container *ngTemplateOutlet="singleEventUi"/>
-      }
-    </ng-template>
-
-    <ng-template #releaseNoteUpdateComposeUi>
-      <ng-container *ngTemplateOutlet="releaseNoteUpdateSettingsUi"/>
-      <div class="email-composer-validation-summary">
-        <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ releaseNoteUpdateWindowTitle() }}</h5>
-        <ul class="list-arrow">
-          <li>{{ releaseNoteUpdateWindowDescription() }}</li>
-        </ul>
-      </div>
-      <div class="mb-2 d-flex align-items-center flex-wrap gap-2">
-        <button type="button" class="btn btn-primary btn-sm"
-                [disabled]="draftingReleaseNoteUpdate"
-                (click)="draftReleaseNoteUpdate()">
-          <fa-icon [icon]="draftingReleaseNoteUpdate ? faSpinner : faWandMagicSparkles" [spin]="draftingReleaseNoteUpdate" class="me-1"/>
-          {{ draftingReleaseNoteUpdate ? "Drafting…" : introDraftUndoAvailable() ? "Draft it again" : "Draft the update" }}
-        </button>
-        @if (introDraftUndoAvailable()) {
-          <button type="button" class="btn btn-quiet btn-sm" (click)="undoDraftedIntro()">
-            <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Undo draft
-          </button>
-        }
-        <span class="text-muted small">Read it over before you send. Nothing goes out until you do.</span>
-      </div>
-    </ng-template>
-
-    <ng-template #newsletterUi>
-      <div class="row mb-3">
-        <div class="col-sm-4">
-          <label for="newsletter-cadence">How often this newsletter goes out:</label>
-          <ng-select id="newsletter-cadence"
-                     [items]="newsletterCadenceOptions"
-                     bindLabel="label"
-                     bindValue="key"
-                     [clearable]="false"
-                     [searchable]="false"
-                     [ngModel]="state.newsletter!.cadence"
-                     (ngModelChange)="onNewsletterCadenceChange($event)"/>
-        </div>
-        <div class="col-sm-8 d-flex align-items-end">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="newsletter-mark-new"
-                   [(ngModel)]="state.newsletter!.markNewEvents"
-                   (ngModelChange)="onMarkNewEventsChanged()">
-            <label class="form-check-label" for="newsletter-mark-new">
-              Point out which events are new since the last newsletter
-            </label>
-          </div>
-        </div>
-      </div>
-      <div class="row mb-3">
-        <div class="col-sm-12">
-          <div class="alert alert-warning">
-            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ newsletterWindowTitle() }}</h5>
-            <div>{{ newsletterWindowDescription() }}</div>
-          </div>
-        </div>
-      </div>
-    </ng-template>
-
-    <ng-template #singleEventUi>
-      <div class="row mb-3">
-        <div class="col-sm-12">
-          <p class="mb-2">Sending notification about <strong>{{ state.singleEvent?.groupEvent?.title }}</strong>. Switch to <em>Auto-include from date range</em> if you'd like to add more events.</p>
-          @if (state.groupEventsFilter) {
-            <label class="form-label mt-2"><strong>Include information:</strong></label>
-            <div class="d-flex flex-wrap gap-3">
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" id="single-include-description"
-                       [(ngModel)]="state.groupEventsFilter.includeDescription">
-                <label class="form-check-label" for="single-include-description">Description</label>
-              </div>
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" id="single-include-location"
-                       [(ngModel)]="state.groupEventsFilter.includeLocation">
-                <label class="form-check-label" for="single-include-location">Location</label>
-              </div>
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" id="single-include-contact"
-                       [(ngModel)]="state.groupEventsFilter.includeContact">
-                <label class="form-check-label" for="single-include-contact">Contact</label>
-              </div>
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" id="single-include-image"
-                       [(ngModel)]="state.groupEventsFilter.includeImage">
-                <label class="form-check-label" for="single-include-image">Image</label>
-              </div>
-            </div>
-          }
-        </div>
-      </div>
-    </ng-template>
-
-    <ng-template #autoIncludeUi>
-      <div class="row mb-3">
-        <div class="col-sm-12">
-          <strong class="me-3">Date range input:</strong>
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="date-input-mode" id="date-input-slider"
-                   [checked]="dateInputMode === DateInputMode.Slider"
-                   (change)="setDateInputMode(DateInputMode.Slider)">
-            <label class="form-check-label" for="date-input-slider">Slider</label>
-          </div>
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="date-input-mode" id="date-input-pickers"
-                   [checked]="dateInputMode === DateInputMode.Pickers"
-                   (change)="setDateInputMode(DateInputMode.Pickers)">
-            <label class="form-check-label" for="date-input-pickers">Individual dates</label>
-          </div>
-        </div>
-      </div>
-      <div class="row mb-3">
-        <div class="col-sm-4">
-          <label for="date-range-preset">Quick range:</label>
-          <ng-select id="date-range-preset"
-                     [items]="dateRangePresetItems"
-                     bindLabel="label"
-                     [clearable]="false"
-                     [searchable]="false"
-                     [(ngModel)]="selectedDateRangePreset"
-                     (ngModelChange)="onDateRangePresetChange($event)"/>
-        </div>
-        @if (dateInputMode === DateInputMode.Slider) {
-          <div class="col-sm-8 d-flex align-items-end">
-            <app-date-range-slider class="w-100"
-              [minDate]="eventSliderMinDate"
-              [maxDate]="eventSliderMaxDate"
-              [range]="eventSliderRange()"
-              (rangeChange)="onEventDateRangeChange($event)"/>
-          </div>
-        } @else {
-          <div class="col-sm-4">
-            <label for="from-date">Include events from:</label>
-            <app-date-picker startOfDay id="from-date" [size]="'md round'"
-                             (change)="onFromDateChange($event)"
-                             [value]="state.groupEventsFilter!.fromDate"/>
-          </div>
-          <div class="col-sm-4">
-            <label for="to-date">Include events to:</label>
-            <app-date-picker startOfDay id="to-date" [size]="'md round'"
-                             (change)="onToDateChange($event)"
-                             [value]="state.groupEventsFilter!.toDate"/>
-          </div>
-        }
-      </div>
-      <div class="row mb-3">
-        <div class="col-sm-12 d-flex flex-wrap flex-md-nowrap align-items-center">
-          <strong class="me-2 text-nowrap">Include information:</strong>
-          <div class="form-check form-check-inline text-nowrap">
-            <input type="checkbox" class="form-check-input" id="user-events-show-description"
-                   [(ngModel)]="state.groupEventsFilter!.includeDescription"
-                   (ngModelChange)="populateGroupEvents()">
-            <label class="form-check-label" for="user-events-show-description">Description</label>
-          </div>
-          <div class="form-check form-check-inline text-nowrap">
-            <input type="checkbox" class="form-check-input" id="user-events-show-location"
-                   [(ngModel)]="state.groupEventsFilter!.includeLocation"
-                   (ngModelChange)="populateGroupEvents()">
-            <label class="form-check-label" for="user-events-show-location">Location</label>
-          </div>
-          <div class="form-check form-check-inline text-nowrap">
-            <input type="checkbox" class="form-check-input" id="user-events-show-contact"
-                   [(ngModel)]="state.groupEventsFilter!.includeContact"
-                   (ngModelChange)="populateGroupEvents()">
-            <label class="form-check-label" for="user-events-show-contact">Contact</label>
-          </div>
-          <div class="form-check form-check-inline text-nowrap">
-            <input type="checkbox" class="form-check-input" id="user-events-show-image"
-                   [(ngModel)]="state.groupEventsFilter!.includeImage"
-                   (ngModelChange)="populateGroupEvents()">
-            <label class="form-check-label" for="user-events-show-image">Image</label>
-          </div>
-        </div>
-      </div>
-      <div class="row mb-3">
-        <div class="col-sm-12 d-flex flex-wrap flex-md-nowrap align-items-center">
-          <strong class="me-2 text-nowrap">Include event types:</strong>
-          <div class="form-check form-check-inline text-nowrap">
-            <input type="checkbox" class="form-check-input" id="include-walks"
-                   [(ngModel)]="state.groupEventsFilter!.includeWalks"
-                   (ngModelChange)="populateGroupEvents()">
-            <label class="form-check-label" for="include-walks">Walks</label>
-          </div>
-          <div class="form-check form-check-inline text-nowrap">
-            <input type="checkbox" class="form-check-input" id="include-social"
-                   [(ngModel)]="state.groupEventsFilter!.includeSocialEvents"
-                   (ngModelChange)="populateGroupEvents()">
-            <label class="form-check-label" for="include-social">Social events</label>
-          </div>
-          <div class="form-check form-check-inline text-nowrap">
-            <input type="checkbox" class="form-check-input" id="include-committee"
-                   [(ngModel)]="state.groupEventsFilter!.includeCommitteeEvents"
-                   (ngModelChange)="populateGroupEvents()">
-            <label class="form-check-label" for="include-committee">Committee events</label>
-          </div>
-        </div>
-      </div>
-      <div class="row mb-3">
-        <div class="col-sm-12">
-          @if (state.groupEvents.length > 0) {
-            <div class="form-check mb-2">
-              <input class="form-check-input" type="checkbox" id="select-all"
-                     [(ngModel)]="state.groupEventsFilter!.selectAll"
-                     (click)="toggleSelectAllGroupEvents()">
-              <label class="form-check-label" for="select-all">
-                <strong>Select / deselect all</strong> -
-                {{ selectedGroupEventCount() }} of
-                {{ stringUtils.pluraliseWithCount(state.groupEvents.length, "event") }}
-              </label>
-            </div>
-            <ul class="list-unstyled events-scroll">
-              @for (event of state.groupEvents; let idx = $index; track event.id) {
-                <li class="mb-2 event-row">
-                  <div class="event-meta">
-                    <div class="form-check">
-                      <input type="checkbox" class="form-check-input"
-                             [id]="'event-' + idx"
-                             [(ngModel)]="event.selected"
-                             (ngModelChange)="onGroupEventSelectionChanged()">
-                      <label class="form-check-label" [for]="'event-' + idx">
-                        @if (event.newSinceLastNewsletter) {
-                          <span class="badge bg-warning text-dark me-1">New</span>
-                        }
-                        <strong>{{ event.eventDate | displayDate }}</strong>
-                        @if (event.eventTime) { <span> &bull; {{ event.eventTime }}</span> }
-                        &bull; {{ event?.eventType?.description }}
-                        &bull;
-                        <app-link [area]="event?.eventType?.area" [id]="event?.slug || event?.id" [text]="event?.title"></app-link>
-                        @if (event.distance) { <span> &bull; {{ event.distance }}</span> }
-                        @if (state.groupEventsFilter!.includeContact && event.contactName) {
-                          <span> &bull; <a [href]="event.contactHref"
-                                            [target]="event.contactHref?.startsWith('http') ? '_blank' : '_self'">{{ event.contactName || event.contactEmail }}</a></span>
-                        }
-                        @if (state.groupEventsFilter!.includeLocation && event.postcode) {
-                          <span> &bull; <a [href]="googleMapsService.urlForPostcode(event.postcode)" target="_blank">{{ event.postcode }}</a></span>
-                        }
-                      </label>
-                    </div>
-                    @if (state.groupEventsFilter!.includeDescription && event.description) {
-                      <div markdown [data]="event.description" class="ms-4 small text-muted"></div>
-                    }
-                  </div>
-                  @if (state.groupEventsFilter!.includeImage && event.image) {
-                    <div class="event-image">
-                      <img [src]="urlService.imageSource(event.image, true)" [alt]="event.title || ''"/>
-                      @if ((event.media?.length ?? 0) > 1) {
-                        <div class="event-image-controls">
-                          <button type="button" class="btn btn-primary"
-                                  (click)="cycleEventMedia(event, -1)">
-                            <fa-icon [icon]="faArrowLeft"/>
-                          </button>
-                          <span class="small text-muted">{{ (event.selectedMediaIndex ?? 0) + 1 }} of {{ event.media?.length }}</span>
-                          <button type="button" class="btn btn-primary"
-                                  (click)="cycleEventMedia(event, 1)">
-                            <fa-icon [icon]="faArrowRight"/>
-                          </button>
-                        </div>
-                      }
-                    </div>
-                  }
-                </li>
-              }
-            </ul>
-          } @else {
-            <div class="text-muted">No events found in the current date range.</div>
-          }
-        </div>
+        <app-email-composer-events/>
       </div>
     </ng-template>
 
@@ -2111,14 +1202,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             <li>Estimated send time: <strong>{{ estimatedSendTime() }}</strong></li>
           }
         </ul>
-        @if (campaignQueueNotice(); as notice) {
-          <div class="email-composer-validation-summary">
-            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ notice.title }}</h5>
-            <ul class="list-arrow">
-              <li>{{ notice.message }}</li>
-            </ul>
-          </div>
-        }
         <div class="d-flex flex-wrap align-items-center mb-3" style="gap: 0.5rem;">
           <button type="button" class="btn btn-primary" (click)="refreshPreview()">Refresh preview</button>
           <div class="btn-group" role="group" aria-label="Step through recipients">
@@ -2155,74 +1238,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
 
     <ng-template #sendStep>
       <div class="email-composer-section">
-        @if (campaignQueueNotice(); as notice) {
-          <div class="email-composer-validation-summary">
-            <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>{{ notice.title }}</h5>
-            <ul class="list-arrow">
-              <li>{{ notice.message }}</li>
-            </ul>
-          </div>
-        }
-        @if (sendRefusalMessage() || unbrandedListSendBlocked() || showUnbrandedListSendWarning() || subjectStartsWithCopyOf() || subjectUnchangedFromDefault()) {
-          <div class="email-composer-validation-summary">
-            @if (sendRefusalMessage()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Sending is switched off for this site:</h5>
-              <ul class="list-arrow">
-                <li>{{ sendRefusalMessage() }}</li>
-                <li>Nothing will be sent until it is switched back on. A site administrator can check the settings under Mail Settings → API, and the platform administrator if sending has been suspended centrally.</li>
-              </ul>
-            }
-            @if (unbrandedListSendBlocked()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Unbranded sends to more than {{ UNBRANDED_HARD_CAP_RECIPIENTS }} recipients are blocked:</h5>
-              <ul class="list-arrow">
-                <li>This send is for {{ totalRecipientCount() }} recipients - at this volume PECR and GDPR require the unsubscribe link and sender identity that only the Branded format includes. Unbranded omits both.</li>
-                <li>Switch to Branded mode to continue, or reduce the recipient count.</li>
-              </ul>
-              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="switchToBrandedFromWarning()">
-                <fa-icon [icon]="faArrowRotateLeft"/> Switch to Branded
-              </button>
-            } @else if (showUnbrandedListSendWarning()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>This looks like a broadcast rather than a one-to-one reply:</h5>
-              <ul class="list-arrow">
-                <li>Branded format includes the unsubscribe link and sender identity that PECR and GDPR require for marketing-style sends to a list. Unbranded omits both, so it is best kept for replies and one-to-few correspondence.</li>
-                @for (reason of unbrandedListSendWarningReasons(); track reason) {
-                  <li>{{ reason }}</li>
-                }
-              </ul>
-              <div class="d-flex flex-wrap gap-2 mt-2">
-                <button type="button" class="btn btn-primary btn-sm" (click)="switchToBrandedFromWarning()">
-                  <fa-icon [icon]="faArrowRotateLeft"/> Switch to Branded
-                </button>
-                <button type="button" class="btn btn-primary btn-sm" (click)="dismissUnbrandedListSendWarning()">
-                  <fa-icon [icon]="faXmark"/> Dismiss
-                </button>
-              </div>
-            }
-            @if (subjectStartsWithCopyOf()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Subject still says "Copy of …":</h5>
-              <ul class="list-arrow">
-                <li>Update the subject line on the <a href="javascript:void(0)" (click)="goToCompose()">Compose step</a> before sending so recipients don't see "Copy of …".</li>
-              </ul>
-              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="goToCompose()">
-                <fa-icon [icon]="faArrowLeft"/> Go and fix
-              </button>
-            }
-            @if (subjectUnchangedFromDefault()) {
-              <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Subject still has the automatic title:</h5>
-              <ul class="list-arrow">
-                <li>The subject is still "{{ state.subject }}", filled in by this email type. Change it on the <a href="javascript:void(0)" (click)="goToCompose()">Compose</a> step before sending so recipients don't see a generated heading.</li>
-              </ul>
-              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="goToCompose()">
-                <fa-icon [icon]="faArrowLeft"/> Go and fix
-              </button>
-            }
-          </div>
-        }
-        @if (sendInProgress) {
-          <div class="email-composer-validation-summary">
-            <h5><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>{{ sendProgressDescription() }}</h5>
-          </div>
-        }
         @if (batchProgress) {
           <div class="row">
             <div class="col-sm-12">
@@ -2255,17 +1270,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                   </span>
                 }
               </div>
-              @if (nextConfigAfterSend) {
-                <div class="alert alert-warning mt-3">
-                  <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Next step: "{{ nextConfigAfterSend.subject?.text }}"</h5>
-                  <ul class="list-arrow">
-                    <li>This email type is set to run "{{ nextConfigAfterSend.subject?.text }}" afterwards. Continue to select its recipients and send it.</li>
-                  </ul>
-                  <button type="button" class="btn btn-primary" (click)="continueToNextConfig()">
-                    <fa-icon [icon]="faArrowRight" class="me-1"/>Continue to "{{ nextConfigAfterSend.subject?.text }}"
-                  </button>
-                </div>
-              }
               @if (batchProgress.entries?.length > 0 && (batchProgress.failedCount > 0 || batchProgress.skippedCount > 0 || batchSendComplete())) {
                 <details class="mt-2">
                   <summary>Per-recipient detail</summary>
@@ -2310,7 +1314,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
   `
 })
 export class EmailComposer implements OnInit, DoCheck, OnDestroy {
-
   @HostListener("input")
   @HostListener("change")
   markUserEdit(): void {
@@ -2332,10 +1335,28 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private volunteerSnapshot: VolunteerManagementSnapshot | null = null;
 
   protected get composerMergeFieldCatalogue(): MergeFieldGroup[] {
-    return this.state.context?.source === EmailComposerContextSource.VOLUNTEER
+    return this.session.state.context?.source === EmailComposerContextSource.VOLUNTEER
       ? [...MERGE_FIELD_CATALOGUE, ...VOLUNTEER_MERGE_FIELD_CATALOGUE]
       : MERGE_FIELD_CATALOGUE;
   }
+
+  protected documents = inject(EmailComposerDocumentsService);
+  protected events = inject(EmailComposerEventSelectionService);
+  protected drafting = inject(EmailComposerDraftingService);
+  protected sender = inject(EmailComposerSenderService);
+  protected session = inject(EmailComposerSessionService);
+  protected recipientSources = inject(EmailComposerRecipientSourcesService);
+  protected recipientResolution = inject(EmailComposerRecipientResolutionService);
+  protected recipients = inject(EmailComposerRecipientsService);
+
+  protected get state(): EmailComposerState {
+    return this.session.state;
+  }
+
+  protected set state(value: EmailComposerState) {
+    this.session.state = value;
+  }
+
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private uiActions = inject(UiActionsService);
@@ -2353,72 +1374,49 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private memberLoginService = inject(MemberLoginService);
   private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   private changeDetector = inject(ChangeDetectorRef);
+  protected pendingSubjectFocus = false;
   private systemConfigService = inject(SystemConfigService);
   private salesforceConfigService = inject(SalesforceConfigService);
   protected stringUtils = inject(StringUtilsService);
   protected dateUtils = inject(DateUtilsService);
+  protected updateSettings = inject(EmailComposerUpdateSettingsService);
+  protected readonly EmailComposerDraftingMode = EmailComposerDraftingMode;
+  protected fragmentEditor = inject(EmailComposerFragmentsService);
   private rendering = inject(EmailComposerRenderingService);
   private sendService = inject(EmailComposerSendService);
   private inboxReplyHandoff = inject(InboxReplyHandoffService);
   private videoMeetingInviteHandoff = inject(VideoMeetingInviteHandoffService);
-  private fileUploadService = inject(FileUploadService);
   private inboxService = inject(InboxService);
   private externalRecipientService = inject(ExternalRecipientService);
   private modalService = inject(BsModalService);
-  private committeeQueryService = inject(CommitteeQueryService);
   private committeeConfigService = inject(CommitteeConfigService);
-  private committeeFileService = inject(CommitteeFileService);
   protected committeeDisplayService = inject(CommitteeDisplayService);
-  private mediaQueryService = inject(MediaQueryService);
-  private pageService = inject(PageService);
-  private pageContentService = inject(PageContentService);
-  private walksAndEventsService = inject(WalksAndEventsService);
-  protected googleMapsService = inject(GoogleMapsService);
   protected urlService = inject(UrlService);
   private compositionsService = inject(EmailCompositionsService);
   private releaseNoteUpdateConfigService = inject(ReleaseNoteUpdateConfigService);
   private aiService = inject(AiService);
   private scheduledTaskService = inject(ScheduledTaskService);
   private http = inject(HttpClient);
-  protected numberUtils = inject(NumberUtilsService);
-  protected attachmentUploading = false;
-
-  @ViewChild("emailPreview") emailPreview!: EmailPreviewComponent;
-  @ViewChild("eventsContent") eventsContent!: ElementRef<HTMLDivElement>;
-  @ViewChild(Stepper) stepperRef!: Stepper;
-  @ViewChild(NotificationDirective) notificationDirective!: NotificationDirective;
-
-  protected state: EmailComposerState = defaultEmailComposerState();
+  @ViewChild("emailPreview")
+  emailPreview!: EmailPreviewComponent;
+  @ViewChild("eventsContent")
+  eventsContent!: ElementRef<HTMLDivElement>;
+  @ViewChild(Stepper)
+  stepperRef!: Stepper;
+  @ViewChild(NotificationDirective)
+  notificationDirective!: NotificationDirective;
   protected stepperActiveTab: EmailComposerStepKey = EmailComposerStepKey.TEMPLATE;
   protected previewRecipientIndex = 0;
   private autoPreviewPending = false;
   protected stepperSteps = EMAIL_COMPOSER_STEPS;
   protected addresseeOptions = ADDRESSEE_OPTIONS;
-  protected mailMessagingConfig: MailMessagingConfig | null = null;
-  protected systemConfig: SystemConfig | null = null;
-  protected committeeReferenceData: CommitteeReferenceData | null = null;
-  protected committeeFiles: Map<string, CommitteeFile> = new Map();
-  protected allCommitteeFiles: CommitteeFile[] = [];
-  protected committeeFileUrlInput = "";
-  protected committeeFileUrlError: string | null = null;
-  protected committeeFileUrlAllowedIds: string[] | null = null;
-  protected members: Member[] = [];
-  protected allMembers: Member[] = [];
-  protected memberBulkLoadDateMap: MemberBulkLoadDateMap | null = null;
   protected senderExists = false;
   protected forcedConfigId: string | null = null;
   protected forcedConfigSlug: string | null = null;
-  protected forcedMemberId: string | null = null;
-  protected currentDraftId: string | null = null;
   protected currentComposition: EmailComposition | null = null;
   protected drafts: EmailCompositionSummary[] = [];
   protected sentEmails: EmailCompositionSummary[] = [];
-  protected savedExternalRecipients: ExternalRecipient[] = [];
-  protected loggedInMemberRecord: Member | null = null;
   private salesforceEnabled = false;
-  protected platformAdminEnabled = false;
-  protected newExternalSaveForReuse = true;
-  protected replyCcSuggestion: ComposerExternalRecipient[] = [];
   protected draftsPanelOpen = false;
   protected sentEmailsPanelOpen = false;
   protected composeShared = false;
@@ -2431,18 +1429,15 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private automaticCampaignReleaseTaskEnabled: boolean | null = null;
   protected unbrandedListSendWarningDismissed = false;
   protected unbrandedSenderAlertDismissed = false;
+  protected recipientsChosenAlertDismissed = false;
+  protected recipientAddressesPrivateAlertDismissed = false;
   protected readonly UNBRANDED_HARD_CAP_RECIPIENTS = UNBRANDED_HARD_CAP_RECIPIENTS;
   protected batchProgress: BatchSendProgress | null = null;
   protected batchSendJobId: string | null = null;
   protected postSendActionWarningDismissed = false;
-  protected notifyTarget: AlertTarget = {};
-  private notify!: AlertInstance;
   private subscriptions: Subscription[] = [];
   private pollSubscription: Subscription | null = null;
-  private recipientAddressModeTouched = false;
   private userPickedEmailType = false;
-  private userPickedRecipientMode = false;
-
   protected readonly EmailComposerStepKey = EmailComposerStepKey;
   protected readonly RecipientMode = RecipientMode;
   protected readonly RecipientField = RecipientField;
@@ -2450,7 +1445,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected readonly EventInclusionMode = EventInclusionMode;
   protected readonly CommitteeFileEmailInclude = CommitteeFileEmailInclude;
   protected readonly ComposerFragmentKind = ComposerFragmentKind;
-  protected readonly DateInputMode = DateInputMode;
   protected readonly DragHoverPosition = DragHoverPosition;
   protected readonly PreviewStepDirection = PreviewStepDirection;
   protected readonly BrandingMode = BrandingMode;
@@ -2472,64 +1466,28 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected readonly faFolderOpen = faFolderOpen;
   protected readonly faFile = faFile;
   protected readonly faTriangleExclamation = faTriangleExclamation;
-  protected readonly faWandMagicSparkles = faWandMagicSparkles;
-  protected readonly newsletterCadenceOptions: NewsletterCadenceOption[] = NEWSLETTER_CADENCE_OPTIONS;
-  protected readonly newsletterPeriodOptions: NewsletterCadenceOption[] = NEWSLETTER_CADENCE_OPTIONS.filter(option => option.days !== null);
-  protected readonly rangeUnitOptions = RANGE_UNIT_OPTIONS;
-  protected readonly NewsletterStartMode = NewsletterStartMode;
-  protected readonly NewsletterCadence = NewsletterCadence;
-  protected newsletterStartMode: NewsletterStartMode = NewsletterStartMode.PERIOD;
-  protected newsletterStartPeriod: NewsletterCadence = DEFAULT_NEWSLETTER_CADENCE;
-  protected newsletterFreeText = "";
-  protected creatingNewsletter = false;
-  protected creatingReleaseNoteUpdate = false;
-  protected draftingIntro = false;
-  protected draftingReleaseNoteUpdate = false;
-  protected releaseNoteUpdateSettingsExpanded = false;
-  protected releaseNoteUpdateDefaults: ReleaseNoteUpdateDefaults = defaultReleaseNoteUpdateDefaults();
-  protected releaseNoteUpdateConfiguration: ReleaseNoteUpdateConfiguration = {defaultProfileId: "default", profiles: []};
-  protected selectedReleaseNoteUpdateProfileId = "default";
-  protected readonly releaseNoteUpdateCategoryOptions: ReleaseNoteUpdateOption<ReleaseNoteUpdateCategory>[] = [
-    {value: ReleaseNoteUpdateCategory.EMAIL, label: "Email features", hint: "Inbox, newsletters, subscriptions, sending, delivery and member communications."},
-    {value: ReleaseNoteUpdateCategory.NON_EMAIL, label: "Non-email features", hint: "Walks, events, website content, maps, images and social media."},
-    {value: ReleaseNoteUpdateCategory.PLATFORM_MANAGEMENT, label: "Platform management", hint: "Managing websites, environments, setup and administration across NGX."}
-  ];
-  protected readonly releaseNoteUpdateCoverageOptions: ReleaseNoteUpdateOption<ReleaseNoteUpdateCoverage>[] = [
-    {value: ReleaseNoteUpdateCoverage.COMPREHENSIVE, label: "Comprehensive", hint: "Cover every material consumer-facing capability in the selected period."},
-    {value: ReleaseNoteUpdateCoverage.HIGHLIGHTS, label: "Highlights only", hint: "Choose the changes most likely to matter to volunteers and members."}
-  ];
-  protected draftPurpose: NewsletterIntroPurpose = DEFAULT_NEWSLETTER_INTRO_PURPOSE;
-  protected readonly draftPurposeOptions = NEWSLETTER_INTRO_PURPOSE_OPTIONS;
-  private introBeforeDraft: string | null = null;
-  private articlesBeforeDraft: ArticleBlock[] | null = null;
-  private fragmentOrderBeforeDraft: ComposerFragment[] | null = null;
-  private previousNewsletter: PreviousNewsletter | null = null;
-  private previousReleaseNoteUpdate: PreviousReleaseNoteUpdate | null = null;
   protected readonly faCheckCircle = faCheckCircle;
-  protected readonly faGripVertical = faGripVertical;
-  protected readonly faAlignLeft = faAlignLeft;
-  protected readonly faAddressCard = faAddressCard;
-  protected readonly faSignature = faSignature;
   protected readonly faTableColumns = faTableColumns;
-  protected readonly faCalendarDays = faCalendarDays;
-  protected readonly faChevronDown = faChevronDown;
-  protected readonly faChevronRight = faChevronRight;
-  public inboxReplyContext: InboxReplyOutboundContext | null = null;
   protected inboxReplyLoading = false;
   private turndownService = new TurndownService({headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced"});
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly faPlus = faPlus;
-  protected readonly faPaperclip = faPaperclip;
   protected readonly SendingChannel = SendingChannel;
   protected readonly faTrash = faTrash;
-  protected readonly faGripLines = faGripLines;
 
   async ngOnInit(): Promise<void> {
-    this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.session.notify = this.notifierService.createAlertInstance(this.session.notifyTarget);
+    this.subscriptions.push(this.session.requestStep.subscribe(key => {
+      this.goToStepKey(this.canAccessStep(key) ? key : EmailComposerStepKey.RECIPIENTS);
+    }));
+    this.subscriptions.push(this.session.contentChanged.subscribe(() => {
+      this.changeDetector.detectChanges();
+      this.maybeAutoRefreshPreview();
+    }));
     void this.loadSavedExternalRecipients();
     const identityAndSalesforceConfig = Promise.all([
-      this.loadLoggedInMemberRecord(),
-      this.loadReleaseNoteUpdateDefaults(),
+      this.sender.loadLoggedInMemberRecord(),
+      this.updateSettings.loadReleaseNoteUpdateDefaults(this.session.state, this.session.currentDraftId),
       this.salesforceConfigService.refresh().then(config => {
         this.salesforceEnabled = config.enabled;
       }),
@@ -2541,57 +1499,57 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       void this.applyCompositionFromRoute(paramMap);
     }));
     this.subscriptions.push(this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => {
-      this.committeeReferenceData = data;
-      this.cachedCommitteeAddresses = composerCommitteeRecipients(data?.committeeMembers() ?? []);
-      this.syncNotificationConfigBccIntoBcc();
-      this.syncRecipientAddressMode();
+      this.recipientSources.committeeReferenceData = data;
+      this.recipientResolution.cachedCommitteeAddresses = composerCommitteeRecipients(data?.committeeMembers() ?? []);
+      this.recipients.syncNotificationConfigBccIntoBcc();
+      this.recipients.syncRecipientAddressMode();
       this.changeDetector.markForCheck();
     }));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(config => {
-      this.mailMessagingConfig = config;
+      this.recipientSources.mailMessagingConfig = config;
       void this.loadSendStatus();
       if (config.committeeReferenceData) {
-        this.committeeReferenceData = config.committeeReferenceData as CommitteeReferenceData;
-        this.cachedCommitteeAddresses = composerCommitteeRecipients(this.committeeReferenceData.committeeMembers() ?? []);
-        this.syncNotificationConfigBccIntoBcc();
+        this.recipientSources.committeeReferenceData = config.committeeReferenceData as CommitteeReferenceData;
+        this.recipientResolution.cachedCommitteeAddresses = composerCommitteeRecipients(this.recipientSources.committeeReferenceData.committeeMembers() ?? []);
+        this.recipients.syncNotificationConfigBccIntoBcc();
       }
       if (this.forcedConfigSlug) {
         this.forcedConfigId = this.resolveConfigIdFromSlug(this.forcedConfigSlug);
       }
-      this.state.notificationConfigListing = {
+      this.session.state.notificationConfigListing = {
         mailMessagingConfig: config,
         includeWorkflowRelatedConfigs: false,
         forceIncludeConfigIds: this.forcedIncludeConfigIds()
       };
-      if (!this.userPickedEmailType && !this.currentDraftId && !this.pendingDraftLoad) {
+      if (!this.userPickedEmailType && !this.session.currentDraftId && !this.pendingDraftLoad) {
         this.autoSelectNotificationConfig();
       }
-      this.applyDefaultListIfNeeded();
-      this.syncRecipientAddressMode();
+      this.recipients.applyDefaultListIfNeeded();
+      this.recipients.syncRecipientAddressMode();
       this.changeDetector.markForCheck();
     }));
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
-      this.systemConfig = systemConfig;
+      this.session.systemConfig = systemConfig;
     }));
     this.subscriptions.push(this.memberResourcesReferenceData.platformAdminEnabledChanges().subscribe(enabled => {
-      this.platformAdminEnabled = enabled;
+      this.session.platformAdminEnabled = enabled;
       this.changeDetector.markForCheck();
     }));
     await identityAndSalesforceConfig;
-    this.allMembers = await this.memberService.privilegedFields();
+    this.recipientSources.allMembers = await this.memberService.privilegedFields();
     await this.applyVolunteerAudience();
-    this.members = this.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
-    this.applyDefaultListIfNeeded();
-    if (this.state.brandingMode !== BrandingMode.UNBRANDED) {
-      this.applyPreFilterAudienceToTo();
+    this.recipientSources.members = this.recipientSources.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
+    this.recipients.applyDefaultListIfNeeded();
+    if (this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
+      this.recipients.applyPreFilterAudienceToTo();
     } else {
-      this.clearUnbrandedBulkRecipients();
-      this.state.externalRecipients = this.expandListChipsWhenMixedWithPeople(this.state.externalRecipients ?? []);
+      this.recipients.clearUnbrandedBulkRecipients();
+      this.session.state.externalRecipients = this.recipients.expandListChipsWhenMixedWithPeople(this.session.state.externalRecipients ?? []);
     }
-    this.syncRecipientAddressMode();
-    this.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
-    if (this.state.brandingMode !== BrandingMode.UNBRANDED) {
-      this.applyPreFilterAudienceToTo();
+    this.recipients.syncRecipientAddressMode();
+    this.recipientSources.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
+    if (this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
+      this.recipients.applyPreFilterAudienceToTo();
     }
     await this.refreshDrafts();
   }
@@ -2606,49 +1564,53 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private configById(id: string | null | undefined): NotificationConfig | null {
-    return id ? (this.mailMessagingConfig?.notificationConfigs ?? []).find(config => config.id === id) ?? null : null;
+    return id ? (this.recipientSources.mailMessagingConfig?.notificationConfigs ?? []).find(config => config.id === id) ?? null : null;
   }
 
   private forcedIncludeConfigIds(): string[] {
-    return [this.forcedConfigId, this.state.notificationConfig?.id].filter((id): id is string => !!id);
+    return [this.forcedConfigId, this.session.state.notificationConfig?.id].filter((id): id is string => !!id);
   }
 
+  private workflowArrivalConfigId: string | null = null;
+
   protected precedingConfig(): NotificationConfig | null {
-    const currentId = this.state.notificationConfig?.id;
-    return currentId && this.state.brandingMode !== BrandingMode.UNBRANDED
-      ? (this.mailMessagingConfig?.notificationConfigs ?? []).find(config => config.nextNotificationConfigId === currentId && config.id !== currentId) ?? null
+    const currentId = this.session.state.notificationConfig?.id;
+    return currentId && this.session.state.brandingMode !== BrandingMode.UNBRANDED
+      && this.configById(this.workflowArrivalConfigId)?.nextNotificationConfigId !== currentId
+      ? (this.recipientSources.mailMessagingConfig?.notificationConfigs ?? []).find(config => config.nextNotificationConfigId === currentId && config.id !== currentId) ?? null
       : null;
   }
 
   private offerNextConfigAfterSend(): void {
-    this.nextConfigAfterSend = this.state.brandingMode === BrandingMode.UNBRANDED
+    this.nextConfigAfterSend = this.session.state.brandingMode === BrandingMode.UNBRANDED
       ? null
-      : this.configById(this.state.notificationConfig?.nextNotificationConfigId);
+      : this.configById(this.session.state.notificationConfig?.nextNotificationConfigId);
   }
 
-  async continueToNextConfig(): Promise<void> {
-    const next = this.nextConfigAfterSend;
+  async continueToNextConfig(next: NotificationConfig | null = this.nextConfigAfterSend): Promise<void> {
     if (next) {
+      const previousConfigId = this.session.state.notificationConfig?.id ?? null;
       await this.postSendRefresh;
       this.nextConfigAfterSend = null;
       this.batchProgress = null;
       this.campaignSendComplete = false;
       this.sendConfirm.clear();
-      this.notify.hide();
-      this.state.subject = "";
-      this.state.selectedMemberIds = [];
+      this.session.notify.hide();
+      this.session.state.subject = "";
+      this.session.state.selectedMemberIds = [];
       this.onEmailConfigChanged(next);
+      this.workflowArrivalConfigId = previousConfigId;
       this.goToStepKey(EmailComposerStepKey.RECIPIENTS);
     }
   }
 
   private async refreshMembersAfterPostSendActions(): Promise<void> {
-    if ((this.state.notificationConfig?.postSendActions ?? []).length > 0) {
+    if ((this.session.state.notificationConfig?.postSendActions ?? []).length > 0) {
       try {
-        this.allMembers = await this.memberService.privilegedFields();
-        this.members = this.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
-        this.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
-        this.logger.info("refreshed", this.members.length, "group members after post-send actions");
+        this.recipientSources.allMembers = await this.memberService.privilegedFields();
+        this.recipientSources.members = this.recipientSources.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
+        this.recipientSources.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
+        this.logger.info("refreshed", this.recipientSources.members.length, "group members after post-send actions");
       } catch (error) {
         this.logger.error("could not refresh members after post-send actions:", error);
       }
@@ -2668,43 +1630,43 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.forcedConfigId = this.resolveConfigIdFromSlug(slug);
     const memberParam = queryParams.get(StoredValue.MEMBER);
     if (memberParam) {
-      this.forcedMemberId = memberParam;
+      this.recipients.forcedMemberId = memberParam;
     }
     const sourcePage = queryParams.get(StoredValue.SOURCE_PAGE);
     const committeeFile = queryParams.get(StoredValue.COMMITTEE_FILE);
     const eventQuery = queryParams.get(StoredValue.EVENT);
     const eventPath = pathParams.get(StoredValue.COMMITTEE_EVENT_ID);
     if (eventQuery && !committeeFile && !sourcePage) {
-      this.state.context = { source: EmailComposerContextSource.GROUP_EVENT, groupEventId: eventQuery };
-      this.state.eventInclusion = EventInclusionMode.SINGLE_EVENT;
-      this.ensureGroupEventsFilter();
-      await this.loadSingleEvent(eventQuery);
+      this.session.state.context = {source: EmailComposerContextSource.GROUP_EVENT, groupEventId: eventQuery};
+      this.session.state.eventInclusion = EventInclusionMode.SINGLE_EVENT;
+      this.events.ensureGroupEventsFilter();
+      await this.events.loadSingleEvent(eventQuery);
       this.autoSelectNotificationConfig();
       this.applyGroupEventCampaignRecipients();
     } else if (committeeFile || sourcePage || eventPath) {
-      this.state.context = {
+      this.session.state.context = {
         source: EmailComposerContextSource.COMMITTEE,
         committeeFileSlug: committeeFile ?? undefined,
         sourcePagePath: sourcePage ?? undefined,
         groupEventId: eventPath ?? undefined
       };
       if (committeeFile) {
-        this.state.eventInclusion = EventInclusionMode.NONE;
-        await this.loadAllCommitteeFiles();
-        const matched = this.allCommitteeFiles.find(file => this.committeeDisplayService.committeeFileSlug(file) === committeeFile);
+        this.session.state.eventInclusion = EventInclusionMode.NONE;
+        await this.documents.loadAllCommitteeFiles();
+        const matched = this.documents.allCommitteeFiles.find(file => this.committeeDisplayService.committeeFileSlug(file) === committeeFile);
         if (matched) {
-          this.ensureCommitteeFileFragmentForIds([matched.id]);
-          await this.resolveCommitteeFiles(this.allFragmentCommitteeFileIds());
+          this.documents.ensureCommitteeFileFragmentForIds([matched.id]);
+          await this.documents.resolveCommitteeFiles(this.documents.allFragmentCommitteeFileIds());
         } else {
           this.logger.warn("applyContextFromRoute:no committee file matched slug:", committeeFile);
         }
       } else {
-        this.state.eventInclusion = EventInclusionMode.AUTO_INCLUDE;
-        this.ensureGroupEventsFilter();
-        await this.populateGroupEvents();
+        this.session.state.eventInclusion = EventInclusionMode.AUTO_INCLUDE;
+        this.events.ensureGroupEventsFilter();
+        await this.events.populateGroupEvents();
       }
     } else if (queryParams.get(StoredValue.AUDIENCE)) {
-      this.state.context = {
+      this.session.state.context = {
         source: EmailComposerContextSource.VOLUNTEER,
         volunteerAudience: {
           audienceType: queryParams.get(StoredValue.AUDIENCE) as VolunteerAudienceType,
@@ -2713,21 +1675,21 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
           rightsOfWayGroupCode: queryParams.get(StoredValue.GROUP)
         }
       };
-      this.state.eventInclusion = EventInclusionMode.NONE;
+      this.session.state.eventInclusion = EventInclusionMode.NONE;
       const letterSeed = volunteerLetterSeed(queryParams.get(StoredValue.LETTER));
       if (letterSeed) {
-        this.state.subject = letterSeed.subject;
-        this.state.introMarkdown = letterSeed.introMarkdown;
+        this.session.state.subject = letterSeed.subject;
+        this.session.state.introMarkdown = letterSeed.introMarkdown;
       }
     } else {
-      this.state.context = { source: EmailComposerContextSource.ADMIN };
-      this.state.eventInclusion = EventInclusionMode.NONE;
+      this.session.state.context = {source: EmailComposerContextSource.ADMIN};
+      this.session.state.eventInclusion = EventInclusionMode.NONE;
     }
   }
 
   private async ensureVolunteerSnapshot(): Promise<void> {
     if (!this.volunteerSnapshot) {
-      const groupCode = this.systemConfig?.group?.groupCode ?? "";
+      const groupCode = this.session.systemConfig?.group?.groupCode ?? "";
       try {
         this.volunteerSnapshot = await firstValueFrom(this.volunteerManagementService.snapshot(groupCode));
       } catch (error) {
@@ -2737,10 +1699,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private async applyVolunteerAudience(): Promise<void> {
-    const criteria = this.state.context?.volunteerAudience;
+    const criteria = this.session.state.context?.volunteerAudience;
     if (criteria?.audienceType) {
       try {
-        const groupCode = this.systemConfig?.group?.groupCode ?? "";
+        const groupCode = this.session.systemConfig?.group?.groupCode ?? "";
         const [snapshot, contacts] = await Promise.all([
           firstValueFrom(this.volunteerManagementService.snapshot(groupCode)),
           this.externalRecipientService.list()
@@ -2748,18 +1710,24 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         const audience = volunteerAudience(criteria, {
           parishes: snapshot.parishes,
           assignments: snapshot.assignments,
-          members: this.allMembers,
+          members: this.recipientSources.allMembers,
           contacts
         });
-        this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-        this.state.selectedMemberIds = audience.supporterIds;
-        this.state.externalRecipients = audience.externalRecipients.map(recipient => ({email: recipient.email, name: recipient.name}));
+        this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+        this.session.state.selectedMemberIds = audience.supporterIds;
+        this.session.state.externalRecipients = audience.externalRecipients.map(recipient => ({
+          email: recipient.email,
+          name: recipient.name
+        }));
         this.volunteerAudienceSummary = audience;
         this.volunteerSnapshot = snapshot;
         this.logger.info("applyVolunteerAudience:", audience.title, "members:", audience.supporterIds.length, "contacts:", audience.externalRecipients.length, "excluded:", audience.excluded.length);
       } catch (error) {
         this.logger.error("applyVolunteerAudience failed", error);
-        this.notify.error({title: "Volunteer audience could not be loaded", message: this.stringUtils.stringifyObject(error)});
+        this.session.notify.error({
+          title: "Volunteer audience could not be loaded",
+          message: this.stringUtils.stringifyObject(error)
+        });
       }
     }
   }
@@ -2771,1219 +1739,36 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     const draftId = queryParams.get(StoredValue.DRAFT_ID);
     const copyOfId = queryParams.get(StoredValue.COPY_OF);
     const key = draftId ? `draft:${draftId}` : copyOfId ? `copy-of:${copyOfId}` : null;
-    if (key === this.routeCompositionKey) {
-      return;
-    }
-    this.routeCompositionKey = key;
-    if (draftId) {
-      this.pendingDraftLoad = true;
-      await this.loadDraft(draftId);
-      this.pendingDraftLoad = false;
-    } else if (copyOfId) {
-      await this.useAsTemplate(copyOfId);
-    }
-  }
-
-  private ensureGroupEventsFilter(): void {
-    if (this.state.groupEventsFilter) return;
-    const today = this.dateUtils.dateTimeNowNoTime();
-    this.state.groupEventsFilter = {
-      search: null,
-      selectAll: true,
-      fromDate: this.dateUtils.asDateValue(today.toMillis()),
-      toDate: this.dateUtils.asDateValue(today.plus({ weeks: 2 }).toMillis()),
-      includeImage: true,
-      includeContact: true,
-      includeDescription: true,
-      includeLocation: true,
-      includeWalks: true,
-      includeSocialEvents: true,
-      includeCommitteeEvents: true
-    };
-    this.recomputeSliderBoundsFromCurrentRange();
-    this.selectedDateRangePreset = this.matchPresetToCurrentRange();
-  }
-
-  private async loadSingleEvent(eventId: string): Promise<void> {
-    const event = await this.queryEventByIdSafely(eventId);
-    this.state.singleEvent = event;
-    if (event && !this.state.subject) {
-      this.state.subject = event.groupEvent?.title ?? this.state.subject;
-      this.state.showTitle = false;
-    }
-    this.state.groupEvents = event ? [this.eventToSummary(event)] : [];
-  }
-
-  private async queryEventByIdSafely(eventId: string): Promise<ExtendedGroupEvent | null> {
-    try {
-      return await this.walksAndEventsService.queryById(eventId);
-    } catch (error) {
-      this.logger.error("queryEventByIdSafely failed", error);
-      return null;
-    }
-  }
-
-  private eventToSummary(event: ExtendedGroupEvent): GroupEventSummary {
-    return {
-      id: event.id || event?.groupEvent?.id,
-      ramblersEventType: event?.groupEvent?.item_type || RamblersEventType.GROUP_WALK,
-      slug: eventSlug(event),
-      selected: true,
-      eventType: this.committeeDisplayService.groupEventType(event),
-      eventDate: event?.groupEvent?.start_date_time
-        ? this.dateUtils.asDateTime(event.groupEvent.start_date_time).toMillis()
-        : null,
-      eventTime: event?.groupEvent?.start_date_time
-        ? this.dateUtils.asString(event.groupEvent.start_date_time, undefined, this.dateUtils.formats.displayTime)
-        : null,
-      location: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.description,
-      postcode: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.postcode,
-      title: event?.groupEvent?.title || "Awaiting " + this.stringUtils.asTitle(event?.groupEvent?.item_type ?? "event") + " details",
-      description: event?.groupEvent?.description,
-      contactName: event?.fields?.contactDetails?.displayName,
-      contactPhone: event?.fields?.contactDetails?.phone,
-      contactEmail: event?.fields?.contactDetails?.email,
-      image: this.mediaQueryService.imageUrlFrom(event?.groupEvent),
-      media: event?.groupEvent?.media ?? [],
-      selectedMediaIndex: 0
-    } as GroupEventSummary;
-  }
-
-  private async loadAllCommitteeFiles(): Promise<void> {
-    try {
-      this.allCommitteeFiles = await this.committeeFileService.all();
-    } catch (error) {
-      this.logger.error("loadAllCommitteeFiles failed", error);
-      this.allCommitteeFiles = [];
-    }
-  }
-
-  protected onPickerFilesLoaded(files: CommitteeFile[]): void {
-    this.allCommitteeFiles = files ?? [];
-    void this.resolveCommitteeFiles(this.allFragmentCommitteeFileIds());
-  }
-
-  private async resolveCommitteeFiles(ids: string[]): Promise<void> {
-    this.committeeFiles = new Map();
-    if (!ids?.length || !this.allCommitteeFiles?.length) return;
-    const wanted = new Set(ids);
-    for (const file of this.allCommitteeFiles) {
-      if (wanted.has(file.id)) {
-        this.committeeFiles.set(file.id, file);
+    if (!(key === this.routeCompositionKey)) {
+      this.routeCompositionKey = key;
+      if (draftId) {
+        this.pendingDraftLoad = true;
+        await this.loadDraft(draftId);
+        this.pendingDraftLoad = false;
+      } else if (copyOfId) {
+        await this.useAsTemplate(copyOfId);
       }
     }
-    const missing = ids.filter(id => !this.committeeFiles.has(id));
-    if (missing.length > 0) {
-      this.logger.warn("resolveCommitteeFiles:no files found for ids:", missing);
-    }
-    await this.resolveCommitteeFilePagePaths(ids);
-  }
-
-  private committeeFilePagePathById = new Map<string, string>();
-
-  private async resolveCommitteeFilePagePaths(ids: string[]): Promise<void> {
-    const unresolved = ids.filter(id => !this.committeeFilePagePathById.has(id));
-    if (unresolved.length === 0) {
-      return;
-    }
-    try {
-      const pages: PageContent[] = await this.pageContentService.all({
-        criteria: {"rows.committeeDocuments.fileIds": {$in: unresolved}}
-      });
-      pages.forEach(page => (page.rows ?? []).forEach(row => (row.committeeDocuments?.fileIds ?? []).forEach(fileId => {
-        if (unresolved.includes(fileId) && !this.committeeFilePagePathById.has(fileId)) {
-          this.committeeFilePagePathById.set(fileId, page.path);
-        }
-      })));
-    } catch (error) {
-      this.logger.warn("resolveCommitteeFilePagePaths failed for ids:", unresolved, error);
-    }
-  }
-
-  protected committeeFileLinkPath(file: CommitteeFile): string {
-    return this.state.context?.sourcePagePath || this.committeeFilePagePathById.get(file.id) || "";
-  }
-
-  private async resolveCommitteeFileLinksForSend(): Promise<void> {
-    const ids = this.allFragmentCommitteeFileIds();
-    if (ids.length > 0) {
-      if (this.allCommitteeFiles.length === 0) {
-        await this.loadAllCommitteeFiles();
-      }
-      await this.resolveCommitteeFiles(ids);
-      this.changeDetector.detectChanges();
-    }
-    const unresolved = this.committeeFileFragmentsFrom(this.state.fragmentOrder ?? []).flatMap(fragment =>
-      this.committeeFilesFor(fragment).filter(file => {
-        const include = resolvedCommitteeFileEmailInclude(file, fragment.committeeFileInclude || null);
-        const sendsLink = include === CommitteeFileEmailInclude.LINK || include === CommitteeFileEmailInclude.BOTH;
-        return sendsLink && this.committeeDisplayService.isComposedDocument(file) && !this.committeeFileLinkPath(file);
-      })
-    );
-    if (unresolved.length > 0) {
-      const titles = unresolved.map(file => this.committeeDisplayService.fileTitle(file)).join(", ");
-      const isPlural = unresolved.length > 1;
-      throw new Error(`This email links to a committee ${isPlural ? "documents" : "document"} (${titles}) that ${isPlural ? "aren't" : "isn't"} published on any committee page yet, so there's no web address for the email to point to. Add ${isPlural ? "them" : "it"} to a committee documents page, or remove ${isPlural ? "them" : "it"} from the email.`);
-    }
-  }
-
-  private allFragmentCommitteeFileIds(): string[] {
-    const collect = (list: ComposerFragment[]): string[] => list.flatMap(fragment => {
-      if (fragment.kind === ComposerFragmentKind.COMMITTEE_FILE) return fragment.committeeFileIds ?? [];
-      if (fragment.kind === ComposerFragmentKind.MULTI_COLUMN) return (fragment.columns ?? []).flatMap(column => collect(column));
-      return [];
-    });
-    return Array.from(new Set(collect(this.state.fragmentOrder ?? [])));
-  }
-
-  protected hasCommitteeFileFragment(): boolean {
-    return this.hasFragmentKindAtTopLevel(ComposerFragmentKind.COMMITTEE_FILE);
-  }
-
-  protected ensureCommitteeFileFragmentForIds(ids: string[]): void {
-    this.ensureFragmentOrder();
-    const list = this.state.fragmentOrder ?? [];
-    const existing = list.find(f => f.kind === ComposerFragmentKind.COMMITTEE_FILE);
-    if (existing) {
-      const merged = Array.from(new Set([...(existing.committeeFileIds ?? []), ...ids]));
-      existing.committeeFileIds = merged;
-      this.state.fragmentOrder = [...list];
-      this.expandedFragmentIds.add(existing.id);
-    } else {
-      const introIdx = list.findIndex(f => f.kind === ComposerFragmentKind.INTRO);
-      const insertAt = introIdx >= 0 ? introIdx + 1 : 0;
-      const newFragment: ComposerFragment = {
-        kind: ComposerFragmentKind.COMMITTEE_FILE,
-        id: this.stringUtils.kebabCase(`committee-file-${this.dateUtils.dateTimeNow().toMillis()}`),
-        dividerAfter: SectionDividerStyle.THIN_YELLOW,
-        committeeFileIds: [...ids],
-        committeeFileInclude: CommitteeFileEmailInclude.CONTENT
-      };
-      this.state.fragmentOrder = [...list.slice(0, insertAt), newFragment, ...list.slice(insertAt)];
-      this.expandedFragmentIds.add(newFragment.id);
-    }
-  }
-
-  protected addCommitteeFileFragment(): void {
-    this.ensureFragmentOrder();
-    const newFragment: ComposerFragment = {
-      kind: ComposerFragmentKind.COMMITTEE_FILE,
-      id: this.stringUtils.kebabCase(`committee-file-${this.dateUtils.dateTimeNow().toMillis()}`),
-      dividerAfter: SectionDividerStyle.THIN_YELLOW,
-      committeeFileIds: [],
-      committeeFileInclude: CommitteeFileEmailInclude.CONTENT
-    };
-    this.insertAboveSignoffAtTopLevel(newFragment);
-    this.expandedFragmentIds.add(newFragment.id);
-  }
-
-  protected async onAddCommitteeFileFragmentClicked(): Promise<void> {
-    if (this.allCommitteeFiles.length === 0) {
-      await this.loadAllCommitteeFiles();
-    }
-    this.addCommitteeFileFragment();
-  }
-
-  protected committeeFilesFor(fragment: ComposerFragment): CommitteeFile[] {
-    const ids = fragment.committeeFileIds ?? [];
-    return ids
-      .map(id => this.committeeFiles.get(id))
-      .filter((file): file is CommitteeFile => !!file);
-  }
-
-  protected unresolvedCommitteeFileIdsFor(fragment: ComposerFragment): string[] {
-    return (fragment.committeeFileIds ?? []).filter(id => !this.committeeFiles.has(id));
-  }
-
-  protected removeCommitteeFile(fragment: ComposerFragment, fileId: string): void {
-    this.onCommitteeFileIdsChanged(fragment, (fragment.committeeFileIds ?? []).filter(id => id !== fileId));
-  }
-
-  protected committeeFileNotificationItemFor(file: CommitteeFile): NotificationItem {
-    const fileType = (file.fileType ?? "").trim();
-    const title = this.committeeDisplayService.fileTitle(file);
-    const subject = fileType ? `${fileType} - ${title}` : title;
-    return { callToAction: null, image: null, subject, text: "" };
-  }
-
-  protected committeeFileDownloadLabel(file: CommitteeFile): string {
-    const fileType = (file.fileType ?? "").trim();
-    const action = this.committeeDisplayService.isComposedDocument(file) ? "View" : "Download";
-    return fileType ? `${action} ${fileType}` : action;
-  }
-
-  protected committeeFileDownloadFilename(file: CommitteeFile): string {
-    return file.fileNameData?.originalFileName || file.fileNameData?.awsFileName || file.document?.title || "";
-  }
-
-  protected committeeFileFragmentHasMarkdown(fragment: ComposerFragment): boolean {
-    return this.committeeFilesFor(fragment).some(file => hasCommitteeDocumentContent(file));
-  }
-
-  protected committeeFileInclude(fragment: ComposerFragment): CommitteeFileEmailInclude {
-    return fragment.committeeFileInclude || CommitteeFileEmailInclude.CONTENT;
-  }
-
-  protected setCommitteeFileInclude(fragment: ComposerFragment, include: CommitteeFileEmailInclude): void {
-    fragment.committeeFileInclude = include;
-    this.state.fragmentOrder = [...(this.state.fragmentOrder ?? [])];
-    this.maybeAutoRefreshPreview();
-  }
-
-  protected committeeFileShowsContent(fragment: ComposerFragment, file: CommitteeFile): boolean {
-    return committeeFileEmailSendsContent(resolvedCommitteeFileEmailInclude(file, this.committeeFileInclude(fragment)));
-  }
-
-  protected committeeFileShowsDownloadLink(fragment: ComposerFragment, file: CommitteeFile): boolean {
-    return !this.committeeFileShowsContent(fragment, file) && !!this.committeeFileDownloadFilename(file);
-  }
-
-  protected committeeFileDateLabel(file: CommitteeFile): string {
-    if (!file?.eventDate) {
-      return "";
-    } else if (this.dateUtils.isDateOnly(file.eventDate)) {
-      return this.dateUtils.displayDate(file.eventDate);
-    } else {
-      return `${this.dateUtils.displayDate(file.eventDate)}, ${this.dateUtils.asString(file.eventDate, undefined, this.dateUtils.formats.displayTime)}`;
-    }
-  }
-
-  protected committeeFileMarkdownForEmail(file: CommitteeFile): string {
-    return committeeMarkdownForEmail(file.document?.markdown || "");
-  }
-
-  private committeeFileFragmentsFrom(list: ComposerFragment[]): ComposerFragment[] {
-    return (list || []).reduce((collected: ComposerFragment[], fragment) => {
-      if (fragment.kind === ComposerFragmentKind.COMMITTEE_FILE) {
-        return [...collected, fragment];
-      } else if (fragment.kind === ComposerFragmentKind.MULTI_COLUMN) {
-        return [...collected, ...(fragment.columns || []).flatMap(column => this.committeeFileFragmentsFrom(column))];
-      } else {
-        return collected;
-      }
-    }, []);
-  }
-
-  protected onCommitteeFileIdsChanged(fragment: ComposerFragment, ids: string[]): void {
-    fragment.committeeFileIds = isArray(ids) ? Array.from(new Set(ids)) : [];
-    this.state.fragmentOrder = [...(this.state.fragmentOrder ?? [])];
-    void this.resolveCommitteeFiles(this.allFragmentCommitteeFileIds());
-  }
-
-  protected async onCommitteeFileUrlChanged(value: string): Promise<void> {
-    this.committeeFileUrlInput = value ?? "";
-    this.committeeFileUrlError = null;
-    const path = this.normaliseSiteLinkPath(this.committeeFileUrlInput);
-    if (!path) {
-      this.committeeFileUrlAllowedIds = null;
-      return;
-    }
-    try {
-      const page = await this.pageContentService.findByPath(path);
-      const ids = this.collectCommitteeFileIdsFromPage(page);
-      if (ids.length === 0) {
-        this.committeeFileUrlAllowedIds = [];
-        this.committeeFileUrlError = `${path} doesn't list any committee files`;
-        return;
-      }
-      this.committeeFileUrlAllowedIds = ids;
-    } catch (error) {
-      this.logger.error("onCommitteeFileUrlChanged failed", error);
-      this.committeeFileUrlAllowedIds = null;
-      this.committeeFileUrlError = `Couldn't load page at ${path}`;
-    }
-  }
-
-  private normaliseSiteLinkPath(value: string): string | null {
-    const trimmed = (value ?? "").trim();
-    if (!trimmed) return null;
-    if (/^https?:\/\//i.test(trimmed) || trimmed.includes("://")) {
-      try {
-        const url = new URL(trimmed);
-        return url.pathname.replace(/^\/+/, "");
-      } catch {
-        return null;
-      }
-    }
-    return trimmed.replace(/^\/+/, "");
-  }
-
-  private collectCommitteeFileIdsFromPage(page: PageContent | null | undefined): string[] {
-    if (!page?.rows) return [];
-    const ids = new Set<string>();
-    for (const row of page.rows) {
-      const fileIds = row?.committeeDocuments?.fileIds;
-      if (fileIds?.length) {
-        fileIds.forEach(id => ids.add(id));
-      }
-    }
-    return Array.from(ids);
-  }
-
-  protected absoluteSourcePageUrl(): string {
-    const path = this.state.context?.sourcePagePath;
-    if (!path) return "";
-    return this.urlService.baseUrl() + "/" + path;
-  }
-
-  protected sourcePageTitleOrFallback(): string {
-    const explicit = this.state.context?.sourcePageTitle;
-    if (explicit) return explicit;
-    const path = this.state.context?.sourcePagePath;
-    if (!path) return "";
-    return this.pageService.titleFromPath(path);
-  }
-
-  async populateGroupEvents(): Promise<void> {
-    if (this.state.eventInclusion !== EventInclusionMode.AUTO_INCLUDE) return;
-    if (!this.state.groupEventsFilter) {
-      this.ensureGroupEventsFilter();
-    }
-    try {
-      const events = await this.committeeQueryService.groupEvents(this.state.groupEventsFilter!);
-      const priorById = new Map(this.state.groupEvents.map(item => [item.id, item]));
-      this.state.groupEvents = this.markNewSinceLastNewsletter(events.map(event => this.mergePriorSelection(event, priorById.get(event.id))));
-    } catch (error) {
-      this.logger.error("populateGroupEvents failed", error);
-    }
-  }
-
-  private markNewSinceLastNewsletter(events: GroupEventSummary[]): GroupEventSummary[] {
-    const settings = this.state.newsletter;
-    const canMark = this.newsletterMode() && !!settings?.markNewEvents && !!settings?.previousNewsletterId;
-    return markEventsNewSinceLastNewsletter(events, canMark ? settings.previouslyAnnouncedEventIds : null);
   }
 
   protected newsletterMode(): boolean {
-    return this.state.compositionKind === EmailCompositionKind.NEWSLETTER;
-  }
-
-  protected draftingOffered(): boolean {
-    return this.state.notificationConfig?.composerDrafting?.offerDraftedIntro === true;
-  }
-
-  protected availableStartModes(): NewsletterStartMode[] {
-    return [
-      ...(this.draftingOffered() ? [NewsletterStartMode.PERIOD, NewsletterStartMode.FREE_TEXT] : []),
-      ...(this.platformAdminEnabled ? [NewsletterStartMode.UPDATE] : [])
-    ];
-  }
-
-  protected effectiveStartMode(): NewsletterStartMode {
-    const available = this.availableStartModes();
-    return available.includes(this.newsletterStartMode) ? this.newsletterStartMode : (available[0] ?? NewsletterStartMode.PERIOD);
-  }
-
-  protected startModeLabel(mode: NewsletterStartMode): string {
-    return mode === NewsletterStartMode.PERIOD ? "Create a newsletter for a period"
-      : mode === NewsletterStartMode.FREE_TEXT ? "Create one from free text"
-        : "Create a platform update";
-  }
-
-  protected startModeHint(): string {
-    return this.effectiveStartMode() === NewsletterStartMode.UPDATE
-      ? "Draft a short update for chairs, webmasters and committee members about what has shipped on NGX since the last one. You review and edit it before anything goes out."
-      : "Have the coming walks and social events pulled in for you, with an intro drafted from them. Everything stays editable afterwards.";
-  }
-
-  protected composerDrafting(): ComposerDrafting {
-    return this.state.notificationConfig?.composerDrafting ?? {offerDraftedIntro: true, onlyApprovedWalks: true};
-  }
-
-  protected setOfferDraftedIntro(offerDraftedIntro: boolean): void {
-    if (this.state.notificationConfig) {
-      this.state.notificationConfig.composerDrafting = {...this.composerDrafting(), offerDraftedIntro};
-    }
-  }
-
-  protected setOnlyApprovedWalks(onlyApprovedWalks: boolean): void {
-    if (this.state.notificationConfig) {
-      this.state.notificationConfig.composerDrafting = {...this.composerDrafting(), onlyApprovedWalks};
-    }
-  }
-
-  protected async onNewsletterModeToggled(enabled: boolean): Promise<void> {
-    this.state.compositionKind = enabled ? EmailCompositionKind.NEWSLETTER : EmailCompositionKind.STANDARD;
-    if (enabled) {
-      this.state.releaseNoteUpdate = null;
-      this.state.newsletter = this.state.newsletter ?? defaultNewsletterSettings();
-      await this.loadPreviousNewsletter();
-      this.applyNewsletterWindow();
-      await this.populateGroupEvents();
-    } else {
-      this.state.newsletter = null;
-      this.previousNewsletter = null;
-      this.state.groupEvents = this.markNewSinceLastNewsletter(this.state.groupEvents);
-    }
-  }
-
-  private async loadPreviousNewsletter(): Promise<void> {
-    this.previousNewsletter = await this.compositionsService.previousNewsletter(this.currentDraftId);
-    const existing = this.state.newsletter ?? defaultNewsletterSettings();
-    this.state.newsletter = {
-      ...existing,
-      cadence: this.previousNewsletter?.cadence ?? existing.cadence,
-      previousNewsletterId: this.previousNewsletter?.id ?? null,
-      previousSentAt: this.previousNewsletter?.sentAt ?? null,
-      previousWindowEnd: this.previousNewsletter?.windowEnd ?? null,
-      previouslyAnnouncedEventIds: this.previousNewsletter?.announcedEventIds ?? []
-    };
-    if (this.previousNewsletter?.selectedListId && !this.state.selectedListId) {
-      this.state.selectedListId = this.previousNewsletter.selectedListId;
-    }
-  }
-
-  protected async onNewsletterCadenceChange(cadence: NewsletterCadence): Promise<void> {
-    if (this.state.newsletter) {
-      this.state.newsletter.cadence = cadence;
-      this.applyNewsletterWindow();
-      await this.populateGroupEvents();
-    }
-  }
-
-  protected onMarkNewEventsChanged(): void {
-    this.state.groupEvents = this.markNewSinceLastNewsletter(this.state.groupEvents);
-  }
-
-  private currentNewsletterWindow(): NewsletterWindow | null {
-    const filter = this.state.groupEventsFilter;
-    return filter?.fromDate?.value && filter?.toDate?.value
-      ? { fromMillis: filter.fromDate.value, toMillis: filter.toDate.value, continuesPreviousWindow: false }
-      : null;
-  }
-
-  private applyNewsletterWindow(): void {
-    if (this.state.newsletter) {
-      this.ensureGroupEventsFilter();
-      const window = newsletterWindowFrom(this.previousNewsletter, this.state.newsletter.cadence, this.dateUtils.dateTimeNow().toMillis(), this.currentNewsletterWindow());
-      this.applyNewsletterDates(window.fromMillis, window.toMillis);
-    }
-  }
-
-  private applyNewsletterDates(fromMillis: number, toMillis: number): void {
-    this.state.groupEventsFilter!.fromDate = this.dateUtils.asDateValue(fromMillis);
-    this.state.groupEventsFilter!.toDate = this.dateUtils.asDateValue(toMillis);
-    this.recomputeSliderBoundsFromCurrentRange();
-    this.selectedDateRangePreset = this.matchPresetToCurrentRange();
-  }
-
-  protected async createNewsletter(): Promise<void> {
-    const freeText = this.newsletterFreeText.trim();
-    if (this.newsletterStartMode === NewsletterStartMode.FREE_TEXT && !freeText) {
-      this.notify.warning({ title: "Create newsletter", message: "Describe the newsletter you want first, such as everything up to the end of September." });
-    } else {
-      this.creatingNewsletter = true;
-      try {
-        await this.buildNewsletter(this.newsletterStartMode === NewsletterStartMode.FREE_TEXT ? await this.plannedNewsletter(freeText) : null);
-      } catch (error) {
-        this.logger.error("createNewsletter failed", error);
-        this.notify.warning({ title: "Create newsletter", message: `The newsletter could not be created: ${this.errorMessage(error)}` });
-      } finally {
-        this.creatingNewsletter = false;
-        this.changeDetector.detectChanges();
-      }
-    }
-  }
-
-  private async plannedNewsletter(request: string): Promise<NewsletterPlan | null> {
-    try {
-      const plan = await this.aiService.newsletterPlan({ request });
-      if (!plan?.understood) {
-        this.notify.warning({ title: "Create newsletter", message: "The period in that description was not clear, so the next month has been used. The dates can be changed on the Events step." });
-      }
-      return plan ?? null;
-    } catch (error) {
-      this.logger.error("plannedNewsletter failed", error);
-      this.notify.warning({ title: "Create newsletter", message: `The description could not be worked out, so the next month has been used instead: ${this.errorMessage(error)}` });
-      return null;
-    }
-  }
-
-  private async buildNewsletter(plan: NewsletterPlan | null): Promise<void> {
-    this.state.compositionKind = EmailCompositionKind.NEWSLETTER;
-    this.state.releaseNoteUpdate = null;
-    this.state.eventInclusion = EventInclusionMode.AUTO_INCLUDE;
-    this.ensureGroupEventsFilter();
-    await this.loadPreviousNewsletter();
-    this.state.newsletter!.cadence = plan ? NewsletterCadence.CUSTOM : this.newsletterStartPeriod;
-    this.state.newsletter!.guidance = plan?.guidance ?? (this.newsletterStartMode === NewsletterStartMode.FREE_TEXT ? this.newsletterFreeText.trim() : null);
-    if (plan) {
-      this.applyNewsletterDates(plan.fromMillis, plan.toMillis);
-    } else {
-      this.applyNewsletterWindow();
-    }
-    this.syncStateToUrl({ [StoredValue.EVENT_INCLUSION]: EventInclusionMode.AUTO_INCLUDE });
-    await this.populateGroupEvents();
-    this.applyNewsletterSubject();
-    await this.draftNewsletterIntro();
-    this.goToStepKey(this.canAccessStep(EmailComposerStepKey.COMPOSE) ? EmailComposerStepKey.COMPOSE : EmailComposerStepKey.RECIPIENTS);
-  }
-
-  private applyNewsletterSubject(): void {
-    const period = this.newsletterPeriodDescription();
-    if (period && !this.state.subject?.trim()) {
-      this.state.subject = `What's coming up: ${period}`;
-    }
-  }
-
-  private previousNewsletterExists(): boolean {
-    return !!this.previousNewsletter || !!this.state.newsletter?.previousNewsletterId;
-  }
-
-  protected newsletterWindowTitle(): string {
-    const previousSentAt = this.previousNewsletter?.sentAt ?? this.state.newsletter?.previousSentAt;
-    const sentAt = previousSentAt ? this.dateUtils.displayDate(previousSentAt) : "an unrecorded date";
-    return this.previousNewsletterExists() ? `Last newsletter went out on ${sentAt}` : "This is the first newsletter";
-  }
-
-  private newEventsSentence(): string {
-    const newCount = newEventCount(this.state.groupEvents);
-    const countDescription = newCount === 0 ? "None of them are" : newCount === 1 ? "One of them is" : `${newCount} of them are`;
-    return this.state.newsletter?.markNewEvents ? ` ${countDescription} new since that newsletter.` : "";
-  }
-
-  protected newsletterWindowDescription(): string {
-    const range = this.newsletterPeriodDescription() ?? "the dates chosen on the Events step";
-    return this.previousNewsletterExists()
-      ? `Covering ${range}, carrying on from the last one so members are not told the same thing twice.${this.newEventsSentence()}`
-      : `There is no earlier newsletter to carry on from, so this one covers ${range}. Every event is shown as it is, with nothing marked as new.`;
-  }
-
-  protected introDraftUndoAvailable(): boolean {
-    return this.introBeforeDraft !== null;
-  }
-
-  protected undoDraftedIntro(): void {
-    if (this.introBeforeDraft !== null) {
-      this.state.introMarkdown = this.introBeforeDraft;
-      this.introBeforeDraft = null;
-    }
-    if (this.articlesBeforeDraft !== null) {
-      this.state.articleBlocks = this.articlesBeforeDraft;
-      this.articlesBeforeDraft = null;
-    }
-    if (this.fragmentOrderBeforeDraft !== null) {
-      this.state.fragmentOrder = this.fragmentOrderBeforeDraft;
-      this.fragmentOrderBeforeDraft = null;
-    }
-  }
-
-  protected awaitingDetails(event: GroupEventSummary): boolean {
-    const isWalk = event.ramblersEventType !== RamblersEventType.GROUP_EVENT;
-    return isWalk && (!event.contactName?.trim() || !event.distance?.trim() || !event.title?.trim() || /^awaiting\b/i.test(event.title));
-  }
-
-  private newsletterIntroEvents(): NewsletterIntroEvent[] {
-    return this.selectedGroupEventsList().map(event => ({
-      title: event.title,
-      eventType: event.eventType?.description || "Event",
-      dateDescription: this.dateUtils.displayDate(event.eventDate),
-      distance: event.distance || undefined,
-      location: event.location || undefined,
-      description: event.description || undefined,
-      newSinceLastNewsletter: this.state.newsletter?.markNewEvents ? event.newSinceLastNewsletter : undefined,
-      awaitingDetails: this.awaitingDetails(event)
-    }));
-  }
-
-  private newsletterPeriodDescription(): string | undefined {
-    const from = this.state.groupEventsFilter?.fromDate?.value;
-    const to = this.state.groupEventsFilter?.toDate?.value;
-    return from && to ? `${this.dateUtils.displayDate(from)} to ${this.dateUtils.displayDate(to)}` : undefined;
-  }
-
-  protected draftPurposeLabel(): string {
-    return NEWSLETTER_INTRO_PURPOSE_OPTIONS.find(option => option.key === this.draftPurpose)?.label ?? "";
-  }
-
-  protected draftPurposeHint(): string {
-    return NEWSLETTER_INTRO_PURPOSE_OPTIONS.find(option => option.key === this.draftPurpose)?.hint ?? "";
-  }
-
-  protected eventsForDraftPurpose(): NewsletterIntroEvent[] {
-    const events = this.composerDrafting().onlyApprovedWalks
-      ? this.newsletterIntroEvents().filter(event => !event.awaitingDetails)
-      : this.newsletterIntroEvents();
-    return eventsForPurpose(events, this.draftPurpose);
-  }
-
-  protected async draftNewsletterIntro(): Promise<void> {
-    const events = this.eventsForDraftPurpose();
-    if (events.length) {
-      await this.requestDraftedIntro(events);
-    } else {
-      this.notify.warning({ title: "Draft intro", message: this.draftPurpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST
-        ? "None of the selected dates are empty slots, so there is nothing to ask for leaders for. Widen the dates on the Events step."
-        : "No completed events are selected, so there is nothing to write an intro from. Choose events, or widen the dates, on the Events step." });
-    }
+    return this.session.newsletterMode();
   }
 
   protected releaseNoteUpdateMode(): boolean {
-    return this.state.compositionKind === EmailCompositionKind.RELEASE_NOTE_UPDATE;
-  }
-
-  private previousReleaseNoteUpdateExists(): boolean {
-    return !!this.previousReleaseNoteUpdate || !!this.state.releaseNoteUpdate?.previousDigestId;
-  }
-
-  protected releaseNoteUpdateWindowTitle(): string {
-    const previousSentAt = this.previousReleaseNoteUpdate?.sentAt ?? this.state.releaseNoteUpdate?.previousSentAt;
-    const sentAt = previousSentAt ? this.dateUtils.displayDate(previousSentAt) : "an unrecorded date";
-    return this.previousReleaseNoteUpdateExists() ? `Last update went out on ${sentAt}` : "This is the first update";
-  }
-
-  protected releaseNoteUpdateWindowDescription(): string {
-    const range = this.releaseNoteUpdatePeriodDescription() ?? "the dates shown below";
-    return this.previousReleaseNoteUpdateExists()
-      ? `Covering ${range}. ${this.releaseNoteUpdateSettings().excludePreviouslyIncluded ? "Changes already included in the previous update are left out." : "Release notes from the previous update may be included again."}`
-      : `Covering ${range}.`;
-  }
-
-  protected previousReleaseNoteUpdateSentDate(): string {
-    return this.previousReleaseNoteUpdate?.sentAt
-      ? this.dateUtils.displayDate(this.previousReleaseNoteUpdate.sentAt)
-      : "an unrecorded date";
-  }
-
-  private releaseNoteUpdatePeriodDescription(): string | null {
-    const from = this.state.releaseNoteUpdate?.fromMillis;
-    const to = this.state.releaseNoteUpdate?.toMillis;
-    return from && to ? `${this.dateUtils.displayDate(from)} to ${this.dateUtils.displayDate(to)}` : null;
-  }
-
-  protected releaseNoteUpdateSliderMinDate: DateTime = this.dateUtils.dateTimeNow().minus({years: 2}).startOf("day");
-  protected releaseNoteUpdateSliderMaxDate: DateTime = this.dateUtils.dateTimeNow().endOf("day");
-  private digestSliderRange: DateRange | null = null;
-
-  protected releaseNoteUpdateSliderRange(): DateRange {
-    const from = this.state.releaseNoteUpdate?.fromMillis ?? this.releaseNoteUpdateSliderMinDate.toMillis();
-    const to = this.state.releaseNoteUpdate?.toMillis ?? this.releaseNoteUpdateSliderMaxDate.toMillis();
-    if (!this.digestSliderRange || this.digestSliderRange.from !== from || this.digestSliderRange.to !== to) {
-      this.digestSliderRange = {from, to};
+    return this.session.releaseNoteUpdateMode();
     }
-    return this.digestSliderRange;
-  }
-
-  protected releaseNoteUpdateSettings(): ReleaseNoteUpdateSettings {
-    if (!this.state.releaseNoteUpdate) {
-      this.state.releaseNoteUpdate = this.releaseNoteUpdateSettingsFromSelectedProfile();
-      this.applyReleaseNoteUpdateWindow();
-    }
-    return this.state.releaseNoteUpdate;
-  }
-
-  protected releaseNoteUpdateCategoryIsLastSelected(category: ReleaseNoteUpdateCategory): boolean {
-    const categories = this.releaseNoteUpdateSettings().categories;
-    return categories.length === 1 && categories.includes(category);
-  }
-
-  protected setReleaseNoteUpdateCategory(category: ReleaseNoteUpdateCategory, selected: boolean): void {
-    const categories = this.releaseNoteUpdateSettings().categories;
-    this.releaseNoteUpdateSettings().categories = selected
-      ? categories.includes(category) ? categories : categories.concat(category)
-      : categories.filter(candidate => candidate !== category);
-  }
-
-  protected releaseNoteUpdateCoverageHint(): string {
-    return this.releaseNoteUpdateCoverageOptions.find(option => option.value === this.releaseNoteUpdateSettings().coverage)?.hint ?? "";
-  }
-
-  protected releaseNoteUpdateSettingsSummary(): string {
-    const settings = this.releaseNoteUpdateSettings();
-    const categories = this.releaseNoteUpdateCategoryOptions
-      .filter(option => settings.categories.includes(option.value))
-      .map(option => option.label)
-      .join(", ");
-    const periodUnitLabel = this.rangeUnitOptions.find(option => option.value === settings.periodUnit)?.label.toLowerCase() ?? settings.periodUnit;
-    const periodUnit = settings.periodAmount === 1 ? periodUnitLabel.replace(/s$/, "") : periodUnitLabel;
-    const imageSummary = settings.includeImages ? "Suitable release-note images included." : "No images.";
-    return `Report on information from the last ${settings.periodAmount} ${periodUnit}. ${categories}. ${this.releaseNoteUpdateCoverageOptions.find(option => option.value === settings.coverage)?.label ?? ""}. ${imageSummary}`;
-  }
-
-  private applyReleaseNoteUpdateWindow(): void {
-    const settings = this.releaseNoteUpdateSettingsWithoutSeedingWindow();
-    const window = releaseNoteUpdateWindowFrom(
-      settings.periodAmount,
-      settings.periodUnit,
-      this.dateUtils.dateTimeNow().toMillis()
-    );
-    this.applyReleaseNoteUpdateDates(window);
-  }
-
-  private releaseNoteUpdateSettingsWithoutSeedingWindow(): ReleaseNoteUpdateSettings {
-    if (!this.state.releaseNoteUpdate) {
-      this.state.releaseNoteUpdate = this.releaseNoteUpdateSettingsFromSelectedProfile();
-    }
-    return this.state.releaseNoteUpdate;
-  }
-
-  private releaseNoteUpdateSettingsFromSelectedProfile(): ReleaseNoteUpdateSettings {
-    const defaults = defaultReleaseNoteUpdateSettings();
-    const profile = this.releaseNoteUpdateConfiguration.profiles.find(candidate => candidate.id === this.selectedReleaseNoteUpdateProfileId);
-    return {
-      ...defaults,
-      ...this.releaseNoteUpdateDefaults,
-      profileId: profile?.id ?? this.selectedReleaseNoteUpdateProfileId,
-      periodAmount: profile?.periodAmount ?? defaults.periodAmount,
-      periodUnit: profile?.periodUnit ?? defaults.periodUnit
-    };
-  }
-
-  private async loadReleaseNoteUpdateDefaults(): Promise<void> {
-    try {
-      this.releaseNoteUpdateConfiguration = await this.releaseNoteUpdateConfigService.loadConfiguration();
-      this.selectedReleaseNoteUpdateProfileId = this.releaseNoteUpdateConfiguration.defaultProfileId;
-      this.releaseNoteUpdateDefaults = this.releaseNoteUpdateConfiguration.profiles.find(profile => profile.id === this.selectedReleaseNoteUpdateProfileId)?.defaults ?? defaultReleaseNoteUpdateDefaults();
-    } catch (error) {
-      this.logger.error("loadReleaseNoteUpdateDefaults failed", error);
-      this.releaseNoteUpdateDefaults = defaultReleaseNoteUpdateDefaults();
-    }
-  }
-
-  protected async applyReleaseNoteUpdateProfile(profileId: string): Promise<void> {
-    const profile = this.releaseNoteUpdateConfiguration.profiles.find(candidate => candidate.id === profileId);
-    if (profile) {
-      this.selectedReleaseNoteUpdateProfileId = profile.id;
-      this.releaseNoteUpdateDefaults = profile.defaults;
-      this.state.releaseNoteUpdate = {
-        ...this.releaseNoteUpdateSettings(),
-        ...profile.defaults,
-        profileId: profile.id,
-        periodAmount: profile.periodAmount,
-        periodUnit: profile.periodUnit
-      };
-      await this.loadPreviousReleaseNoteUpdate();
-      this.applyReleaseNoteUpdateWindow();
-    }
-  }
-
-  private applyReleaseNoteUpdateDates(window: ReleaseNoteUpdateWindow): void {
-    if (this.state.releaseNoteUpdate) {
-      this.state.releaseNoteUpdate.fromMillis = window.fromMillis;
-      this.state.releaseNoteUpdate.toMillis = window.toMillis;
-      const {minDate, maxDate} = dateRangeSliderBounds(
-        this.dateUtils.asDateTime(window.fromMillis),
-        this.dateUtils.asDateTime(window.toMillis)
-      );
-      if (!this.releaseNoteUpdateSliderMinDate.hasSame(minDate, "day")) {
-        this.releaseNoteUpdateSliderMinDate = minDate;
-      }
-      if (!this.releaseNoteUpdateSliderMaxDate.hasSame(maxDate, "day")) {
-        this.releaseNoteUpdateSliderMaxDate = maxDate;
-      }
-    }
-  }
-
-  protected onReleaseNoteUpdatePeriodAmountChange(amount: number): void {
-    const numeric = Number(amount);
-    const settings = this.releaseNoteUpdateSettings();
-    settings.periodAmount = numeric >= 1 ? numeric : 1;
-    this.applyReleaseNoteUpdateWindow();
-  }
-
-  protected onReleaseNoteUpdatePeriodUnitChange(unit: string): void {
-    const matched = RANGE_UNIT_OPTIONS.find(option => option.value === unit);
-    if (matched) {
-      this.releaseNoteUpdateSettings().periodUnit = matched.value;
-      this.applyReleaseNoteUpdateWindow();
-    }
-  }
-
-  protected onReleaseNoteUpdateDateRangeChange(range: DateRange): void {
-    const settings = this.releaseNoteUpdateSettings();
-    settings.fromMillis = range.from;
-    settings.toMillis = range.to;
-  }
-
-  private async loadPreviousReleaseNoteUpdate(): Promise<void> {
-    const profile = this.releaseNoteUpdateConfiguration.profiles.find(candidate => candidate.id === this.selectedReleaseNoteUpdateProfileId);
-    this.previousReleaseNoteUpdate = await this.compositionsService.previousReleaseNoteUpdate(
-      profile?.id ?? this.selectedReleaseNoteUpdateProfileId,
-      profile?.recipientMode ?? RecipientMode.SELECTED_MEMBERS,
-      profile?.selectedListId ?? null,
-      this.currentDraftId
-    );
-    const existing = this.releaseNoteUpdateSettings();
-    this.state.releaseNoteUpdate = {
-      ...existing,
-      previousDigestId: this.previousReleaseNoteUpdate?.id ?? null,
-      previousSentAt: this.previousReleaseNoteUpdate?.sentAt ?? null,
-      previousWindowEnd: this.previousReleaseNoteUpdate?.windowEnd ?? null,
-      previouslyIncludedPaths: this.previousReleaseNoteUpdate?.includedPaths ?? []
-    };
-    if ((this.previousReleaseNoteUpdate?.selectedMemberIds ?? []).length && !(this.state.selectedMemberIds ?? []).length) {
-      this.state.selectedMemberIds = [...this.previousReleaseNoteUpdate.selectedMemberIds];
-    }
-  }
-
-  private selectCommitteeRoleRecipients(): void {
-    const roleMemberIds = (this.committeeReferenceData?.committeeMembers() ?? [])
-      .map(role => role.memberId)
-      .filter((memberId): memberId is string => !!memberId);
-    const uniqueIds = Array.from(new Set(roleMemberIds));
-    if (uniqueIds.length) {
-      this.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
-      this.state.selectedMemberIds = uniqueIds;
-    }
-  }
-
-  private applyReleaseNoteUpdateProfileRecipients(): void {
-    const profile = this.releaseNoteUpdateConfiguration.profiles.find(candidate => candidate.id === this.selectedReleaseNoteUpdateProfileId);
-    if (profile?.recipientMode === RecipientMode.ENTIRE_LIST && profile.selectedListId !== null) {
-      this.setRecipientMode(RecipientMode.ENTIRE_LIST);
-      this.state.selectedListId = profile.selectedListId;
-    } else {
-      this.selectCommitteeRoleRecipients();
-    }
-  }
-
-  protected async createReleaseNoteUpdate(): Promise<void> {
-    this.creatingReleaseNoteUpdate = true;
-    try {
-      this.state.compositionKind = EmailCompositionKind.RELEASE_NOTE_UPDATE;
-      this.state.newsletter = null;
-      this.state.eventInclusion = EventInclusionMode.NONE;
-      this.releaseNoteUpdateSettings();
-      await this.loadPreviousReleaseNoteUpdate();
-      this.applyReleaseNoteUpdateWindow();
-      this.applyReleaseNoteUpdateProfileRecipients();
-      this.applyReleaseNoteUpdateSubject();
-      const drafted = await this.draftReleaseNoteUpdate();
-      if (drafted) {
-        this.goToStepKey(this.canAccessStep(EmailComposerStepKey.COMPOSE) ? EmailComposerStepKey.COMPOSE : EmailComposerStepKey.RECIPIENTS);
-      }
-    } catch (error) {
-      this.logger.error("createReleaseNoteUpdate failed", error);
-      this.notify.warning({title: "Create update", message: `The update could not be created: ${this.errorMessage(error)}`});
-    } finally {
-      this.creatingReleaseNoteUpdate = false;
-      this.changeDetector.detectChanges();
-    }
-  }
-
-  private applyReleaseNoteUpdateSubject(): void {
-    const period = this.releaseNoteUpdatePeriodDescription();
-    this.state.subject = releaseNoteUpdateSubject(
-      this.state.subject,
-      this.state.notificationConfig?.subject?.text ?? null,
-      period
-    );
-  }
-
-  protected async draftReleaseNoteUpdate(): Promise<boolean> {
-    const result = {drafted: false};
-    if (!this.state.releaseNoteUpdate?.fromMillis || !this.state.releaseNoteUpdate?.toMillis) {
-      this.notify.warning({title: "Draft update", message: "Choose the period to cover first."});
-    } else {
-      this.draftingReleaseNoteUpdate = true;
-      const previousIntro = this.state.introMarkdown ?? "";
-      try {
-        const response = await this.aiService.releaseNoteUpdate({
-          fromMillis: this.state.releaseNoteUpdate.fromMillis,
-          toMillis: this.state.releaseNoteUpdate.toMillis,
-          previouslyIncludedPaths: this.state.releaseNoteUpdate.excludePreviouslyIncluded ? this.state.releaseNoteUpdate.previouslyIncludedPaths : [],
-          guidance: this.state.releaseNoteUpdate.guidance ?? undefined,
-          groupName: this.systemConfig?.group?.longName || this.systemConfig?.group?.shortName,
-          categories: [...this.state.releaseNoteUpdate.categories],
-          coverage: this.state.releaseNoteUpdate.coverage,
-          maximumThemes: this.state.releaseNoteUpdate.maximumThemes,
-          maximumSourcesPerTheme: this.state.releaseNoteUpdate.maximumSourcesPerTheme,
-          writingRules: this.state.releaseNoteUpdate.writingRules,
-          includeTechnicalChanges: this.state.releaseNoteUpdate.includeTechnicalChanges,
-          includeImages: this.state.releaseNoteUpdate.includeImages
-        });
-        this.applyReleaseNoteUpdateResponse(response, previousIntro);
-        result.drafted = !!response?.draft;
-      } catch (error) {
-        this.logger.error("draftReleaseNoteUpdate failed", error);
-        this.notify.warning({title: "Draft update", message: `The update could not be drafted, so it has been left as it was: ${this.errorMessage(error)}`});
-      } finally {
-        this.draftingReleaseNoteUpdate = false;
-        this.changeDetector.detectChanges();
-      }
-    }
-    return result.drafted;
-  }
-
-  private applyReleaseNoteUpdateResponse(response: ReleaseNoteUpdateResponse, previousIntro: string): void {
-    const draft = response?.draft;
-    if (!draft) {
-      this.notify.warning({title: "Draft update", message: "Nothing came back, so the update has been left as it was."});
-    } else {
-      this.introBeforeDraft = previousIntro;
-      this.articlesBeforeDraft = [...(this.state.articleBlocks ?? [])];
-      this.fragmentOrderBeforeDraft = [...(this.state.fragmentOrder ?? [])];
-      this.state.introMarkdown = draft.intro ?? "";
-      this.state.articleBlocks = releaseNoteUpdateArticlesFrom(draft);
-      this.state.fragmentOrder = releaseNoteUpdateFragmentOrder(this.state.articleBlocks);
-      this.state.releaseNoteUpdate = {
-        ...(this.state.releaseNoteUpdate ?? defaultReleaseNoteUpdateSettings()),
-        includedPaths: Array.from(new Set((draft.items ?? []).flatMap(item => item.sourcePaths))),
-        indexPath: draft.indexPath
-      };
-      (this.state.articleBlocks ?? []).forEach(block => this.expandedFragmentIds.add(block.id));
-      this.expandedFragmentIds.add("intro");
-      if (response.emptyWindow) {
-        this.notify.warning({title: "Draft update", message: "Nothing shipped in this period, so the draft says so rather than inventing news."});
-      } else if (response.drafted) {
-        this.notify.success({title: "Draft update", message: "Update drafted from the release notes. Read it over and change anything you would say differently."});
-      } else if (response.draftOutcome === ReleaseNoteUpdateDraftOutcome.AI_DISABLED) {
-        this.notify.warning({title: "Draft update", message: "AI drafting is not enabled for this environment, so no summary was generated. The release-note headlines have been added for writing by hand."});
-      } else {
-        this.notify.warning({title: "Draft update", message: "The drafting service returned a response that could not be read, so no summary was generated. The release-note headlines have been added for writing by hand."});
-      }
-    }
-  }
-
-  private async requestDraftedIntro(events: NewsletterIntroEvent[]): Promise<void> {
-    this.draftingIntro = true;
-    const previousIntro = this.state.introMarkdown ?? "";
-    try {
-      const output = await this.aiService.newsletterIntro({
-        events,
-        periodDescription: this.newsletterPeriodDescription(),
-        groupName: this.systemConfig?.group?.longName || this.systemConfig?.group?.shortName,
-        guidance: this.state.newsletter?.guidance ?? undefined,
-        purpose: this.draftPurpose
-      });
-      if (output?.trim()) {
-        this.introBeforeDraft = previousIntro;
-        this.state.introMarkdown = output.trim();
-        this.notify.success({ title: "Draft intro", message: "Intro drafted from the selected events. Read it over and change anything you would say differently." });
-      } else {
-        this.notify.warning({ title: "Draft intro", message: "Nothing came back, so the intro has been left as it was." });
-      }
-    } catch (error) {
-      this.logger.error("draftNewsletterIntro failed", error);
-      this.notify.warning({ title: "Draft intro", message: `The intro could not be drafted, so it has been left as it was: ${this.errorMessage(error)}` });
-    } finally {
-      this.draftingIntro = false;
-      this.changeDetector.detectChanges();
-    }
-  }
-
-  setEventInclusionMode(mode: EventInclusionMode): void {
-    this.state.eventInclusion = mode;
-    if (mode === EventInclusionMode.AUTO_INCLUDE) {
-      this.resetGroupEventsFilterToDefaultRange();
-      void this.populateGroupEvents();
-      this.addEventsFragment(true);
-    } else if (mode === EventInclusionMode.SINGLE_EVENT && this.state.singleEvent) {
-      this.state.groupEvents = [this.eventToSummary(this.state.singleEvent)];
-      this.addEventsFragment(true);
-    }
-    this.syncStateToUrl({ [StoredValue.EVENT_INCLUSION]: mode });
-  }
-
-  private resetGroupEventsFilterToDefaultRange(): void {
-    const today = this.dateUtils.dateTimeNowNoTime();
-    this.state.groupEventsFilter = {
-      search: null,
-      selectAll: true,
-      fromDate: this.dateUtils.asDateValue(today.toMillis()),
-      toDate: this.dateUtils.asDateValue(today.plus({ weeks: 2 }).toMillis()),
-      includeImage: this.state.groupEventsFilter?.includeImage ?? true,
-      includeContact: this.state.groupEventsFilter?.includeContact ?? true,
-      includeDescription: this.state.groupEventsFilter?.includeDescription ?? true,
-      includeLocation: this.state.groupEventsFilter?.includeLocation ?? true,
-      includeWalks: this.state.groupEventsFilter?.includeWalks ?? true,
-      includeSocialEvents: this.state.groupEventsFilter?.includeSocialEvents ?? true,
-      includeCommitteeEvents: this.state.groupEventsFilter?.includeCommitteeEvents ?? true
-    };
-    this.recomputeSliderBoundsFromCurrentRange();
-    this.selectedDateRangePreset = this.matchPresetToCurrentRange();
-  }
-
-  onFromDateChange(dateValue: DateValue): void {
-    if (!this.state.groupEventsFilter) return;
-    this.state.groupEventsFilter.fromDate = dateValue;
-    this.selectedDateRangePreset = this.matchPresetToCurrentRange();
-    this.syncStateToUrl({ [StoredValue.DATE_FROM]: dateValue?.value?.toString() ?? null });
-    void this.populateGroupEvents();
-  }
-
-  onToDateChange(dateValue: DateValue): void {
-    if (!this.state.groupEventsFilter) return;
-    this.state.groupEventsFilter.toDate = dateValue;
-    this.selectedDateRangePreset = this.matchPresetToCurrentRange();
-    this.syncStateToUrl({ [StoredValue.DATE_TO]: dateValue?.value?.toString() ?? null });
-    void this.populateGroupEvents();
-  }
-
-  protected dateInputMode: DateInputMode = DateInputMode.Slider;
-  protected eventSliderMinDate: DateTime = this.dateUtils.dateTimeNow().startOf("day").minus({ months: 3 });
-  protected eventSliderMaxDate: DateTime = this.dateUtils.dateTimeNow().startOf("day").plus({ years: 2 });
-
-  protected setDateInputMode(mode: DateInputMode): void {
-    this.dateInputMode = mode;
-    if (mode === DateInputMode.Slider) {
-      this.recomputeSliderBoundsFromCurrentRange();
-    }
-  }
-
-  private eventSliderRangeValue: DateRange | null = null;
-
-  protected eventSliderRange(): DateRange | null {
-    const filter = this.state.groupEventsFilter;
-    if (!filter?.fromDate?.value || !filter?.toDate?.value) {
-      this.eventSliderRangeValue = null;
-    } else if (!this.eventSliderRangeValue || this.eventSliderRangeValue.from !== filter.fromDate.value || this.eventSliderRangeValue.to !== filter.toDate.value) {
-      this.eventSliderRangeValue = { from: filter.fromDate.value, to: filter.toDate.value };
-    }
-    return this.eventSliderRangeValue;
-  }
-
-  onEventDateRangeChange(range: DateRange): void {
-    if (!this.state.groupEventsFilter) return;
-    this.state.groupEventsFilter.fromDate = this.dateUtils.asDateValue(range.from);
-    this.state.groupEventsFilter.toDate = this.dateUtils.asDateValue(range.to);
-    this.selectedDateRangePreset = this.matchPresetToCurrentRange();
-    this.syncStateToUrl({
-      [StoredValue.DATE_FROM]: range.from.toString(),
-      [StoredValue.DATE_TO]: range.to.toString()
-    });
-    void this.populateGroupEvents();
-  }
-
-  private rescaleSliderToRange(fromMillis: number, toMillis: number): void {
-    const {minDate, maxDate} = dateRangeSliderBounds(
-      this.dateUtils.asDateTime(fromMillis),
-      this.dateUtils.asDateTime(toMillis),
-      0.25,
-      1
-    );
-    this.eventSliderMinDate = minDate;
-    this.eventSliderMaxDate = maxDate;
-  }
-
-  private recomputeSliderBoundsFromCurrentRange(): void {
-    const filter = this.state.groupEventsFilter;
-    if (!filter?.fromDate?.value || !filter?.toDate?.value) return;
-    this.rescaleSliderToRange(filter.fromDate.value, filter.toDate.value);
-  }
-
-  protected dateRangePresetOptions: AdvancedSearchPreset[] = [
-    createFuturePreset("Next 7 days", { days: 7 }),
-    createFuturePreset("Next 14 days", { days: 14 }),
-    createFuturePreset("Next 30 days", { days: 30 }),
-    createFuturePreset("Next 3 months", { months: 3 }),
-    createFuturePreset("Next 6 months", { months: 6 }),
-    createPastPreset("Past 30 days", { days: 30 }),
-    createPastPreset("Past 3 months", { months: 3 }),
-    createAllTimePreset(
-      "All upcoming",
-      this.dateUtils.dateTimeNow().startOf("day"),
-      this.dateUtils.dateTimeNow().plus({ years: 2 }).endOf("day")
-    )
-  ];
-
-  protected customDateRangePreset: AdvancedSearchPreset = {
-    label: "Custom",
-    range: () => ({
-      from: this.state.groupEventsFilter?.fromDate?.value ?? this.dateUtils.dateTimeNow().startOf("day").toMillis(),
-      to: this.state.groupEventsFilter?.toDate?.value ?? this.dateUtils.dateTimeNow().startOf("day").toMillis()
-    })
-  };
-
-  protected dateRangePresetItems: AdvancedSearchPreset[] = [...this.dateRangePresetOptions, this.customDateRangePreset];
-
-  protected selectedDateRangePreset: AdvancedSearchPreset | null = null;
-
-  onDateRangePresetChange(preset: AdvancedSearchPreset | null): void {
-    if (!preset || !this.state.groupEventsFilter) return;
-    if (preset === this.customDateRangePreset) return;
-    const range = preset.range();
-    this.state.groupEventsFilter.fromDate = this.dateUtils.asDateValue(range.from);
-    this.state.groupEventsFilter.toDate = this.dateUtils.asDateValue(range.to);
-    this.rescaleSliderToRange(range.from, range.to);
-    this.syncStateToUrl({
-      [StoredValue.DATE_RANGE_PRESET]: this.stringUtils.kebabCase(preset.label),
-      [StoredValue.DATE_FROM]: range.from.toString(),
-      [StoredValue.DATE_TO]: range.to.toString()
-    });
-    void this.populateGroupEvents();
-  }
-
-  private matchPresetToCurrentRange(): AdvancedSearchPreset | null {
-    if (!this.state.groupEventsFilter) return null;
-    const fromMillis = this.state.groupEventsFilter.fromDate?.value;
-    const toMillis = this.state.groupEventsFilter.toDate?.value;
-    if (!fromMillis || !toMillis) return null;
-    const tolerance = 24 * 60 * 60 * 1000;
-    const exactMatch = this.dateRangePresetOptions.find(preset => {
-      const range = preset.range();
-      return Math.abs(range.from - fromMillis) <= tolerance && Math.abs(range.to - toMillis) <= tolerance;
-    });
-    return exactMatch ?? this.customDateRangePreset;
-  }
-
-  toggleSelectAllGroupEvents(): void {
-    if (!this.state.groupEventsFilter) {
-      return;
-    } else {
-      this.state.groupEventsFilter.selectAll = !this.state.groupEventsFilter.selectAll;
-      this.state.groupEvents.forEach(event => event.selected = this.state.groupEventsFilter!.selectAll);
-      this.onGroupEventSelectionChanged();
-    }
-  }
-
-  protected onGroupEventSelectionChanged(): void {
-    if (this.selectedGroupEventCount() > 0) {
-      this.addEventsFragment(true);
-    }
-  }
-
-  selectedGroupEventCount(): number {
-    return this.state.groupEvents.filter(event => event.selected).length;
-  }
-
-  selectedGroupEventsList(): GroupEventSummary[] {
-    return this.state.groupEvents.filter(event => event.selected);
-  }
 
   protected async copyComposerStateAsJson(): Promise<void> {
     try {
-      const sanitised = this.compositionsService.serialiseStateForStorage(this.state);
+      const sanitised = this.compositionsService.serialiseStateForStorage(this.session.state);
       const text = JSON.stringify(sanitised, null, 2);
       await navigator.clipboard.writeText(text);
-      this.notify.success({ title: "Copied", message: "Composer state copied to clipboard as JSON" });
+      this.session.notify.success({title: "Copied", message: "Composer state copied to clipboard as JSON"});
     } catch (error) {
       this.logger.error("copyComposerStateAsJson failed:", error);
-      this.notify.error({ title: "Copy failed", message: "Could not copy composer state. See console for details." });
+      this.session.notify.error({title: "Copy failed", message: "Could not copy composer state. See console for details."});
     }
-  }
-
-  cycleEventMedia(event: GroupEventSummary, direction: 1 | -1): void {
-    const media = event.media ?? [];
-    if (media.length === 0) return;
-    const currentIndex = event.selectedMediaIndex ?? 0;
-    const nextIndex = (currentIndex + direction + media.length) % media.length;
-    this.applyMediaSelection(event, nextIndex);
-  }
-
-  private mediaUrlAtIndex(event: GroupEventSummary, index: number): string | undefined {
-    const item = event.media?.[index];
-    return item?.styles?.find(style => style.style === "medium")?.url ?? item?.styles?.[0]?.url;
-  }
-
-  private clampMediaIndex(event: GroupEventSummary, index: number | undefined): number {
-    const count = event.media?.length ?? 0;
-    if (count === 0 || !isNumber(index)) return 0;
-    return Math.min(Math.max(index, 0), count - 1);
-  }
-
-  private applyMediaSelection(event: GroupEventSummary, index: number): void {
-    event.selectedMediaIndex = index;
-    const url = this.mediaUrlAtIndex(event, index);
-    if (url) {
-      event.image = url;
-    }
-  }
-
-  private mergePriorSelection(event: GroupEventSummary, prior?: GroupEventSummary): GroupEventSummary {
-    const merged: GroupEventSummary = { ...event, selected: prior?.selected ?? this.state.groupEventsFilter!.selectAll };
-    this.applyMediaSelection(merged, this.clampMediaIndex(merged, prior?.selectedMediaIndex));
-    return merged;
   }
 
   protected committeeNotification: Notification | null = null;
@@ -3994,18 +1779,18 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private refreshCommitteeNotification(): void {
-    if (!this.state.notificationConfig || !this.state.groupEventsFilter) {
+    if (!this.session.state.notificationConfig || !this.session.state.groupEventsFilter) {
       this.committeeNotification = null;
       this.committeeNotificationInputs = [];
     } else {
       const inputs = [
-        this.state.notificationConfig,
-        this.state.subject ?? "",
+        this.session.state.notificationConfig,
+        this.session.state.subject ?? "",
         this.addresseePlaceholder(),
-        this.state.selectedListId ?? undefined,
-        this.state.selectedMemberIds,
-        this.state.groupEvents,
-        this.state.groupEventsFilter
+        this.session.state.selectedListId ?? undefined,
+        this.session.state.selectedMemberIds,
+        this.session.state.groupEvents,
+        this.session.state.groupEventsFilter
       ];
       const unchanged = this.committeeNotification
         && this.committeeNotificationInputs.length === inputs.length
@@ -4015,241 +1800,50 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         this.committeeNotification = {
           cancelled: false,
           content: {
-            notificationConfig: this.state.notificationConfig,
-            text: { value: "", include: false },
-            signoffText: { value: "", include: false },
-            title: { value: this.state.subject ?? "", include: false },
+            notificationConfig: this.session.state.notificationConfig,
+            text: {value: "", include: false},
+            signoffText: {value: "", include: false},
+            title: {value: this.session.state.subject ?? "", include: false},
             addresseeType: this.addresseePlaceholder(),
-            listId: this.state.selectedListId ?? undefined,
-            selectedMemberIds: this.state.selectedMemberIds,
-            signoffAs: { value: "", include: false },
+            listId: this.session.state.selectedListId ?? undefined,
+            selectedMemberIds: this.session.state.selectedMemberIds,
+            signoffAs: {value: "", include: false},
             includeDownloadInformation: false
           },
-          groupEvents: this.state.groupEvents,
-          groupEventsFilter: this.state.groupEventsFilter
+          groupEvents: this.session.state.groupEvents,
+          groupEventsFilter: this.session.state.groupEventsFilter
         };
       }
     }
   }
 
   private renderedEventsHtml(): string {
-    if (this.eventsStepOmitted() || this.state.eventInclusion === EventInclusionMode.NONE) return "";
-    return this.eventsContent?.nativeElement?.innerHTML ?? "";
+    if (this.eventsStepOmitted() || this.session.state.eventInclusion === EventInclusionMode.NONE) {
+      return "";
+    } else {
+      return this.eventsContent?.nativeElement?.innerHTML ?? "";
+    }
   }
 
   private renderedCommitteeFileHtmlForFragment(fragment: ComposerFragment): string {
-    const sourcePagePath = this.state.context?.sourcePagePath;
+    const sourcePagePath = this.session.state.context?.sourcePagePath;
     const sourcePage = sourcePagePath
       ? {
-        href: this.absoluteSourcePageUrl(),
-        groupName: this.systemConfig?.group?.shortName || "",
-        pageTitle: this.sourcePageTitleOrFallback()
+        href: this.documents.absoluteSourcePageUrl(),
+        groupName: this.session.systemConfig?.group?.shortName || "",
+        pageTitle: this.documents.sourcePageTitleOrFallback()
       }
       : null;
-    return this.committeeFilesFor(fragment).map(file => committeeFileEmailHtml({
-      subject: this.committeeFileNotificationItemFor(file).subject,
+    return this.documents.committeeFilesFor(fragment).map(file => committeeFileEmailHtml({
+      subject: this.documents.committeeFileNotificationItemFor(file).subject,
       markdown: hasCommitteeDocumentContent(file) ? file.document?.markdown || "" : "",
       link: {
-        href: this.committeeDisplayService.fileUrl(file, this.committeeFileLinkPath(file)),
-        label: this.committeeFileDownloadLabel(file)
+        href: this.committeeDisplayService.fileUrl(file, this.documents.committeeFileLinkPath(file)),
+        label: this.documents.committeeFileDownloadLabel(file)
       },
       sourcePage,
-      include: this.committeeFileInclude(fragment)
+      include: this.documents.committeeFileInclude(fragment)
     })).join("");
-  }
-
-  private applyDefaultListIfNeeded(): void {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.members.length > 0) {
-      this.state.preFilterKey = null;
-      const unbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
-      const lists = unbranded ? this.unbrandedCommitteeLists() : this.nonEmptyLists();
-      const selectionStillValid = this.state.selectedListId != null
-        && lists.some(list => list.id === this.state.selectedListId);
-      if (!selectionStillValid) {
-        if (unbranded) {
-          this.state.selectedListId = null;
-          this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-          this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-          this.state.externalRecipients = (this.state.externalRecipients ?? [])
-            .filter(recipient => !recipient.listId || lists.some(list => list.id === recipient.listId));
-          this.syncStateToUrl({
-            [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
-            [StoredValue.LIST_ID]: null
-          });
-        } else if (lists.length > 0) {
-          this.state.selectedListId = lists[0].id;
-          this.recipientAddressModeTouched = false;
-        }
-      }
-      this.ensureSelectedListIsOnTo();
-    }
-  }
-
-  private ensureSelectedListIsOnTo(): void {
-    const listId = this.state.recipientMode === RecipientMode.ENTIRE_LIST
-      ? this.state.selectedListId
-      : this.state.narrowListId;
-    if (listId !== null && this.members.length > 0) {
-      const list = this.nonEmptyLists().find(item => item.id === listId);
-      if (list) {
-        const unbrandedDisallowed = this.state.brandingMode === BrandingMode.UNBRANDED
-          && !this.unbrandedCommitteeLists().some(item => item.id === list.id);
-        if (unbrandedDisallowed) {
-          this.state.externalRecipients = (this.state.externalRecipients ?? []).filter(recipient => !recipient.listId
-            || this.unbrandedCommitteeLists().some(item => item.id === recipient.listId));
-        } else {
-          this.onUnbrandedToChange([composerListToken(list.id, list.name, this.subscribedMemberCount(list))]);
-        }
-      }
-    }
-  }
-
-  protected availableLists(): ListInfo[] {
-    return this.mailMessagingConfig?.brevo?.lists?.lists ?? [];
-  }
-
-  protected nonEmptyLists(): ListInfo[] {
-    return this.availableLists()
-      .filter(list => list.name !== COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME)
-      .filter(list => this.subscribedMemberCount(list) > 0);
-  }
-
-  private committeeOnlyLists(): ListInfo[] {
-    return this.nonEmptyLists().filter(list => {
-      const members = this.allMembers.filter(member => this.mailListUpdaterService.memberSubscribed(member, list.id));
-      return members.length > 0 && members.every(member => member.committee);
-    });
-  }
-
-  protected unbrandedCommitteeLists(): ListInfo[] {
-    return this.committeeOnlyLists();
-  }
-
-  private committeeOnlyAudience(): boolean {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.state.selectedListId !== null) {
-      return this.committeeOnlyLists().some(list => list.id === this.state.selectedListId);
-    } else {
-      const headers = this.expandedHeaderRecipients(this.headerRecipients());
-      const members = this.recipientsForAddressMode();
-      const memberChips = headers.filter(header => header.memberId && !header.committeeRoleType);
-      const people = memberChips.length > 0
-        ? members.filter(member => memberChips.some(chip => chip.memberId === member.id))
-        : members;
-      const roleChipCount = headers.filter(header => !!header.committeeRoleType).length;
-      const headerCount = headers.length;
-      const recipientCount = headerCount > 0 ? headerCount : people.length;
-      return composerSelectedMembersAreCommitteeAudience(people, recipientCount, roleChipCount);
-    }
-  }
-
-  protected unbrandedCommitteeListRecipients(): ComposerExternalRecipient[] {
-    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      return this.unbrandedCommitteeLists()
-        .map(list => composerListToken(list.id, list.name, this.unbrandedListDisplayCount(list)));
-    } else {
-      return [];
-    }
-  }
-
-  private headerRecipients(): ComposerExternalRecipient[] {
-    return [
-      ...(this.state.externalRecipients ?? []),
-      ...(this.state.ccRecipients ?? []),
-      ...(this.state.bccRecipients ?? [])
-    ];
-  }
-
-  private selectedListTokenPresent(): boolean {
-    const listId = this.state.selectedListId;
-    return listId !== null && this.headerRecipients().some(recipient => recipient.listId === listId);
-  }
-
-  private unbrandedListExpanded(): boolean {
-    return this.state.brandingMode === BrandingMode.UNBRANDED
-      && this.state.recipientMode === RecipientMode.ENTIRE_LIST
-      && this.state.selectedListId !== null
-      && !this.selectedListTokenPresent();
-  }
-
-  private unbrandedListDisplayCount(list: ListInfo): number {
-    if (this.state.selectedListId === list.id && this.unbrandedListExpanded()) {
-      return new Set(this.headerRecipients().map(recipient => recipient.email.toLowerCase())).size;
-    } else {
-      return this.subscribedMemberCount(list);
-    }
-  }
-
-  protected unbrandedSuggestionMembers(): Member[] {
-    const listId = this.unbrandedSelectedListId();
-    if (this.state.brandingMode === BrandingMode.UNBRANDED && listId !== null) {
-      return this.members.filter(member => this.mailListUpdaterService.memberSubscribed(member, listId));
-    } else if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      return this.members;
-    } else {
-      return this.candidateMembers();
-    }
-  }
-
-  protected unbrandedSuggestionSavedRecipients(): ExternalRecipient[] {
-    if (this.state.brandingMode !== BrandingMode.UNBRANDED || this.unbrandedSelectedListId() !== null) {
-      return [];
-    } else {
-      return this.savedExternalRecipients;
-    }
-  }
-
-  protected unbrandedSelectedListId(): number | null {
-    const to = this.state.externalRecipients ?? [];
-    const listIds = to.map(recipient => recipient.listId).filter((listId): listId is number => isNumber(listId));
-    if (to.length > 0 && listIds.length === to.length && new Set(listIds).size === 1) {
-      return listIds[0];
-    } else if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
-      return this.state.selectedListId;
-    } else {
-      return null;
-    }
-  }
-
-  protected onUnbrandedListIdChange(listId: number | null): void {
-    const list = listId === null ? null : this.unbrandedCommitteeLists().find(item => item.id === listId) ?? null;
-    this.selectUnbrandedCommitteeList(list);
-  }
-
-  protected onSendListIdChange(listId: number | null): void {
-    const list = this.nonEmptyLists().find(item => item.id === listId);
-    if (list) {
-      this.selectList(list);
-    }
-  }
-
-  protected selectUnbrandedCommitteeList(list: ListInfo | null): void {
-    if (list?.id) {
-      this.state.recipientMode = RecipientMode.ENTIRE_LIST;
-      this.state.selectedListId = list.id;
-      this.onUnbrandedToChange([composerListToken(list.id, list.name, this.subscribedMemberCount(list))]);
-      this.syncStateToUrl({
-        [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.ENTIRE_LIST),
-        [StoredValue.LIST_ID]: list.id.toString()
-      });
-    } else {
-      this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-      this.state.selectedListId = null;
-      this.onUnbrandedToChange((this.state.externalRecipients ?? []).filter(recipient => !recipient.listId));
-      this.syncStateToUrl({
-        [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
-        [StoredValue.LIST_ID]: null
-      });
-    }
-  }
-
-  private campaignRoleAddressMembers(): Member[] {
-    const listId = this.state.selectedListId;
-    const roles = this.committeeReferenceData?.committeeMembers() ?? [];
-    return listId === null
-      ? []
-      : this.members
-        .filter(member => this.mailListUpdaterService.memberSubscribed(member, listId))
-        .filter(member => committeeRoleEmailDiffersFromPersonal(member, roles));
   }
 
   private async campaignExclusionListId(emails: string[]): Promise<number | null> {
@@ -4266,612 +1860,13 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     return resolved.listId;
   }
 
-  protected narrowMembersExpanded: boolean = false;
-  protected recipientsPanelExpanded: boolean = true;
-  private syncingUnbrandedRecipients = false;
-  protected unbrandedPopulateField: RecipientField = RecipientField.TO;
-  private cachedCommitteeAddresses: ComposerExternalRecipient[] = [];
-  private syncedNotificationBccKey: string | null = null;
   private readonly unbrandedAutoFillLimit = 20;
-
-  protected externalRecipientsSummaryLabel(): string {
-    const describe = (label: string, list: ComposerExternalRecipient[]): string | null => {
-      if (list.length === 0) {
-        return null;
-      }
-      const names = list.map(recipient => recipient.name || recipient.email);
-      const shown = names.slice(0, 3).join(", ");
-      const remainder = names.length > 3 ? ` +${names.length - 3} more` : "";
-      return `${label}: ${shown}${remainder}`;
-    };
-    const parts = [
-      describe("To", this.state.externalRecipients ?? []),
-      describe("Cc", this.state.ccRecipients ?? []),
-      describe("Bcc", this.state.bccRecipients ?? [])
-    ].filter((part): part is string => part !== null);
-    return parts.length > 0 ? parts.join(" · ") : "No recipients chosen yet - expand to add.";
-  }
-
-  protected unbrandedPopulateFieldLabel(): string {
-    if (this.unbrandedPopulateField === RecipientField.TO) {
-      return "To";
-    } else if (this.unbrandedPopulateField === RecipientField.CC) {
-      return "Cc";
-    } else {
-      return "Bcc";
-    }
-  }
-
-  protected recipientSelectionSummary(): string {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
-      const list = this.nonEmptyLists().find(item => item.id === this.state.selectedListId);
-      if (list) {
-        return `Whole list: ${this.listNameAndCount(list)}. Expand to change.`;
-      } else {
-        return "No mailing list chosen. Expand to pick one.";
-      }
-    } else {
-      const list = this.nonEmptyLists().find(item => item.id === this.state.narrowListId);
-      const selected = this.state.selectedMemberIds?.length ?? 0;
-      const pool = this.candidateMembers().length;
-      const selectedPhrase = `${selected} of ${pool} selected`;
-      const key = this.state.preFilterKey;
-      if (key) {
-        const filterLabel = this.memberSelectionChipLabel(key);
-        if (list) {
-          return `${filterLabel} from ${this.listNameAndCount(list)}. ${selectedPhrase}. Expand to change.`;
-        } else {
-          return `${filterLabel}. ${selectedPhrase}. Expand to change.`;
-        }
-      } else if (list) {
-        return `From ${this.listNameAndCount(list)}. ${selectedPhrase}. Expand to change.`;
-      } else {
-        return `${selectedPhrase}. Expand to limit to a list.`;
-      }
-    }
-  }
-
-  protected recipientBulkSourceName(): string | null {
-    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      return null;
-    } else {
-      const listId = this.state.recipientMode === RecipientMode.ENTIRE_LIST
-        ? this.state.selectedListId
-        : this.state.narrowListId;
-      const list = this.nonEmptyLists().find(item => item.id === listId);
-      if (list) {
-        return list.name;
-      } else if (this.candidateMembers().length > 0) {
-        return "members";
-      } else {
-        return null;
-      }
-    }
-  }
-
-  protected addAllFromSelectedList(field: RecipientField, replaceExisting = false): void {
-    const listId = this.state.recipientMode === RecipientMode.ENTIRE_LIST
-      ? this.state.selectedListId
-      : this.state.narrowListId;
-    const list = this.nonEmptyLists().find(item => item.id === listId);
-    const sourceMembers = this.state.recipientMode === RecipientMode.ENTIRE_LIST && listId !== null
-      ? this.members.filter(member => this.mailListUpdaterService.memberSubscribed(member, listId))
-      : this.candidateMembers();
-    const people = sourceMembers
-      .map(member => composerRecipientFromMember(member))
-      .filter((recipient): recipient is ComposerExternalRecipient => !!recipient);
-    if (people.length > 0) {
-      const filterIds = this.state.preFilterKey ? this.state.selectedMemberIds : [];
-      const filterToken = this.filterTokenForIds(filterIds);
-      const addition = filterToken
-        ? [filterToken]
-        : (list && (this.state.recipientMode === RecipientMode.ENTIRE_LIST
-          || people.length >= COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT)
-          ? [composerListToken(list.id, list.name, people.length)]
-          : people);
-      const existingRecipients = (recipients: ComposerExternalRecipient[]) => replaceExisting
-        ? []
-        : recipients.filter(item => !item.listId && !item.filterKey);
-      if (field === RecipientField.TO) {
-        this.onUnbrandedToChange(this.mergeRecipients(existingRecipients(this.state.externalRecipients ?? []), addition));
-      } else if (field === RecipientField.CC) {
-        this.onUnbrandedCcChange(this.mergeRecipients(existingRecipients(this.state.ccRecipients ?? []), addition));
-      } else {
-        this.onUnbrandedBccChange(this.mergeRecipients(existingRecipients(this.state.bccRecipients ?? []), addition));
-      }
-    }
-  }
-
-  private mergeRecipients(existing: ComposerExternalRecipient[], addition: ComposerExternalRecipient[]): ComposerExternalRecipient[] {
-    const emails = new Set(existing.map(item => item.email.toLowerCase()));
-    return addition.reduce((list, item) => {
-      if (emails.has(item.email.toLowerCase())) {
-        return list;
-      } else {
-        emails.add(item.email.toLowerCase());
-        return [...list, item];
-      }
-    }, existing);
-  }
-
-  protected expandListToken(field: RecipientField, token: ComposerExternalRecipient): void {
-    if (token.filterKey || token.email === COMPOSER_EVERYONE_FILTER_EMAIL) {
-      if (token.filterKey) {
-        this.expandedRecipientFilterKeys.add(token.filterKey);
-      } else {
-        this.expandedEveryoneSet = true;
-      }
-      const people = this.memberRecipientsForIds(this.state.selectedMemberIds);
-      const replace = (list: ComposerExternalRecipient[]) => this.mergeRecipients(
-        list.filter(item => item.email.toLowerCase() !== token.email.toLowerCase()),
-        people
-      );
-      if (field === RecipientField.TO) {
-        this.onUnbrandedToChange(replace(this.state.externalRecipients ?? []));
-      } else if (field === RecipientField.CC) {
-        this.onUnbrandedCcChange(replace(this.state.ccRecipients ?? []));
-      } else {
-        this.onUnbrandedBccChange(replace(this.state.bccRecipients ?? []));
-      }
-    } else if (token.listId) {
-      this.expandedRecipientListIds.add(token.listId);
-      const people = this.members
-        .filter(member => this.mailListUpdaterService.memberSubscribed(member, token.listId!) && !!(member.email || "").trim())
-        .map(member => composerRecipientFromMember(member))
-        .filter((recipient): recipient is ComposerExternalRecipient => !!recipient);
-      const replace = (list: ComposerExternalRecipient[]) => this.mergeRecipients(
-        list.filter(item => item.email.toLowerCase() !== token.email.toLowerCase()),
-        people
-      );
-      if (field === RecipientField.TO) {
-        this.onUnbrandedToChange(replace(this.state.externalRecipients ?? []));
-      } else if (field === RecipientField.CC) {
-        this.onUnbrandedCcChange(replace(this.state.ccRecipients ?? []));
-      } else {
-        this.onUnbrandedBccChange(replace(this.state.bccRecipients ?? []));
-      }
-      this.promoteEntireListToSpecificMembers(token.listId);
-    }
-  }
-
-  private promoteEntireListToSpecificMembers(listId: number): void {
-    if (this.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
-    } else if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      this.onUnbrandedToChange(this.expandListChipsWhenMixedWithPeople(this.state.externalRecipients ?? []));
-    } else {
-      this.state.narrowListId = listId;
-      this.state.selectedMemberIds = this.members
-        .filter(member => this.mailListUpdaterService.memberSubscribed(member, listId) && !!member.id && !!(member.email || "").trim())
-        .map(member => member.id as string);
-      this.userPickedRecipientMode = true;
-      this.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
-      this.syncStateToUrl({[StoredValue.LIST_ID]: listId.toString()});
-    }
-  }
-
-  protected onUnbrandedActiveFieldChange(field: RecipientField | null): void {
-    if (field) {
-      this.unbrandedPopulateField = field;
-    }
-  }
-
-  protected committeeRecipientAddresses(): ComposerExternalRecipient[] {
-    return this.cachedCommitteeAddresses;
-  }
-
-  protected notificationConfigBccRecipients(): ComposerExternalRecipient[] {
-    if (this.state.brandingMode === BrandingMode.UNBRANDED || !this.state.notificationConfig) {
-      return [];
-    } else {
-      const types = this.state.notificationConfig.bccRoles?.length
-        ? this.state.notificationConfig.bccRoles
-        : (this.state.notificationConfig.ccRoles ?? []);
-      const committee = this.committeeReferenceData?.committeeMembers() ?? [];
-      return types.reduce<ComposerExternalRecipient[]>((list, type) => {
-        const role = committee.find(member => member.type === type);
-        const email = (role?.email || "").trim();
-        if (!role || !email || list.some(item => item.email.toLowerCase() === email.toLowerCase())) {
-          return list;
-        } else {
-          return [...list, {
-            email,
-            name: role.description || role.fullName || email,
-            saveForReuse: false,
-            memberId: role.memberId || undefined,
-            committeeRoleType: role.type
-          }];
-        }
-      }, []);
-    }
-  }
-
-  private remainingNotificationBccRoleTypes(): string[] {
-    this.syncNotificationConfigBccIntoBcc();
-    const onBcc = new Set((this.state.bccRecipients ?? []).map(recipient => recipient.email.toLowerCase()));
-    return this.notificationConfigBccRecipients()
-      .filter(recipient => onBcc.has(recipient.email.toLowerCase()) && recipient.committeeRoleType)
-      .map(recipient => recipient.committeeRoleType as string);
-  }
-
-  private syncNotificationConfigBccIntoBcc(): void {
-    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      this.syncedNotificationBccKey = null;
-    } else {
-      const fromConfig = this.notificationConfigBccRecipients();
-      const key = fromConfig.map(recipient => recipient.email.toLowerCase()).sort().join("|");
-      if (key === this.syncedNotificationBccKey) {
-      } else {
-        const previous = new Set((this.syncedNotificationBccKey || "").split("|").filter(Boolean));
-        const next = new Set(fromConfig.map(recipient => recipient.email.toLowerCase()));
-        this.state.bccRecipients = appendUniqueRecipients(
-          (this.state.bccRecipients ?? []).filter(recipient => {
-            const email = recipient.email.toLowerCase();
-            return !previous.has(email) || next.has(email);
-          }),
-          fromConfig
-        );
-        this.syncedNotificationBccKey = key;
-      }
-    }
-  }
-
-  protected onUnbrandedToChange(recipients: ComposerExternalRecipient[]): void {
-    const normalised = this.expandListChipsWhenMixedWithPeople(recipients);
-    this.state.externalRecipients = normalised;
-    if (normalised !== recipients && this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
-      this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-      this.state.selectedListId = null;
-      this.syncStateToUrl({
-        [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
-        [StoredValue.LIST_ID]: null
-      });
-    }
-    this.applyChipSendAddresses();
-    this.maybePromoteEntireListAfterHeaderEdit();
-    this.syncUnbrandedHeadersIntoPicker();
-  }
-
-  private expandListChipsWhenMixedWithPeople(recipients: ComposerExternalRecipient[]): ComposerExternalRecipient[] {
-    const listChips = recipients.filter(recipient => isNumber(recipient.listId));
-    const others = recipients.filter(recipient => !recipient.listId);
-    if (listChips.length === 0 || others.length === 0 || this.members.length === 0) {
-      return recipients;
-    } else {
-      const fromLists = listChips.flatMap(token => this.members
-        .filter(member => this.mailListUpdaterService.memberSubscribed(member, token.listId!) && !!(member.email || "").trim())
-        .map(member => composerRecipientFromMember(member))
-        .filter((item): item is ComposerExternalRecipient => !!item));
-      return this.mergeRecipients(fromLists, others);
-    }
-  }
-
-  private maybePromoteEntireListAfterHeaderEdit(): void {
-    if (this.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
-    } else if (this.state.selectedListId !== null
-      && (this.state.externalRecipients ?? []).some(recipient => !recipient.listId)) {
-      this.promoteEntireListToSpecificMembers(this.state.selectedListId);
-    }
-  }
-
-  protected onUnbrandedCcChange(recipients: ComposerExternalRecipient[]): void {
-    const allowed = new Set(this.committeeCcEmails());
-    this.state.ccRecipients = recipients.filter(recipient => allowed.has((recipient.email || "").toLowerCase()));
-    this.applyChipSendAddresses();
-    this.syncUnbrandedHeadersIntoPicker();
-  }
-
-  protected committeeCcEmails(): string[] {
-    const roles = this.committeeReferenceData?.committeeMembers() ?? [];
-    const roleEmails = composerCommitteeRecipients(roles).map(recipient => recipient.email.toLowerCase());
-    const memberEmails = this.allMembers
-      .filter(member => member.committee || memberHoldsCommitteeRole(member, roles))
-      .map(member => (member.email || "").toLowerCase())
-      .filter(email => !!email);
-    return [...new Set([...roleEmails, ...memberEmails])];
-  }
-
-  protected onUnbrandedBccChange(recipients: ComposerExternalRecipient[]): void {
-    this.state.bccRecipients = recipients;
-    this.applyChipSendAddresses();
-    this.syncUnbrandedHeadersIntoPicker();
-  }
-
-  private memberIdsOnHeaders(): string[] {
-    const headers = this.expandedHeaderRecipients(this.headerRecipients());
-    const roles = this.committeeReferenceData?.committeeMembers() ?? [];
-    return [...new Set(headers
-      .map(header => this.memberMatchingHeader(header, roles)?.id)
-      .filter((id): id is string => !!id))];
-  }
-
-  private syncSelectedMembersToHeaders(): void {
-    if (this.headerRecipients().length > 0) {
-      this.state.selectedMemberIds = this.memberIdsOnHeaders();
-    }
-  }
-
-  private headerEmailSet(): Set<string> {
-    return new Set(this.expandedHeaderRecipients([
-      ...(this.state.externalRecipients ?? []),
-      ...(this.state.ccRecipients ?? []),
-      ...(this.state.bccRecipients ?? [])
-    ]).map(recipient => recipient.email.toLowerCase()));
-  }
-
-  private filterTokenForIds(ids: string[]): ComposerExternalRecipient | null {
-    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      return null;
-    } else {
-      const key = this.state.preFilterKey;
-      if (ids.length === 0 || ids.length < COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT) {
-        return null;
-      } else if (key) {
-        if (this.expandedRecipientFilterKeys.has(key)) {
-          return null;
-        } else {
-          return composerFilterToken(key, this.memberSelectionChipLabel(key), ids.length);
-        }
-      } else if (this.expandedEveryoneSet) {
-        return null;
-      } else {
-        return composerEveryoneFilterToken("Everyone with an email address", ids.length);
-      }
-    }
-  }
-
-  private applyPreFilterAudienceToTo(): void {
-    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      this.clearUnbrandedBulkRecipients();
-    } else {
-      const key = this.state.preFilterKey;
-      const ids = this.candidateMembers()
-        .filter(member => (!key || this.memberMatchesPreFilter(member, key)) && !!member.id && !!(member.email || "").trim())
-        .map(member => member.id as string);
-      if (key) {
-        this.expandedRecipientFilterKeys.delete(key);
-      } else {
-        this.expandedEveryoneSet = false;
-      }
-      this.onFilteredMemberIdsChange(ids);
-    }
-  }
-
-  private clearUnbrandedBulkRecipients(): void {
-    const strip = (list: ComposerExternalRecipient[] | null): ComposerExternalRecipient[] =>
-      (list ?? []).filter(recipient => !composerRecipientIsExpandableSet(recipient));
-    this.state.externalRecipients = strip(this.state.externalRecipients);
-    this.state.ccRecipients = strip(this.state.ccRecipients);
-    this.state.bccRecipients = strip(this.state.bccRecipients);
-  }
-
-  private memberMatchesPreFilter(member: Member, key: MemberSelection): boolean {
-    const amount = this.state.notificationConfig?.monthsInPast;
-    const months = isNumber(amount) ? amount : 1;
-    const timeUnit = this.state.notificationConfig?.timeUnit ?? DateRangeUnit.MONTHS;
-    const noDateFilter = timeUnit === NO_DATE_FILTER;
-    const windowStart = noDateFilter
-      ? 0
-      : this.dateUtils.dateTimeNowNoTime().minus({[timeUnit]: months} as {[unit: string]: number}).toMillis();
-    if (key === MemberSelection.RECENTLY_ADDED) {
-      return !!(member.groupMember && member.createdDate && (noDateFilter || member.createdDate >= windowStart));
-    } else if (key === MemberSelection.EXPIRED_MEMBERS) {
-      const memberStatus = member.memberStatus?.toLowerCase();
-      const lifeMember = member.memberTerm === MemberTerm.LIFE;
-      if (!member.groupMember || !member.membershipExpiryDate || memberStatus === "payment pending" || lifeMember) {
-        return false;
-      } else if (noDateFilter) {
-        return member.membershipExpiryDate < this.dateUtils.dateTimeNowNoTime().toMillis();
-      } else {
-        const recentlyLoaded = !!member.createdDate && member.createdDate >= windowStart;
-        const recentlyUpdated = !!member.updatedDate && member.updatedDate >= windowStart;
-        return member.membershipExpiryDate < windowStart && !recentlyLoaded && !recentlyUpdated;
-      }
-    } else if (key === MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS) {
-      const lastBulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] : null;
-      return !!(member.groupMember && member.membershipNumber && lastBulkLoadDate && (noDateFilter || lastBulkLoadDate < windowStart));
-    } else if (key === MemberSelection.ADDED_IN_LAST_BULK_LOAD_MEMBERS) {
-      const dates = values(this.memberBulkLoadDateMap ?? {});
-      const latestBulkLoadDate = dates.length ? Math.max(...dates) : undefined;
-      const memberBulkLoadDate = member.membershipNumber ? this.memberBulkLoadDateMap?.[member.membershipNumber] : undefined;
-      return !!(member.groupMember && member.membershipNumber && latestBulkLoadDate && memberBulkLoadDate === latestBulkLoadDate
-        && member.createdDate && member.createdDate >= latestBulkLoadDate);
-    } else {
-      return false;
-    }
-  }
-
-  private memberSelectionChipLabel(key: MemberSelection): string {
-    const amount = this.state.notificationConfig?.monthsInPast;
-    const months = isNumber(amount) ? amount : 1;
-    if (key === MemberSelection.RECENTLY_ADDED) {
-      return `Added in last ${this.stringUtils.pluraliseWithCount(months, "month")}`;
-    } else if (key === MemberSelection.EXPIRED_MEMBERS) {
-      return `Expired (${this.stringUtils.pluraliseWithCount(months, "month")} past expiry)`;
-    } else {
-      return RECIPIENT_PRE_FILTERS.find(filter => filter.key === key)?.label ?? key;
-    }
-  }
-
-  private memberRecipientsForIds(ids: string[]): ComposerExternalRecipient[] {
-    const idSet = new Set(ids);
-    return this.allMembers
-      .filter(member => idSet.has(member.id ?? ""))
-      .map(member => composerRecipientFromMember(member))
-      .filter((recipient): recipient is ComposerExternalRecipient => !!recipient);
-  }
-
-  private memberEmailsForIds(ids: string[]): string[] {
-    return this.memberRecipientsForIds(ids).map(recipient => recipient.email.toLowerCase());
-  }
-
-  private selectedMembersOutsideHeadersCount(): number {
-    const headers = this.expandedHeaderRecipients(this.headerRecipients());
-    const roles = this.committeeReferenceData?.committeeMembers() ?? [];
-    return (this.state.selectedMemberIds ?? [])
-      .map(id => this.allMembers.find(member => member.id === id))
-      .filter((member): member is Member => !!member)
-      .filter(member => !memberIsCoveredByComposerHeaders(member, headers, roles))
-      .length;
-  }
-
-  private applyUnbrandedListToBcc(): void {
-    this.recomputeCandidateMembers();
-    if (this.state.narrowListId === null) {
-      this.state.selectedMemberIds = this.membersInHeader([
-        ...(this.state.externalRecipients ?? []),
-        ...(this.state.ccRecipients ?? []),
-        ...(this.state.bccRecipients ?? [])
-      ]).map(member => member.id).filter((id): id is string => !!id);
-    } else {
-      const recipients = this.cachedCandidateMembers
-        .map(member => composerRecipientFromMember(member))
-        .filter((recipient): recipient is ComposerExternalRecipient => !!recipient);
-      if (this.unbrandedPopulateField === RecipientField.TO) {
-        this.state.externalRecipients = recipients;
-      } else if (this.unbrandedPopulateField === RecipientField.CC) {
-        this.state.ccRecipients = recipients;
-      } else {
-        this.state.bccRecipients = recipients;
-      }
-      this.state.selectedMemberIds = this.cachedCandidateMembers
-        .map(member => member.id)
-        .filter((id): id is string => !!id);
-    }
-  }
-
-  private syncUnbrandedHeadersIntoPicker(): void {
-    if (this.state.brandingMode === BrandingMode.UNBRANDED && !this.syncingUnbrandedRecipients) {
-      const emails = this.headerEmailSet();
-      const ids = this.allMembers
-        .filter(member => member.id && member.email && emails.has(member.email.toLowerCase()))
-        .map(member => member.id as string);
-      const unchanged = ids.length === this.state.selectedMemberIds.length
-        && ids.every((id, index) => id === this.state.selectedMemberIds[index]);
-      if (!unchanged) {
-        this.syncingUnbrandedRecipients = true;
-        this.state.selectedMemberIds = ids;
-        this.syncingUnbrandedRecipients = false;
-        this.syncRecipientAddressMode();
-      }
-    }
-  }
-
-  protected listSubscriberCount(list: ListInfo): string {
-    return this.listSubscriberService.subscriberCountLabel(this.members, list.id);
-  }
-
-  protected listNameAndCount(list: ListInfo): string {
-    return `${list.name} - ${this.listSubscriberCount(list)}`;
-  }
-
-  protected subscribedMemberCount(list: ListInfo): number {
-    return this.listSubscriberService.subscriberCount(this.members, list.id);
-  }
-
-  setNarrowListId(listId: number | null): void {
-    this.state.narrowListId = listId;
-    this.expandedRecipientListIds.clear();
-    this.recomputeCandidateMembers();
-    this.state.selectedMemberIds = this.state.selectedMemberIds.filter(id => this.cachedCandidateMembers.some(member => member.id === id));
-    if (this.state.recipientMode === RecipientMode.SELECTED_MEMBERS && listId !== null) {
-      this.addAllFromSelectedList(this.unbrandedPopulateField, true);
-    }
-    this.syncStateToUrl({ [StoredValue.LIST_ID]: listId?.toString() ?? null });
-  }
-
-  private cachedCandidateMembers: Member[] = [];
-  private cachedUnsubscribedDates: Record<string, number> = {};
-  private cachedNarrowListId: number | null | undefined = undefined;
-  private cachedMembersRef: Member[] = [];
-  private cachedReferenceListId: number | null | undefined = undefined;
-  private cachedRemovesRecipients: boolean | undefined = undefined;
-  private expandedRecipientListIds = new Set<number>();
-  private expandedRecipientFilterKeys = new Set<MemberSelection>();
-  private expandedEveryoneSet = false;
-
-  private unsubscribeReferenceListId(): number | null {
-    const narrowListId = this.state.narrowListId;
-    if (isNumber(narrowListId)) {
-      return narrowListId;
-    }
-    const defaultListId = this.state.notificationConfig?.defaultListId;
-    return isNumber(defaultListId) ? defaultListId : null;
-  }
-
-  private recomputeCandidateMembers(): void {
-    const narrowListId = this.state.narrowListId;
-    const referenceListId = this.unsubscribeReferenceListId();
-    const removesRecipients = this.workflowRemovesRecipients();
-    const basePool = removesRecipients ? this.allMembers : this.members;
-    if (narrowListId === null) {
-      this.cachedCandidateMembers = basePool;
-    } else {
-      this.cachedCandidateMembers = basePool.filter(member =>
-        this.mailListUpdaterService.memberSubscribed(member, narrowListId));
-    }
-    this.cachedUnsubscribedDates = this.cachedCandidateMembers.reduce((dates, member) => {
-      const unsubscribedAt = isNumber(referenceListId)
-        ? this.mailListUpdaterService.listUnsubscribedAt(member, referenceListId)
-        : this.mailListUpdaterService.fullyUnsubscribedAt(member);
-      if (isNumber(unsubscribedAt) && member.id) {
-        dates[member.id] = unsubscribedAt;
-      }
-      return dates;
-    }, {} as Record<string, number>);
-    this.cachedNarrowListId = narrowListId;
-    this.cachedMembersRef = this.members;
-    this.cachedReferenceListId = referenceListId;
-    this.cachedRemovesRecipients = removesRecipients;
-  }
-
-  candidateMembers(): Member[] {
-    if (this.candidateCacheStale()) {
-      this.recomputeCandidateMembers();
-    }
-    return this.cachedCandidateMembers;
-  }
-
-  unsubscribedMemberDates(): Record<string, number> {
-    if (this.candidateCacheStale()) {
-      this.recomputeCandidateMembers();
-    }
-    return this.cachedUnsubscribedDates;
-  }
-
-  private candidateCacheStale(): boolean {
-    return this.cachedNarrowListId !== this.state.narrowListId
-      || this.cachedMembersRef !== this.members
-      || this.cachedReferenceListId !== this.unsubscribeReferenceListId()
-      || this.cachedRemovesRecipients !== this.workflowRemovesRecipients();
-  }
-
-  protected chooseRecipientMode(mode: RecipientMode): void {
-    this.userPickedRecipientMode = true;
-    this.setRecipientMode(mode);
-  }
-
-  setRecipientMode(mode: RecipientMode): void {
-    this.state.recipientMode = mode;
-    if (mode === RecipientMode.ENTIRE_LIST) {
-      this.state.preFilterKey = null;
-      this.recipientAddressModeTouched = false;
-    }
-    this.applyDefaultListIfNeeded();
-    this.state.sendingChannel = this.sendingAsCampaign()
-      ? SendingChannel.CAMPAIGN
-      : SendingChannel.TRANSACTIONAL_BATCH;
-    this.syncRecipientAddressMode();
-    this.syncStateToUrl({
-      [StoredValue.EMAIL_TYPE]: kebabCase(mode),
-      [StoredValue.PRE_FILTER]: mode === RecipientMode.SELECTED_MEMBERS ? this.state.preFilterKey ?? null : null
-    });
-  }
-
   protected pendingForwardedHeaderLines: string[] = [];
   private introEditorRef?: TiptapMarkdownEditor;
   private pendingIntroFocus = false;
 
-  @ViewChild("introEditor") set introEditor(editor: TiptapMarkdownEditor | undefined) {
+  @ViewChild("introEditor")
+  set introEditor(editor: TiptapMarkdownEditor | undefined) {
     this.introEditorRef = editor;
     if (editor && this.pendingIntroFocus) {
       this.pendingIntroFocus = false;
@@ -4888,33 +1883,37 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     const html = event.clipboardData?.getData("text/html") ?? "";
     const plain = subjectTextFromPaste(text, html);
     const input = event.target as HTMLInputElement;
-    const current = this.state.subject ?? "";
+    const current = this.session.state.subject ?? "";
     const start = input.selectionStart ?? current.length;
     const end = input.selectionEnd ?? start;
     event.preventDefault();
-    this.state.subject = `${current.slice(0, start)}${plain}${current.slice(end)}`;
+    this.session.state.subject = `${current.slice(0, start)}${plain}${current.slice(end)}`;
   }
 
-  protected onIntroRawPaste(event: { text: string; html?: string; consume: () => void }): void {
+  protected onIntroRawPaste(event: {
+    text: string;
+    html?: string;
+    consume: () => void;
+  }): void {
     const titled = extractLeadingTitle(event.text, event.html);
-    const parsedHeaders = this.parseEmailHeadersFromMarkdown(event.text);
-    if (parsedHeaders?.subject && this.emailHeadersNearTop(event.text)) {
-      this.state.subject = parsedHeaders.subject;
+    const parsedHeaders = parseEmailHeadersFromMarkdown(event.text);
+    if (parsedHeaders?.subject && emailHeadersNearTop(event.text)) {
+      this.session.state.subject = parsedHeaders.subject;
     }
-    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      if (shouldRunIntroSmartPaste(true, !!this.inboxReplyContext)) {
-        const existingIntro = this.state.introMarkdown ?? "";
+    if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
+      if (shouldRunIntroSmartPaste(true, !!this.session.inboxReplyContext)) {
+        const existingIntro = this.session.state.introMarkdown ?? "";
         const hasExistingIntro = existingIntro.trim().length > 0;
         const parsed = parsedHeaders;
-        if (titled && !(parsed && this.emailHeadersNearTop(event.text))) {
-          const plan = planTitledIntroPaste(event.text, titled, this.state.subject ?? "", this.state.notificationConfig?.subject?.text ?? "", hasExistingIntro);
+        if (titled && !(parsed && emailHeadersNearTop(event.text))) {
+          const plan = planTitledIntroPaste(event.text, titled, this.session.state.subject ?? "", this.session.state.notificationConfig?.subject?.text ?? "", hasExistingIntro);
           if (plan.apply) {
             event.consume();
             if (plan.subject) {
-              this.state.subject = plan.subject;
+              this.session.state.subject = plan.subject;
             }
-            this.state.introMarkdown = this.introEditor?.unwrapIfEnabled(plan.body) ?? plan.body;
-            this.state.addresseeType = AddresseeType.NONE;
+            this.session.state.introMarkdown = this.introEditor?.unwrapIfEnabled(plan.body) ?? plan.body;
+            this.session.state.addresseeType = AddresseeType.NONE;
             this.pendingForwardedHeaderLines = [];
             queueMicrotask(() => this.introEditor?.focusAtStart());
           }
@@ -4922,51 +1921,51 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
           if (parsed) {
             event.consume();
             const incomingAddresses = [...parsed.to, ...parsed.cc];
-            const existing = new Set(this.state.externalRecipients.map(item => item.email.toLowerCase()));
+            const existing = new Set(this.session.state.externalRecipients.map(item => item.email.toLowerCase()));
             const additions = incomingAddresses
               .filter(addr => !existing.has(addr.email.toLowerCase()))
               .map(addr => ({
                 email: addr.email,
-                name: addr.name || this.nameFromEmail(addr.email) || undefined,
+                name: addr.name || this.sender.nameFromEmail(addr.email) || undefined,
                 saveForReuse: true
               }));
             if (additions.length > 0) {
-              this.state.externalRecipients = [...this.state.externalRecipients, ...additions];
+              this.session.state.externalRecipients = [...this.session.state.externalRecipients, ...additions];
             }
             if (parsed.subject) {
-              this.state.subject = parsed.subject;
+              this.session.state.subject = parsed.subject;
             }
             if (!hasExistingIntro) {
-              this.state.addresseeType = AddresseeType.NONE;
+              this.session.state.addresseeType = AddresseeType.NONE;
             }
             const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
-            const forwardedMarkdown = this.buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, unwrappedBody);
-            this.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, forwardedMarkdown, true);
+            const forwardedMarkdown = buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, unwrappedBody);
+            this.session.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, forwardedMarkdown, true);
             this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
             queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
           }
         }
-      } else if (this.inboxReplyContext) {
+      } else if (this.session.inboxReplyContext) {
         const parsed = parsedHeaders;
-        if (parsed && this.emailHeadersNearTop(event.text)) {
+        if (parsed && emailHeadersNearTop(event.text)) {
           event.consume();
-          const existingIntro = this.state.introMarkdown ?? "";
+          const existingIntro = this.session.state.introMarkdown ?? "";
           const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
-          this.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, unwrappedBody, true);
+          this.session.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, unwrappedBody, true);
           queueMicrotask(() => this.introEditor?.focusAtStart());
         }
       }
       this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
     }
     if (titled && this.subjectStillAutomatic()) {
-      this.state.subject = titled.title;
+      this.session.state.subject = titled.title;
     }
   }
 
   private automaticGeneratedSubjects(): string[] {
-    const templateSubject = this.state.notificationConfig?.subject?.text ?? "";
-    const newsletterPeriod = this.state.compositionKind === EmailCompositionKind.NEWSLETTER ? this.newsletterPeriodDescription() : null;
-    const releaseNotePeriod = this.state.compositionKind === EmailCompositionKind.RELEASE_NOTE_UPDATE ? this.releaseNoteUpdatePeriodDescription() : null;
+    const templateSubject = this.session.state.notificationConfig?.subject?.text ?? "";
+    const newsletterPeriod = this.session.state.compositionKind === EmailCompositionKind.NEWSLETTER ? this.drafting.newsletterPeriodDescription() : null;
+    const releaseNotePeriod = this.session.state.compositionKind === EmailCompositionKind.RELEASE_NOTE_UPDATE ? this.updateSettings.releaseNoteUpdatePeriodDescription(this.session.state, this.session.currentDraftId) : null;
     return [
       newsletterPeriod ? `What's coming up: ${newsletterPeriod}` : null,
       releaseNotePeriod ? releaseNoteUpdateSubject(templateSubject, templateSubject, releaseNotePeriod) : null
@@ -4974,40 +1973,24 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private subjectStillAutomatic(): boolean {
-    const templateSubject = this.state.notificationConfig?.subject?.text ?? "";
-    return subjectStillDefault(this.state.subject ?? "", templateSubject, this.automaticGeneratedSubjects());
-  }
-
-  private emailHeadersNearTop(text: string): boolean {
-    const lines = (text ?? "").split(/\r?\n/);
-    const addressingHeader = /^(To|From|Cc|Bcc|Subject):\s*\S/i;
-    const firstHeaderIdx = lines.findIndex(line => addressingHeader.test(this.stripMarkdownDecorations(line)));
-    return firstHeaderIdx >= 0 && lines.slice(0, firstHeaderIdx).every(line => {
-      const stripped = this.stripMarkdownDecorations(line);
-      return stripped === "" || /^\s*#{1,6}\s/.test(line) || /^[A-Za-z][A-Za-z -]*:\s/.test(stripped);
-    });
-  }
-
-  private buildForwardedIntroMarkdown(headerLines: string[], body: string): string {
-    const headerBlock = headerLines.join("  \n");
-    const trimmedBody = body?.trim() ?? "";
-    return `\n\n---\n\n${headerBlock}\n\n---\n\n${trimmedBody}`;
+    const templateSubject = this.session.state.notificationConfig?.subject?.text ?? "";
+    return subjectStillDefault(this.session.state.subject ?? "", templateSubject, this.automaticGeneratedSubjects());
   }
 
   protected dismissForwardedHeaderOffer(): void {
     this.pendingForwardedHeaderLines = [];
   }
 
-
   protected onIntroMarkdownChange(value: string): void {
-    this.state.introMarkdown = value ?? "";
-    if (this.state.addresseeType === AddresseeType.NONE) return;
-    const firstLine = (value ?? "")
-      .replace(/^[\s>*_`#-]+/, "")
-      .split(/\r?\n/)[0]
-      ?.trim() ?? "";
-    if (/^(hi|hello|hey|dear|good (morning|afternoon|evening))\b/i.test(firstLine)) {
-      this.state.addresseeType = AddresseeType.NONE;
+    this.session.state.introMarkdown = value ?? "";
+    if (!(this.session.state.addresseeType === AddresseeType.NONE)) {
+      const firstLine = (value ?? "")
+        .replace(/^[\s>*_`#-]+/, "")
+        .split(/\r?\n/)[0]
+        ?.trim() ?? "";
+      if (/^(hi|hello|hey|dear|good (morning|afternoon|evening))\b/i.test(firstLine)) {
+        this.session.state.addresseeType = AddresseeType.NONE;
+      }
     }
   }
 
@@ -5015,113 +1998,49 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (file) {
       this.documentImporting = true;
-      this.notify.progress({title: "Document import", message: `Converting ${file.name}…`});
+      this.session.notify.progress({title: "Document import", message: `Converting ${file.name}…`});
       try {
         const converted = await this.documentConversionService.convertFile(file);
         const markdown = this.documentConversionService.separateEditingBlocks(converted.markdown);
-        this.state.introMarkdown = [this.state.introMarkdown, markdown].filter(Boolean).join("\n\n");
-        this.introEditor?.syncValue(this.state.introMarkdown);
+        this.session.state.introMarkdown = [this.session.state.introMarkdown, markdown].filter(Boolean).join("\n\n");
+        this.introEditor?.syncValue(this.session.state.introMarkdown);
         this.introEditor?.focusAtEnd();
-        this.notify.success({title: "Document imported", message: `Review the content from ${file.name} before sending`});
+        this.session.notify.success({
+          title: "Document imported",
+          message: `Review the content from ${file.name} before sending`
+        });
       } catch (error) {
-        this.notify.error({title: "Document import failed", message: error?.error?.error || error?.message || "An unexpected error occurred"});
+        this.session.notify.error({
+          title: "Document import failed",
+          message: error?.error?.error || error?.message || "An unexpected error occurred"
+        });
       } finally {
         this.documentImporting = false;
       }
     }
   }
 
-  private parseEmailHeadersFromMarkdown(content: string): { to: { name: string; email: string }[]; cc: { name: string; email: string }[]; subject: string | null; body: string; forwardedHeaderLines: string[] } | null {
-    const lines = content.split(/\r?\n/);
-    const HEADER_REGEX = /^(To|From|Cc|Bcc|Subject|Date|Sent|Reply-To):\s*(.+)$/i;
-    const firstHeaderIdx = lines.findIndex(line => {
-      const stripped = this.stripMarkdownDecorations(line);
-      return stripped !== "" && HEADER_REGEX.test(stripped);
-    });
-    if (firstHeaderIdx === -1) return null;
-    const parsed = this.collectHeaderLines(lines, firstHeaderIdx, HEADER_REGEX, {}, -1);
-    const { headers, bodyStartLine } = parsed;
-    if (keys(headers).length === 0 || (!headers.to && !headers.subject && !headers.from)) return null;
-    const body = bodyStartLine >= 0 ? lines.slice(bodyStartLine).join("\n").replace(/^\n+/, "") : "";
-    const headerEndIdx = bodyStartLine >= 0 ? bodyStartLine : lines.length;
-    const forwardedHeaderLines = lines.slice(firstHeaderIdx, headerEndIdx)
-      .map(line => this.stripMarkdownDecorations(line))
-      .filter(line => line !== "");
-    const toList = parseEmailAddressList(headers.to ?? "");
-    const fromList = parseEmailAddressList(headers.from ?? "");
-    const seenEmails = new Set<string>();
-    const combinedRecipients = [...toList, ...fromList].filter(item => {
-      const key = item.email.toLowerCase();
-      if (seenEmails.has(key)) return false;
-      seenEmails.add(key);
-      return true;
-    });
-    return {
-      to: combinedRecipients,
-      cc: parseEmailAddressList(headers.cc ?? ""),
-      subject: headers.subject ?? null,
-      body,
-      forwardedHeaderLines
-    };
-  }
-
-  private collectHeaderLines(lines: string[], index: number, headerRegex: RegExp, headers: Record<string, string>, bodyStartLine: number): { headers: Record<string, string>; bodyStartLine: number } {
-    if (index >= lines.length) return { headers, bodyStartLine };
-    const stripped = this.stripMarkdownDecorations(lines[index]);
-    if (stripped === "") {
-      const nextNonBlank = this.findNextNonBlankLine(lines, index + 1);
-      if (nextNonBlank === -1) return { headers, bodyStartLine: lines.length };
-      if (headerRegex.test(this.stripMarkdownDecorations(lines[nextNonBlank]))) {
-        return this.collectHeaderLines(lines, index + 1, headerRegex, headers, bodyStartLine);
-      }
-      return { headers, bodyStartLine: nextNonBlank };
-    }
-    const headerMatch = stripped.match(headerRegex);
-    if (headerMatch) {
-      const key = headerMatch[1].toLowerCase();
-      const merged = { ...headers, [key]: headers[key] ? `${headers[key]}, ${headerMatch[2].trim()}` : headerMatch[2].trim() };
-      return this.collectHeaderLines(lines, index + 1, headerRegex, merged, bodyStartLine);
-    } else if (/^[A-Za-z][A-Za-z -]*:\s/.test(stripped)) {
-      return this.collectHeaderLines(lines, index + 1, headerRegex, headers, bodyStartLine);
-    } else {
-      return { headers, bodyStartLine: index };
-    }
-  }
-
-  private findNextNonBlankLine(lines: string[], from: number): number {
-    const offset = lines.slice(from).findIndex(line => this.stripMarkdownDecorations(line) !== "");
-    return offset === -1 ? -1 : from + offset;
-  }
-
-  private stripMarkdownDecorations(line: string): string {
-    return line
-      .replace(/^[\s>*_`#-]+/, "")
-      .replace(/[*_`]+$/g, "")
-      .replace(/\*\*|__/g, "")
-      .trim();
-  }
-
   private autoSelectNotificationConfig(): void {
-    if (!this.state.notificationConfigListing || this.state.brandingMode === BrandingMode.UNBRANDED) {
+    if (!this.session.state.notificationConfigListing || this.session.state.brandingMode === BrandingMode.UNBRANDED) {
       return;
     } else {
-      const candidates = this.mailMessagingService.notificationConfigs(this.state.notificationConfigListing);
-      const restoredConfig = candidates.find(candidate => candidate.id === this.state.notificationConfig?.id);
-      if (restoredConfig && !this.state.notificationConfig?.subject && !this.state.notificationConfig?.templateName) {
-        this.state.notificationConfig = cloneDeep(restoredConfig);
+      const candidates = this.mailMessagingService.notificationConfigs(this.session.state.notificationConfigListing);
+      const restoredConfig = candidates.find(candidate => candidate.id === this.session.state.notificationConfig?.id);
+      if (restoredConfig && !this.session.state.notificationConfig?.subject && !this.session.state.notificationConfig?.templateName) {
+        this.session.state.notificationConfig = cloneDeep(restoredConfig);
       }
       const forced = this.forcedConfigId
         ? candidates.find(candidate => candidate.id === this.forcedConfigId)
         : undefined;
       if (forced) {
-        if (forced.id !== this.state.notificationConfig?.id) {
+        if (forced.id !== this.session.state.notificationConfig?.id) {
           this.applyNotificationConfig(forced);
         }
         this.applyGroupEventCampaignRecipients();
-      } else if (!this.userPickedEmailType && !this.state.notificationConfig?.id) {
+      } else if (!this.userPickedEmailType && !this.session.state.notificationConfig?.id) {
         const preferred = this.preferredConfigForCurrentContext(candidates);
-        const next = preferred ?? (!this.state.notificationConfig && candidates.length > 0 ? candidates[0] : undefined);
-        if (next && next.id !== this.state.notificationConfig?.id) {
+        const next = preferred ?? (!this.session.state.notificationConfig && candidates.length > 0 ? candidates[0] : undefined);
+        if (next && next.id !== this.session.state.notificationConfig?.id) {
           this.applyNotificationConfig(next);
           this.applyGroupEventCampaignRecipients();
         }
@@ -5130,183 +2049,107 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private applyGroupEventCampaignRecipients(): void {
-    const config = this.state.notificationConfig;
-    if (this.state.context?.source === EmailComposerContextSource.GROUP_EVENT
-      && !this.userPickedRecipientMode
-      && this.state.brandingMode !== BrandingMode.UNBRANDED
+    const config = this.session.state.notificationConfig;
+    if (this.session.state.context?.source === EmailComposerContextSource.GROUP_EVENT
+      && !this.recipients.userPickedRecipientMode
+      && this.session.state.brandingMode !== BrandingMode.UNBRANDED
       && config?.defaultMemberSelection === MemberSelection.MAILING_LIST) {
-      this.state.recipientMode = RecipientMode.ENTIRE_LIST;
-      this.state.sendingChannel = SendingChannel.CAMPAIGN;
-      this.state.preFilterKey = null;
-      this.state.selectedMemberIds = [];
+      this.session.state.recipientMode = RecipientMode.ENTIRE_LIST;
+      this.session.state.sendingChannel = SendingChannel.CAMPAIGN;
+      this.session.state.preFilterKey = null;
+      this.session.state.selectedMemberIds = [];
       if (isNumber(config.defaultListId)) {
-        this.state.selectedListId = config.defaultListId;
+        this.session.state.selectedListId = config.defaultListId;
       }
-      this.applyDefaultListIfNeeded();
-      this.syncRecipientAddressMode();
-      this.syncStateToUrl({
+      this.recipients.applyDefaultListIfNeeded();
+      this.recipients.syncRecipientAddressMode();
+      this.session.syncStateToUrl({
         [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.ENTIRE_LIST),
-        [StoredValue.LIST_ID]: this.state.selectedListId?.toString() ?? null,
+        [StoredValue.LIST_ID]: this.session.state.selectedListId?.toString() ?? null,
         [StoredValue.PRE_FILTER]: null
       });
     }
   }
 
   private preferredConfigForCurrentContext(candidates: NotificationConfig[]): NotificationConfig | undefined {
-    const configId = this.state.context?.source === EmailComposerContextSource.GROUP_EVENT
-      ? notificationConfigIdFor(this.systemConfig?.group, this.state.singleEvent?.groupEvent?.item_type)
+    const configId = this.session.state.context?.source === EmailComposerContextSource.GROUP_EVENT
+      ? notificationConfigIdFor(this.session.systemConfig?.group, this.session.state.singleEvent?.groupEvent?.item_type)
       : null;
     return configId ? candidates.find(candidate => candidate.id === configId) : undefined;
   }
 
   setBrandingMode(mode: BrandingMode, preserveRecipientMode = false): void {
-    const previousMode = this.state.brandingMode;
-    this.state.brandingMode = mode;
+    const previousMode = this.session.state.brandingMode;
+    this.session.state.brandingMode = mode;
     if (previousMode !== mode) {
       this.unbrandedListSendWarningDismissed = false;
       this.unbrandedSenderAlertDismissed = false;
-      this.state.addresseeType = defaultAddresseeTypeForBranding(mode);
+      this.session.state.addresseeType = defaultAddresseeTypeForBranding(mode);
     }
     if (mode === BrandingMode.UNBRANDED) {
-      this.recipientsPanelExpanded = true;
-      if (!preserveRecipientMode && this.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
-        this.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
+      this.recipients.recipientsPanelExpanded = true;
+      if (!preserveRecipientMode && this.session.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
+        this.recipients.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
       }
       if (this.stepperActiveTab === EmailComposerStepKey.EVENTS) {
         this.goToStepKey(EmailComposerStepKey.COMPOSE);
       }
-      this.state.signoffRoles = [];
-      this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-      this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-      this.state.selectedListId = null;
-      this.state.narrowListId = null;
-      this.state.preFilterKey = null;
-      this.state.selectedMemberIds = [];
+      this.session.state.signoffRoles = [];
+      this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+      this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+      this.session.state.selectedListId = null;
+      this.session.state.narrowListId = null;
+      this.session.state.preFilterKey = null;
+      this.session.state.selectedMemberIds = [];
       if (previousMode !== BrandingMode.UNBRANDED) {
-        this.state.externalRecipients = [];
-        this.state.ccRecipients = [];
-        this.state.bccRecipients = [];
-        this.state.fragmentOrder = buildDefaultFragmentOrder(this.state, { unbranded: true });
-        this.expandedFragmentIds.add("intro");
-        this.state.notificationConfig = null;
-        this.state.bannerId = null;
+        this.session.state.externalRecipients = [];
+        this.session.state.ccRecipients = [];
+        this.session.state.bccRecipients = [];
+        this.session.state.fragmentOrder = buildDefaultFragmentOrder(this.session.state, {unbranded: true});
+        this.fragmentEditor.expandedFragmentIds.add("intro");
+        this.session.state.notificationConfig = null;
+        this.session.state.bannerId = null;
         this.forcedConfigId = null;
         this.forcedConfigSlug = null;
       } else {
-        this.clearUnbrandedBulkRecipients();
+        this.recipients.clearUnbrandedBulkRecipients();
       }
     } else {
-      if (this.state.externalRecipients?.length) {
-        this.state.externalRecipients = [];
+      if (this.session.state.externalRecipients?.length) {
+        this.session.state.externalRecipients = [];
       }
-      if (this.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
-        this.setRecipientMode(RecipientMode.ENTIRE_LIST);
+      if (this.session.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
+        this.recipients.setRecipientMode(RecipientMode.ENTIRE_LIST);
       }
       this.autoSelectNotificationConfig();
     }
-    const urlUpdates: Record<string, string | null> = { [StoredValue.BRANDING]: mode };
+    const urlUpdates: Record<string, string | null> = {[StoredValue.BRANDING]: mode};
     if (mode === BrandingMode.UNBRANDED) {
       urlUpdates[StoredValue.CONFIG_ID] = null;
       urlUpdates[StoredValue.LIST_ID] = null;
       urlUpdates[StoredValue.PRE_FILTER] = null;
       urlUpdates[StoredValue.EMAIL_TYPE] = kebabCase(RecipientMode.SELECTED_MEMBERS);
     }
-    this.syncStateToUrl(urlUpdates);
+    this.session.syncStateToUrl(urlUpdates);
     this.uiActions.saveValueFor(StoredValue.BRANDING, mode);
   }
 
   private async loadSavedExternalRecipients(): Promise<void> {
     try {
-      this.savedExternalRecipients = await this.externalRecipientService.list();
+      this.recipients.savedExternalRecipients = await this.externalRecipientService.list();
     } catch (error) {
       this.logger.error("loadSavedExternalRecipients failed:", error);
-      this.savedExternalRecipients = [];
+      this.recipients.savedExternalRecipients = [];
     }
   }
 
-  private async loadLoggedInMemberRecord(): Promise<void> {
-    try {
-      const memberId = this.memberLoginService.loggedInMember()?.memberId;
-      if (memberId) {
-        this.loggedInMemberRecord = await this.memberService.getById(memberId);
-      }
-    } catch (error) {
-      this.logger.error("loadLoggedInMemberRecord failed:", error);
-      this.loggedInMemberRecord = null;
-    }
-  }
-
-  protected unbrandedRoleOptions(): CommitteeMember[] {
-    return (this.committeeReferenceData?.loggedOnRoles() ?? []).filter(role => !!role.email);
-  }
-
-  protected resolvedUnbrandedRole(): CommitteeMember | undefined {
-    const options = this.unbrandedRoleOptions();
-    if (options.length === 0) return undefined;
-    const chosen = options.find(role => role.type === this.state.unbrandedSenderRoleType);
-    return chosen ?? options[0];
-  }
-
-  protected onUnbrandedSenderRoleChange(roleType: string): void {
-    this.state.unbrandedSenderRoleType = roleType || null;
-    this.state.unbrandedSenderEmail = null;
-  }
-
-  protected unbrandedSenderAddressOptions(): string[] {
-    return this.unbrandedSenderAddressChoices().map(choice => choice.email);
-  }
-
-  protected unbrandedSenderAddressChoices(): {email: string; label: string}[] {
-    const role = this.resolvedUnbrandedRole();
-    if (!role) {
-      return [];
-    } else {
-      return committeeMailboxAddresses(role).map(address => ({
-        email: address.email,
-        label: this.unbrandedSenderAddressLabel(role, address.kind, address.email)
-      }));
-    }
-  }
-
-  private unbrandedSenderAddressLabel(role: CommitteeMember, kind: CommitteeMailboxKind, email: string): string {
-    const name = kind === CommitteeMailboxKind.ROLE_NAME
-      ? (role.description || role.fullName || email)
-      : (role.fullName || role.description || email);
-    return `${name} <${email}>`;
-  }
-
-  protected onUnbrandedSenderEmailChange(email: string): void {
-    this.state.unbrandedSenderEmail = email || null;
-  }
-
-  protected resolvedUnbrandedSenderEmail(): string {
-    const role = this.resolvedUnbrandedRole();
-    if (!role?.email) {
-      return "";
-    } else {
-      const chosen = (this.state.unbrandedSenderEmail ?? "").trim().toLowerCase();
-      return roleEmailAddresses(role).find(address => address.toLowerCase() === chosen) ?? role.email;
-    }
-  }
-
-  protected unbrandedSenderInfo(): { name: string; email: string; description: string } {
-    const role = this.resolvedUnbrandedRole();
-    if (role?.email) {
-      return { name: role.fullName ?? "", email: this.resolvedUnbrandedSenderEmail(), description: role.description ?? "" };
-    } else {
-      return { name: "", email: "", description: "" };
-    }
-  }
-
-  protected composerStatusTitle(unbrandedSenderReady: boolean, unbrandedSenderLoading: boolean, recipientsChosenVisible: boolean, templateValidationVisible = false): string {
+  protected composerStatusTitle(unbrandedSenderReady: boolean, unbrandedSenderLoading: boolean, templateValidationVisible = false): string {
     if (templateValidationVisible) {
       return "Before you can continue";
     } else if (unbrandedSenderLoading) {
       return "Loading sender";
     } else if (unbrandedSenderReady) {
       return "Sender";
-    } else if (recipientsChosenVisible) {
-      return "Recipients chosen";
     } else {
       return "Composer";
     }
@@ -5320,7 +2163,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       initialState: {
         editMode: EditMode.EDIT,
         member: cloneDeep(member),
-        members: this.allMembers
+        members: this.recipientSources.allMembers
       }
     });
   }
@@ -5340,52 +2183,28 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     });
   }
 
-  protected committeeRoleSendOffered(): boolean {
-    const expandedTo = this.expandedHeaderRecipients(this.state.externalRecipients ?? []);
-    const nonMemberTos = expandedTo.length - this.membersInHeader(this.state.externalRecipients ?? []).length;
-    return this.committeeOnlyAudience() && this.totalRecipientCount() > 0 && nonMemberTos === 0;
-  }
-
-  private allSelectedMembersHoldCommitteeRoles(): boolean {
-    const members = this.recipientsForAddressMode();
-    const roles = this.committeeReferenceData?.committeeMembers() ?? [];
-    return members.length > 0 && members.every(member => memberHoldsCommitteeRole(member, roles));
-  }
-
   protected sharedToCommitteeSend(): boolean {
     if (this.contentIsPersonalised()) {
       return false;
     } else {
-      const toMembers = this.membersInHeader(this.state.externalRecipients ?? []);
+      const toMembers = this.recipientResolution.membersInHeader(this.session.state.externalRecipients ?? []);
       return unbrandedCommitteeSharedTo({
-        brandingMode: this.state.brandingMode,
-        recipientMode: this.state.recipientMode,
-        allMembersHoldCommitteeRoles: this.allSelectedMembersHoldCommitteeRoles(),
+        brandingMode: this.session.state.brandingMode,
+        recipientMode: this.session.state.recipientMode,
+        allMembersHoldCommitteeRoles: this.recipientResolution.allSelectedMembersHoldCommitteeRoles(),
         memberCount: toMembers.length,
-        externalToCount: (this.state.externalRecipients ?? []).length - toMembers.length
+        externalToCount: (this.session.state.externalRecipients ?? []).length - toMembers.length
       });
     }
   }
 
   protected contentIsPersonalised(): boolean {
-    const { top, bottom, combined } = this.composedBodyParts();
-    return composerContentHasPersonalisation(
-      [this.state.subject, this.state.introMarkdown, this.state.signoffTextMarkdown, top, bottom, combined],
-      this.state.addresseeType
-    );
-  }
-
-  private membersInHeader(list: ComposerExternalRecipient[]): Member[] {
-    const expanded = this.expandedHeaderRecipients(list);
-    const emails = new Set(expanded.map(recipient => recipient.email.toLowerCase()));
-    const ids = new Set(expanded.map(recipient => recipient.memberId).filter((id): id is string => !!id));
-    return this.allMembers.filter(member =>
-      (member.id && ids.has(member.id)) || (!!member.email && emails.has(member.email.toLowerCase()))
-    );
+    const {top, bottom, combined} = this.composedBodyParts();
+    return composerContentHasPersonalisation([this.session.state.subject, this.session.state.introMarkdown, this.session.state.signoffTextMarkdown, top, bottom, combined], this.session.state.addresseeType);
   }
 
   protected visibleToRecipientCount(): number {
-    return this.sendingAsCampaign() ? 0 : composerRecipientCount(this.state.externalRecipients ?? []);
+    return this.recipientResolution.sendingAsCampaign() ? 0 : composerRecipientCount(this.session.state.externalRecipients ?? []);
   }
 
   protected sharedToAddressPreview(): string {
@@ -5399,172 +2218,55 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }
   }
 
-  protected onSendToCommitteeRoleAddressesChange(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.recipientAddressModeTouched = true;
-    this.state.recipientAddressMode = checked ? RecipientAddressMode.COMMITTEE_ROLE : RecipientAddressMode.PERSONAL;
-    this.applyChipSendAddresses();
-  }
-
-  private syncRecipientAddressMode(): void {
-    this.state.recipientAddressMode = syncedRecipientAddressMode({
-      committeeRoleSendOffered: this.committeeRoleSendOffered(),
-      preselectCommitteeRole: !this.recipientAddressModeTouched,
-      current: this.state.recipientAddressMode
-    });
-    this.applyChipSendAddresses();
-  }
-
-  private applyChipSendAddresses(): void {
-    const roles = this.committeeReferenceData?.committeeMembers() ?? [];
-    const mode = this.state.recipientAddressMode;
-    this.state.externalRecipients = composerRecipientsForAddressMode(this.state.externalRecipients, this.allMembers, roles, mode);
-    this.state.ccRecipients = composerRecipientsForAddressMode(this.state.ccRecipients, this.allMembers, roles, mode);
-    this.state.bccRecipients = composerRecipientsForAddressMode(this.state.bccRecipients, this.allMembers, roles, mode);
-  }
-
-  private useCommitteeRoleAddresses(): boolean {
-    return this.committeeRoleSendOffered() && this.state.recipientAddressMode === RecipientAddressMode.COMMITTEE_ROLE;
-  }
-
-  private recipientsForAddressMode(): Member[] {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
-      const listId = this.state.selectedListId;
-      return listId === null
-        ? []
-        : this.members.filter(member => this.mailListUpdaterService.memberSubscribed(member, listId));
-    } else if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      return this.membersInHeader([
-        ...(this.state.externalRecipients ?? []),
-        ...(this.state.ccRecipients ?? []),
-        ...(this.state.bccRecipients ?? [])
-      ]);
-    } else {
-      const ids = new Set(this.state.selectedMemberIds ?? []);
-      return this.allMembers.filter(member => ids.has(member.id));
-    }
-  }
-
-  protected brandedSenderIdentities(): ComposerSenderIdentity[] {
-    const loggedIn = this.memberLoginService.loggedInMember();
-    const contactName = `${loggedIn?.firstName || ""} ${loggedIn?.lastName || ""}`.trim()
-      || this.loggedInMemberRecord?.displayName
-      || "";
-    return composerSenderIdentities({
-      contactEmail: this.loggedInMemberRecord?.email ?? null,
-      contactName,
-      roles: this.committeeReferenceData?.committeeMembers() ?? [],
-      memberId: loggedIn?.memberId ?? this.loggedInMemberRecord?.id ?? null,
-      allCommitteeMembers: this.state.notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.SELECT_AT_SEND
-    });
-  }
-
-  protected resolvedBrandedSenderEmail(): string {
-    return defaultBrandedSenderEmail(this.brandedSenderIdentities(), {
-      chosenEmail: this.state.brandedSenderEmail,
-      preferredRoleType: this.state.notificationConfig?.senderRole
-    });
-  }
-
-  protected onBrandedSenderEmailChange(email: string): void {
-    this.state.brandedSenderEmail = email || null;
-    const identity = this.brandedSenderIdentities().find(item => item.email.toLowerCase() === (email ?? "").toLowerCase());
-    if (identity?.roleType && this.state.notificationConfig) {
-      this.state.notificationConfig.senderRole = identity.roleType;
-    }
-  }
-
-  private resolvedBrandedSenderIdentity(): ComposerSenderIdentity | null {
-    const email = this.resolvedBrandedSenderEmail();
-    return this.brandedSenderIdentities().find(identity => identity.email.toLowerCase() === email.toLowerCase()) ?? null;
-  }
-
-  protected nameFromEmail(email: string): string {
-    const localPart = email.split("@")[0] ?? "";
-    if (!localPart) return "";
-    const stripped = localPart.replace(/\d+$/, "");
-    const tokens = stripped.split(/[._\-+]+/).filter(token => token.length > 0);
-    return tokens
-      .map(token => token.charAt(0).toUpperCase() + token.slice(1).toLowerCase())
-      .join(" ");
-  }
-
   protected replyCcSuggestionLabel(): string {
-    return this.replyCcSuggestion.map(recipient => recipient.name || recipient.email).join(", ");
-  }
-
-  protected applyReplyCcSuggestion(single?: ComposerExternalRecipient): void {
-    const toApply = single ? [single] : this.replyCcSuggestion;
-    const merged = toApply.reduce<ComposerExternalRecipient[]>((recipients, suggestion) =>
-      recipients.some(existing => existing.email.toLowerCase() === suggestion.email.toLowerCase())
-        ? recipients
-        : [...recipients, suggestion], this.state.ccRecipients);
-    this.state.ccRecipients = merged;
-    if (single) {
-      this.replyCcSuggestion = this.replyCcSuggestion.filter(r => r.email.toLowerCase() !== single.email.toLowerCase());
-    } else {
-      this.replyCcSuggestion = [];
+    return this.recipients.replyCcSuggestion.map(recipient => recipient.name || recipient.email).join(", ");
     }
-  }
-
-  selectList(list: ListInfo): void {
-    if (this.state.selectedListId !== list.id) {
-      this.recipientAddressModeTouched = false;
-    }
-    this.state.selectedListId = list.id;
-    this.syncRecipientAddressMode();
-    this.state.sendingChannel = this.sendingAsCampaign()
-      ? SendingChannel.CAMPAIGN
-      : SendingChannel.TRANSACTIONAL_BATCH;
-    this.ensureSelectedListIsOnTo();
-    this.syncStateToUrl({ [StoredValue.LIST_ID]: list.id?.toString() });
-  }
 
   private applyUrlStateToComposer(queryParams: ParamMap): void {
     const branding = queryParams.get(StoredValue.BRANDING);
     const storedBranding = this.uiActions.initialValueFor(StoredValue.BRANDING, BrandingMode.BRANDED);
-    if (branding === BrandingMode.UNBRANDED && this.state.brandingMode !== BrandingMode.UNBRANDED) {
+    if (branding === BrandingMode.UNBRANDED && this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
       this.setBrandingMode(BrandingMode.UNBRANDED, true);
-    } else if (branding === BrandingMode.BRANDED && this.state.brandingMode !== BrandingMode.BRANDED) {
+    } else if (branding === BrandingMode.BRANDED && this.session.state.brandingMode !== BrandingMode.BRANDED) {
       this.setBrandingMode(BrandingMode.BRANDED, true);
-    } else if (!branding && storedBranding === BrandingMode.UNBRANDED && this.state.brandingMode !== BrandingMode.UNBRANDED) {
+    } else if (!branding && storedBranding === BrandingMode.UNBRANDED && this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
       this.setBrandingMode(BrandingMode.UNBRANDED, true);
-    } else if (!branding && storedBranding === BrandingMode.BRANDED && this.state.brandingMode !== BrandingMode.BRANDED) {
+    } else if (!branding && storedBranding === BrandingMode.BRANDED && this.session.state.brandingMode !== BrandingMode.BRANDED) {
       this.setBrandingMode(BrandingMode.BRANDED, true);
     }
     const emailType = queryParams.get(StoredValue.EMAIL_TYPE);
-    if (emailType === kebabCase(RecipientMode.ENTIRE_LIST) && this.state.brandingMode !== BrandingMode.UNBRANDED && this.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
-      this.state.recipientMode = RecipientMode.ENTIRE_LIST;
-      this.state.sendingChannel = this.sendingAsCampaign()
+    if (emailType === kebabCase(RecipientMode.ENTIRE_LIST) && this.session.state.brandingMode !== BrandingMode.UNBRANDED && this.session.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
+      this.session.state.recipientMode = RecipientMode.ENTIRE_LIST;
+      this.session.state.sendingChannel = this.recipientResolution.sendingAsCampaign()
         ? SendingChannel.CAMPAIGN
         : SendingChannel.TRANSACTIONAL_BATCH;
-      this.state.preFilterKey = null;
-    } else if (emailType === kebabCase(RecipientMode.SELECTED_MEMBERS) && this.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
-      const keepEventOnList = this.state.context?.source === EmailComposerContextSource.GROUP_EVENT && !this.userPickedRecipientMode;
+      this.session.state.preFilterKey = null;
+    } else if (emailType === kebabCase(RecipientMode.SELECTED_MEMBERS) && this.session.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
+      const keepEventOnList = this.session.state.context?.source === EmailComposerContextSource.GROUP_EVENT && !this.recipients.userPickedRecipientMode;
       if (!keepEventOnList) {
-        this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-        this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+        this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+        this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
       }
     }
     const listId = queryParams.get(StoredValue.LIST_ID);
     if (listId) {
       const numeric = Number(listId);
       if (!Number.isNaN(numeric)) {
-        const unbrandedListAllowed = this.state.brandingMode !== BrandingMode.UNBRANDED
-          || this.unbrandedCommitteeLists().some(list => list.id === numeric);
+        const unbrandedListAllowed = this.session.state.brandingMode !== BrandingMode.UNBRANDED
+          || this.recipientSources.unbrandedCommitteeLists().some(list => list.id === numeric);
         if (!unbrandedListAllowed) {
-          this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-          this.state.selectedListId = null;
-          this.state.narrowListId = null;
-          this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-          this.syncStateToUrl({
+          this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+          this.session.state.selectedListId = null;
+          this.session.state.narrowListId = null;
+          this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+          this.session.syncStateToUrl({
             [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
             [StoredValue.LIST_ID]: null
           });
-        } else if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
-          this.state.selectedListId = numeric;
-        } else if (this.state.narrowListId !== numeric) {
-          this.state.narrowListId = numeric;
+        } else if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+          this.session.state.selectedListId = numeric;
+        } else if (this.session.state.narrowListId !== numeric) {
+          this.session.state.narrowListId = numeric;
         }
       }
     }
@@ -5582,42 +2284,42 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }
     const preFilter = queryParams.get(StoredValue.PRE_FILTER);
     if (preFilter && values(MemberSelection).includes(preFilter as MemberSelection)) {
-      this.state.preFilterKey = preFilter as MemberSelection;
+      this.session.state.preFilterKey = preFilter as MemberSelection;
     }
     const eventInclusion = queryParams.get(StoredValue.EVENT_INCLUSION);
     if (eventInclusion && values(EventInclusionMode).includes(eventInclusion as EventInclusionMode)) {
-      this.state.eventInclusion = eventInclusion as EventInclusionMode;
-      if (this.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE) {
-        this.ensureGroupEventsFilter();
+      this.session.state.eventInclusion = eventInclusion as EventInclusionMode;
+      if (this.session.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE) {
+        this.events.ensureGroupEventsFilter();
       }
     }
     const divider = queryParams.get(StoredValue.DIVIDER);
     if (divider && values(SectionDividerStyle).includes(divider as SectionDividerStyle)) {
       const style = divider as SectionDividerStyle;
-      this.state.introDividerAfter = style;
-      this.state.eventsDividerAfter = style;
-      this.state.signoffDividerAfter = style;
+      this.session.state.introDividerAfter = style;
+      this.session.state.eventsDividerAfter = style;
+      this.session.state.signoffDividerAfter = style;
     }
     const dateFromMillis = queryParams.get(StoredValue.DATE_FROM);
     const dateToMillis = queryParams.get(StoredValue.DATE_TO);
-    if (this.state.groupEventsFilter && dateFromMillis) {
+    if (this.session.state.groupEventsFilter && dateFromMillis) {
       const fromMillis = Number(dateFromMillis);
       if (!Number.isNaN(fromMillis)) {
-        this.state.groupEventsFilter.fromDate = this.dateUtils.asDateValue(fromMillis);
+        this.session.state.groupEventsFilter.fromDate = this.dateUtils.asDateValue(fromMillis);
       }
     }
-    if (this.state.groupEventsFilter && dateToMillis) {
+    if (this.session.state.groupEventsFilter && dateToMillis) {
       const toMillis = Number(dateToMillis);
       if (!Number.isNaN(toMillis)) {
-        this.state.groupEventsFilter.toDate = this.dateUtils.asDateValue(toMillis);
+        this.session.state.groupEventsFilter.toDate = this.dateUtils.asDateValue(toMillis);
       }
     }
     const storedCompositionRoute = !!queryParams.get(StoredValue.DRAFT_ID) || !!queryParams.get(StoredValue.COPY_OF);
-    if (!storedCompositionRoute && this.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.state.groupEventsFilter) {
-      this.selectedDateRangePreset = this.matchPresetToCurrentRange();
-      void this.populateGroupEvents();
+    if (!storedCompositionRoute && this.session.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.session.state.groupEventsFilter) {
+      this.events.selectedDateRangePreset = this.events.matchPresetToCurrentRange();
+      void this.events.populateGroupEvents();
     }
-    this.applyForcedMemberSelection();
+    this.recipients.applyForcedMemberSelection();
     this.applyInboxReplyHandoffIfAny(queryParams);
     this.applyVideoMeetingInviteHandoffIfAny();
   }
@@ -5634,48 +2336,53 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private applyVideoMeetingInviteHandoffIfAny(): void {
     const invite = this.videoMeetingInviteHandoff.consume();
     if (invite) {
-      this.state.subject = invite.subject;
-      this.state.introMarkdown = invite.body;
+      this.session.state.subject = invite.subject;
+      this.session.state.introMarkdown = invite.body;
       if (invite.selectedListId != null) {
-        this.state.recipientMode = RecipientMode.ENTIRE_LIST;
-        this.state.selectedListId = invite.selectedListId;
-        this.state.sendingChannel = SendingChannel.CAMPAIGN;
+        this.session.state.recipientMode = RecipientMode.ENTIRE_LIST;
+        this.session.state.selectedListId = invite.selectedListId;
+        this.session.state.sendingChannel = SendingChannel.CAMPAIGN;
       }
       if (invite.externalRecipients?.length) {
-        this.state.externalRecipients = invite.externalRecipients.map(recipient => ({email: recipient.email, name: recipient.name}));
+        this.session.state.externalRecipients = invite.externalRecipients.map(recipient => ({
+          email: recipient.email,
+          name: recipient.name
+        }));
         if (invite.selectedListId == null) {
-          this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-          this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+          this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+          this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
         }
       }
       if (invite.attachments?.length) {
-        const existingUrls = new Set((this.state.attachments ?? []).map(attachment => attachment.url));
+        const existingUrls = new Set((this.session.state.attachments ?? []).map(attachment => attachment.url));
         const additions = invite.attachments.filter(attachment => !existingUrls.has(attachment.url));
-        this.state.attachments = [...(this.state.attachments ?? []), ...additions];
+        this.session.state.attachments = [...(this.session.state.attachments ?? []), ...additions];
       }
     }
   }
 
   private async rebuildInboxReplyFromRoute(queryParams: ParamMap): Promise<void> {
     const slug = queryParams.get(StoredValue.THREAD);
-    if (slug && !this.inboxReplyContext) {
+    if (slug && !this.session.inboxReplyContext) {
       this.inboxReplyLoading = true;
       try {
-        const threadList = await this.inboxService.listThreads();
-        const matched = inboxThreadMatchingSlug(threadList.threads, slug);
-        const threadId = matched ? inboxThreadId(matched) : "";
+        const threadMessages = await this.inboxService.getThread(slug);
+        const threadId = inboxThreadId(threadMessages.thread);
         if (threadId) {
           const forward = queryParams.get(StoredValue.FORWARD) === "true";
           const replyAll = queryParams.get(StoredValue.REPLY_ALL) === "true";
-          const threadMessages = await this.inboxService.getThread(threadId);
           const messages = threadMessages.messages ?? [];
           const messageId = queryParams.get(StoredValue.MESSAGE);
           const target = inboxMessageMatchingId(messages, messageId) ?? newestInboxMessage(messages);
           if (target) {
-            const reply = await this.inboxService.composeReply(threadId, {threadId, messageId: target.messageId, forward});
+            const reply = await this.inboxService.composeReply(threadId, {
+              threadId,
+              messageId: target.messageId,
+              forward
+            });
             if (replyAll) {
               const aliases = await this.inboxService.listAliases();
-              reply.cc = replyAllRecipients(reply, target, aliases.map(alias => alias.roleEmail));
+              reply.cc = replyAllRecipients(reply, target, aliases.flatMap(alias => aliasMailboxAddresses(alias)));
               reply.replyAll = true;
             }
             this.applyInboxReply({...reply, forward}, true);
@@ -5694,47 +2401,58 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private applyInboxReply(reply: InboxReplyComposeResponse, rebuiltFromRoute: boolean = false): void {
-    this.logger.info(rebuiltFromRoute ? "Inbox reply rebuilt from thread in URL:" : "Inbox reply handoff consumed:", JSON.stringify({to: reply.to, subject: reply.subject, senderRoleType: reply.senderRoleType, threadId: reply.threadId, inboxMessageId: reply.inboxMessageId, forward: reply.forward}));
-    if (this.state.brandingMode !== BrandingMode.UNBRANDED) {
+    this.logger.info(rebuiltFromRoute ? "Inbox reply rebuilt from thread in URL:" : "Inbox reply handoff consumed:", JSON.stringify({
+      to: reply.to,
+      subject: reply.subject,
+      senderRoleType: reply.senderRoleType,
+      threadId: reply.threadId,
+      inboxMessageId: reply.inboxMessageId,
+      forward: reply.forward
+    }));
+    if (this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
       this.setBrandingMode(BrandingMode.UNBRANDED);
     }
-    this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-    this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-    this.state.addresseeType = AddresseeType.NONE;
+    this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+    this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+    this.session.state.addresseeType = AddresseeType.NONE;
     if (reply.forward) {
-      this.replyCcSuggestion = [];
+      this.recipients.replyCcSuggestion = [];
       this.applyForwardedAttachments(reply.attachments ?? []);
     } else {
       if (reply.to) {
         const recipient = {email: reply.to.email, name: reply.to.name ?? undefined, saveForReuse: false};
-        const alreadyPresent = this.state.externalRecipients.some(existing => existing.email.toLowerCase() === reply.to.email.toLowerCase());
+        const alreadyPresent = this.session.state.externalRecipients.some(existing => existing.email.toLowerCase() === reply.to.email.toLowerCase());
         if (!alreadyPresent) {
-          this.state.externalRecipients = [recipient, ...this.state.externalRecipients];
+          this.session.state.externalRecipients = [recipient, ...this.session.state.externalRecipients];
         }
       }
-      const replyCc = (reply.cc ?? []).map(address => ({email: address.email, name: address.name ?? undefined, saveForReuse: false}));
+      const replyCc = (reply.cc ?? []).map(address => ({
+        email: address.email,
+        name: address.name ?? undefined,
+        saveForReuse: false
+      }));
       if (reply.replyAll) {
-        const existingCc = new Set(this.state.ccRecipients.map(existing => existing.email.toLowerCase()));
-        this.state.ccRecipients = [...this.state.ccRecipients, ...replyCc.filter(address => !existingCc.has(address.email.toLowerCase()))];
-        this.replyCcSuggestion = [];
+        const existingCc = new Set(this.session.state.ccRecipients.map(existing => existing.email.toLowerCase()));
+        this.session.state.ccRecipients = [...this.session.state.ccRecipients, ...replyCc.filter(address => !existingCc.has(address.email.toLowerCase()))];
+        this.recipients.replyCcSuggestion = [];
       } else {
-        this.replyCcSuggestion = replyCc;
+        this.recipients.replyCcSuggestion = replyCc;
       }
     }
-    this.state.subject = reply.subject;
+    this.session.state.subject = reply.subject;
     if (reply.senderRoleType) {
-      this.state.unbrandedSenderRoleType = reply.senderRoleType;
-      this.state.unbrandedSenderEmail = reply.senderRoleEmail ?? null;
+      this.session.state.unbrandedSenderRoleType = reply.senderRoleType;
+      this.session.state.unbrandedSenderEmail = reply.senderRoleEmail ?? null;
     }
     const placeholder = "\n\n";
-    const existingBody = this.state.introMarkdown ?? "";
+    const existingBody = this.session.state.introMarkdown ?? "";
     const quotedMarkdown = this.htmlToReplyMarkdown(reply.quotedHtml);
-    const alreadyHasQuote = !!this.inboxReplyContext && this.inboxReplyContext.inboxMessageId === reply.inboxMessageId;
+    const alreadyHasQuote = !!this.session.inboxReplyContext && this.session.inboxReplyContext.inboxMessageId === reply.inboxMessageId;
     if (!alreadyHasQuote) {
       const keepExistingBody = !rebuiltFromRoute && existingBody.length > 0;
-      this.state.introMarkdown = keepExistingBody ? existingBody : placeholder + quotedMarkdown;
+      this.session.state.introMarkdown = keepExistingBody ? existingBody : placeholder + quotedMarkdown;
     }
-    this.inboxReplyContext = {
+    this.session.inboxReplyContext = {
       threadId: reply.threadId,
       aliasId: reply.aliasId,
       senderRoleType: reply.senderRoleType,
@@ -5743,10 +2461,13 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       inReplyTo: reply.inReplyTo,
       references: reply.references
     };
-    this.state.inboxReplyContext = this.inboxReplyContext;
-    this.logger.info("Inbox reply applied:", JSON.stringify({...this.inboxReplyContext, externalRecipients: this.state.externalRecipients}));
+    this.session.state.inboxReplyContext = this.session.inboxReplyContext;
+    this.logger.info("Inbox reply applied:", JSON.stringify({
+      ...this.session.inboxReplyContext,
+      externalRecipients: this.session.state.externalRecipients
+    }));
     if (this.introEditorRef) {
-      this.introEditorRef.syncValue(this.state.introMarkdown ?? "");
+      this.introEditorRef.syncValue(this.session.state.introMarkdown ?? "");
       queueMicrotask(() => this.introEditorRef?.focusAtStart());
     } else {
       this.pendingIntroFocus = true;
@@ -5756,12 +2477,12 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private applyForwardedAttachments(attachments: InboxAttachment[]): void {
     const unsupported = attachments.filter(attachment => !this.attachmentExtensionSupported(attachment.filename));
     if (unsupported.length) {
-      this.notify.warning({
+      this.session.notify.warning({
         title: "Attachments",
         message: `${unsupported.map(attachment => attachment.filename).join(", ")} can't be forwarded by email — the mail platform doesn't support ${unsupported.map(attachment => attachment.filename.split(".").pop()).join(", ")} files.`
       });
     }
-    const existingUrls = new Set((this.state.attachments ?? []).map(attachment => attachment.url));
+    const existingUrls = new Set((this.session.state.attachments ?? []).map(attachment => attachment.url));
     const forwarded = attachments
       .filter(attachment => this.attachmentExtensionSupported(attachment.filename))
       .map(attachment => ({
@@ -5770,7 +2491,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         sizeBytes: attachment.sizeBytes
       }))
       .filter(attachment => !existingUrls.has(attachment.url));
-    this.state.attachments = [...(this.state.attachments ?? []), ...forwarded];
+    this.session.state.attachments = [...(this.session.state.attachments ?? []), ...forwarded];
   }
 
   private attachmentExtensionSupported(fileName: string): boolean {
@@ -5778,15 +2499,18 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private htmlToReplyMarkdown(html: string | null | undefined): string {
-    if (!html) return "";
-    try {
-      return this.turndownService.turndown(this.htmlContentForReplyMarkdown(html));
-    } catch (error) {
-      this.logger.warn("turndown failed for reply quotedHtml; falling back to raw text", error);
-      const tmp = document.createElement("div");
-      tmp.innerHTML = html;
-      this.removeReplyMarkdownNonContent(tmp);
-      return (tmp.textContent ?? "").split(/\r?\n/).map(line => `> ${line}`).join("\n");
+    if (!html) {
+      return "";
+    } else {
+      try {
+        return this.turndownService.turndown(this.htmlContentForReplyMarkdown(html));
+      } catch (error) {
+        this.logger.warn("turndown failed for reply quotedHtml; falling back to raw text", error);
+        const tmp = document.createElement("div");
+        tmp.innerHTML = html;
+        this.removeReplyMarkdownNonContent(tmp);
+        return (tmp.textContent ?? "").split(/\r?\n/).map(line => `> ${line}`).join("\n");
+      }
     }
   }
 
@@ -5818,63 +2542,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     return dimensions.length > 0 && dimensions.every(dimension => dimension <= TRACKING_PIXEL_MAX_DIMENSION);
   }
 
-  private syncStateToUrl(extra: Record<string, string | null | undefined>): void {
-    const current = this.route.snapshot.queryParamMap;
-    const changed = keys(extra).some(key => (extra[key] ?? null) !== (current.get(key) ?? null));
-    if (changed) {
-      this.router.navigate([], {
-        queryParams: extra,
-        queryParamsHandling: "merge",
-        replaceUrl: true
-      });
-    }
-  }
-
-  onSelectedMemberIdsChange(ids: string[]): void {
-    this.state.selectedMemberIds = ids;
-    this.syncRecipientAddressMode();
-  }
-
-  onFilteredMemberIdsChange(ids: string[]): void {
-    const recipients = this.memberRecipientsForIds(ids);
-    const listId = this.state.recipientMode === RecipientMode.ENTIRE_LIST
-      ? this.state.selectedListId
-      : this.state.narrowListId;
-    const list = this.nonEmptyLists().find(item => item.id === listId);
-    const unbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
-    const listAllowed = !unbranded || (!!list && this.unbrandedCommitteeLists().some(item => item.id === list.id));
-    const existingHasAllowedToken = (this.state.externalRecipients ?? [])
-      .some(recipient => !!recipient.listId && this.unbrandedCommitteeLists().some(item => item.id === recipient.listId));
-    const compactListSelected = listAllowed
-      && this.state.preFilterKey === null
-      && !!list
-      && recipients.length >= COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT
-      && !this.expandedRecipientListIds.has(list.id);
-    const filterToken = this.filterTokenForIds(ids);
-    if (unbranded && !listAllowed) {
-      this.state.selectedMemberIds = ids;
-      this.syncRecipientAddressMode();
-    } else if (unbranded && existingHasAllowedToken && !compactListSelected) {
-      this.state.selectedMemberIds = ids;
-      this.syncRecipientAddressMode();
-    } else {
-      const displayedRecipients = filterToken
-        ? [filterToken]
-        : (compactListSelected && list
-          ? [composerListToken(list.id, list.name, recipients.length)]
-          : recipients);
-      if (this.unbrandedPopulateField === RecipientField.TO) {
-        this.onUnbrandedToChange(displayedRecipients);
-      } else if (this.unbrandedPopulateField === RecipientField.CC) {
-        this.onUnbrandedCcChange(displayedRecipients);
-      } else {
-        this.onUnbrandedBccChange(displayedRecipients);
-      }
-      this.state.selectedMemberIds = ids;
-      this.syncRecipientAddressMode();
-    }
-  }
-
   protected priorSendExclusions: PriorSendExclusion[] = [];
   protected includeAlreadySent: boolean = false;
   protected priorSendDetailsExpanded: boolean = false;
@@ -5896,11 +2563,14 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   priorSendDateRangeLabel(): string {
-    if (this.priorSendExclusions.length === 0) return "";
-    const sortedDates = this.priorSendExclusions.map(entry => entry.sentAt).sort((a, b) => a - b);
-    const earliest = this.dateUtils.displayDate(sortedDates[0]);
-    const latest = this.dateUtils.displayDate(sortedDates[sortedDates.length - 1]);
-    return earliest === latest ? ` on ${earliest}` : ` between ${earliest} and ${latest}`;
+    if (this.priorSendExclusions.length === 0) {
+      return "";
+    } else {
+      const sortedDates = this.priorSendExclusions.map(entry => entry.sentAt).sort((a, b) => a - b);
+      const earliest = this.dateUtils.displayDate(sortedDates[0]);
+      const latest = this.dateUtils.displayDate(sortedDates[sortedDates.length - 1]);
+      return earliest === latest ? ` on ${earliest}` : ` between ${earliest} and ${latest}`;
+    }
   }
 
   priorSendDateLabel(sentAt: number): string {
@@ -5908,379 +2578,41 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   onEventsDividerChange(style: SectionDividerStyle): void {
-    this.state.eventsDividerAfter = style;
+    this.session.state.eventsDividerAfter = style;
   }
 
   onBetweenEventsDividerChange(style: SectionDividerStyle): void {
-    this.state.betweenEventsDivider = style;
+    this.session.state.betweenEventsDivider = style;
   }
 
-  protected expandedFragmentIds: Set<string> = new Set();
-  protected draggedFragmentPath: number[] | null = null;
-  protected dragHoverPath: number[] | null = null;
-  protected dragHoverPosition: DragHoverPosition | null = null;
-  protected dragHoverColumnPath: number[] | null = null;
   protected templateContentHtml: string | null = null;
   protected templateContentFetching = false;
   protected templateContentError: string | null = null;
   private lastTemplateContentTemplateName: string | null = null;
 
-  protected toggleFragmentExpanded(fragmentId: string): void {
-    if (this.expandedFragmentIds.has(fragmentId)) {
-      this.expandedFragmentIds.delete(fragmentId);
-    } else {
-      this.expandedFragmentIds.add(fragmentId);
-    }
-  }
-
-  protected isFragmentExpanded(fragmentId: string): boolean {
-    return this.expandedFragmentIds.has(fragmentId);
-  }
-
-  protected fragmentLabel(fragment: ComposerFragment): string {
-    switch (fragment.kind) {
-      case ComposerFragmentKind.INTRO: return "Body / intro";
-      case ComposerFragmentKind.ARTICLE: return "Article block";
-      case ComposerFragmentKind.EVENTS: return "Events list";
-      case ComposerFragmentKind.SIGNOFF: return "Signoff";
-      case ComposerFragmentKind.TEMPLATE_CONTENT: return "Template content";
-      case ComposerFragmentKind.MULTI_COLUMN: return `${(fragment.columns ?? []).length}-column row`;
-      case ComposerFragmentKind.DIVIDER: return "Divider";
-      case ComposerFragmentKind.COMMITTEE_FILE: {
-        const count = (fragment.committeeFileIds ?? []).length;
-        return count > 1 ? `Committee files (${count})` : "Committee file";
-      }
-      default: return fragment.kind;
-    }
-  }
-
-  protected fragmentPreview(fragment: ComposerFragment): string {
-    const truncate = (input: string, max: number): string => {
-      const decoded = this.toPlainTextPreview(input ?? "");
-      const stripped = decoded.replace(/\s+/g, " ").trim();
-      if (stripped.length <= max) return stripped;
-      return `${stripped.slice(0, max).trim()}…`;
-    };
-    switch (fragment.kind) {
-      case ComposerFragmentKind.INTRO: return truncate(this.state.introMarkdown, 80) || "(empty)";
-      case ComposerFragmentKind.SIGNOFF: return truncate(this.state.signoffTextMarkdown, 80) || "(empty)";
-      case ComposerFragmentKind.EVENTS: return this.eventsPreviewSummary();
-      case ComposerFragmentKind.TEMPLATE_CONTENT: return "Template provides this content";
-      case ComposerFragmentKind.ARTICLE: {
-        const block = this.findArticleBlock(fragment.id);
-        if (!block) return "(missing block)";
-        const title = (block.title ?? "").trim();
-        if (title) return truncate(title, 80);
-        return truncate(block.markdown, 80) || "(empty)";
-      }
-      case ComposerFragmentKind.MULTI_COLUMN: return `${(fragment.columns ?? []).length} columns side by side`;
-      case ComposerFragmentKind.DIVIDER: return SECTION_DIVIDER_OPTIONS.find(opt => opt.key === fragment.dividerAfter)?.label ?? "None";
-      case ComposerFragmentKind.COMMITTEE_FILE: {
-        const ids = fragment.committeeFileIds ?? [];
-        if (ids.length === 0) return "(no files chosen)";
-        const files = this.committeeFilesFor(fragment);
-        if (files.length === 0) return ids.length === 1 ? "(file not found)" : `(${ids.length} files not found)`;
-        if (files.length === 1) return truncate(this.committeeDisplayService.fileTitle(files[0]), 80);
-        return truncate(files.map(file => this.committeeDisplayService.fileTitle(file)).join(", "), 80);
-      }
-      default: return "";
-    }
-  }
-
-  protected fragmentIsExpandable(fragment: ComposerFragment): boolean {
-    return EXPANDABLE_FRAGMENT_KINDS.has(fragment.kind);
-  }
-
-  protected showComposerFragment(fragment: ComposerFragment): boolean {
-    if (fragment.kind === ComposerFragmentKind.EVENTS && this.state.eventInclusion === EventInclusionMode.NONE) {
-      return false;
-    } else {
-      return true;
-    }
-  }
-
-  private toPlainTextPreview(input: string): string {
-    if (isUndefined(document)) {
-      return input;
-    }
-    const container = document.createElement("div");
-    container.innerHTML = input;
-    return container.textContent ?? "";
-  }
-
   protected eventsPreviewSummary(): string {
-    if (this.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE) {
-      const count = this.selectedGroupEventCount();
+    if (this.session.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE) {
+      const count = this.events.selectedGroupEventCount();
       return count > 0 ? this.stringUtils.pluraliseWithCount(count, "event") : "No events selected";
+    } else {
+      if (this.session.state.eventInclusion === EventInclusionMode.SINGLE_EVENT) {
+        return this.session.state.singleEvent?.groupEvent?.title ?? "Single event (none loaded)";
+      } else {
+        return "No events";
+      }
     }
-    if (this.state.eventInclusion === EventInclusionMode.SINGLE_EVENT) {
-      return this.state.singleEvent?.groupEvent?.title ?? "Single event (none loaded)";
-    }
-    return "No events";
   }
 
   protected findArticleBlock(id: string): ArticleBlock | null {
-    return (this.state.articleBlocks ?? []).find(b => b.id === id) ?? null;
+    return (this.session.state.articleBlocks ?? []).find(block => block.id === id) ?? null;
   }
 
   protected onSingleArticleBlockChange(updated: ArticleBlock): void {
-    this.state.articleBlocks = (this.state.articleBlocks ?? []).map(b => b.id === updated.id ? updated : b);
-  }
-
-  private getFragmentList(parentPath: number[]): ComposerFragment[] | null {
-    if (parentPath.length === 0) return this.state.fragmentOrder;
-    if (parentPath.length === 2) {
-      const top = this.state.fragmentOrder?.[parentPath[0]];
-      if (!top || top.kind !== ComposerFragmentKind.MULTI_COLUMN) return null;
-      return top.columns?.[parentPath[1]] ?? null;
+    this.session.state.articleBlocks = (this.session.state.articleBlocks ?? []).map(b => b.id === updated.id ? updated : b);
     }
-    return null;
-  }
-
-  protected getColumnFragments(topIndex: number, columnIndex: number): ComposerFragment[] {
-    const top = this.state.fragmentOrder?.[topIndex];
-    if (!top || top.kind !== ComposerFragmentKind.MULTI_COLUMN) return [];
-    return top.columns?.[columnIndex] ?? [];
-  }
-
-  private getFragmentAt(path: number[]): ComposerFragment | null {
-    if (path.length === 0) return null;
-    const parent = this.getFragmentList(path.slice(0, -1));
-    if (!parent) return null;
-    return parent[path[path.length - 1]] ?? null;
-  }
-
-  private removeFragmentAt(path: number[]): ComposerFragment | null {
-    const parent = this.getFragmentList(path.slice(0, -1));
-    if (!parent) return null;
-    const idx = path[path.length - 1];
-    const removed = parent.splice(idx, 1)[0] ?? null;
-    return removed;
-  }
-
-  protected removeFragment(path: number[]): void {
-    this.removeFragmentAt(path);
-    this.state.fragmentOrder = [...(this.state.fragmentOrder ?? [])];
-  }
-
-  protected hasFragmentKindAtTopLevel(kind: ComposerFragmentKind): boolean {
-    return (this.state.fragmentOrder ?? []).some(f => f.kind === kind);
-  }
-
-  protected addIntroFragment(): void {
-    if (this.hasFragmentKindAtTopLevel(ComposerFragmentKind.INTRO)) return;
-    this.state.fragmentOrder = [
-      { kind: ComposerFragmentKind.INTRO, id: "intro", dividerAfter: this.state.introDividerAfter ?? SectionDividerStyle.THIN_YELLOW },
-      ...(this.state.fragmentOrder ?? [])
-    ];
-  }
-
-  protected addSignoffFragment(): void {
-    if (this.hasFragmentKindAtTopLevel(ComposerFragmentKind.SIGNOFF)) return;
-    this.state.fragmentOrder = [
-      ...(this.state.fragmentOrder ?? []),
-      { kind: ComposerFragmentKind.SIGNOFF, id: "signoff", dividerAfter: this.state.signoffDividerAfter ?? SectionDividerStyle.THIN_YELLOW }
-    ];
-  }
-
-  protected addEventsFragment(notifyAdded = false): void {
-    if (!this.eventsStepOmitted()) {
-      if (this.hasFragmentKindAtTopLevel(ComposerFragmentKind.EVENTS)) {
-        this.expandedFragmentIds.add("events");
-      } else {
-        const list = this.state.fragmentOrder ?? [];
-        const signoffIdx = list.findIndex(f => f.kind === ComposerFragmentKind.SIGNOFF);
-        const insertAt = signoffIdx >= 0 ? signoffIdx : list.length;
-        const newFragment: ComposerFragment = { kind: ComposerFragmentKind.EVENTS, id: "events", dividerAfter: this.state.eventsDividerAfter ?? SectionDividerStyle.THIN_YELLOW };
-        this.state.fragmentOrder = [...list.slice(0, insertAt), newFragment, ...list.slice(insertAt)];
-        this.expandedFragmentIds.add(newFragment.id);
-        if (notifyAdded) {
-          this.notify.success({
-            title: "Events added to the email",
-            message: "An Events list has been added on the Content step so the events you picked will go in the message."
-          });
-        }
-      }
-    }
-  }
-
-  private insertAboveSignoffAtTopLevel(fragment: ComposerFragment): void {
-    const list = this.state.fragmentOrder ?? [];
-    const signoffIdx = list.findIndex(f => f.kind === ComposerFragmentKind.SIGNOFF);
-    const insertAt = signoffIdx >= 0 ? signoffIdx : list.length;
-    this.state.fragmentOrder = [...list.slice(0, insertAt), fragment, ...list.slice(insertAt)];
-  }
-
-  protected addArticleFragment(parentPath: number[] = []): void {
-    const blocks = this.state.articleBlocks ?? [];
-    const newId = this.stringUtils.kebabCase(`block-${this.dateUtils.dateTimeNow().toMillis()}-${blocks.length}`);
-    const newBlock: ArticleBlock = {
-      id: newId,
-      position: ArticleBlockPosition.ABOVE_EVENTS,
-      order: blocks.length,
-      title: "",
-      markdown: "",
-      image: null
-    };
-    this.state.articleBlocks = [...blocks, newBlock];
-    const newFragment: ComposerFragment = {
-      kind: ComposerFragmentKind.ARTICLE,
-      id: newId,
-      dividerAfter: this.state.betweenArticlesDivider ?? SectionDividerStyle.THIN_YELLOW
-    };
-    if (parentPath.length === 0) {
-      this.insertAboveSignoffAtTopLevel(newFragment);
-    } else {
-      const parent = this.getFragmentList(parentPath);
-      if (!parent) return;
-      parent.push(newFragment);
-      this.state.fragmentOrder = [...(this.state.fragmentOrder ?? [])];
-    }
-    this.expandedFragmentIds.add(newId);
-  }
-
-  protected addMultiColumnFragment(numColumns: number): void {
-    const fragment = newMultiColumnFragment(numColumns, SectionDividerStyle.THIN_YELLOW);
-    this.insertAboveSignoffAtTopLevel(fragment);
-    this.expandedFragmentIds.add(fragment.id);
-  }
-
-  protected addDividerFragment(parentPath: number[] = []): void {
-    const fragment = newDividerFragment();
-    if (parentPath.length === 0) {
-      this.insertAboveSignoffAtTopLevel(fragment);
-    } else {
-      const parent = this.getFragmentAt(parentPath.slice(0, -1));
-      const columnIndex = parentPath[parentPath.length - 1];
-      if (parent?.columns?.[columnIndex]) {
-        parent.columns[columnIndex] = [...parent.columns[columnIndex], fragment];
-      }
-    }
-  }
-
-  protected onFragmentDividerChange(path: number[], style: SectionDividerStyle): void {
-    const fragment = this.getFragmentAt(path);
-    if (!fragment) return;
-    fragment.dividerAfter = style;
-    this.state.fragmentOrder = [...(this.state.fragmentOrder ?? [])];
-  }
-
-  protected onFragmentDragStart(path: number[], event: DragEvent): void {
-    this.draggedFragmentPath = [...path];
-    if (event?.dataTransfer) {
-      event.dataTransfer.effectAllowed = "move";
-      const dragEl = (event.target as HTMLElement) || (event.currentTarget as HTMLElement);
-      if (dragEl && event.dataTransfer.setDragImage) {
-        event.dataTransfer.setDragImage(dragEl, 10, 10);
-      }
-    }
-  }
-
-  protected onFragmentDragOver(path: number[], event: DragEvent): void {
-    if (!this.draggedFragmentPath) return;
-    if (this.isPathPrefixOf(this.draggedFragmentPath, path)) return;
-    event.preventDefault();
-    const target = event.currentTarget as HTMLElement | null;
-    if (target) {
-      const rect = target.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-      this.dragHoverPosition = (event.clientY ?? midpoint) < midpoint ? DragHoverPosition.Before : DragHoverPosition.After;
-    } else {
-      this.dragHoverPosition = DragHoverPosition.Before;
-    }
-    this.dragHoverPath = [...path];
-    this.dragHoverColumnPath = null;
-  }
-
-  protected onFragmentDrop(path: number[]): void {
-    if (!this.draggedFragmentPath) return;
-    if (this.isPathPrefixOf(this.draggedFragmentPath, path)) {
-      this.resetDragState();
-      return;
-    }
-    const targetIndex = this.dragHoverPosition === DragHoverPosition.After
-      ? path[path.length - 1] + 1
-      : path[path.length - 1];
-    const targetPath = [...path.slice(0, -1), targetIndex];
-    this.movePath(this.draggedFragmentPath, targetPath);
-    this.resetDragState();
-  }
-
-  protected onColumnDragOver(parentPath: number[], event: DragEvent): void {
-    if (!this.draggedFragmentPath) return;
-    if (this.isPathPrefixOf(this.draggedFragmentPath, parentPath)) return;
-    event.preventDefault();
-    this.dragHoverColumnPath = [...parentPath];
-    this.dragHoverPath = null;
-  }
-
-  protected onColumnDrop(parentPath: number[]): void {
-    if (!this.draggedFragmentPath) return;
-    if (this.isPathPrefixOf(this.draggedFragmentPath, parentPath)) {
-      this.resetDragState();
-      return;
-    }
-    const targetList = this.getFragmentList(parentPath);
-    if (!targetList) {
-      this.resetDragState();
-      return;
-    }
-    this.movePath(this.draggedFragmentPath, [...parentPath, targetList.length]);
-    this.resetDragState();
-  }
-
-  protected onFragmentDragEnd(): void {
-    this.resetDragState();
-  }
-
-  private resetDragState(): void {
-    this.draggedFragmentPath = null;
-    this.dragHoverPath = null;
-    this.dragHoverColumnPath = null;
-  }
-
-  private isPathPrefixOf(prefix: number[], full: number[]): boolean {
-    if (prefix.length > full.length) return false;
-    return prefix.every((value, idx) => value === full[idx]);
-  }
-
-  private movePath(srcPath: number[], tgtPath: number[]): void {
-    const srcParent = this.getFragmentList(srcPath.slice(0, -1));
-    const tgtParent = this.getFragmentList(tgtPath.slice(0, -1));
-    if (!srcParent || !tgtParent) return;
-    const srcIndex = srcPath[srcPath.length - 1];
-    const initialTgtIndex = tgtPath[tgtPath.length - 1];
-    const fragment = srcParent.splice(srcIndex, 1)[0];
-    if (!fragment) return;
-    const tgtIndex = srcParent === tgtParent && srcIndex < initialTgtIndex ? initialTgtIndex - 1 : initialTgtIndex;
-    tgtParent.splice(tgtIndex, 0, fragment);
-    this.state.fragmentOrder = [...(this.state.fragmentOrder ?? [])];
-  }
-
-  protected pathsEqual(a: number[] | null, b: number[] | null): boolean {
-    if (!a || !b) return false;
-    if (a.length !== b.length) return false;
-    return a.every((value, idx) => value === b[idx]);
-  }
-
-  protected isDragHover(path: number[]): boolean {
-    return this.pathsEqual(this.dragHoverPath, path);
-  }
-
-  protected isColumnDragHover(parentPath: number[]): boolean {
-    return this.pathsEqual(this.dragHoverColumnPath, parentPath);
-  }
-
-  onPreFilterKeyChange(key: MemberSelection | null): void {
-    this.state.preFilterKey = key;
-    this.expandedRecipientFilterKeys.clear();
-    this.expandedEveryoneSet = false;
-    this.applyPreFilterAudienceToTo();
-    this.syncStateToUrl({ [StoredValue.PRE_FILTER]: key ?? null });
-  }
 
   onEmailConfigChanged(config: NotificationConfig): void {
-    if (config?.id && config.id === this.state.notificationConfig?.id) {
+    if (config?.id && config.id === this.session.state.notificationConfig?.id) {
       return;
     } else {
       this.userPickedEmailType = true;
@@ -6289,106 +2621,65 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private applyNotificationConfig(config: NotificationConfig): void {
-    const previousConfigSubject = this.state.notificationConfig?.subject?.text ?? "";
-    const sameConfig = !!config?.id && config.id === this.state.notificationConfig?.id;
-    const preservedBanner = sameConfig ? (this.state.bannerId ?? this.state.notificationConfig?.bannerId) : null;
-    const userTypedCustomSubject = !!this.state.subject?.trim() && this.state.subject !== previousConfigSubject;
-    this.state.notificationConfig = config ? cloneDeep(config) : null;
-    this.postSendActionWarningDismissed = false;
-    this.state.bannerId = preservedBanner ?? this.state.notificationConfig?.bannerId ?? null;
-    if (this.state.notificationConfig) {
-      this.state.notificationConfig.bannerId = this.state.bannerId;
+    const previousConfigSubject = this.session.state.notificationConfig?.subject?.text ?? "";
+    const sameConfig = !!config?.id && config.id === this.session.state.notificationConfig?.id;
+    if (!sameConfig) {
+      this.workflowArrivalConfigId = null;
+      this.onPriorSendExclusionsChange([]);
     }
-    if (this.eventsStepOmitted() && this.state.eventInclusion !== EventInclusionMode.NONE) {
-      this.setEventInclusionMode(EventInclusionMode.NONE);
+    const preservedBanner = sameConfig ? (this.session.state.bannerId ?? this.session.state.notificationConfig?.bannerId) : null;
+    const userTypedCustomSubject = !!this.session.state.subject?.trim() && this.session.state.subject !== previousConfigSubject;
+    this.session.state.notificationConfig = config ? cloneDeep(config) : null;
+    this.postSendActionWarningDismissed = false;
+    this.session.state.bannerId = preservedBanner ?? this.session.state.notificationConfig?.bannerId ?? null;
+    if (this.session.state.notificationConfig) {
+      this.session.state.notificationConfig.bannerId = this.session.state.bannerId;
+    }
+    if (this.eventsStepOmitted() && this.session.state.eventInclusion !== EventInclusionMode.NONE) {
+      this.events.setEventInclusionMode(EventInclusionMode.NONE);
     }
     if (!userTypedCustomSubject) {
-      this.state.subject = this.state.notificationConfig?.subject?.text ?? "";
+      this.session.state.subject = this.session.state.notificationConfig?.subject?.text ?? "";
     }
-    this.state.signoffRoles = this.validSignoffRolesFor(this.state.notificationConfig?.signOffRoles ?? []);
-    this.applyRecipientDefaultsFrom(this.state.notificationConfig);
-    this.syncStateToUrl({
-      [StoredValue.CONFIG_ID]: this.configToSlug(this.state.notificationConfig),
-      [StoredValue.LIST_ID]: this.state.recipientMode === RecipientMode.ENTIRE_LIST ? this.state.selectedListId?.toString() ?? null : null,
-      [StoredValue.PRE_FILTER]: this.state.recipientMode === RecipientMode.SELECTED_MEMBERS ? this.state.preFilterKey ?? null : null,
-      [StoredValue.EMAIL_TYPE]: kebabCase(this.state.recipientMode)
+    this.session.state.signoffRoles = this.validSignoffRolesFor(this.session.state.notificationConfig?.signOffRoles ?? []);
+    this.recipients.applyRecipientDefaultsFrom(this.session.state.notificationConfig);
+    this.session.syncStateToUrl({
+      [StoredValue.CONFIG_ID]: this.configToSlug(this.session.state.notificationConfig),
+      [StoredValue.LIST_ID]: this.session.state.recipientMode === RecipientMode.ENTIRE_LIST ? this.session.state.selectedListId?.toString() ?? null : null,
+      [StoredValue.PRE_FILTER]: this.session.state.recipientMode === RecipientMode.SELECTED_MEMBERS ? this.session.state.preFilterKey ?? null : null,
+      [StoredValue.EMAIL_TYPE]: kebabCase(this.session.state.recipientMode)
     });
     this.refreshTemplateContent();
-    this.ensureFragmentOrder();
+    this.fragmentEditor.ensureFragmentOrder(this.session.state);
     this.maybeAutoRefreshPreview();
     if (!sameConfig) {
-      this.syncedNotificationBccKey = null;
+      this.recipients.syncedNotificationBccKey = null;
     }
-    this.syncNotificationConfigBccIntoBcc();
+    this.recipients.syncNotificationConfigBccIntoBcc();
   }
 
   protected composerRoleDefaultsHelp(): string {
-    if (this.state.notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.CURRENT_USER) {
+    if (this.session.state.notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.CURRENT_USER) {
       return "Reply-To starts blank so replies go to the From address unless you set one. Click Select All As Me to apply your committee roles to sign-off.";
-    } else if (this.state.notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.SELECT_AT_SEND) {
+    } else if (this.session.state.notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.SELECT_AT_SEND) {
       return "Choose the sender from any mapped committee member, then choose Reply-To and sign-off roles for this email.";
     } else {
       return "Reply-To and Sign-off start from Mail Settings. Click Select All As Me if you want sign-off to use your roles instead.";
     }
   }
 
-  private applyRecipientDefaultsFrom(config: NotificationConfig | null): void {
-    if (config) {
-      if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-        this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-        this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-        this.state.preFilterKey = null;
-        this.state.selectedListId = null;
-        this.state.narrowListId = null;
-        this.state.selectedMemberIds = [];
-        this.expandedRecipientFilterKeys.clear();
-        this.expandedEveryoneSet = false;
-        this.clearUnbrandedBulkRecipients();
-      } else if (config.defaultMemberSelection === MemberSelection.MAILING_LIST) {
-        this.state.recipientMode = RecipientMode.ENTIRE_LIST;
-        this.state.sendingChannel = SendingChannel.CAMPAIGN;
-        this.state.preFilterKey = null;
-        if (isNumber(config.defaultListId)) {
-          this.state.selectedListId = config.defaultListId;
-        }
-        this.state.selectedMemberIds = [];
-        this.applyDefaultListIfNeeded();
-      } else {
-        this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-        this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-        this.state.preFilterKey = config.defaultMemberSelection ?? null;
-        this.state.selectedMemberIds = [];
-        this.state.narrowListId = null;
-        this.expandedRecipientFilterKeys.clear();
-        this.expandedEveryoneSet = false;
-        this.applyPreFilterAudienceToTo();
-      }
-      this.applyForcedMemberSelection();
-      this.syncRecipientAddressMode();
-    }
-  }
-
-  private applyForcedMemberSelection(): void {
-    if (!this.forcedMemberId) {
-      return;
-    }
-    this.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-    this.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-    this.state.preFilterKey = null;
-    this.state.selectedMemberIds = [this.forcedMemberId];
-  }
-
   protected forcedMemberLabel(): string {
-    const member = this.members?.find(item => item.id === this.forcedMemberId);
+    const member = this.recipientSources.members?.find(item => item.id === this.recipients.forcedMemberId);
     if (!member) {
       return "the selected member";
+    } else {
+      const name = this.memberFullName(member);
+      return member.email && this.mayViewMemberAddresses() ? `${name} (${member.email})` : name;
     }
-    const name = this.memberFullName(member);
-    return member.email && this.mayViewMemberAddresses() ? `${name} (${member.email})` : name;
   }
 
   protected mayViewMemberAddresses(): boolean {
-    return !this.salesforceEnabled || this.loggedInMemberRecord?.canViewMemberData === true;
+    return !this.salesforceEnabled || this.sender.loggedInMemberRecord?.canViewMemberData === true;
   }
 
   private memberFullName(member: Member): string {
@@ -6399,61 +2690,63 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected memberSendBlockReason(member: Member): string | null {
     if (!member) {
       return null;
-    }
-    if (this.respectsBlocks()) {
-      if (member.emailBlock) {
-        return "is blocked from email";
+    } else {
+      if (this.recipientSources.respectsBlocks()) {
+        if (member.emailBlock) {
+          return "is blocked from email";
+        } else {
+          const referenceListId = this.recipientSources.unsubscribeReferenceListId();
+          const unsubscribed = isNumber(referenceListId)
+            ? isNumber(this.mailListUpdaterService.listUnsubscribedAt(member, referenceListId))
+            : isNumber(this.mailListUpdaterService.fullyUnsubscribedAt(member));
+          if (unsubscribed) {
+            return "has unsubscribed from email";
+          } else {
+          }
+        }
       }
-      const referenceListId = this.unsubscribeReferenceListId();
-      const unsubscribed = isNumber(referenceListId)
-        ? isNumber(this.mailListUpdaterService.listUnsubscribedAt(member, referenceListId))
-        : isNumber(this.mailListUpdaterService.fullyUnsubscribedAt(member));
-      if (unsubscribed) {
-        return "has unsubscribed from email";
+      if (this.recipientSources.requiresConsent() && member.emailMarketingConsent === false) {
+        return "has not given Head Office marketing consent";
+      } else {
+        return null;
       }
     }
-    if (this.requiresConsent() && member.emailMarketingConsent === false) {
-      return "has not given Head Office marketing consent";
-    }
-    return null;
   }
 
-  private blockedSelectedMembers(): { member: Member; reason: string }[] {
-    const committeeEmails = new Set(this.committeeCcEmails());
-    return this.uniqueSendEntries()
+  private unavailableSelectedMembers() {
+    return this.recipientSources.workflowRemovesRecipients() ? [] : this.blockedSelectedMembers();
+  }
+
+  protected unavailableRecipientReasons(): Record<string, string> {
+    return this.unavailableSelectedMembers().reduce((reasons, entry) => ({...reasons, [(entry.member.email ?? "").toLowerCase()]: entry.reason}), {});
+  }
+
+  private blockedSelectedMembers(): {
+    member: Member;
+    reason: string;
+  }[] {
+    const committeeEmails = new Set(this.recipients.committeeCcEmails());
+    return this.recipientResolution.uniqueSendEntries()
       .filter(entry => {
         const email = (entry.external?.email || entry.member?.email || "").toLowerCase();
         return !committeeEmails.has(email);
       })
       .map(entry => entry.member)
       .filter((member): member is Member => !!member)
-      .map(member => ({ member, reason: this.memberSendBlockReason(member) }))
-      .filter((entry): entry is { member: Member; reason: string } => !!entry.reason);
+      .map(member => ({member, reason: this.memberSendBlockReason(member)}))
+      .filter((entry): entry is {
+        member: Member;
+        reason: string;
+      } => !!entry.reason);
   }
 
   protected clearForcedMember(): void {
-    this.forcedMemberId = null;
-    this.syncStateToUrl({ [StoredValue.MEMBER]: null });
-  }
-
-  private configHasPostSendAction(action: WorkflowAction): boolean {
-    return (this.state.notificationConfig?.postSendActions ?? []).includes(action);
-  }
-
-  protected bulkDeletionPending(): boolean {
-    return this.configHasPostSendAction(WorkflowAction.BULK_DELETE_GROUP_MEMBER);
-  }
-
-  protected memberDisablePending(): boolean {
-    return this.configHasPostSendAction(WorkflowAction.DISABLE_GROUP_MEMBER);
-  }
-
-  private workflowRemovesRecipients(): boolean {
-    return this.bulkDeletionPending() || this.memberDisablePending();
+    this.recipients.forcedMemberId = null;
+    this.session.syncStateToUrl({[StoredValue.MEMBER]: null});
   }
 
   protected postSendActionWarningVisible(): boolean {
-    return (this.bulkDeletionPending() || this.memberDisablePending()) && !this.postSendActionWarningDismissed;
+    return (this.recipientSources.bulkDeletionPending() || this.recipientSources.memberDisablePending()) && !this.postSendActionWarningDismissed;
   }
 
   protected dismissPostSendActionWarning(): void {
@@ -6461,55 +2754,59 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   protected bulkDeletionMemberCount(): number {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.state.selectedListId !== null) {
-      return this.members
+    if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST && this.session.state.selectedListId !== null) {
+      return this.recipientSources.members
         .filter(this.memberService.filterFor.GROUP_MEMBERS)
-        .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.state.selectedListId!))
+        .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.session.state.selectedListId!))
         .length;
+    } else {
+      return this.session.state.selectedMemberIds?.length ?? 0;
     }
-    return this.state.selectedMemberIds?.length ?? 0;
   }
 
   protected showRecipientSourceRadios(): boolean {
-    return !this.forcedMemberId;
+    return !this.recipients.forcedMemberId && !this.session.state.notificationConfig;
   }
 
   protected async refreshTemplateContent(): Promise<void> {
-    const templateName = this.state.notificationConfig?.templateName;
+    const templateName = this.session.state.notificationConfig?.templateName;
     if (!templateName) {
       this.templateContentHtml = null;
       this.templateContentError = null;
       this.lastTemplateContentTemplateName = null;
       this.applyTemplateContentFragmentPresence();
-      return;
-    }
-    if (this.lastTemplateContentTemplateName === templateName && this.templateContentHtml) {
-      this.applyTemplateContentFragmentPresence();
-      return;
-    }
-    this.templateContentFetching = true;
-    this.templateContentError = null;
-    try {
-      const response = await this.mailService.localTemplateContent(templateName);
-      this.templateContentHtml = response?.htmlContent ?? null;
-      this.lastTemplateContentTemplateName = templateName;
-      this.applyTemplateContentFragmentPresence();
-    } catch (error) {
-      this.logger.error("localTemplateContent failed:", error);
-      this.templateContentError = "Could not load template content.";
-      this.templateContentHtml = null;
-    } finally {
-      this.templateContentFetching = false;
+    } else {
+      if (this.lastTemplateContentTemplateName === templateName && this.templateContentHtml) {
+        this.applyTemplateContentFragmentPresence();
+      } else {
+        this.templateContentFetching = true;
+        this.templateContentError = null;
+        try {
+          const response = await this.mailService.localTemplateContent(templateName);
+          this.templateContentHtml = response?.htmlContent ?? null;
+          this.lastTemplateContentTemplateName = templateName;
+          this.applyTemplateContentFragmentPresence();
+        } catch (error) {
+          this.logger.error("localTemplateContent failed:", error);
+          this.templateContentError = "Could not load template content.";
+          this.templateContentHtml = null;
+        } finally {
+          this.templateContentFetching = false;
+        }
+      }
     }
   }
 
   private templateHasTopBottomPlaceholders(): boolean {
-    if (!this.templateContentHtml) return false;
-    return this.templateContentHtml.includes("BODY_CONTENT_TOP") || this.templateContentHtml.includes("BODY_CONTENT_BOTTOM");
+    if (!this.templateContentHtml) {
+      return false;
+    } else {
+      return this.templateContentHtml.includes("BODY_CONTENT_TOP") || this.templateContentHtml.includes("BODY_CONTENT_BOTTOM");
+    }
   }
 
   private applyTemplateContentFragmentPresence(): void {
-    if (this.templateHasTopBottomPlaceholders() || !!this.state.notificationConfig?.body) {
+    if (this.templateHasTopBottomPlaceholders() || !!this.session.state.notificationConfig?.body) {
       this.ensureTemplateContentFragment();
     } else {
       this.removeTemplateContentFragment();
@@ -6517,45 +2814,57 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private ensureTemplateContentFragment(): void {
-    const order = this.state.fragmentOrder ?? [];
-    if (order.some(f => f.kind === ComposerFragmentKind.TEMPLATE_CONTENT)) return;
-    const introIdx = order.findIndex(f => f.kind === ComposerFragmentKind.INTRO);
-    const insertAt = introIdx >= 0 ? introIdx + 1 : 0;
-    const newFragment: ComposerFragment = { kind: ComposerFragmentKind.TEMPLATE_CONTENT, id: "template-content", dividerAfter: SectionDividerStyle.NONE };
-    this.state.fragmentOrder = [...order.slice(0, insertAt), newFragment, ...order.slice(insertAt)];
+    const order = this.session.state.fragmentOrder ?? [];
+    if (!(order.some(f => f.kind === ComposerFragmentKind.TEMPLATE_CONTENT))) {
+      const introIdx = order.findIndex(f => f.kind === ComposerFragmentKind.INTRO);
+      const insertAt = introIdx >= 0 ? introIdx + 1 : 0;
+      const newFragment: ComposerFragment = {
+        kind: ComposerFragmentKind.TEMPLATE_CONTENT,
+        id: "template-content",
+        dividerAfter: SectionDividerStyle.NONE
+      };
+      this.session.state.fragmentOrder = [...order.slice(0, insertAt), newFragment, ...order.slice(insertAt)];
+    }
   }
 
   private removeTemplateContentFragment(): void {
-    if (!this.state.fragmentOrder) return;
-    this.state.fragmentOrder = this.state.fragmentOrder.filter(f => f.kind !== ComposerFragmentKind.TEMPLATE_CONTENT);
+    if (!(!this.session.state.fragmentOrder)) {
+      this.session.state.fragmentOrder = this.session.state.fragmentOrder.filter(f => f.kind !== ComposerFragmentKind.TEMPLATE_CONTENT);
+    }
   }
 
   protected onSignoffRolesChanged(): void {
-    this.state.signoffRoles = this.validSignoffRolesFor(this.state.signoffRoles ?? []);
+    this.session.state.signoffRoles = this.validSignoffRolesFor(this.session.state.signoffRoles ?? []);
   }
 
   private validSignoffRolesFor(roles: string[]): string[] {
-    const committeeRoles = this.committeeReferenceData?.committeeMembers() ?? [];
+    const committeeRoles = this.recipientSources.committeeReferenceData?.committeeMembers() ?? [];
     return roles.filter(role => {
       const member = committeeRoles.find((candidate: any) => candidate.type === role);
-      if (!member) return false;
-      const fullNameText = (member.fullName ?? "").toLowerCase();
-      const nameAndDescriptionText = (member.nameAndDescription ?? "").toLowerCase();
-      const vacantByText = fullNameText.includes("vacant") || nameAndDescriptionText.includes("vacant");
-      return !member.vacant && !vacantByText;
+      if (!member) {
+        return false;
+      } else {
+        const fullNameText = (member.fullName ?? "").toLowerCase();
+        const nameAndDescriptionText = (member.nameAndDescription ?? "").toLowerCase();
+        const vacantByText = fullNameText.includes("vacant") || nameAndDescriptionText.includes("vacant");
+        return !member.vacant && !vacantByText;
+      }
     });
   }
 
   private configToSlug(config: NotificationConfig | null): string | null {
-    if (!config) return null;
-    const text = config.subject?.text || config.id;
-    return text ? this.stringUtils.kebabCase(text) : null;
+    if (!config) {
+      return null;
+    } else {
+      const text = config.subject?.text || config.id;
+      return text ? this.stringUtils.kebabCase(text) : null;
+    }
   }
 
   private resolveConfigIdFromSlug(slug: string | null): string | null {
     let resolved: string | null = null;
     if (slug) {
-      const configs = this.mailMessagingConfig?.notificationConfigs ?? [];
+      const configs = this.recipientSources.mailMessagingConfig?.notificationConfigs ?? [];
       const matched = configs.find(config => this.configToSlug(config) === slug || config.id === slug);
       if (matched) {
         resolved = matched.id ?? null;
@@ -6567,39 +2876,35 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   bannerImageSource(): string {
-    if (!this.state.notificationConfig) return "";
-    return this.mailMessagingService.bannerImageSource(this.state.notificationConfig, true);
-  }
-
-  requiresConsent(): boolean {
-    if (this.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) return false;
-    return this.mailMessagingConfig?.mailConfig?.respectHeadOfficeConsent !== false;
-  }
-
-  respectsBlocks(): boolean {
-    return this.mailMessagingConfig?.mailConfig?.respectEmailBlocks === true;
+    if (!this.session.state.notificationConfig) {
+      return "";
+    } else {
+      return this.mailMessagingService.bannerImageSource(this.session.state.notificationConfig, true);
+    }
   }
 
   recipientCountSummary(includeChannel = true): string {
-    const toHasExtraPeople = (this.state.externalRecipients ?? []).some(recipient => !recipient.listId);
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && !this.unbrandedListExpanded() && !toHasExtraPeople) {
-      const list = this.availableLists().find(item => item.id === this.state.selectedListId);
-      const campaign = includeChannel && this.sendingAsCampaign();
+    const toHasExtraPeople = (this.session.state.externalRecipients ?? []).some(recipient => !recipient.listId);
+    if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST && !this.recipientResolution.unbrandedListExpanded() && !toHasExtraPeople) {
+      const list = this.recipientSources.availableLists().find(item => item.id === this.session.state.selectedListId);
+      const campaign = includeChannel && this.recipientResolution.sendingAsCampaign();
       if (!list) {
         return "no list chosen";
       } else if (campaign) {
-        return `${this.listNameAndCount(list)} (campaign)`;
+        return `${this.recipientSources.listNameAndCount(list)} (campaign)`;
       } else {
-        return this.listNameAndCount(list);
+        return this.recipientSources.listNameAndCount(list);
       }
     } else {
-      const people = this.uniqueEntriesFrom(this.state.externalRecipients ?? []).length;
-      const ccCount = this.uniqueEntriesFrom(this.state.ccRecipients ?? []).length;
-      const bccCount = this.uniqueEntriesFrom(this.state.bccRecipients ?? []).length;
+      const people = this.recipientResolution.uniqueEntriesFrom(this.session.state.externalRecipients ?? []).length;
+      const ccCount = this.recipientResolution.uniqueEntriesFrom(this.session.state.ccRecipients ?? []).length;
+      const bccCount = this.recipientResolution.uniqueEntriesFrom(this.session.state.bccRecipients ?? []).length;
       const peopleSummary = this.stringUtils.pluraliseWithCount(people, "member");
       const extra: string[] = [];
-      if (ccCount > 0) extra.push(`${ccCount} cc`);
-      if (bccCount > 0) extra.push(`${bccCount} bcc`);
+      if (ccCount > 0)
+        extra.push(`${ccCount} cc`);
+      if (bccCount > 0)
+        extra.push(`${bccCount} bcc`);
       if (extra.length === 0) {
         return peopleSummary;
       } else if (people === 0) {
@@ -6610,24 +2915,12 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }
   }
 
-  totalRecipientCount(): number {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && !this.unbrandedListExpanded()) {
-      const list = this.availableLists().find(item => item.id === this.state.selectedListId);
-      return list ? this.subscribedMemberCount(list) : 0;
-    } else {
-      return this.uniqueSendEntries().length;
-    }
-  }
-
   protected campaignQueueNotice(): CampaignOverflowNotice | null {
-    if (this.state.recipientMode !== RecipientMode.ENTIRE_LIST || this.state.brandingMode === BrandingMode.UNBRANDED) {
+    if (this.session.state.recipientMode !== RecipientMode.ENTIRE_LIST || this.session.state.brandingMode === BrandingMode.UNBRANDED) {
       return null;
+    } else {
+      return campaignOverflowNotice(this.recipientResolution.totalRecipientCount(), this.recipientSources.mailMessagingConfig?.brevo?.account, this.campaignAutomaticReleaseEnabled());
     }
-    return campaignOverflowNotice(
-      this.totalRecipientCount(),
-      this.mailMessagingConfig?.brevo?.account,
-      this.campaignAutomaticReleaseEnabled()
-    );
   }
 
   private campaignAutomaticReleaseEnabled(): boolean | null {
@@ -6645,27 +2938,33 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   estimatedSendTime(): string {
-    const count = this.state.brandingMode === BrandingMode.UNBRANDED
+    const count = this.session.state.brandingMode === BrandingMode.UNBRANDED
       ? 1
-      : this.state.selectedMemberIds.length
-        + (this.state.externalRecipients?.length ?? 0)
-        + (this.state.ccRecipients?.length ?? 0)
-        + (this.state.bccRecipients?.length ?? 0);
-    if (count === 0) return "0s";
-    const seconds = Math.max(1, Math.ceil(count * 0.4));
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.ceil(seconds / 60);
-    return `${minutes} min`;
+      : this.session.state.selectedMemberIds.length
+      + (this.session.state.externalRecipients?.length ?? 0)
+      + (this.session.state.ccRecipients?.length ?? 0)
+      + (this.session.state.bccRecipients?.length ?? 0);
+    if (count === 0) {
+      return "0s";
+    } else {
+      const seconds = Math.max(1, Math.ceil(count * 0.4));
+      if (seconds < 60) {
+        return `${seconds}s`;
+      } else {
+        const minutes = Math.ceil(seconds / 60);
+        return `${minutes} min`;
+      }
+    }
   }
 
   sendingChannelLabel(): string {
-    if (this.state.sendingChannel === SendingChannel.CAMPAIGN || this.sendingAsCampaign()) {
+    if (this.session.state.sendingChannel === SendingChannel.CAMPAIGN || this.recipientResolution.sendingAsCampaign()) {
       return "to the whole list";
     } else if (this.contentIsPersonalised() || this.recipientAddressesArePrivate()) {
       return "to each member individually";
     } else if (this.visibleToRecipientCount() > 1) {
       return "one email, with everyone on To";
-    } else if (this.state.brandingMode === BrandingMode.UNBRANDED) {
+    } else if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
       return this.sharedToCommitteeSend()
         ? "one email to the committee, with everyone on To"
         : "one email using To, Cc and Bcc";
@@ -6678,26 +2977,22 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   recipientsStepErrors(): string[] {
     const errors: string[] = [];
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
-      if (this.nonEmptyLists().length === 0) {
+    if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+      if (this.recipientSources.nonEmptyLists().length === 0) {
         errors.push("No mailing lists configured - set them up in Mail Settings before sending to a whole list");
-      } else if (this.state.selectedListId == null
-        || !this.nonEmptyLists().some(list => list.id === this.state.selectedListId)) {
+      } else if (this.session.state.selectedListId == null
+        || !this.recipientSources.nonEmptyLists().some(list => list.id === this.session.state.selectedListId)) {
         errors.push("Choose which mailing list to send to");
       }
     } else {
-      const headerCount = (this.state.externalRecipients?.length ?? 0)
-        + (this.state.ccRecipients?.length ?? 0)
-        + (this.state.bccRecipients?.length ?? 0);
-      if (this.state.selectedMemberIds.length === 0 && headerCount === 0) {
+      const headerCount = (this.session.state.externalRecipients?.length ?? 0)
+        + (this.session.state.ccRecipients?.length ?? 0)
+        + (this.session.state.bccRecipients?.length ?? 0);
+      if (this.session.state.selectedMemberIds.length === 0 && headerCount === 0) {
         errors.push("Select at least one member");
       }
-      const blockedMembers = this.workflowRemovesRecipients() ? [] : this.blockedSelectedMembers();
-      if (blockedMembers.length === 1) {
-        errors.push(`${this.memberFullName(blockedMembers[0].member)} ${blockedMembers[0].reason} and cannot be emailed - choose a different recipient`);
-      } else if (blockedMembers.length > 1) {
-        errors.push(`${blockedMembers.length} chosen members cannot be emailed (no consent, blocked or unsubscribed) - remove them to continue`);
-      }
+      const blockedMembers = this.unavailableSelectedMembers();
+      errors.push(...blockedMembers.map(entry => `${this.memberFullName(entry.member)} ${entry.reason} and cannot be emailed — remove this member from the recipients to continue`));
     }
     return errors;
   }
@@ -6711,47 +3006,50 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private committeeRolesReady(): boolean {
-    return !!this.committeeReferenceData;
+    return !!this.recipientSources.committeeReferenceData;
   }
 
   protected unbrandedSenderCheckReady(): boolean {
-    return !!this.committeeReferenceData && !!this.mailMessagingConfig;
+    return !!this.recipientSources.committeeReferenceData && !!this.recipientSources.mailMessagingConfig;
   }
 
   templateStepErrors(): ValidationError[] {
     const errors: ValidationError[] = [];
-    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      if (this.unbrandedSenderCheckReady() && !this.unbrandedSenderInfo().email) {
+    if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
+      if (this.unbrandedSenderCheckReady() && !this.sender.unbrandedSenderInfo().email) {
         errors.push("You are not linked to a committee role with a valid email on this site. Emails are sent from a committee role address, so a site administrator needs to map your member record to a committee role before you can send.");
       }
-    } else if (!this.state.notificationConfig) {
+    } else if (!this.session.state.notificationConfig) {
       errors.push("Choose an email type");
     } else if (!this.committeeRolesReady()) {
       return errors;
     } else {
-      if (!this.state.notificationConfig.templateName) errors.push(this.errorWithMailSettingsLink("This email type has no template configured - choose another or set one up in ", "Mail Settings"));
-      if (this.brandedSenderIdentities().length === 0) {
+      if (!this.session.state.notificationConfig.templateName)
+        errors.push(this.errorWithMailSettingsLink("This email type has no template configured - choose another or set one up in ", "Mail Settings"));
+      if (this.sender.brandedSenderIdentities().length === 0) {
         errors.push("You need a committee role address before you can send.");
       }
-      if (!this.senderExists) errors.push(this.errorWithMailSettingsLink("The sender address is not registered in Brevo - configure it in ", "Mail Settings"));
-      if (!this.state.notificationConfig.senderRole) errors.push("Sender is missing from the email type configuration");
-      const committeeRoles = this.committeeReferenceData?.committeeMembers() ?? [];
+      if (!this.senderExists)
+        errors.push(this.errorWithMailSettingsLink("The sender address is not registered in Brevo - configure it in ", "Mail Settings"));
+      if (!this.session.state.notificationConfig.senderRole)
+        errors.push("Sender is missing from the email type configuration");
+      const committeeRoles = this.recipientSources.committeeReferenceData?.committeeMembers() ?? [];
       const roleExists = (role: string | undefined) => !!role && committeeRoles.some((member: any) => member.type === role);
       const roleHasEmail = (role: string | undefined) => !!role && committeeRoles.some((member: any) => member.type === role && !!member.email);
       const roleDescription = (role: string | undefined) => {
         const match = committeeRoles.find((member: any) => member.type === role);
         return match?.description || role || "";
       };
-      const senderLabel = roleDescription(this.state.notificationConfig.senderRole);
-      const replyToLabel = roleDescription(this.state.notificationConfig.replyToRole);
-      if (this.state.notificationConfig.senderRole && !roleExists(this.state.notificationConfig.senderRole)) {
+      const senderLabel = roleDescription(this.session.state.notificationConfig.senderRole);
+      const replyToLabel = roleDescription(this.session.state.notificationConfig.replyToRole);
+      if (this.session.state.notificationConfig.senderRole && !roleExists(this.session.state.notificationConfig.senderRole)) {
         errors.push(this.errorWithMailSettingsLink(`Sender role "${senderLabel}" is not a committee member - pick a different role below, or assign someone to it in `, "Mail Settings"));
-      } else if (this.state.notificationConfig.senderRole && !roleHasEmail(this.state.notificationConfig.senderRole)) {
+      } else if (this.session.state.notificationConfig.senderRole && !roleHasEmail(this.session.state.notificationConfig.senderRole)) {
         errors.push(this.errorWithMailSettingsLink(`Sender role "${senderLabel}" has no email address - pick a different role below, or set an email for it in `, "Mail Settings"));
       }
-      if (this.state.notificationConfig.replyToRole && !roleExists(this.state.notificationConfig.replyToRole)) {
+      if (this.session.state.notificationConfig.replyToRole && !roleExists(this.session.state.notificationConfig.replyToRole)) {
         errors.push(this.errorWithMailSettingsLink(`Reply-to role "${replyToLabel}" is not a committee member - pick a different role below, or assign someone to it in `, "Mail Settings"));
-      } else if (this.state.notificationConfig.replyToRole && !roleHasEmail(this.state.notificationConfig.replyToRole)) {
+      } else if (this.session.state.notificationConfig.replyToRole && !roleHasEmail(this.session.state.notificationConfig.replyToRole)) {
         errors.push(this.errorWithMailSettingsLink(`Reply-to role "${replyToLabel}" has no email address - pick a different role below, or set an email for it in `, "Mail Settings"));
       }
     }
@@ -6769,11 +3067,12 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private mailSettingsQueryParams(): Record<string, string> {
-    const params: Record<string, string> = { [StoredValue.TAB]: "email-configurations" };
-    const config = this.state.notificationConfig;
+    const params: Record<string, string> = {[StoredValue.TAB]: "email-configurations"};
+    const config = this.session.state.notificationConfig;
     if (config) {
       const text = config.subject?.text || config.id;
-      if (text) params[StoredValue.CONFIGURATION] = this.stringUtils.kebabCase(text);
+      if (text)
+        params[StoredValue.CONFIGURATION] = this.stringUtils.kebabCase(text);
     }
     return params;
   }
@@ -6787,31 +3086,37 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   unmatchedSignOffRoles(): string[] {
-    if (!this.state.notificationConfig) return [];
-    const committeeRoles = this.committeeReferenceData?.committeeMembers() ?? [];
-    const roleExists = (role: string) => committeeRoles.some((member: any) => member.type === role);
-    return (this.state.notificationConfig.signOffRoles ?? []).filter(role => !roleExists(role));
+    if (!this.session.state.notificationConfig) {
+      return [];
+    } else {
+      const committeeRoles = this.recipientSources.committeeReferenceData?.committeeMembers() ?? [];
+      const roleExists = (role: string) => committeeRoles.some((member: any) => member.type === role);
+      return (this.session.state.notificationConfig.signOffRoles ?? []).filter(role => !roleExists(role));
+    }
   }
 
   matchedSignOffRoles(): string[] {
-    if (!this.state.notificationConfig) return [];
-    const committeeRoles = this.committeeReferenceData?.committeeMembers() ?? [];
-    const roleExists = (role: string) => committeeRoles.some((member: any) => member.type === role);
-    return (this.state.notificationConfig.signOffRoles ?? []).filter(role => roleExists(role));
+    if (!this.session.state.notificationConfig) {
+      return [];
+    } else {
+      const committeeRoles = this.recipientSources.committeeReferenceData?.committeeMembers() ?? [];
+      const roleExists = (role: string) => committeeRoles.some((member: any) => member.type === role);
+      return (this.session.state.notificationConfig.signOffRoles ?? []).filter(role => roleExists(role));
+    }
   }
 
   templateStepValid(): boolean {
     const errorsEmpty = this.templateStepErrors().length === 0;
     let valid = errorsEmpty;
-    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      if (this.unbrandedSenderInfo().email) {
+    if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
+      if (this.sender.unbrandedSenderInfo().email) {
         valid = errorsEmpty;
       } else if (!this.unbrandedSenderCheckReady()) {
         valid = false;
       } else {
         valid = errorsEmpty;
       }
-    } else if (this.state.brandingMode === BrandingMode.BRANDED && this.state.notificationConfig && !this.committeeRolesReady()) {
+    } else if (this.session.state.brandingMode === BrandingMode.BRANDED && this.session.state.notificationConfig && !this.committeeRolesReady()) {
       valid = false;
     }
     return valid;
@@ -6819,9 +3124,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   templateStepValidationMessage(): string {
     let message = this.templateStepErrors().join("; ");
-    if (this.state.brandingMode === BrandingMode.UNBRANDED && !this.unbrandedSenderInfo().email && !this.unbrandedSenderCheckReady()) {
+    if (this.session.state.brandingMode === BrandingMode.UNBRANDED && !this.sender.unbrandedSenderInfo().email && !this.unbrandedSenderCheckReady()) {
       message = "Loading committee roles…";
-    } else if (this.state.brandingMode === BrandingMode.BRANDED && this.state.notificationConfig && !this.committeeRolesReady()) {
+    } else if (this.session.state.brandingMode === BrandingMode.BRANDED && this.session.state.notificationConfig && !this.committeeRolesReady()) {
       message = "Loading committee roles…";
     }
     return message;
@@ -6829,26 +3134,30 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   composeStepErrors(): string[] {
     const errors: string[] = [];
-    if (!this.state.subject?.trim()) errors.push("Subject line is required");
+    if (!this.session.state.subject?.trim()) {
+      errors.push("Subject line is required");
+    } else if (this.subjectStartsWithCopyOf()) {
+      errors.push("Change the copied subject before continuing");
+    } else if (this.subjectUnchangedFromDefault()) {
+      errors.push("Change the automatic subject before continuing");
+    }
     return errors;
   }
 
   eventsStepErrors(): string[] {
     const errors: string[] = [];
-    if (this.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.selectedGroupEventCount() === 0) {
+    if (this.session.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.events.selectedGroupEventCount() === 0) {
       errors.push("Either select at least one event or choose 'No events'");
     }
     return errors;
   }
 
   protected composeStepOmitted(): boolean {
-    return !!this.state.notificationConfig?.omitComposeStep;
+    return !!this.session.state.notificationConfig?.omitComposeStep;
   }
 
   protected eventsStepOmitted(): boolean {
-    return this.releaseNoteUpdateMode()
-      || this.state.brandingMode === BrandingMode.UNBRANDED
-      || !!this.state.notificationConfig?.omitEventsStep;
+    return this.session.eventsStepOmitted();
   }
 
   eventsStepValid(): boolean {
@@ -6865,9 +3174,12 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   composeStepNextDisabledMessage(): string {
     const parts: string[] = [];
-    if (!this.composeStepValid()) parts.push(this.composeStepValidationMessage());
-    if (!this.recipientsStepValid()) parts.push(this.recipientsStepValidationMessage());
-    if (!this.templateStepValid()) parts.push(this.templateStepValidationMessage());
+    if (!this.composeStepValid())
+      parts.push(this.composeStepValidationMessage());
+    if (!this.recipientsStepValid())
+      parts.push(this.recipientsStepValidationMessage());
+    if (!this.templateStepValid())
+      parts.push(this.templateStepValidationMessage());
     return parts.filter(p => p).join("; ");
   }
 
@@ -6879,8 +3191,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   recycledTrackingUrlsInState(): string[] {
-    const sources = [this.state.introMarkdown, this.state.signoffTextMarkdown];
-    (this.state.articleBlocks ?? []).forEach(block => {
+    const sources = [this.session.state.introMarkdown, this.session.state.signoffTextMarkdown];
+    (this.session.state.articleBlocks ?? []).forEach(block => {
       sources.push(block.markdown);
       sources.push(block.buttonUrl);
     });
@@ -6892,73 +3204,106 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   private autoResolveTrackingInProgress = false;
 
   protected async autoResolveTrackingUrls(): Promise<void> {
-    if (this.autoResolveTrackingInProgress) return;
-    const trackingUrls = this.recycledTrackingUrlsInState();
-    if (trackingUrls.length === 0) return;
-    this.autoResolveTrackingInProgress = true;
-    try {
-      const results = await Promise.all(trackingUrls.map(async url => {
+    if (!(this.autoResolveTrackingInProgress)) {
+      const trackingUrls = this.recycledTrackingUrlsInState();
+      if (trackingUrls.length === 0) {
+      } else {
+        this.autoResolveTrackingInProgress = true;
         try {
-          return await this.sendService.resolveTrackingUrl(url);
-        } catch (error: any) {
-          return { originalUrl: url, resolvedUrl: null, error: error?.message ?? String(error) } as const;
-        }
-      }));
-      const replacements = new Map<string, string>();
-      const failedUrls: string[] = [];
-      for (const result of results) {
-        if (result.resolvedUrl) {
-          replacements.set(result.originalUrl, result.resolvedUrl);
-        } else {
-          failedUrls.push(result.originalUrl);
-          this.logger.warn("auto-resolve tracking url failed - stripping link", result.originalUrl, result.error);
+          const results = await Promise.all(trackingUrls.map(async (url) => {
+            try {
+              return await this.sendService.resolveTrackingUrl(url);
+            } catch (error: any) {
+              return {originalUrl: url, resolvedUrl: null, error: error?.message ?? String(error)} as const;
+            }
+          }));
+          const replacements = new Map<string, string>();
+          const failedUrls: string[] = [];
+          for (const result of results) {
+            if (result.resolvedUrl) {
+              replacements.set(result.originalUrl, result.resolvedUrl);
+            } else {
+              failedUrls.push(result.originalUrl);
+              this.logger.warn("auto-resolve tracking url failed - stripping link", result.originalUrl, result.error);
+            }
+          }
+          this.session.state.introMarkdown = this.rewriteTrackingUrls(this.session.state.introMarkdown, replacements, failedUrls);
+          this.session.state.signoffTextMarkdown = this.rewriteTrackingUrls(this.session.state.signoffTextMarkdown, replacements, failedUrls);
+          (this.session.state.articleBlocks ?? []).forEach(block => {
+            block.markdown = this.rewriteTrackingUrls(block.markdown, replacements, failedUrls);
+            block.buttonUrl = this.rewriteTrackingUrls(block.buttonUrl, replacements, failedUrls);
+          });
+        } finally {
+          this.autoResolveTrackingInProgress = false;
         }
       }
-      this.state.introMarkdown = this.rewriteTrackingUrls(this.state.introMarkdown, replacements, failedUrls);
-      this.state.signoffTextMarkdown = this.rewriteTrackingUrls(this.state.signoffTextMarkdown, replacements, failedUrls);
-      (this.state.articleBlocks ?? []).forEach(block => {
-        block.markdown = this.rewriteTrackingUrls(block.markdown, replacements, failedUrls);
-        block.buttonUrl = this.rewriteTrackingUrls(block.buttonUrl, replacements, failedUrls);
-      });
-    } finally {
-      this.autoResolveTrackingInProgress = false;
     }
   }
 
   private rewriteTrackingUrls(content: string | null | undefined, replacements: Map<string, string>, failedUrls: string[]): string {
-    if (!content) return content ?? "";
-    let next = content;
-    for (const [from, to] of replacements) {
-      next = next.split(from).join(to);
+    if (!content) {
+      return content ?? "";
+    } else {
+      let next = content;
+      for (const [from, to] of replacements) {
+        next = next.split(from).join(to);
+      }
+      for (const url of failedUrls) {
+        next = this.stripTrackingLink(next, url);
+      }
+      return next;
     }
-    for (const url of failedUrls) {
-      next = this.stripTrackingLink(next, url);
-    }
-    return next;
   }
 
   private stripTrackingLink(content: string, url: string): string {
-    if (!content || !url) return content;
-    const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const markdownLink = new RegExp(`\\[([^\\]]+)\\]\\(${escaped}\\)`, "g");
-    let next = content.replace(markdownLink, "$1");
-    const htmlLink = new RegExp(`<a\\b[^>]*href=["']${escaped}["'][^>]*>([\\s\\S]*?)<\\/a>`, "gi");
-    next = next.replace(htmlLink, "$1");
-    next = next.split(url).join("");
-    return next;
+    if (!content || !url) {
+      return content;
+    } else {
+      const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const markdownLink = new RegExp(`\\[([^\\]]+)\\]\\(${escaped}\\)`, "g");
+      let next = content.replace(markdownLink, "$1");
+      const htmlLink = new RegExp(`<a\\b[^>]*href=["']${escaped}["'][^>]*>([\\s\\S]*?)<\\/a>`, "gi");
+      next = next.replace(htmlLink, "$1");
+      next = next.split(url).join("");
+      return next;
+    }
   }
 
   canAccessStep(stepKey: EmailComposerStepKey): boolean {
-    if (stepKey === EmailComposerStepKey.EVENTS && this.eventsStepOmitted()) return false;
-    if (stepKey === EmailComposerStepKey.COMPOSE && this.composeStepOmitted()) return false;
-    if (stepKey === EmailComposerStepKey.TEMPLATE) return true;
-    if (stepKey === EmailComposerStepKey.RECIPIENTS) return this.templateStepValid();
-    const isUnbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
-    if (stepKey === EmailComposerStepKey.COMPOSE) return this.templateStepValid() && (isUnbranded || this.recipientsStepValid());
-    if (stepKey === EmailComposerStepKey.EVENTS) return this.templateStepValid() && this.recipientsStepValid() && this.composeStepValid();
-    if (stepKey === EmailComposerStepKey.REVIEW) return this.templateStepValid() && this.recipientsStepValid() && this.composeStepValid();
-    if (stepKey === EmailComposerStepKey.SEND) return this.templateStepValid() && this.recipientsStepValid() && this.composeStepValid();
-    return false;
+    if (stepKey === EmailComposerStepKey.EVENTS && this.eventsStepOmitted()) {
+      return false;
+    } else {
+      if (stepKey === EmailComposerStepKey.COMPOSE && this.composeStepOmitted()) {
+        return false;
+      } else {
+        if (stepKey === EmailComposerStepKey.TEMPLATE) {
+          return true;
+        } else {
+          if (stepKey === EmailComposerStepKey.RECIPIENTS) {
+            return this.templateStepValid();
+          } else {
+            const isUnbranded = this.session.state.brandingMode === BrandingMode.UNBRANDED;
+            if (stepKey === EmailComposerStepKey.COMPOSE) {
+              return this.templateStepValid() && (isUnbranded || this.recipientsStepValid());
+            } else {
+              if (stepKey === EmailComposerStepKey.EVENTS) {
+                return this.templateStepValid() && this.recipientsStepValid() && this.composeStepValid();
+              } else {
+                if (stepKey === EmailComposerStepKey.REVIEW) {
+                  return this.templateStepValid() && this.recipientsStepValid() && this.composeStepValid();
+                } else {
+                  if (stepKey === EmailComposerStepKey.SEND) {
+                    return this.templateStepValid() && this.recipientsStepValid() && this.composeStepValid();
+                  } else {
+                    return false;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   protected currentStepTitle(): string {
@@ -6969,9 +3314,15 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   protected visibleStepperSteps(): typeof EMAIL_COMPOSER_STEPS {
     return EMAIL_COMPOSER_STEPS.filter(step => {
-      if (step.key === EmailComposerStepKey.EVENTS && this.eventsStepOmitted()) return false;
-      if (step.key === EmailComposerStepKey.COMPOSE && this.composeStepOmitted()) return false;
-      return true;
+      if (step.key === EmailComposerStepKey.EVENTS && this.eventsStepOmitted()) {
+        return false;
+      } else {
+        if (step.key === EmailComposerStepKey.COMPOSE && this.composeStepOmitted()) {
+          return false;
+        } else {
+          return true;
+        }
+      }
     });
   }
 
@@ -6979,67 +3330,72 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     return this.visibleStepperSteps().some(step => step.key === key);
   }
 
-  goToStep(index: number): void {
-    if (this.sendInProgress) return;
-    const step = this.stepperSteps[index];
-    if (step && this.canAccessStep(step.key)) {
-      this.setActiveStepperTab(step.key);
-      if (step.key === EmailComposerStepKey.COMPOSE || step.key === EmailComposerStepKey.REVIEW) {
-        this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
-      }
-      if (step.key === EmailComposerStepKey.REVIEW) {
-        this.refreshPreview().catch(error => this.logger.error("preview refresh failed", error));
-      }
-    }
-  }
-
-  protected goToStepKey(key: EmailComposerStepKey): void {
-    if (this.sendInProgress) return;
-    if (this.canAccessStep(key)) {
-      this.setActiveStepperTab(key);
-      if (key === EmailComposerStepKey.COMPOSE || key === EmailComposerStepKey.REVIEW) {
-        this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
-      }
-      if (key === EmailComposerStepKey.COMPOSE) {
-        this.focusComposeEditor();
-      }
-      if (key === EmailComposerStepKey.REVIEW) {
-        this.refreshPreview().catch(error => this.logger.error("preview refresh failed", error));
+  protected goToStepKey(key: EmailComposerStepKey, focusComposeBody = true): void {
+    if (!(this.sendInProgress)) {
+      if (this.canAccessStep(key)) {
+        this.setActiveStepperTab(key);
+        if (key === EmailComposerStepKey.COMPOSE || key === EmailComposerStepKey.REVIEW) {
+          this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
+        }
+        if (key === EmailComposerStepKey.COMPOSE && focusComposeBody) {
+          this.focusComposeEditor();
+        }
+        if (key === EmailComposerStepKey.REVIEW) {
+          this.refreshPreview().catch(error => this.logger.error("preview refresh failed", error));
+        }
       }
     }
   }
 
   private focusComposeEditor(): void {
-    const introFragment = (this.state.fragmentOrder ?? []).find(fragment => fragment.kind === ComposerFragmentKind.INTRO);
-    if (!introFragment) {
-      return;
-    }
-    this.expandedFragmentIds.add(introFragment.id);
-    if (this.introEditorRef) {
-      queueMicrotask(() => this.introEditorRef?.focusAtStart());
-    } else {
-      this.pendingIntroFocus = true;
+    const introFragment = (this.session.state.fragmentOrder ?? []).find(fragment => fragment.kind === ComposerFragmentKind.INTRO);
+    if (!(!introFragment)) {
+      this.fragmentEditor.expandedFragmentIds.add(introFragment.id);
+      if (this.introEditorRef) {
+        queueMicrotask(() => this.introEditorRef?.focusAtStart());
+      } else {
+        this.pendingIntroFocus = true;
+      }
     }
   }
 
+  protected emptyWorkflowNextConfig(): NotificationConfig | null {
+    const config = this.session.state.notificationConfig;
+    const next = this.configById(config?.nextNotificationConfigId);
+    const state = this.session.state;
+    return this.stepperActiveTab === EmailComposerStepKey.RECIPIENTS
+      && state.brandingMode === BrandingMode.BRANDED
+      && state.recipientMode === RecipientMode.SELECTED_MEMBERS
+      && !!config?.defaultMemberSelection && state.preFilterKey === config.defaultMemberSelection
+      && state.selectedMemberIds.length === 0
+      && [state.externalRecipients, state.ccRecipients, state.bccRecipients].every(recipients => !recipients?.length)
+      && next?.id !== config.id ? next : null;
+  }
+
   protected goNext(): void {
-    const visible = this.visibleStepperSteps();
-    const idx = visible.findIndex(step => step.key === this.stepperActiveTab);
-    if (idx === -1 || idx >= visible.length - 1) return;
-    this.goToStepKey(visible[idx + 1].key);
+    const nextConfig = this.emptyWorkflowNextConfig();
+    if (nextConfig) {
+      void this.continueToNextConfig(nextConfig);
+    } else {
+      const visible = this.visibleStepperSteps();
+      const idx = visible.findIndex(step => step.key === this.stepperActiveTab);
+      if (!(idx === -1 || idx >= visible.length - 1)) {
+        this.goToStepKey(visible[idx + 1].key);
+      }
+    }
   }
 
   protected goPrev(): void {
     const visible = this.visibleStepperSteps();
     const idx = visible.findIndex(step => step.key === this.stepperActiveTab);
-    if (idx <= 0) return;
-    this.goToStepKey(visible[idx - 1].key);
+    if (!(idx <= 0)) {
+      this.goToStepKey(visible[idx - 1].key);
+    }
   }
 
   onStepperValueChange(value: unknown): void {
     const key = value as EmailComposerStepKey;
-    if (!key) {
-    } else {
+    if (key && this.canAccessStep(key)) {
       const scrollY = window.scrollY;
       this.setActiveStepperTab(key);
       if (key === EmailComposerStepKey.COMPOSE) {
@@ -7051,32 +3407,38 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       requestAnimationFrame(() => {
         window.scrollTo(0, scrollY);
       });
+    } else if (key) {
+      this.stepperRef?.value.set(this.stepperActiveTab as unknown as number);
     }
   }
 
   private setActiveStepperTab(key: EmailComposerStepKey, queryParams: Record<string, string | null | undefined> = {}): void {
     this.stepperActiveTab = key;
-    this.syncStateToUrl({...queryParams, [StoredValue.TAB]: key});
+    this.session.syncStateToUrl({...queryParams, [StoredValue.TAB]: key});
   }
 
   stepHint(key: EmailComposerStepKey): string {
     const fallback = EMAIL_COMPOSER_STEPS.find(step => step.key === key)?.hint ?? "";
     switch (key) {
       case EmailComposerStepKey.RECIPIENTS: {
-        if (this.state.brandingMode !== BrandingMode.UNBRANDED && this.state.recipientMode === RecipientMode.ENTIRE_LIST) {
-          const list = this.availableLists().find(item => item.id === this.state.selectedListId);
-          return list ? this.listNameAndCount(list) : fallback;
+        if (this.session.state.brandingMode !== BrandingMode.UNBRANDED && this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+          const list = this.recipientSources.availableLists().find(item => item.id === this.session.state.selectedListId);
+          return list ? this.recipientSources.listNameAndCount(list) : fallback;
+        } else {
+          const total = this.recipientResolution.totalRecipientCount();
+          return total > 0 ? this.recipientCountSummary() : fallback;
         }
-        const total = this.totalRecipientCount();
-        return total > 0 ? this.recipientCountSummary() : fallback;
       }
       case EmailComposerStepKey.TEMPLATE: {
-        return this.state.notificationConfig?.subject?.text || fallback;
+        return this.session.state.notificationConfig?.subject?.text || fallback;
       }
       case EmailComposerStepKey.COMPOSE: {
-        const subject = this.state.subject?.trim();
-        if (!subject) return fallback;
-        return subject.length > 50 ? `${subject.slice(0, 50)}…` : subject;
+        const subject = this.session.state.subject?.trim();
+        if (!subject) {
+          return fallback;
+        } else {
+          return subject.length > 50 ? `${subject.slice(0, 50)}…` : subject;
+        }
       }
       default:
         return fallback;
@@ -7084,16 +3446,15 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   exitComposer(): void {
-    if (!this.confirmLeaveComposer("Exit composer")) {
-      return;
+    if (!(!this.confirmLeaveComposer("Exit composer"))) {
+      this.leaveComposer();
     }
-    this.leaveComposer();
   }
 
   private confirmLeaveComposer(action: string): boolean {
     if (this.shouldWarnAboutUnsavedChanges() && !this.cancelArmed) {
       this.cancelArmed = true;
-      this.notify.warning({
+      this.session.notify.warning({
         title: "Discard email content?",
         message: `You have unsent email content. Click ${action} again to discard and leave.`
       });
@@ -7104,7 +3465,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private leaveComposer(): void {
-    if (this.inboxReplyContext) {
+    if (this.session.inboxReplyContext) {
       this.navigateToInbox();
     } else {
       this.location.back();
@@ -7113,9 +3474,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   private navigateToInbox(): void {
     const maximised = this.route.snapshot.queryParamMap.get(StoredValue.MAXIMISE) === "true";
-      this.router.navigate(["/" + AdminPath.INBOX], {
+    this.router.navigate(["/" + AdminPath.INBOX], {
       queryParams: {
-        ...(this.inboxReplyContext?.threadId ? {[StoredValue.THREAD]: this.inboxReplyContext.threadId} : {}),
+        ...(this.session.inboxReplyContext?.threadId ? {[StoredValue.THREAD]: this.session.inboxReplyContext.threadId} : {}),
         ...(maximised ? {[StoredValue.MAXIMISE]: "true"} : {})
       },
       replaceUrl: true
@@ -7126,15 +3487,15 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected sendConfirm = new Confirm();
 
   private hasUnsavedChanges(): boolean {
-    return !!this.state.subject?.trim()
-      || !!this.state.introMarkdown?.trim()
-      || !!this.state.signoffTextMarkdown?.trim()
-      || (this.state.articleBlocks ?? []).length > 0
-      || (this.state.selectedMemberIds ?? []).length > 0
-      || (this.state.externalRecipients ?? []).length > 0
-      || (this.state.ccRecipients ?? []).length > 0
-      || (this.state.bccRecipients ?? []).length > 0
-      || !!this.state.selectedListId;
+    return !!this.session.state.subject?.trim()
+      || !!this.session.state.introMarkdown?.trim()
+      || !!this.session.state.signoffTextMarkdown?.trim()
+      || (this.session.state.articleBlocks ?? []).length > 0
+      || (this.session.state.selectedMemberIds ?? []).length > 0
+      || (this.session.state.externalRecipients ?? []).length > 0
+      || (this.session.state.ccRecipients ?? []).length > 0
+      || (this.session.state.bccRecipients ?? []).length > 0
+      || !!this.session.state.selectedListId;
   }
 
   private shouldWarnAboutUnsavedChanges(): boolean {
@@ -7161,6 +3522,14 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }
   }
 
+  protected async openSavedComposition(id: string): Promise<void> {
+    if (this.draftsPanelOpen) {
+      await this.loadDraft(id);
+    } else {
+      await this.useAsTemplate(id);
+    }
+  }
+
   protected toggleDraftsPanel(): void {
     this.draftsPanelOpen = !this.draftsPanelOpen;
     if (this.draftsPanelOpen) {
@@ -7177,132 +3546,120 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }
   }
 
-  protected sentDescription(composition: EmailCompositionSummary): string {
-    if (!composition.sentAt) return "";
-    const ownerName = this.compositionOwnerName(composition);
-    const when = this.dateUtils.displayDateAndTime(composition.sentAt);
-    return ownerName ? `Sent by ${ownerName} on ${when}` : `Sent ${when}`;
-  }
-
   protected compositionOwnerName(composition: EmailCompositionSummary): string | null {
-    const owner = this.members?.find(m => m.id === composition.ownerMemberId);
-    if (!owner) return null;
-    const name = `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim();
-    return name || null;
-  }
-
-  protected pendingDraftDeleteId: string | null = null;
-
-  protected requestDeleteDraft(id: string): void {
-    this.pendingDraftDeleteId = id;
-  }
-
-  protected cancelDeleteDraft(): void {
-    this.pendingDraftDeleteId = null;
-  }
-
-  protected async confirmDeleteDraft(id: string): Promise<void> {
-    this.pendingDraftDeleteId = null;
-    await this.deleteDraft(id);
+    const owner = this.recipientSources.members?.find(m => m.id === composition.ownerMemberId);
+    if (!owner) {
+      return null;
+    } else {
+      const name = `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim();
+      return name || null;
+    }
   }
 
   protected async useAsTemplate(id: string): Promise<void> {
     try {
       const sent = await this.compositionsService.load(id);
-      if (!sent) return;
-      const restored: any = JSON.parse(JSON.stringify(sent.state));
-      const selectedGroupEventIds = this.applyRestoredStateDefaults(restored);
-      this.state = restored as EmailComposerState;
-      this.state.inboxReplyContext = null;
-      this.inboxReplyContext = null;
-      if (this.state.subject) this.state.subject = `Copy of ${this.state.subject}`;
-      this.currentDraftId = null;
-      this.lastSavedAt = null;
-      this.currentComposition = null;
-      this.composeShared = false;
-      this.sentEmailsPanelOpen = false;
-      this.routeCompositionKey = `copy-of:${id}`;
-      this.userPickedEmailType = !!this.state.notificationConfig?.id;
-      this.syncStateToUrl({ [StoredValue.DRAFT_ID]: null, [StoredValue.COPY_OF]: id });
-      await this.rehydrateAfterLoad(selectedGroupEventIds);
-      this.notify.success({ title: "Loaded as template", message: "Edit and save as a new draft" });
+      if (!(!sent)) {
+        const restored: any = JSON.parse(JSON.stringify(sent.state));
+        const selectedGroupEventIds = this.applyRestoredStateDefaults(restored);
+        this.session.state = restored as EmailComposerState;
+        this.session.state.inboxReplyContext = null;
+        this.session.inboxReplyContext = null;
+        if (this.session.state.subject)
+          this.session.state.subject = `Copy of ${this.session.state.subject}`;
+        this.session.currentDraftId = null;
+        this.lastSavedAt = null;
+        this.currentComposition = null;
+        this.composeShared = false;
+        this.sentEmailsPanelOpen = false;
+        this.routeCompositionKey = `copy-of:${id}`;
+        this.userPickedEmailType = !!this.session.state.notificationConfig?.id;
+        this.session.syncStateToUrl({[StoredValue.DRAFT_ID]: null, [StoredValue.COPY_OF]: id});
+        await this.rehydrateAfterLoad(selectedGroupEventIds);
+        this.session.notify.success({title: "Loaded as template", message: "Edit and save as a new draft"});
+      }
     } catch (error) {
       this.logger.error("useAsTemplate failed:", error);
-      this.notify.error({ title: "Use as template failed", message: String(error) });
+      this.session.notify.error({title: "Use as template failed", message: String(error)});
     }
   }
 
   protected async onSharedToggled(value: boolean): Promise<void> {
     this.composeShared = value;
-    if (this.currentDraftId) {
+    if (this.session.currentDraftId) {
       try {
-        this.syncSelectedMembersToHeaders();
-        const updated = await this.compositionsService.save(this.state, this.currentDraftId, this.composeShared);
+        this.recipients.syncSelectedMembersToHeaders();
+        const updated = await this.compositionsService.save(this.session.state, this.session.currentDraftId, this.composeShared);
         this.lastSavedAt = updated.savedAt;
         await this.refreshDrafts();
       } catch (error) {
         this.logger.error("onSharedToggled save failed:", error);
-        this.notify.error({ title: "Sharing change failed", message: String(error) });
+        this.session.notify.error({title: "Sharing change failed", message: String(error)});
       }
     }
   }
 
   protected async saveDraft(): Promise<void> {
-    if (!this.hasUnsavedChanges()) return;
-    try {
-      this.syncSelectedMembersToHeaders();
-      const draft = await this.compositionsService.save(this.state, this.currentDraftId, this.composeShared);
-      this.currentDraftId = draft.id;
-      this.lastSavedAt = draft.savedAt;
-      this.currentComposition = draft;
-      this.userHasEditedComposer = false;
-      this.routeCompositionKey = `draft:${draft.id}`;
-      this.syncStateToUrl({ [StoredValue.DRAFT_ID]: draft.id, [StoredValue.COPY_OF]: null });
-      await this.refreshDrafts();
-      this.notify.success({ title: "Draft saved", message: draft.title });
-    } catch (error) {
-      this.logger.error("saveDraft failed:", error);
-      this.notify.error({ title: "Save draft failed", message: String(error) });
+    if (!(!this.hasUnsavedChanges())) {
+      try {
+        this.recipients.syncSelectedMembersToHeaders();
+        const draft = await this.compositionsService.save(this.session.state, this.session.currentDraftId, this.composeShared);
+        this.session.currentDraftId = draft.id;
+        this.lastSavedAt = draft.savedAt;
+        this.currentComposition = draft;
+        this.userHasEditedComposer = false;
+        this.routeCompositionKey = `draft:${draft.id}`;
+        this.session.syncStateToUrl({[StoredValue.DRAFT_ID]: draft.id, [StoredValue.COPY_OF]: null});
+        await this.refreshDrafts();
+        this.session.notify.success({title: "Draft saved", message: draft.title});
+      } catch (error) {
+        this.logger.error("saveDraft failed:", error);
+        this.session.notify.error({title: "Save draft failed", message: String(error)});
+      }
     }
   }
 
   protected async revertToSavedDraft(): Promise<void> {
-    if (!this.currentDraftId) return;
-    await this.loadDraft(this.currentDraftId);
+    if (!(!this.session.currentDraftId)) {
+      await this.loadDraft(this.session.currentDraftId);
+    }
   }
 
   protected async loadDraft(id: string): Promise<void> {
     try {
       const draft = await this.compositionsService.load(id);
-      if (!draft) return;
-      const restored: any = JSON.parse(JSON.stringify(draft.state));
-      const selectedGroupEventIds = this.applyRestoredStateDefaults(restored);
-      this.state = restored as EmailComposerState;
-      this.inboxReplyContext = this.state.inboxReplyContext ?? null;
-      this.currentDraftId = draft.id;
-      this.lastSavedAt = draft.savedAt;
-      this.currentComposition = draft;
-      this.userHasEditedComposer = false;
-      this.composeShared = draft.shared;
-      this.draftsPanelOpen = false;
-      this.routeCompositionKey = `draft:${draft.id}`;
-      this.userPickedEmailType = !!this.state.notificationConfig?.id;
-      await this.rehydrateAfterLoad(selectedGroupEventIds);
-      this.syncStateToUrl({
-        [StoredValue.DRAFT_ID]: draft.id,
-        [StoredValue.COPY_OF]: null,
-        [StoredValue.CONFIG_ID]: this.configToSlug(this.state.notificationConfig)
-      });
-      this.notify.success({ title: "Draft loaded", message: draft.title });
+      if (!(!draft)) {
+        const restored: any = JSON.parse(JSON.stringify(draft.state));
+        const selectedGroupEventIds = this.applyRestoredStateDefaults(restored);
+        this.session.state = restored as EmailComposerState;
+        this.session.inboxReplyContext = this.session.state.inboxReplyContext ?? null;
+        this.session.currentDraftId = draft.id;
+        this.lastSavedAt = draft.savedAt;
+        this.currentComposition = draft;
+        this.userHasEditedComposer = false;
+        this.composeShared = draft.shared;
+        this.draftsPanelOpen = false;
+        this.routeCompositionKey = `draft:${draft.id}`;
+        this.userPickedEmailType = !!this.session.state.notificationConfig?.id;
+        await this.rehydrateAfterLoad(selectedGroupEventIds);
+        this.session.syncStateToUrl({
+          [StoredValue.DRAFT_ID]: draft.id,
+          [StoredValue.COPY_OF]: null,
+          [StoredValue.CONFIG_ID]: this.configToSlug(this.session.state.notificationConfig)
+        });
+        this.session.notify.success({title: "Draft loaded", message: draft.title});
+      }
     } catch (error) {
       this.logger.error("loadDraft failed:", error);
-      this.notify.error({ title: "Load draft failed", message: String(error) });
+      this.session.notify.error({title: "Load draft failed", message: String(error)});
     }
   }
 
   private restoredMediaIndexById: Record<string, number> = {};
 
-  private restoredDateValue(stored: { value?: number } | null | undefined): DateValue | null {
+  private restoredDateValue(stored: {
+    value?: number;
+  } | null | undefined): DateValue | null {
     return isNumber(stored?.value) ? this.dateUtils.asDateValue(stored!.value) : null;
   }
 
@@ -7312,15 +3669,15 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     delete restored.selectedGroupEventIds;
     delete restored.groupEventMediaIndexById;
     restored.groupEvents = [];
-    restored.notificationConfigListing = this.state.notificationConfigListing
+    restored.notificationConfigListing = this.session.state.notificationConfigListing
       ? {
-          ...this.state.notificationConfigListing,
-          forceIncludeConfigIds: [
-            ...(this.state.notificationConfigListing.forceIncludeConfigIds ?? []),
-            restored.notificationConfig?.id
-          ].filter((id): id is string => !!id)
-        }
-      : this.state.notificationConfigListing;
+        ...this.session.state.notificationConfigListing,
+        forceIncludeConfigIds: [
+          ...(this.session.state.notificationConfigListing.forceIncludeConfigIds ?? []),
+          restored.notificationConfig?.id
+        ].filter((id): id is string => !!id)
+      }
+      : this.session.state.notificationConfigListing;
     restored.brandingMode = restored.brandingMode ?? BrandingMode.BRANDED;
     restored.showTitle = restored.showTitle ?? true;
     restored.unbrandedSenderRoleType = restored.unbrandedSenderRoleType ?? null;
@@ -7329,7 +3686,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     restored.recipientAddressMode = restored.recipientAddressMode === RecipientAddressMode.COMMITTEE_ROLE
       ? RecipientAddressMode.COMMITTEE_ROLE
       : RecipientAddressMode.PERSONAL;
-    this.recipientAddressModeTouched = true;
+    this.recipients.recipientAddressModeTouched = true;
     restored.externalRecipients = restored.externalRecipients ?? [];
     restored.ccRecipients = restored.ccRecipients ?? [];
     restored.bccRecipients = restored.bccRecipients ?? [];
@@ -7341,7 +3698,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     restored.articleBlocks = restored.articleBlocks ?? [];
     restored.compositionKind = restored.compositionKind ?? EmailCompositionKind.STANDARD;
     restored.newsletter = restored.compositionKind === EmailCompositionKind.NEWSLETTER
-      ? { ...defaultNewsletterSettings(), ...(restored.newsletter ?? {}) }
+      ? {...defaultNewsletterSettings(), ...(restored.newsletter ?? {})}
       : null;
     restored.releaseNoteUpdate = restored.compositionKind === EmailCompositionKind.RELEASE_NOTE_UPDATE
       ? releaseNoteUpdateSettingsFrom(restored.releaseNoteUpdate)
@@ -7368,106 +3725,101 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   private async rehydrateAfterLoad(selectedGroupEventIds: string[]): Promise<void> {
     await this.mailMessagingService.refreshNotificationConfigs();
-    if (!this.state.notificationConfigListing) {
-      this.state.notificationConfigListing = {
-        mailMessagingConfig: this.mailMessagingConfig,
+    if (!this.session.state.notificationConfigListing) {
+      this.session.state.notificationConfigListing = {
+        mailMessagingConfig: this.recipientSources.mailMessagingConfig,
         includeWorkflowRelatedConfigs: false,
         forceIncludeConfigIds: this.forcedIncludeConfigIds()
       };
     } else {
-      this.state.notificationConfigListing = {
-        ...this.state.notificationConfigListing,
-        mailMessagingConfig: this.state.notificationConfigListing.mailMessagingConfig ?? this.mailMessagingConfig,
+      this.session.state.notificationConfigListing = {
+        ...this.session.state.notificationConfigListing,
+        mailMessagingConfig: this.session.state.notificationConfigListing.mailMessagingConfig ?? this.recipientSources.mailMessagingConfig,
         forceIncludeConfigIds: this.forcedIncludeConfigIds()
       };
     }
-    const storedConfigId = (this.state.notificationConfig as any)?.id;
-    const storedBannerId = this.state.bannerId;
+    const storedConfigId = (this.session.state.notificationConfig as any)?.id;
+    const storedBannerId = this.session.state.bannerId;
     if (storedConfigId) {
       const liveConfig = this.configById(storedConfigId)
-        ?? this.mailMessagingService.notificationConfigs(this.state.notificationConfigListing)
+        ?? this.mailMessagingService.notificationConfigs(this.session.state.notificationConfigListing)
           .find(config => config.id === storedConfigId);
       if (liveConfig) {
-        this.state.notificationConfig = cloneDeep(liveConfig);
-        this.state.notificationConfig.bannerId = storedBannerId ?? this.state.notificationConfig.bannerId ?? null;
-        this.state.bannerId = this.state.notificationConfig.bannerId;
+        this.session.state.notificationConfig = cloneDeep(liveConfig);
+        this.session.state.notificationConfig.bannerId = storedBannerId ?? this.session.state.notificationConfig.bannerId ?? null;
+        this.session.state.bannerId = this.session.state.notificationConfig.bannerId;
       }
     }
-    if (!this.state.notificationConfig && this.state.brandingMode !== BrandingMode.UNBRANDED) {
+    if (!this.session.state.notificationConfig && this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
       this.autoSelectNotificationConfig();
     }
-    this.syncSelectedMembersToHeaders();
-    this.state.externalRecipients = this.expandListChipsWhenMixedWithPeople(this.state.externalRecipients ?? []);
-    this.syncNotificationConfigBccIntoBcc();
-    if (this.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.state.groupEventsFilter) {
-      await this.populateGroupEvents();
+    this.recipients.syncSelectedMembersToHeaders();
+    this.session.state.externalRecipients = this.recipients.expandListChipsWhenMixedWithPeople(this.session.state.externalRecipients ?? []);
+    this.recipients.syncNotificationConfigBccIntoBcc();
+    if (this.session.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.session.state.groupEventsFilter) {
+      await this.events.populateGroupEvents();
       const selectedSet = new Set(selectedGroupEventIds);
-      this.state.groupEvents = this.state.groupEvents.map(event => {
-        const restored = { ...event, selected: event.id ? selectedSet.has(event.id) : false } as GroupEventSummary;
+      this.session.state.groupEvents = this.session.state.groupEvents.map(event => {
+        const restored = {...event, selected: event.id ? selectedSet.has(event.id) : false} as GroupEventSummary;
         const savedIndex = event.id ? this.restoredMediaIndexById[event.id] : undefined;
         if (isNumber(savedIndex)) {
-          this.applyMediaSelection(restored, this.clampMediaIndex(restored, savedIndex));
+          applyMediaSelection(restored, clampMediaIndex(restored, savedIndex));
         }
         return restored;
       });
     }
-    if (this.state.eventInclusion === EventInclusionMode.SINGLE_EVENT) {
-      const storedSingleId = (this.state.singleEvent as any)?.id;
+    if (this.session.state.eventInclusion === EventInclusionMode.SINGLE_EVENT) {
+      const storedSingleId = (this.session.state.singleEvent as any)?.id;
       if (storedSingleId) {
-        await this.loadSingleEvent(storedSingleId);
+        await this.events.loadSingleEvent(storedSingleId);
       }
     }
-    if (this.releaseNoteUpdateMode() && this.state.releaseNoteUpdate?.fromMillis && this.state.releaseNoteUpdate?.toMillis) {
-      this.applyReleaseNoteUpdateDates({
-        fromMillis: this.state.releaseNoteUpdate.fromMillis,
-        toMillis: this.state.releaseNoteUpdate.toMillis,
+    if (this.releaseNoteUpdateMode() && this.session.state.releaseNoteUpdate?.fromMillis && this.session.state.releaseNoteUpdate?.toMillis) {
+      this.updateSettings.applyReleaseNoteUpdateDates(this.session.state, this.session.currentDraftId, {
+        fromMillis: this.session.state.releaseNoteUpdate.fromMillis,
+        toMillis: this.session.state.releaseNoteUpdate.toMillis,
         continuesPreviousWindow: false
       });
     }
-    const allIds = this.allFragmentCommitteeFileIds();
+    const allIds = this.documents.allFragmentCommitteeFileIds();
     if (allIds.length > 0) {
-      if (this.allCommitteeFiles.length === 0) {
-        await this.loadAllCommitteeFiles();
+      if (this.documents.allCommitteeFiles.length === 0) {
+        await this.documents.loadAllCommitteeFiles();
       }
-      await this.resolveCommitteeFiles(allIds);
+      await this.documents.resolveCommitteeFiles(allIds);
     }
-    this.applyDefaultListIfNeeded();
-    this.syncRecipientAddressMode();
+    this.recipients.applyDefaultListIfNeeded();
+    this.recipients.syncRecipientAddressMode();
     this.expandFragmentsWithContent();
   }
 
   private expandFragmentsWithContent(): void {
-    this.ensureFragmentOrder();
-    this.expandedFragmentIds = new Set(fragmentIdsWithContent(this.state));
+    this.fragmentEditor.ensureFragmentOrder(this.session.state);
+    this.fragmentEditor.expandedFragmentIds = new Set(fragmentIdsWithContent(this.session.state));
   }
 
-  protected async deleteDraft(id: string): Promise<void> {
-    try {
-      await this.compositionsService.remove(id);
-      if (this.currentDraftId === id) {
-        this.currentDraftId = null;
-        this.lastSavedAt = null;
-        this.routeCompositionKey = null;
-        this.syncStateToUrl({ [StoredValue.DRAFT_ID]: null });
-      }
-      await this.refreshDrafts();
-    } catch (error) {
-      this.logger.error("deleteDraft failed:", error);
+  protected async onCompositionsDeleted(ids: string[]): Promise<void> {
+    if (this.session.currentDraftId && ids.includes(this.session.currentDraftId)) {
+      this.session.currentDraftId = null;
+      this.lastSavedAt = null;
+      this.routeCompositionKey = null;
+      this.session.syncStateToUrl({[StoredValue.DRAFT_ID]: null});
     }
-  }
+    await this.refreshDrafts();
+    }
 
   protected newComposition(): void {
-    this.forcedMemberId = null;
+    this.recipients.forcedMemberId = null;
     this.routeCompositionKey = null;
     this.unbrandedSenderAlertDismissed = false;
-    this.state = defaultEmailComposerState();
-    this.narrowMembersExpanded = true;
-    this.recipientAddressModeTouched = false;
+    this.session.state = defaultEmailComposerState();
+    this.recipients.narrowMembersExpanded = true;
+    this.recipients.recipientAddressModeTouched = false;
     this.userPickedEmailType = false;
-    this.userPickedRecipientMode = false;
-    if (this.mailMessagingConfig) {
-      this.state.notificationConfigListing = {
-        mailMessagingConfig: this.mailMessagingConfig,
+    this.recipients.userPickedRecipientMode = false;
+    if (this.recipientSources.mailMessagingConfig) {
+      this.session.state.notificationConfigListing = {
+        mailMessagingConfig: this.recipientSources.mailMessagingConfig,
         includeWorkflowRelatedConfigs: false,
         forceIncludeConfigIds: this.forcedConfigId ? [this.forcedConfigId] : []
       };
@@ -7477,7 +3829,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     if (storedBranding === BrandingMode.UNBRANDED) {
       this.setBrandingMode(BrandingMode.UNBRANDED, true);
     }
-    this.currentDraftId = null;
+    this.session.currentDraftId = null;
     this.userHasEditedComposer = false;
     this.lastSavedAt = null;
     this.composeShared = false;
@@ -7490,48 +3842,55 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.batchProgress = null;
     this.campaignSendComplete = false;
     this.nextConfigAfterSend = null;
-    this.committeeFiles = new Map();
-    this.committeeFileUrlInput = "";
-    this.committeeFileUrlError = null;
-    this.committeeFileUrlAllowedIds = null;
+    this.documents.committeeFiles = new Map();
+    this.documents.committeeFileUrlInput = "";
+    this.documents.committeeFileUrlError = null;
+    this.documents.committeeFileUrlAllowedIds = null;
     this.sendConfirm.clear();
-    this.notify.hide();
+    this.session.notify.hide();
   }
 
   protected lastSavedDescription(): string {
-    if (!this.currentComposition) return "";
-    const owner = this.members?.find(m => m.id === this.currentComposition!.ownerMemberId);
-    const ownerName = owner ? `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim() : null;
-    const when = this.dateUtils.displayDateAndTime(this.currentComposition.savedAt);
-    const verb = this.currentComposition.status === "sent" ? "Sent" : "Created";
-    if (ownerName) return `${this.currentComposition.title} ${verb} by ${ownerName} on ${when}`;
-    return `${this.currentComposition.title} ${verb} on ${when}`;
-  }
-
-  protected draftSavedDescription(draft: EmailCompositionSummary): string {
-    const ownerName = this.compositionOwnerName(draft);
-    const when = this.dateUtils.displayDateAndTime(draft.savedAt);
-    const verb = draft.status === "sent" ? "Sent" : "Created";
-    return ownerName ? `${verb} by ${ownerName} on ${when}` : `${verb} on ${when}`;
+    if (!this.currentComposition) {
+      return "";
+    } else {
+      const owner = this.recipientSources.members?.find(m => m.id === this.currentComposition!.ownerMemberId);
+      const ownerName = owner ? `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim() : null;
+      const when = this.dateUtils.displayDateAndTime(this.currentComposition.savedAt);
+      const verb = this.currentComposition.status === "sent" ? "Sent" : "Created";
+      if (ownerName) {
+        return `${this.currentComposition.title} ${verb} by ${ownerName} on ${when}`;
+      } else {
+        return `${this.currentComposition.title} ${verb} on ${when}`;
+      }
+    }
   }
 
   private autoPreviewAttempts = 0;
+
   private maybeAutoRefreshPreview(): void {
-    if (!this.autoPreviewPending) return;
-    if (this.stepperActiveTab !== EmailComposerStepKey.REVIEW) return;
-    if (!this.state.notificationConfig?.templateName) return;
-    this.autoPreviewPending = false;
-    this.autoPreviewAttempts = 0;
-    const tryRender = () => {
-      if (this.emailPreview) {
-        this.refreshPreview().catch(error => this.logger.error("auto preview refresh failed", error));
-        return;
+    if (!(!this.autoPreviewPending)) {
+      if (this.stepperActiveTab !== EmailComposerStepKey.REVIEW) {
+      } else {
+        if (!this.session.state.notificationConfig?.templateName) {
+        } else {
+          this.autoPreviewPending = false;
+          this.autoPreviewAttempts = 0;
+          const tryRender = () => {
+            if (this.emailPreview) {
+              this.refreshPreview().catch(error => this.logger.error("auto preview refresh failed", error));
+            } else {
+              this.autoPreviewAttempts += 1;
+              if (this.autoPreviewAttempts > 20) {
+              } else {
+                setTimeout(tryRender, 100);
+              }
+            }
+          };
+          setTimeout(tryRender, 100);
+        }
       }
-      this.autoPreviewAttempts += 1;
-      if (this.autoPreviewAttempts > 20) return;
-      setTimeout(tryRender, 100);
-    };
-    setTimeout(tryRender, 100);
+    }
   }
 
   protected previewRecipients(): Member[] {
@@ -7540,67 +3899,12 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       .filter((m): m is Member => !!m);
   }
 
-  protected previewEntries(): { name: string; member?: Member; external?: ComposerExternalRecipient }[] {
-    return this.uniqueSendEntries();
-  }
-
-  private uniqueSendEntries(): { name: string; member?: Member; external?: ComposerExternalRecipient }[] {
-    if (this.sendingAsCampaign() && this.state.selectedListId !== null) {
-      return this.members
-        .filter(this.memberService.filterFor.GROUP_MEMBERS)
-        .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.state.selectedListId!))
-        .map(member => ({ name: this.previewMemberName(member), member }));
-    } else {
-      const fromHeaders = this.uniqueEntriesFrom(this.headerRecipients());
-      if (fromHeaders.length > 0) {
-        return fromHeaders;
-      } else {
-        return (this.state.selectedMemberIds ?? [])
-          .map(id => this.allMembers.find(member => member.id === id))
-          .filter((member): member is Member => !!member)
-          .map(member => ({ name: this.previewMemberName(member), member }));
-      }
-    }
-  }
-
-  private uniqueEntriesFrom(list: ComposerExternalRecipient[]): { name: string; member?: Member; external?: ComposerExternalRecipient }[] {
-    const headers = this.expandedHeaderRecipients(list);
-    const roles = this.committeeReferenceData?.committeeMembers() ?? [];
-    const seenEmails = new Set<string>();
-    return headers.reduce<{ name: string; member?: Member; external?: ComposerExternalRecipient }[]>((entries, external) => {
-      const email = (external.email || "").toLowerCase();
-      const member = this.memberMatchingHeader(external, roles);
-      if (email && seenEmails.has(email)) {
-        return entries;
-      } else {
-        if (email) seenEmails.add(email);
-        return [...entries, {
-          name: external.name?.trim() || (member ? this.previewMemberName(member) : external.email),
-          member: member ?? undefined,
-          external
-        }];
-      }
-    }, []);
-  }
-
-  private memberMatchingHeader(header: ComposerExternalRecipient, roles: CommitteeMember[]): Member | null {
-    if (header.memberId) {
-      return this.allMembers.find(member => member.id === header.memberId) ?? null;
-    } else {
-      const email = (header.email || "").toLowerCase();
-      const byPersonal = this.allMembers.find(member => (member.email || "").toLowerCase() === email) ?? null;
-      if (byPersonal) {
-        return byPersonal;
-      } else {
-        const role = roles.find(candidate => roleEmailAddresses(candidate).some(address => address.toLowerCase() === email));
-        return role?.memberId ? this.allMembers.find(member => member.id === role.memberId) ?? null : null;
-      }
-    }
-  }
-
-  private previewMemberName(member: Member): string {
-    const fullName = `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim();
-    return fullName || member.displayName?.trim() || member.email || "";
+  protected previewEntries(): {
+    name: string;
+    member?: Member;
+    external?: ComposerExternalRecipient;
+  }[] {
+    return this.recipientResolution.uniqueSendEntries();
   }
 
   protected previewRecipientCount(): number {
@@ -7610,142 +3914,165 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected previewRecipientLabel(): string {
     const entries = this.previewEntries();
     const count = entries.length;
-    if (count === 0) return "No recipients";
-    const current = Math.min(this.previewRecipientIndex + 1, count);
-    const entry = entries[this.previewRecipientIndex] ?? null;
-    const name = entry?.name ?? "";
-    return name ? `${current} of ${count} - ${name}` : `${current} of ${count}`;
+    if (count === 0) {
+      return "No recipients";
+    } else {
+      const current = Math.min(this.previewRecipientIndex + 1, count);
+      const entry = entries[this.previewRecipientIndex] ?? null;
+      const name = entry?.name ?? "";
+      return name ? `${current} of ${count} - ${name}` : `${current} of ${count}`;
+    }
   }
 
   protected canStepPreview(direction: PreviewStepDirection): boolean {
     const count = this.previewRecipientCount();
-    if (count <= 1) return false;
-    if (direction === PreviewStepDirection.First || direction === PreviewStepDirection.Prev) return this.previewRecipientIndex > 0;
-    return this.previewRecipientIndex < count - 1;
+    if (count <= 1) {
+      return false;
+    } else {
+      if (direction === PreviewStepDirection.First || direction === PreviewStepDirection.Prev) {
+        return this.previewRecipientIndex > 0;
+      } else {
+        return this.previewRecipientIndex < count - 1;
+      }
+    }
   }
 
   protected stepPreview(direction: PreviewStepDirection): void {
     const count = this.previewRecipientCount();
-    if (count === 0) return;
-    if (direction === PreviewStepDirection.First) this.previewRecipientIndex = 0;
-    else if (direction === PreviewStepDirection.Last) this.previewRecipientIndex = count - 1;
-    else if (direction === PreviewStepDirection.Prev) this.previewRecipientIndex = Math.max(0, this.previewRecipientIndex - 1);
-    else this.previewRecipientIndex = Math.min(count - 1, this.previewRecipientIndex + 1);
-    this.refreshPreview().catch(error => this.logger.error("preview step failed", error));
+    if (!(count === 0)) {
+      if (direction === PreviewStepDirection.First)
+        this.previewRecipientIndex = 0;
+      else if (direction === PreviewStepDirection.Last)
+        this.previewRecipientIndex = count - 1;
+      else if (direction === PreviewStepDirection.Prev)
+        this.previewRecipientIndex = Math.max(0, this.previewRecipientIndex - 1);
+      else
+        this.previewRecipientIndex = Math.min(count - 1, this.previewRecipientIndex + 1);
+      this.refreshPreview().catch(error => this.logger.error("preview step failed", error));
+    }
   }
 
   async refreshPreview(): Promise<void> {
-    const isUnbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
-    if (!isUnbranded && !this.state.notificationConfig?.templateName) {
+    const isUnbranded = this.session.state.brandingMode === BrandingMode.UNBRANDED;
+    if (!isUnbranded && !this.session.state.notificationConfig?.templateName) {
       this.emailPreview?.showError("Choose a template to render the preview.");
-      return;
+    } else {
+      try {
+        await this.documents.resolveCommitteeFileLinksForSend();
+      } catch (error) {
+        this.logger.error("refreshPreview committee file link resolution failed", error);
+        this.emailPreview?.showError(this.session.errorMessage(error), "Committee document can't be linked");
+        return;
+      }
+      const {top, bottom, combined} = this.composedBodyParts();
+      const entries = this.previewEntries();
+      if (entries.length > 0 && this.previewRecipientIndex >= entries.length) {
+        this.previewRecipientIndex = entries.length - 1;
+      }
+      const entry = entries[this.previewRecipientIndex] ?? null;
+      const memberId = entry?.member?.id ?? this.memberLoginService.loggedInMember().memberId;
+      const member = await this.memberService.getById(memberId);
+      const params = this.mailMessagingService.createSendSmtpEmailParams(member, this.session.state.notificationConfig as NotificationConfig, combined, this.session.state.subject, "", top, bottom);
+      if ((combined || "").includes("volunteerMergeFields")) {
+        await this.ensureVolunteerSnapshot();
+      }
+      if (this.volunteerSnapshot) {
+        params.volunteerMergeFields = volunteerMergeFieldsFor(memberId, this.volunteerSnapshot.assignments, this.volunteerSnapshot.parishes, this.recipientSources.allMembers, value => this.dateUtils.displayDate(value));
+      }
+      params.messageMergeFields.subject = isUnbranded ? this.session.state.subject : this.applySubjectAffixes(this.session.state.subject, params);
+      const request: TemplateRenderRequest = isUnbranded
+        ? {htmlContent: combined, params, brandingMode: BrandingMode.UNBRANDED}
+        : {
+          templateName: this.session.state.notificationConfig!.templateName,
+          templateOverrides: this.session.state.notificationConfig!.templateOverrides,
+          body: this.editableBodyForSend(),
+          htmlContent: combined,
+          params,
+          showTitle: this.session.state.showTitle
+        };
+      await this.emailPreview.render(request);
     }
-    try {
-      await this.resolveCommitteeFileLinksForSend();
-    } catch (error) {
-      this.logger.error("refreshPreview committee file link resolution failed", error);
-      this.emailPreview?.showError(this.errorMessage(error), "Committee document can't be linked");
-      return;
-    }
-    const { top, bottom, combined } = this.composedBodyParts();
-    const entries = this.previewEntries();
-    if (entries.length > 0 && this.previewRecipientIndex >= entries.length) {
-      this.previewRecipientIndex = entries.length - 1;
-    }
-    const entry = entries[this.previewRecipientIndex] ?? null;
-    const memberId = entry?.member?.id ?? this.memberLoginService.loggedInMember().memberId;
-    const member = await this.memberService.getById(memberId);
-    const params = this.mailMessagingService.createSendSmtpEmailParams(
-      member,
-      this.state.notificationConfig as NotificationConfig,
-      combined,
-      this.state.subject,
-      "",
-      top,
-      bottom
-    );
-    if ((combined || "").includes("volunteerMergeFields")) {
-      await this.ensureVolunteerSnapshot();
-    }
-    if (this.volunteerSnapshot) {
-      params.volunteerMergeFields = volunteerMergeFieldsFor(memberId, this.volunteerSnapshot.assignments, this.volunteerSnapshot.parishes, this.allMembers, value => this.dateUtils.displayDate(value));
-    }
-    params.messageMergeFields.subject = isUnbranded ? this.state.subject : this.applySubjectAffixes(this.state.subject, params);
-    const request: TemplateRenderRequest = isUnbranded
-      ? { htmlContent: combined, params, brandingMode: BrandingMode.UNBRANDED }
-      : {
-        templateName: this.state.notificationConfig!.templateName,
-        templateOverrides: this.state.notificationConfig!.templateOverrides,
-        body: this.editableBodyForSend(),
-        htmlContent: combined,
-        params,
-        showTitle: this.state.showTitle
-      };
-    await this.emailPreview.render(request);
   }
 
   private editableBodyForSend(): string {
-    return this.state.context?.source === EmailComposerContextSource.VOLUNTEER ? "" : this.state.notificationConfig!.body;
+    return this.session.state.context?.source === EmailComposerContextSource.VOLUNTEER ? "" : this.session.state.notificationConfig!.body;
   }
 
   private addresseePlaceholder(): string {
-    return ADDRESSEE_OPTIONS.find(option => option.key === this.state.addresseeType)?.placeholder ?? "";
+    return ADDRESSEE_OPTIONS.find(option => option.key === this.session.state.addresseeType)?.placeholder ?? "";
   }
 
   private applySubjectAffixes(subject: string, params: SendSmtpEmailParams): string {
-    const subjectConfig = this.state.notificationConfig?.subject;
+    const subjectConfig = this.session.state.notificationConfig?.subject;
     const resolve = (path: string | null | undefined): string | null => {
-      if (!path) return null;
-      const value = path.split(".").reduce<any>((acc, key) => acc?.[key], params);
-      return isString(value) && value ? value : null;
+      if (!path) {
+        return null;
+      } else {
+        const value = path.split(".").reduce<any>((acc, key) => acc?.[key], params);
+        return isString(value) && value ? value : null;
+      }
     };
     const prefix = resolve(subjectConfig?.prefixParameter);
     const suffix = resolve(subjectConfig?.suffixParameter);
     return [prefix, subject, suffix].filter(value => value).join(" - ");
   }
 
-  private composedBodyParts(): { top: string; bottom: string; combined: string } {
-    this.ensureFragmentOrder();
-    const fragments = this.state.fragmentOrder ?? [];
-    const articleBlocksById = new Map((this.state.articleBlocks ?? []).map(block => [block.id, block]));
+  private composedBodyParts(): {
+    top: string;
+    bottom: string;
+    combined: string;
+  } {
+    this.fragmentEditor.ensureFragmentOrder(this.session.state);
+    const fragments = this.session.state.fragmentOrder ?? [];
+    const articleBlocksById = new Map((this.session.state.articleBlocks ?? []).map(block => [block.id, block]));
     const renderFragment = (fragment: ComposerFragment): string => {
       switch (fragment.kind) {
-        case ComposerFragmentKind.INTRO: return this.rendering.markdownToHtml(this.state.introMarkdown);
+        case ComposerFragmentKind.INTRO:
+          return this.rendering.markdownToHtml(this.session.state.introMarkdown);
         case ComposerFragmentKind.SIGNOFF: {
-          const textHtml = this.rendering.markdownToHtml(this.state.signoffTextMarkdown);
-          const renderableRoles = this.validSignoffRolesFor(this.state.signoffRoles ?? []);
+          const textHtml = this.rendering.markdownToHtml(this.session.state.signoffTextMarkdown);
+          const renderableRoles = this.validSignoffRolesFor(this.session.state.signoffRoles ?? []);
           const namesHtml = renderableRoles.length > 0
             ? this.mailMessagingService.signoffNames(renderableRoles, this.notificationDirective)
             : "";
           return [textHtml, namesHtml].filter(s => s && s.trim()).join("\n");
         }
-        case ComposerFragmentKind.EVENTS: return this.renderedEventsHtml();
-        case ComposerFragmentKind.COMMITTEE_FILE: return this.renderedCommitteeFileHtmlForFragment(fragment);
-        case ComposerFragmentKind.TEMPLATE_CONTENT: return "";
-        case ComposerFragmentKind.DIVIDER: return dividerHtml(fragment.dividerAfter ?? SectionDividerStyle.THIN_ROSYCHEEKS);
+        case ComposerFragmentKind.EVENTS:
+          return this.renderedEventsHtml();
+        case ComposerFragmentKind.COMMITTEE_FILE:
+          return this.renderedCommitteeFileHtmlForFragment(fragment);
+        case ComposerFragmentKind.TEMPLATE_CONTENT:
+          return "";
+        case ComposerFragmentKind.DIVIDER:
+          return dividerHtml(fragment.dividerAfter ?? SectionDividerStyle.THIN_ROSYCHEEKS);
         case ComposerFragmentKind.ARTICLE: {
           const block = articleBlocksById.get(fragment.id);
-          if (!block) return "";
-          return this.rendering.renderArticleBlocksAsList([block], block.position).join("");
+          if (!block) {
+            return "";
+          } else {
+            return this.rendering.renderArticleBlocksAsList([block], block.position).join("");
+          }
         }
-        case ComposerFragmentKind.MULTI_COLUMN: return renderMultiColumn(fragment);
-        default: return "";
+        case ComposerFragmentKind.MULTI_COLUMN:
+          return renderMultiColumn(fragment);
+        default:
+          return "";
       }
     };
-    const renderColumn = (columnFragments: ComposerFragment[]): string =>
-      this.rendering.joinSectionsWithPerSectionDividers(columnFragments.map(f => ({
-        content: renderFragment(f),
-        dividerAfter: f.kind === ComposerFragmentKind.DIVIDER ? SectionDividerStyle.NONE : (f.dividerAfter ?? SectionDividerStyle.THIN_YELLOW)
-      })));
+    const renderColumn = (columnFragments: ComposerFragment[]): string => this.rendering.joinSectionsWithPerSectionDividers(columnFragments.map(f => ({
+      content: renderFragment(f),
+      dividerAfter: f.kind === ComposerFragmentKind.DIVIDER ? SectionDividerStyle.NONE : (f.dividerAfter ?? SectionDividerStyle.THIN_YELLOW)
+    })));
     const renderMultiColumn = (fragment: ComposerFragment): string => {
       const columns = fragment.columns ?? [];
-      if (columns.length === 0) return "";
-      const widthPct = (100 / columns.length).toFixed(4);
-      const gap = fragment.columnGapPx ?? DEFAULT_COLUMN_GAP_PX;
-      const cells = columns.map(columnFragments =>
-        `<td valign="top" width="${widthPct}%" style="padding:0;vertical-align:top;">${renderColumn(columnFragments)}</td>`
-      ).join("");
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;border-spacing:${gap}px 0;table-layout:fixed;width:100%;"><tr>${cells}</tr></table>`;
+      if (columns.length === 0) {
+        return "";
+      } else {
+        const widthPct = (100 / columns.length).toFixed(4);
+        const gap = fragment.columnGapPx ?? DEFAULT_COLUMN_GAP_PX;
+        const cells = columns.map(columnFragments => `<td valign="top" width="${widthPct}%" style="padding:0;vertical-align:top;">${renderColumn(columnFragments)}</td>`).join("");
+        return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;border-spacing:${gap}px 0;table-layout:fixed;width:100%;"><tr>${cells}</tr></table>`;
+      }
     };
     const templateContentIndex = fragments.findIndex(f => f.kind === ComposerFragmentKind.TEMPLATE_CONTENT);
     const beforeFragments = templateContentIndex >= 0 ? fragments.slice(0, templateContentIndex) : fragments;
@@ -7766,7 +4093,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     const salutationHtml = this.salutationHtml();
     const top = salutationHtml ? `${salutationHtml}\n${renderedTop}` : renderedTop;
     const combined = salutationHtml ? `${salutationHtml}\n${renderedCombined}` : renderedCombined;
-    return { top, bottom, combined };
+    return {top, bottom, combined};
   }
 
   private salutationHtml(): string {
@@ -7774,89 +4101,53 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     return placeholder ? `<p>${placeholder}</p>` : "";
   }
 
-  protected ensureFragmentOrder(): void {
-    const isUnbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
-    if (!this.state.fragmentOrder || this.state.fragmentOrder.length === 0) {
-      this.state.fragmentOrder = buildDefaultFragmentOrder(this.state, { includeTemplateContent: !isUnbranded, unbranded: isUnbranded });
-      if (isUnbranded) {
-        this.expandedFragmentIds.add("intro");
-      }
-      return;
-    }
-    const articleIds = new Set((this.state.articleBlocks ?? []).map(b => b.id));
-    const collectArticleFragmentIds = (list: ComposerFragment[]): string[] =>
-      list.flatMap(fragment => {
-        if (fragment.kind === ComposerFragmentKind.ARTICLE) return [fragment.id];
-        if (fragment.kind === ComposerFragmentKind.MULTI_COLUMN) {
-          return (fragment.columns ?? []).flatMap(column => collectArticleFragmentIds(column));
-        }
-        return [];
-      });
-    const knownFragmentArticleIds = new Set(collectArticleFragmentIds(this.state.fragmentOrder));
-    const missingArticles = (this.state.articleBlocks ?? []).filter(b => !knownFragmentArticleIds.has(b.id));
-    if (missingArticles.length > 0) {
-      const eventsIdx = this.state.fragmentOrder.findIndex(f => f.kind === ComposerFragmentKind.EVENTS);
-      const insertAt = eventsIdx >= 0 ? eventsIdx : this.state.fragmentOrder.length;
-      const newFragments: ComposerFragment[] = missingArticles.map(b => ({
-        kind: ComposerFragmentKind.ARTICLE,
-        id: b.id,
-        dividerAfter: b.dividerAfter ?? this.state.betweenArticlesDivider ?? SectionDividerStyle.THIN_YELLOW
-      }));
-      this.state.fragmentOrder = [
-        ...this.state.fragmentOrder.slice(0, insertAt),
-        ...newFragments,
-        ...this.state.fragmentOrder.slice(insertAt)
-      ];
-    }
-    const pruneOrphanArticles = (list: ComposerFragment[]): ComposerFragment[] =>
-      list
-        .filter(f => f.kind !== ComposerFragmentKind.ARTICLE || articleIds.has(f.id))
-        .map(f => f.kind === ComposerFragmentKind.MULTI_COLUMN
-          ? { ...f, columns: (f.columns ?? []).map(column => pruneOrphanArticles(column)) }
-          : f);
-    this.state.fragmentOrder = pruneOrphanArticles(this.state.fragmentOrder);
-  }
-
   sendDisabled(): boolean {
     return this.sendInProgress || !this.canAccessStep(EmailComposerStepKey.SEND);
   }
 
   sendDisabledReason(): string {
-    if (this.sendInProgress) return "Sending in progress";
-    if (this.unbrandedListSendBlocked()) return `Unbranded sends to more than ${UNBRANDED_HARD_CAP_RECIPIENTS} recipients are blocked - switch to Branded mode or reduce the recipient count.`;
-    if (!this.recipientsStepValid()) return this.recipientsStepValidationMessage();
-    if (!this.templateStepValid()) return this.templateStepValidationMessage();
-    if (!this.composeStepValid()) return this.composeStepValidationMessage();
-    return "";
+    if (this.sendInProgress) {
+      return "Sending in progress";
+    } else {
+      if (this.unbrandedListSendBlocked()) {
+        return `Unbranded sends to more than ${UNBRANDED_HARD_CAP_RECIPIENTS} recipients are blocked - switch to Branded mode or reduce the recipient count.`;
+      } else {
+        if (!this.recipientsStepValid()) {
+          return this.recipientsStepValidationMessage();
+        } else {
+          if (!this.templateStepValid()) {
+            return this.templateStepValidationMessage();
+          } else {
+            if (!this.composeStepValid()) {
+              return this.composeStepValidationMessage();
+            } else {
+              return "";
+            }
+          }
+        }
+      }
+    }
   }
 
   protected subjectStartsWithCopyOf(): boolean {
-    return !!this.state.subject?.trim().toLowerCase().startsWith("copy of ");
+    return !!this.session.state.subject?.trim().toLowerCase().startsWith("copy of ");
   }
 
   protected subjectUnchangedFromDefault(): boolean {
-    const subjectConfig = this.state.notificationConfig?.subject;
+    const subjectConfig = this.session.state.notificationConfig?.subject;
     if (!subjectConfig?.placeholder) {
       return false;
     } else {
-      return subjectStillDefault(this.state.subject ?? "", subjectConfig.text ?? "", this.automaticGeneratedSubjects());
+      return subjectStillDefault(this.session.state.subject ?? "", subjectConfig.text ?? "", this.automaticGeneratedSubjects());
     }
   }
 
   protected hasSendBlockers(): boolean {
-    return this.subjectStartsWithCopyOf() || this.subjectUnchangedFromDefault() || this.unbrandedListSendBlocked() || !!this.sendRefusalMessage();
-  }
-
-  private sendingAsCampaign(): boolean {
-    if (this.state.brandingMode === BrandingMode.UNBRANDED) {
-      return false;
-    } else {
-      return composerSendsAsCampaign(this.state.recipientMode, this.state.brandingMode, this.committeeOnlyAudience());
+    return !this.composeStepValid() || this.unbrandedListSendBlocked() || !!this.sendRefusalMessage();
     }
-  }
 
-  private recipientAddressesArePrivate(): boolean {
-    return composerRecipientAddressesArePrivate(this.totalRecipientCount(), this.committeeOnlyAudience());
+  protected recipientAddressesArePrivate(): boolean {
+    return !this.session.inboxReplyContext && composerRecipientAddressesArePrivate(this.recipientResolution.totalRecipientCount(), this.recipientResolution.committeeOnlyAudience());
   }
 
   private canShareRecipientAddressesOnTo(): boolean {
@@ -7864,7 +4155,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   protected sendRefusalMessage(): string | null {
-    const useCampaign = this.sendingAsCampaign();
+    const useCampaign = this.recipientResolution.sendingAsCampaign();
     const decision = useCampaign ? this.sendStatus?.campaign : this.sendStatus?.transactional;
     return decision && !decision.allowed ? decision.message : null;
   }
@@ -7880,25 +4171,30 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   protected unbrandedListSendBlocked(): boolean {
-    return this.state.brandingMode === BrandingMode.UNBRANDED
-      && this.totalRecipientCount() > UNBRANDED_HARD_CAP_RECIPIENTS;
+    return this.session.state.brandingMode === BrandingMode.UNBRANDED
+      && this.recipientResolution.totalRecipientCount() > UNBRANDED_HARD_CAP_RECIPIENTS;
   }
 
-  protected unbrandedListSendSignals(): { pulledFromList: boolean; notAReply: boolean; longBody: boolean; promotionalLanguage: boolean } {
+  protected unbrandedListSendSignals(): {
+    pulledFromList: boolean;
+    notAReply: boolean;
+    longBody: boolean;
+    promotionalLanguage: boolean;
+  } {
     const pulledFromListRuleEnabled = false;
     const notAReplyRuleEnabled = false;
     const longBodyRuleEnabled = false;
-    const pulledFromList = pulledFromListRuleEnabled && ((this.state.selectedMemberIds?.length ?? 0) > 0
-      || !!this.state.preFilterKey
-      || !!this.state.narrowListId);
-    const subject = this.state.subject ?? "";
+    const pulledFromList = pulledFromListRuleEnabled && ((this.session.state.selectedMemberIds?.length ?? 0) > 0
+      || !!this.session.state.preFilterKey
+      || !!this.session.state.narrowListId);
+    const subject = this.session.state.subject ?? "";
     const subjectIsAReplyOrForward = subject.trim().length > 0 && REPLY_OR_FORWARD_SUBJECT_PATTERN.test(subject);
-    const bodyText = `${this.state.introMarkdown ?? ""}\n${this.state.signoffTextMarkdown ?? ""}`;
+    const bodyText = `${this.session.state.introMarkdown ?? ""}\n${this.session.state.signoffTextMarkdown ?? ""}`;
     const bodyIsLong = bodyText.length >= UNBRANDED_LONG_BODY_CHAR_THRESHOLD;
     const promotionalLanguage = PROMOTIONAL_LANGUAGE_PATTERN.test(bodyText);
     const notAReply = notAReplyRuleEnabled && !subjectIsAReplyOrForward;
     const longBody = longBodyRuleEnabled && bodyIsLong;
-    return { pulledFromList, notAReply, longBody, promotionalLanguage };
+    return {pulledFromList, notAReply, longBody, promotionalLanguage};
   }
 
   protected unbrandedListSendWarningReasons(): string[] {
@@ -7917,20 +4213,20 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private unbrandedBodyTextLength(): number {
-    return (this.state.introMarkdown ?? "").length + 1 + (this.state.signoffTextMarkdown ?? "").length;
+    return (this.session.state.introMarkdown ?? "").length + 1 + (this.session.state.signoffTextMarkdown ?? "").length;
   }
 
   protected showUnbrandedListSendWarning(): boolean {
-    if (this.mailMessagingConfig?.mailConfig?.showUnbrandedBroadcastWarning !== true) {
+    if (this.recipientSources.mailMessagingConfig?.mailConfig?.showUnbrandedBroadcastWarning !== true) {
       return false;
-    } else if (this.state.brandingMode !== BrandingMode.UNBRANDED) {
+    } else if (this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
       return false;
     } else if (this.unbrandedListSendBlocked()) {
       return false;
     } else if (this.unbrandedListSendWarningDismissed) {
       return false;
     } else {
-      const trimmedBody = (this.state.introMarkdown ?? "").trim();
+      const trimmedBody = (this.session.state.introMarkdown ?? "").trim();
       if (trimmedBody.length < 50) {
         return false;
       } else {
@@ -7949,13 +4245,23 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.unbrandedSenderAlertDismissed = true;
   }
 
+  protected dismissRecipientsChosenAlert(): void {
+    this.recipientsChosenAlertDismissed = true;
+  }
+
+  protected dismissRecipientAddressesPrivateAlert(): void {
+    this.recipientAddressesPrivateAlertDismissed = true;
+  }
+
   protected switchToBrandedFromWarning(): void {
     this.setBrandingMode(BrandingMode.BRANDED);
   }
 
   protected goToCompose(): void {
     this.sendConfirm.clear();
-    this.goToStepKey(EmailComposerStepKey.COMPOSE);
+    this.pendingIntroFocus = false;
+    this.pendingSubjectFocus = true;
+    this.goToStepKey(EmailComposerStepKey.COMPOSE, false);
   }
 
   protected armSend(): void {
@@ -7971,88 +4277,80 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   async confirmAndSend(): Promise<void> {
     if (this.hasSendBlockers()) {
       this.sendConfirm.clear();
-      return;
-    }
-    if (!this.sendConfirm.notificationsOutstanding()) {
-      this.armSend();
-      return;
-    }
-    this.sendConfirm.clear();
-    this.goToStepKey(EmailComposerStepKey.SEND);
-    this.sendInProgress = true;
-    try {
-      this.state.brandedSenderEmail = this.resolvedBrandedSenderEmail() || null;
-      const useCampaign = this.sendingAsCampaign();
-      if (useCampaign) {
-        await this.sendCampaign();
+    } else {
+      if (!this.sendConfirm.notificationsOutstanding()) {
+        this.armSend();
       } else {
-        await this.startBatchTransactionalSend(this.sendMemberIds());
+        this.sendConfirm.clear();
+        this.goToStepKey(EmailComposerStepKey.SEND);
+        this.sendInProgress = true;
+        try {
+          this.session.state.brandedSenderEmail = this.sender.resolvedBrandedSenderEmail() || null;
+          const useCampaign = this.recipientResolution.sendingAsCampaign();
+          if (useCampaign) {
+            await this.sendCampaign();
+          } else {
+            await this.startBatchTransactionalSend(this.sendMemberIds());
+          }
+        } catch (error) {
+          this.logger.error("send failed", error);
+          this.session.notify.error({title: "Send failed", message: this.session.errorMessage(error)});
+          this.sendInProgress = false;
+        }
       }
-    } catch (error) {
-      this.logger.error("send failed", error);
-      this.notify.error({ title: "Send failed", message: this.errorMessage(error) });
-      this.sendInProgress = false;
     }
   }
 
   private async sendCampaign(): Promise<void> {
     await this.loadCampaignReleaseTaskState();
     const groupMembers = await this.memberService.privilegedFields(this.memberService.filterFor.GROUP_MEMBERS);
-    await this.mailListUpdaterService.updateMailLists(this.notify, groupMembers);
+    await this.mailListUpdaterService.updateMailLists(this.session.notify, groupMembers);
     const member = await this.memberService.getById(this.memberLoginService.loggedInMember().memberId);
-    await this.resolveCommitteeFileLinksForSend();
-    const { top, bottom, combined } = this.composedBodyParts();
+    await this.documents.resolveCommitteeFileLinksForSend();
+    const {top, bottom, combined} = this.composedBodyParts();
     const campaignTop = toCampaignContactTokens(top);
     const campaignBottom = toCampaignContactTokens(bottom);
     const campaignCombined = toCampaignContactTokens(combined);
     const overflowNotice = this.campaignQueueNotice();
-    const params = this.mailMessagingService.createSendSmtpEmailParams(
-      member,
-      this.state.notificationConfig!,
-      campaignCombined,
-      this.state.subject,
-      "",
-      campaignTop,
-      campaignBottom
-    );
-    const roleMembers = this.useCommitteeRoleAddresses() ? this.campaignRoleAddressMembers() : [];
+    const params = this.mailMessagingService.createSendSmtpEmailParams(member, this.session.state.notificationConfig!, campaignCombined, this.session.state.subject, "", campaignTop, campaignBottom);
+    const roleMembers = this.recipientResolution.useCommitteeRoleAddresses() ? this.recipients.campaignRoleAddressMembers() : [];
     const exclusionListId = await this.campaignExclusionListId(roleMembers.map(member => member.email).filter((email): email is string => !!email));
     const request: CreateCampaignRequest = {
       createAsDraft: false,
-      templateName: this.state.notificationConfig!.templateName,
-      templateOverrides: this.state.notificationConfig!.templateOverrides,
+      templateName: this.session.state.notificationConfig!.templateName,
+      templateOverrides: this.session.state.notificationConfig!.templateOverrides,
       body: this.editableBodyForSend(),
-      showTitle: this.state.showTitle,
+      showTitle: this.session.state.showTitle,
       htmlContent: campaignCombined,
-      attachmentUrl: this.state.attachments?.[0]?.url,
+      attachmentUrl: this.session.state.attachments?.[0]?.url,
       inlineImageActivation: false,
       mirrorActive: false,
-      name: this.state.subject,
+      name: this.session.state.subject,
       tag: NGX_BREVO_CAMPAIGN_TAG,
       params,
       recipients: {
-        listIds: [this.state.selectedListId!],
+        listIds: [this.session.state.selectedListId!],
         ...(exclusionListId !== null ? {exclusionListIds: [exclusionListId]} : {})
       },
-      replyTo: this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.replyToRole, "email")
-        || this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.senderRole, "email")
+      replyTo: this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.replyToRole, "email")
+        || this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.senderRole, "email")
         || "",
       sender: {
-        email: this.resolvedBrandedSenderIdentity()?.email
-          || this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.senderRole, "email")
+        email: this.sender.resolvedBrandedSenderIdentity()?.email
+          || this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.senderRole, "email")
           || "",
-        name: this.resolvedBrandedSenderIdentity()?.name
-          || this.committeeReferenceData?.contactUsField(this.state.notificationConfig!.senderRole, "fullName")
+        name: this.sender.resolvedBrandedSenderIdentity()?.name
+          || this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.senderRole, "fullName")
           || ""
       },
-      subject: this.state.subject
+      subject: this.session.state.subject
     };
     const created: StatusMappedResponseSingleInput = await this.mailService.createCampaign(request);
     const campaignId: number = created?.responseBody?.id;
     if (!created?.success || !isNumber(campaignId)) {
       throw new Error(`Brevo did not create the campaign${created?.message ? `: ${created.message}` : ""}`);
     }
-    const sent: StatusMappedResponseSingleInput = await this.mailService.sendCampaign({ campaignId });
+    const sent: StatusMappedResponseSingleInput = await this.mailService.sendCampaign({campaignId});
     if (!sent?.success) {
       throw new Error(`Brevo did not accept campaign ${campaignId} for sending${sent?.message ? `: ${sent.message}` : ""}`);
     }
@@ -8065,8 +4363,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       this.offerNextConfigAfterSend();
       this.sendInProgress = false;
       await this.recordSentToHistory();
-      this.notify.hide();
-      this.notify.success({
+      this.session.notify.hide();
+      this.session.notify.success({
         title: "Campaign sent",
         message: (overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `successfully to ${this.recipientCountSummary(false)}`) + postSendSummary
       });
@@ -8074,152 +4372,87 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   private async applyCampaignPostSendActions(): Promise<string> {
-    const postSendActions = this.state.notificationConfig?.postSendActions ?? [];
-    if (postSendActions.length === 0 || this.state.selectedListId === null) {
+    const postSendActions = this.session.state.notificationConfig?.postSendActions ?? [];
+    if (postSendActions.length === 0 || this.session.state.selectedListId === null) {
       return "";
-    }
-    const listMemberIds = this.members
-      .filter(this.memberService.filterFor.GROUP_MEMBERS)
-      .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.state.selectedListId!))
-      .map(member => member.id)
-      .filter((id): id is string => !!id);
-    this.logger.info("applyCampaignPostSendActions: resolved", listMemberIds.length, "list members subscribed to list", this.state.selectedListId, "for post-send actions", postSendActions);
-    if (listMemberIds.length === 0) {
-      this.notify.warning({title: "Post-send actions", message: `The campaign was sent, but no members were found subscribed to the list for the configured post-send action - nothing was deleted or disabled.`});
-      return "";
-    }
-    try {
-      const result = await this.memberService.applyPostSendActions(listMemberIds, postSendActions);
-      await this.refreshMembersAfterPostSendActions();
-      const parts: string[] = [];
-      if (result.deleted) {
-        parts.push(`${this.stringUtils.pluraliseWithCount(result.deleted, "member")} removed`);
+    } else {
+      const listMemberIds = this.recipientSources.members
+        .filter(this.memberService.filterFor.GROUP_MEMBERS)
+        .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.session.state.selectedListId!))
+        .map(member => member.id)
+        .filter((id): id is string => !!id);
+      this.logger.info("applyCampaignPostSendActions: resolved", listMemberIds.length, "list members subscribed to list", this.session.state.selectedListId, "for post-send actions", postSendActions);
+      if (listMemberIds.length === 0) {
+        this.session.notify.warning({
+          title: "Post-send actions",
+          message: `The campaign was sent, but no members were found subscribed to the list for the configured post-send action - nothing was deleted or disabled.`
+        });
+        return "";
+      } else {
+        try {
+          const result = await this.memberService.applyPostSendActions(listMemberIds, postSendActions);
+          await this.refreshMembersAfterPostSendActions();
+          const parts: string[] = [];
+          if (result.deleted) {
+            parts.push(`${this.stringUtils.pluraliseWithCount(result.deleted, "member")} removed`);
+          }
+          if (result.disabled) {
+            parts.push(`${this.stringUtils.pluraliseWithCount(result.disabled, "member")} disabled`);
+          }
+          return parts.length ? ` ${parts.join(" and ")} after the send.` : "";
+        } catch (error) {
+          this.logger.error("applyCampaignPostSendActions failed:", error);
+          this.session.notify.warning({
+            title: "Post-send actions",
+            message: `The campaign was sent, but applying post-send actions failed: ${this.session.errorMessage(error)}`
+          });
+          return "";
+        }
       }
-      if (result.disabled) {
-        parts.push(`${this.stringUtils.pluraliseWithCount(result.disabled, "member")} disabled`);
-      }
-      return parts.length ? ` ${parts.join(" and ")} after the send.` : "";
-    } catch (error) {
-      this.logger.error("applyCampaignPostSendActions failed:", error);
-      this.notify.warning({ title: "Post-send actions", message: `The campaign was sent, but applying post-send actions failed: ${this.errorMessage(error)}` });
-      return "";
     }
   }
 
   private async recordSentToHistory(recipientCount?: number): Promise<void> {
     try {
-      this.syncSelectedMembersToHeaders();
-      const saved = await this.compositionsService.save(this.state, this.currentDraftId, this.composeShared);
-      this.currentDraftId = saved.id;
+      this.recipients.syncSelectedMembersToHeaders();
+      const saved = await this.compositionsService.save(this.session.state, this.session.currentDraftId, this.composeShared);
+      this.session.currentDraftId = saved.id;
       this.lastSavedAt = saved.savedAt;
       await this.compositionsService.markSent(saved.id, recipientCount);
     } catch (error) {
       this.logger.error("recordSentToHistory failed:", error);
     }
-    if (this.state.brandingMode === BrandingMode.UNBRANDED && this.state.externalRecipients?.length) {
+    if (this.session.state.brandingMode === BrandingMode.UNBRANDED && this.session.state.externalRecipients?.length) {
       void this.loadSavedExternalRecipients();
     }
   }
 
-  protected async onAttachmentFilesSelected(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const selectedFiles = Array.from(input.files ?? []);
-    input.value = "";
-    const unsupported = selectedFiles.filter(file => !this.attachmentExtensionSupported(file.name));
-    if (unsupported.length) {
-      this.notify.warning({
-        title: "Attachments",
-        message: `${unsupported.map(file => file.name).join(", ")} can't be sent by email — the mail platform doesn't support ${unsupported.map(file => file.name.split(".").pop()).join(", ")} files. Zip the file and attach the zip instead.`
-      });
-    }
-    const files = selectedFiles.filter(file => !unsupported.includes(file));
-    if (!files.length) {
-      return;
-    }
-    this.attachmentUploading = true;
-    try {
-      await files.reduce(async (previous: Promise<void>, file: File) => {
-        await previous;
-        const attachment = await this.fileUploadService.uploadEmailAttachment(file, file.name);
-        if (attachment) {
-          this.state.attachments = [...(this.state.attachments ?? []), attachment];
-        } else {
-          this.notify.warning({title: "Attachments", message: `${file.name} failed to upload`});
-        }
-      }, Promise.resolve());
-    } catch (error) {
-      this.logger.error("attachment upload failed:", error);
-      this.notify.warning({title: "Attachments", message: "Attachment upload failed — please try again"});
-    } finally {
-      this.attachmentUploading = false;
-    }
-  }
-
-  protected removeAttachment(index: number): void {
-    this.state.attachments = (this.state.attachments ?? []).filter((_, attachmentIndex) => attachmentIndex !== index);
-  }
-
-  attachmentContentType(name: string): string | null {
-    const lower = (name || "").toLowerCase();
-    if (lower.endsWith(".pdf")) {
-      return "application/pdf";
-    } else if (lower.endsWith(".ics")) {
-      return "text/calendar";
-    } else {
-      return null;
-    }
-  }
-
   private sendMemberIds(): string[] {
-    if (this.state.recipientMode === RecipientMode.ENTIRE_LIST && this.state.selectedListId !== null && !this.unbrandedListExpanded()) {
-      return this.members
-        .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.state.selectedListId!) && !!member.id && !!(member.email || "").trim())
+    if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST && this.session.state.selectedListId !== null && !this.recipientResolution.unbrandedListExpanded()) {
+      return this.recipientSources.members
+        .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.session.state.selectedListId!) && !!member.id && !!(member.email || "").trim())
         .map(member => member.id as string);
     } else {
-      return this.state.selectedMemberIds;
-    }
-  }
-
-  private expandedHeaderRecipients(list: ComposerExternalRecipient[]): ComposerExternalRecipient[] {
-    return (list ?? []).flatMap(recipient => {
-      if (recipient.filterKey || recipient.email === COMPOSER_EVERYONE_FILTER_EMAIL) {
-        const ids = (this.state.selectedMemberIds ?? []).filter(Boolean);
-        if (ids.length > 0) {
-          return this.memberRecipientsForIds(ids);
-        } else {
-          return this.memberRecipientsForIds(
-            this.members
-              .filter(member => member.id && !!(member.email || "").trim())
-              .map(member => member.id as string)
-          );
+      return this.session.state.selectedMemberIds;
         }
-      } else if (!recipient.listId) {
-        return [recipient];
-      } else {
-        return this.members
-          .filter(member => this.mailListUpdaterService.memberSubscribed(member, recipient.listId!) && !!(member.email || "").trim())
-          .map(member => composerRecipientFromMember(member))
-          .filter((item): item is ComposerExternalRecipient => !!item);
-      }
-    });
   }
 
   private async startBatchTransactionalSend(memberIds: string[] = this.sendMemberIds()): Promise<void> {
-    await this.resolveCommitteeFileLinksForSend();
-    const { top, bottom, combined } = this.composedBodyParts();
-    const isUnbranded = this.state.brandingMode === BrandingMode.UNBRANDED;
-    const unbrandedSender = this.unbrandedSenderInfo();
-    const brandedSender = this.resolvedBrandedSenderIdentity();
+    await this.documents.resolveCommitteeFileLinksForSend();
+    const {top, bottom, combined} = this.composedBodyParts();
+    const isUnbranded = this.session.state.brandingMode === BrandingMode.UNBRANDED;
+    const unbrandedSender = this.sender.unbrandedSenderInfo();
+    const brandedSender = this.sender.resolvedBrandedSenderIdentity();
     const senderEmail = isUnbranded ? unbrandedSender.email : brandedSender?.email;
     const senderName = isUnbranded ? unbrandedSender.name || unbrandedSender.description : brandedSender?.name;
-    const expandedTo = this.expandedHeaderRecipients(this.state.externalRecipients ?? []);
+    const expandedTo = this.recipientResolution.expandedHeaderRecipients(this.session.state.externalRecipients ?? []);
     const toRecipients = expandedTo.length > 0
       ? expandedTo
       : (senderEmail
         ? [{email: senderEmail, name: senderName, saveForReuse: false}]
         : []);
-    const ccRecipients = this.expandedHeaderRecipients(this.state.ccRecipients ?? []);
-    const bccRecipients = this.expandedHeaderRecipients(this.state.bccRecipients ?? []);
+    const ccRecipients = this.recipientResolution.expandedHeaderRecipients(this.session.state.ccRecipients ?? []);
+    const bccRecipients = this.recipientResolution.expandedHeaderRecipients(this.session.state.bccRecipients ?? []);
     const splitTo = batchSendRecipientSplit(toRecipients);
     const headerRouting = toRecipients.length > 0 || ccRecipients.length > 0 || bccRecipients.length > 0;
     const brandedMemberIds = splitTo.memberIds.length > 0
@@ -8227,37 +4460,37 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       : (headerRouting ? [] : memberIds);
     const brandedExternal = splitTo.externalRecipients;
     const request: BatchTransactionalSendRequest = {
-      notificationConfigId: isUnbranded ? undefined : this.state.notificationConfig!.id!,
-      bannerId: isUnbranded ? null : this.state.bannerId,
-      subject: this.state.subject,
-      showTitle: this.state.showTitle,
+      notificationConfigId: isUnbranded ? undefined : this.session.state.notificationConfig!.id!,
+      bannerId: isUnbranded ? null : this.session.state.bannerId,
+      subject: this.session.state.subject,
+      showTitle: this.session.state.showTitle,
       addresseeType: AddresseeType.NONE,
-      signoffRoles: isUnbranded ? [] : this.state.signoffRoles,
+      signoffRoles: isUnbranded ? [] : this.session.state.signoffRoles,
       htmlBody: combined,
       htmlBodyTop: top,
       htmlBodyBottom: bottom,
       memberIds: isUnbranded ? [] : brandedMemberIds,
-      narrowListId: this.state.narrowListId,
+      narrowListId: this.session.state.narrowListId,
       externalRecipients: (isUnbranded ? toRecipients : brandedExternal).length
         ? (isUnbranded ? toRecipients : brandedExternal)
         : undefined,
       ccRecipients: ccRecipients.length ? ccRecipients : undefined,
       bccRecipients: bccRecipients.length ? bccRecipients : undefined,
-      senderRoleOverride: isUnbranded ? undefined : this.state.notificationConfig!.senderRole,
-      replyToRoleOverride: isUnbranded ? undefined : this.state.notificationConfig!.replyToRole,
-      bccRolesOverride: isUnbranded ? [] : this.remainingNotificationBccRoleTypes(),
-      brandingMode: this.state.brandingMode,
-      unbrandedSenderRoleType: isUnbranded ? this.resolvedUnbrandedRole()?.type : undefined,
-      unbrandedSenderEmail: isUnbranded ? this.resolvedUnbrandedSenderEmail() || undefined : undefined,
-      senderEmailOverride: isUnbranded ? undefined : this.resolvedBrandedSenderIdentity()?.email,
-      senderNameOverride: isUnbranded ? undefined : this.resolvedBrandedSenderIdentity()?.name,
-      useCommitteeRoleAddresses: this.useCommitteeRoleAddresses(),
+      senderRoleOverride: isUnbranded ? undefined : this.session.state.notificationConfig!.senderRole,
+      replyToRoleOverride: isUnbranded ? undefined : this.session.state.notificationConfig!.replyToRole,
+      bccRolesOverride: isUnbranded ? [] : this.recipients.remainingNotificationBccRoleTypes(),
+      brandingMode: this.session.state.brandingMode,
+      unbrandedSenderRoleType: isUnbranded ? this.sender.resolvedUnbrandedRole()?.type : undefined,
+      unbrandedSenderEmail: isUnbranded ? this.sender.resolvedUnbrandedSenderEmail() || undefined : undefined,
+      senderEmailOverride: isUnbranded ? undefined : this.sender.resolvedBrandedSenderIdentity()?.email,
+      senderNameOverride: isUnbranded ? undefined : this.sender.resolvedBrandedSenderIdentity()?.name,
+      useCommitteeRoleAddresses: this.recipientResolution.useCommitteeRoleAddresses(),
       sharedToRecipients: this.canShareRecipientAddressesOnTo(),
       sharedMemberRecipientsAsBcc: isUnbranded
-        && this.state.recipientMode === RecipientMode.ENTIRE_LIST
-        && !this.allSelectedMembersHoldCommitteeRoles(),
-      inboxReplyContext: this.inboxReplyContext ?? undefined,
-      attachments: this.state.attachments?.length ? this.state.attachments : undefined
+        && this.session.state.recipientMode === RecipientMode.ENTIRE_LIST
+        && !this.recipientResolution.allSelectedMembersHoldCommitteeRoles(),
+      inboxReplyContext: this.session.inboxReplyContext ?? undefined,
+      attachments: this.session.state.attachments?.length ? this.session.state.attachments : undefined
     };
     const start = await this.sendService.startBatch(request);
     this.batchSendJobId = start.jobId;
@@ -8286,7 +4519,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
             this.userHasEditedComposer = progress.status === BatchSendStatus.COMPLETED ? false : this.userHasEditedComposer;
             this.pollSubscription?.unsubscribe();
             this.pollSubscription = null;
-            this.notify.hide();
+            this.session.notify.hide();
             void this.recordSentToHistory(this.batchProgress?.totalRecipients);
             this.postSendRefresh = this.refreshMembersAfterPostSendActions();
             if (progress.status === BatchSendStatus.COMPLETED || progress.status === BatchSendStatus.COMPLETED_WITH_ERRORS) {
@@ -8302,22 +4535,28 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   batchProgressPercent(): number {
-    if (!this.batchProgress || this.batchProgress.totalRecipients === 0) return 0;
-    return Math.round(this.batchProcessedCount() * 100 / this.batchProgress.totalRecipients);
+    if (!this.batchProgress || this.batchProgress.totalRecipients === 0) {
+      return 0;
+    } else {
+      return Math.round(this.batchProcessedCount() * 100 / this.batchProgress.totalRecipients);
+    }
   }
 
   batchProcessedCount(): number {
-    if (!this.batchProgress) return 0;
-    return this.batchProgress.sentCount + this.batchProgress.failedCount + (this.batchProgress.skippedCount ?? 0);
+    if (!this.batchProgress) {
+      return 0;
+    } else {
+      return this.batchProgress.sentCount + this.batchProgress.failedCount + (this.batchProgress.skippedCount ?? 0);
+    }
   }
 
   sendProgressDescription(): string {
-    const oneEmail = this.state.brandingMode === BrandingMode.UNBRANDED
-      || (this.state.externalRecipients?.length ?? 0) > 0
-      || (this.state.ccRecipients?.length ?? 0) > 0
-      || (this.state.bccRecipients?.length ?? 0) > 0;
+    const oneEmail = this.session.state.brandingMode === BrandingMode.UNBRANDED
+      || (this.session.state.externalRecipients?.length ?? 0) > 0
+      || (this.session.state.ccRecipients?.length ?? 0) > 0
+      || (this.session.state.bccRecipients?.length ?? 0) > 0;
     if (!this.batchProgress) {
-      if (this.sendingAsCampaign()) {
+      if (this.recipientResolution.sendingAsCampaign()) {
         return "Preparing campaign for Brevo…";
       } else if (oneEmail) {
         return "Preparing one email…";
@@ -8335,14 +4574,23 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   batchProgressBarClass(): string {
-    if (this.batchProgress?.status === BatchSendStatus.FAILED) return "bg-danger";
-    if (this.batchProgress?.status === BatchSendStatus.COMPLETED_WITH_ERRORS) return "bg-warning";
-    return "bg-success";
+    if (this.batchProgress?.status === BatchSendStatus.FAILED) {
+      return "bg-danger";
+    } else {
+      if (this.batchProgress?.status === BatchSendStatus.COMPLETED_WITH_ERRORS) {
+        return "bg-warning";
+      } else {
+        return "bg-success";
+      }
+    }
   }
 
   batchSendComplete(): boolean {
-    if (!this.batchProgress) return false;
-    return [BatchSendStatus.COMPLETED, BatchSendStatus.COMPLETED_WITH_ERRORS, BatchSendStatus.FAILED, BatchSendStatus.CANCELLED].includes(this.batchProgress.status);
+    if (!this.batchProgress) {
+      return false;
+    } else {
+      return [BatchSendStatus.COMPLETED, BatchSendStatus.COMPLETED_WITH_ERRORS, BatchSendStatus.FAILED, BatchSendStatus.CANCELLED].includes(this.batchProgress.status);
+    }
   }
 
   sendComplete(): boolean {
@@ -8353,9 +4601,5 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.leaveComposer();
   }
 
-  private errorMessage(error: any): string {
-    return isString(error)
-      ? error
-      : error?.error?.error || error?.message || "An unknown error occurred";
-  }
+
 }

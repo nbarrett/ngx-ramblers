@@ -1,7 +1,7 @@
 import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { faQuestion, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { AdminPath } from "../../../../models/admin-route-paths.model";
-import { RouterLink } from "@angular/router";
+import { Router } from "@angular/router";
 import { kebabCase } from "es-toolkit";
 import { StoredValue } from "../../../../models/ui-actions";
 import { DockedTo } from "../../../../models/docking.model";
@@ -46,9 +46,8 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
               </select>
               @if (notificationConfig?.id) {
                 <a class="text-decoration-none"
-                   [routerLink]="'/' + adminMailSettingsPath"
-                   [queryParams]="emailTypeQueryParams()"
-                   target="_blank">
+                   [href]="settingsUrl(adminMailSettingsPath, emailTypeQueryParams())"
+                   target="_blank" rel="noopener noreferrer">
                   <app-button-wrapper button variant="quiet" iconOnly [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Settings'">
                     <fa-icon [icon]="faPencil"/>
                   </app-button-wrapper>
@@ -72,9 +71,8 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
                 </select>
                 @if (selectedBannerSlug()) {
                   <a class="text-decoration-none"
-                     [routerLink]="'/' + adminBannersPath"
-                     [queryParams]="bannerQueryParams()"
-                     target="_blank">
+                     [href]="settingsUrl(adminBannersPath, bannerQueryParams())"
+                     target="_blank" rel="noopener noreferrer">
                     <app-button-wrapper button variant="quiet" iconOnly [dockedTo]="DockedTo.RIGHT" [title]="'View or Edit Banner'">
                       <fa-icon [icon]="faPencil"/>
                     </app-button-wrapper>
@@ -122,10 +120,11 @@ import { ButtonWrapper } from "../../../../modules/common/third-parties/button-w
       }
     }
     `,
-    imports: [FormsModule, FontAwesomeModule, MarkdownComponent, ButtonWrapper, RouterLink]
+    imports: [FormsModule, FontAwesomeModule, MarkdownComponent, ButtonWrapper]
 })
 
 export class NotificationConfigSelectorComponent implements OnInit {
+  private router = inject(Router);
   adminMailSettingsPath = AdminPath.MAIL_SETTINGS;
   adminBannersPath = AdminPath.BANNERS;
 
@@ -166,6 +165,10 @@ export class NotificationConfigSelectorComponent implements OnInit {
 
   notificationTypeConfigComparer(item1: NotificationConfig, item2: NotificationConfig): boolean {
     return item1?.id === item2?.id;
+  }
+
+  settingsUrl(path: AdminPath, queryParams: Record<string, string>): string {
+    return this.router.serializeUrl(this.router.createUrlTree(["/" + path], {queryParams}));
   }
 
   emailTypeQueryParams(): Record<string, string> {

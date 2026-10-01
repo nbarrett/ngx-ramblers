@@ -9,12 +9,14 @@ import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/
 import { inboxGeneralRoleTypeFor, InboxMailboxConnection, InboxPrivacyMode, InboxReaderProvider } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { systemConfig } from "../config/system-config";
 
-function member(req: Request): Partial<MemberCookie> {
-  return (req.user ?? {}) as Partial<MemberCookie>;
+type AuthedRequest = Request & { user?: Partial<MemberCookie> };
+
+export function requestMember(req: Request): Partial<MemberCookie> {
+  return ((req as AuthedRequest).user ?? {}) as Partial<MemberCookie>;
 }
 
 export function inboxConfigurationAdministrator(req: Request): boolean {
-  return member(req).memberAdmin === true;
+  return requestMember(req).memberAdmin === true;
 }
 
 export function requireInboxConfigurationAdministrator(req: Request, res: Response): boolean {
@@ -29,7 +31,7 @@ export function canUpdateInboxRoleNotifications(req: Request, role: CommitteeMem
   if (inboxConfigurationAdministrator(req)) {
     return true;
   }
-  const memberId = member(req).memberId;
+  const memberId = requestMember(req).memberId;
   return Boolean(memberId && roleRecipientMemberIds(role).includes(memberId));
 }
 
@@ -46,7 +48,7 @@ export function requireCanUpdateInboxRoleNotifications(req: Request, res: Respon
 }
 
 export async function permittedInboxRoleTypes(req: Request): Promise<string[]> {
-  return permittedInboxRoleTypesForMember(member(req));
+  return permittedInboxRoleTypesForMember(requestMember(req));
 }
 
 export async function assignedInboxRoleTypesForMember(authenticatedMember: Partial<MemberCookie>): Promise<string[]> {
@@ -65,7 +67,7 @@ export async function permittedToReadJunk(req: Request): Promise<boolean> {
   if (await inboxPrivacyMode() === InboxPrivacyMode.PRIVATE) {
     return false;
   }
-  const assignedRoleTypes = await assignedInboxRoleTypesForMember(member(req));
+  const assignedRoleTypes = await assignedInboxRoleTypesForMember(requestMember(req));
   const junkVisibility = (await systemConfig())?.inbox?.specialVisibility?.junk;
   return specialVisibilityGrants(junkVisibility, assignedRoleTypes);
 }
@@ -115,4 +117,8 @@ export async function requireInboxRoleAccess(req: Request, res: Response, roleTy
   }
   res.status(403).json({error: "You do not have access to this role mailbox"});
   return false;
+}
+
+export function requestingMemberId(req: Request): string | null {
+  return requestMember(req).memberId ?? null;
 }

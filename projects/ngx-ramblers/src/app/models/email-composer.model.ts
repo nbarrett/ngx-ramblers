@@ -833,3 +833,25 @@ export enum SideImagePlacement {
   Left = "left",
   Right = "right"
 }
+
+export interface EmailComposerFragmentBodyContext {
+  $implicit: ComposerFragment;
+}
+
+export enum EmailComposerUpdateSettingsMode {
+  SETUP = "setup",
+  COMPOSE = "compose",
+  PREVIOUS = "previous"
+}
+
+export interface EmailComposerRecipientEntry {
+  name: string;
+  member?: Member;
+  external?: ComposerExternalRecipient;
+}
+
+export enum EmailComposerDraftingMode {
+  START = "start",
+  INTRO = "intro",
+  EVENT_SETTINGS = "event-settings"
+}

@@ -72,6 +72,8 @@ export enum StoredValue {
   CONFIGURATION = "configuration",
   CONFIGURED = "configured",
   CONNECTED = "connected",
+  COMPOSITION_SORT = "composition-sort",
+  COMPOSITION_SORT_ORDER = "composition-sort-order",
   CONSOLE_SORT = "console-sort",
   CONSOLE_SORT_ORDER = "console-sort-order",
   CONTACT_TYPE = "contact-type",
