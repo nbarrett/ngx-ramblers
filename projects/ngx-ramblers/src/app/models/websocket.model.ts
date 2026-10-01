@@ -4,9 +4,10 @@ import { RamblersUploadAudit } from "./ramblers-upload-audit.model";
 export interface WebSocketRequest {
   type: EventType;
   data: any;
+  authToken?: string;
 }
 
-export type MessageHandlers = { [key in EventType]: (ws: WebSocket, data: any) => void };
+export type MessageHandlers = { [key in EventType]: (ws: WebSocket, data: any, authToken?: string) => void };
 
 export interface ProgressResponse {
   message: string;
@@ -23,6 +24,7 @@ export interface RamblersUploadAuditProgressResponse {
 export enum EventType {
   BACKUP_EVENTS = "backup-events",
   BACKUP_RESTORE = "backup-restore",
+  CAMPAIGN_RECIPIENT_EXPORT = "campaign-recipient-export",
   CONTENT_MIGRATION_CANCEL = "content-migration-cancel",
   CONTENT_MIGRATION_EXECUTE = "content-migration-execute",
   CONTENT_MIGRATION_SCAN = "content-migration-scan",

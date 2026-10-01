@@ -35,6 +35,7 @@ import { registerWebSocketServer } from "./websocket-broadcaster";
 import { handleLegacyUrlScrape } from "../legacy-redirect/legacy-redirect-ws-handler";
 import { handleScheduledTaskEventsWebSocket } from "../cron/scheduled-task-events-ws-handler";
 import { handleSocialPublishAlbum } from "../social/social-publish-ws-handler";
+import { handleCampaignRecipientExport } from "../brevo/campaigns/campaign-recipients-ws-handler";
 
 const debugLog = debug(envConfig.logNamespace("websocket-server"));
 debugLog.enabled = true;
@@ -51,6 +52,7 @@ const messageHandlers: MessageHandlers = {
   [EventType.RESIZE_UNSAVED_IMAGES]: (ws: WebSocket, data: ContentMetadataResizeRequest) => dispatchResizeUnsavedImages(ws, data),
   [EventType.SITE_MIGRATION]: async (ws: WebSocket, data: any) => handleSiteMigration(ws, data),
   [EventType.BACKUP_RESTORE]: async (ws: WebSocket, data: any) => handleBackupRestoreWebSocket(ws, data),
+  [EventType.CAMPAIGN_RECIPIENT_EXPORT]: async (ws: WebSocket, data: any, authToken: string) => handleCampaignRecipientExport(ws, data, authToken),
   [EventType.BACKUP_EVENTS]: async (ws: WebSocket, data: any) => handleBackupEventsWebSocket(ws, data),
   [EventType.ESRI_ROUTE_IMPORT]: async (ws: WebSocket, data: any) => handleEsriRouteImport(ws, data),
   [EventType.WALKS_MANAGER_SYNC]: async (ws: WebSocket, data: any) => handleWalksManagerSync(ws, data),
@@ -110,7 +112,7 @@ export function createWebSocketServer(server: Server, port: number): void {
           if (request.type !== EventType.PING) {
             debugLog(`✅ Message received of size: ${humanFileSize(message.length)} for type: ${request.type}`);
           }
-          handler(ws, request.data);
+          handler(ws, request.data, request.authToken);
         } else {
           debugLog(`❌ No handler for message type: ${request.type}`);
         }

@@ -1,3 +1,4 @@
+import {AuthService} from "../../../../auth/auth.service";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -6,6 +7,8 @@ import { SortDirection } from "../../../../models/sort.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";
+import { EventType, MessageType } from "../../../../models/websocket.model";
+import { WebSocketClientService } from "../../../../services/websockets/websocket-client.service";
 import { UIDateFormat } from "../../../../models/date-format.model";
 import { AdminMembersPath, AdminPath } from "../../../../models/admin-route-paths.model";
 import { BrevoCampaignProgress } from "../../../../models/brevo-campaign-queue.model";
@@ -18,6 +21,7 @@ import { MailService } from "../../../../services/mail/mail.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
 import { UiActionsService } from "../../../../services/ui-actions.service";
 import { StoredValue } from "../../../../models/ui-actions";
+
 
 @Component({
   selector: "app-campaign-detail",
@@ -93,7 +97,15 @@ import { StoredValue } from "../../../../models/ui-actions";
             @if (loadingRecipients) {
               <div class="text-center py-4">
                 <fa-icon [icon]="faSpinner" [animation]="'spin'" size="2x"/>
-                <div class="text-muted small mt-2">Fetching {{ activeEventLabel }} from Brevo…</div>
+                <div class="text-muted small mt-2">{{ recipientsProgressMessage || ("Fetching " + activeEventLabel + " from Brevo…") }}</div>
+              </div>
+            } @else if (recipientsError) {
+              <div class="alert alert-danger d-flex align-items-start">
+                <fa-icon [icon]="faTriangleExclamation" class="me-2 mt-1"/>
+                <div>
+                  <strong>Could not load {{ activeEventLabel }}</strong>
+                  <div>{{ recipientsError }}</div>
+                </div>
               </div>
             } @else if (recipients.length > 0) {
               @if (truncated) {
@@ -417,6 +429,8 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
   private activatedRoute = inject(ActivatedRoute);
   private uiActions = inject(UiActionsService);
   private stringUtils = inject(StringUtilsService);
+  private webSocketClientService = inject(WebSocketClientService);
+  private authService = inject(AuthService);
   private destroy$ = new Subject<void>();
 
   protected campaign: BrevoCampaignProgress | null = null;
@@ -428,6 +442,8 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
   protected selectedEventType: string | null = null;
   protected recipients: CampaignRecipient[] = [];
   protected loadingRecipients = false;
+  protected recipientsProgressMessage: string = null;
+  protected recipientsError: string = null;
   protected truncated = false;
   protected readonly RecipientSortField = RecipientSortField;
   protected recipientSortField: RecipientSortField = RecipientSortField.SUBSCRIBER;
@@ -515,6 +531,26 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.webSocketClientService.receiveMessages<any>(MessageType.PROGRESS).pipe(takeUntil(this.destroy$)).subscribe(data => {
+      if (data?.campaignId === this.campaignId && data?.type === this.selectedEventType) {
+        this.recipientsProgressMessage = data.message || this.recipientsProgressMessage;
+      }
+    });
+    this.webSocketClientService.receiveMessages<any>(MessageType.COMPLETE).pipe(takeUntil(this.destroy$)).subscribe(data => {
+      if (data?.campaignId === this.campaignId && data?.type === this.selectedEventType) {
+        this.recipients = data.recipients || [];
+        this.truncated = !!data.truncated;
+        this.recipientsError = null;
+        this.loadingRecipients = false;
+      }
+    });
+    this.webSocketClientService.receiveMessages<any>(MessageType.ERROR).pipe(takeUntil(this.destroy$)).subscribe(data => {
+      if (data?.campaignId === this.campaignId && data?.type === this.selectedEventType) {
+        this.recipients = [];
+        this.recipientsError = data.message || "Could not load recipients";
+        this.loadingRecipients = false;
+      }
+    });
     this.activatedRoute.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
       this.startDate = params[StoredValue.CAMPAIGN_START_DATE] || null;
       this.endDate = params[StoredValue.CAMPAIGN_END_DATE] || null;
@@ -556,6 +592,7 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
         this.selectedEventType = null;
         this.recipients = [];
         this.truncated = false;
+        this.recipientsError = null;
         this.loadingRecipients = false;
       }
     }
@@ -626,20 +663,18 @@ export class CampaignDetailComponent implements OnInit, OnDestroy {
     this.loadingRecipients = true;
     this.recipients = [];
     this.truncated = false;
+    this.recipientsError = null;
+    this.recipientsProgressMessage = "Asking Brevo for the recipient export…";
+    const campaignId = this.campaignId;
     try {
-      const report = await this.mailService.campaignRecipients(this.campaignId, eventType);
-      if (this.selectedEventType !== eventType) {
-        return;
+      await this.webSocketClientService.connect();
+      if (this.campaignId === campaignId && this.selectedEventType === eventType) {
+        this.webSocketClientService.sendMessage(EventType.CAMPAIGN_RECIPIENT_EXPORT, {campaignId, type: eventType}, this.authService.authToken());
       }
-      this.recipients = report.recipients || [];
-      this.truncated = report.truncated;
-    } catch (error: any) {
-      this.logger.warn("Failed to load campaign recipients", error);
-      if (this.selectedEventType === eventType) {
-        this.recipients = [];
-      }
-    } finally {
-      if (this.selectedEventType === eventType) {
+    } catch (error) {
+      this.logger.warn("Could not connect for campaign recipients", error);
+      if (this.campaignId === campaignId && this.selectedEventType === eventType) {
+        this.recipientsError = "Could not connect to load recipients. Try View again.";
         this.loadingRecipients = false;
       }
     }
