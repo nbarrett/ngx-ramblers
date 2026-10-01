@@ -141,7 +141,7 @@ import { MailMxRecords } from "./mail-mx-records";
                   <strong>Email Authentication (SPF &amp; DMARC):</strong> {{ baseDomain }}
                   @if (authRecordsLoading) {
                     <fa-icon [icon]="faSpinner" animation="spin" class="ms-2"></fa-icon>
-                  } @else if (authRecordsStatus) {
+                  } @else if (authRecordsStatus?.spf && authRecordsStatus?.dmarc) {
                     @if (authRecordsStatus.spf.allPresent) {
                       <span class="badge bg-success ms-2">SPF OK</span>
                     } @else if (authRecordsStatus.spf.multiple) {
@@ -161,7 +161,7 @@ import { MailMxRecords } from "./mail-mx-records";
                   }
                 </div>
                 <div class="d-flex flex-wrap gap-2 flex-shrink-0">
-                  @if (authRecordsStatus && authRecordsFixable()) {
+                  @if (authRecordsStatus?.spf && authRecordsFixable()) {
                     <button class="btn btn-primary text-nowrap" [disabled]="authRecordsCreating || authRecordsTrimming || authRecordsStatus.spf.multiple"
                             [tooltip]="authRecordsStatus.spf.multiple ? 'Consolidate multiple SPF records in Cloudflare first' : ''"
                             (click)="ensureAuthRecords()">
@@ -173,7 +173,7 @@ import { MailMxRecords } from "./mail-mx-records";
                     </button>
                   }
                   @if (authRecordsStatus?.spf?.extraIncludes?.length) {
-                    <button class="btn btn-quiet text-nowrap" [disabled]="authRecordsCreating || authRecordsTrimming || authRecordsStatus.spf.multiple"
+                    <button class="btn btn-quiet text-nowrap" [disabled]="authRecordsCreating || authRecordsTrimming || !!authRecordsStatus.spf?.multiple"
                             (click)="trimLeftoverSpfIncludes()">
                       @if (authRecordsTrimming) {
                         <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>Removing leftover includes...
@@ -445,7 +445,7 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
 
   authRecordsFixable(): boolean {
     const status = this.authRecordsStatus;
-    if (!status) {
+    if (!status?.spf || !status?.dmarc) {
       return false;
     } else {
       return !status.spf.allPresent || !status.dmarc.present || !status.dmarc.reportingConfigured;
@@ -454,7 +454,7 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
 
   authRows(): MailAuthTableRow[] {
     const status = this.authRecordsStatus;
-    if (!status) {
+    if (!status?.spf || !status?.dmarc) {
       return [];
     } else {
       return [this.spfRow(status), this.dmarcRow(status)];

@@ -198,19 +198,19 @@ export async function ensureSpfRecord(dnsConfig: CloudflareDnsConfig, domain: st
   return querySpfStatus(dnsConfig, domain);
 }
 
-export async function stripLeftoverSpfIncludes(dnsConfig: CloudflareDnsConfig, domain: string): Promise<SpfRecordStatus> {
+export async function stripLeftoverSpfIncludes(dnsConfig: CloudflareDnsConfig, domain: string): Promise<EmailAuthRecordsStatus> {
   const current = await querySpfStatus(dnsConfig, domain);
   if (current.multiple) {
     throw new Error(`Multiple SPF (v=spf1) records found on ${domain}. RFC 7208 requires exactly one — consolidate manually in Cloudflare before retrying.`);
   } else if (!current.present || current.extraIncludes.length === 0 || !current.recordId) {
-    return current;
+    return queryEmailAuthStatus(dnsConfig, domain);
   } else {
     const qualifier = extractAllQualifier(current.rawContent || "");
     const otherMechanisms = otherMechanismsIn(current.rawContent || "");
     const updated = buildSpfContent([], qualifier, otherMechanisms);
     debugLog("Stripping leftover SPF includes for %s: %s -> %s", domain, current.rawContent, updated);
     await updateDnsRecord(dnsConfig, current.recordId, { type: DnsRecordType.TXT, name: domain, content: updated, ttl: 1, proxied: false });
-    return querySpfStatus(dnsConfig, domain);
+    return queryEmailAuthStatus(dnsConfig, domain);
   }
 }
 
