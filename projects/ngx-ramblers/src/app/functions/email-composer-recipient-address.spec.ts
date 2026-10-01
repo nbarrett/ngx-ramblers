@@ -15,6 +15,7 @@ import {
   composerRecipientsForAddressMode,
   batchSendRecipientSplit,
   composerSendsAsCampaign,
+  defaultAddresseeTypeForBranding,
   memberIsCoveredByComposerHeaders,
   recipientsWithoutEmails,
   syncedRecipientAddressMode,
@@ -117,6 +118,17 @@ describe("unbrandedCommitteeSharedTo", () => {
       memberCount: 1,
       externalToCount: 0
     })).toEqual(false);
+  });
+});
+
+describe("defaultAddresseeTypeForBranding", () => {
+
+  it("defaults unbranded mail to no greeting", () => {
+    expect(defaultAddresseeTypeForBranding(BrandingMode.UNBRANDED)).toEqual(AddresseeType.NONE);
+  });
+
+  it("defaults branded mail to a first-name greeting", () => {
+    expect(defaultAddresseeTypeForBranding(BrandingMode.BRANDED)).toEqual(AddresseeType.FIRST_NAME);
   });
 });
 

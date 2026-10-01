@@ -140,6 +140,7 @@ import {
   composerRecipientAddressesArePrivate,
   composerSendsAsCampaign,
   memberIsCoveredByComposerHeaders,
+  defaultAddresseeTypeForBranding,
   defaultEmailComposerState,
   fragmentIdsWithContent,
   syncedRecipientAddressMode,
@@ -543,8 +544,13 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             @if (subjectUnchangedFromDefault()) {
               <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Subject still has the automatic title:</h5>
               <ul class="list-arrow">
-                <li>The subject is still "{{ state.subject }}", filled in by this email type. Change it on Compose before sending so recipients don't see a generated heading.</li>
+                <li>The subject is still "{{ state.subject }}", filled in by this email type. Change it on the <a href="javascript:void(0)" (click)="goToCompose()">Compose</a> step before sending so recipients don't see a generated heading.</li>
               </ul>
+              @if (stepperActiveTab !== EmailComposerStepKey.COMPOSE) {
+                <button type="button" class="btn btn-primary btn-sm mt-2" (click)="goToCompose()">
+                  <fa-icon [icon]="faArrowLeft"/> Go and fix
+                </button>
+              }
             }
             @if (postSendActionWarningVisible()) {
               <button type="button" class="btn btn-primary btn-sm mt-2" (click)="dismissPostSendActionWarning()">
@@ -2204,7 +2210,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             @if (subjectUnchangedFromDefault()) {
               <h5><fa-icon [icon]="faTriangleExclamation" class="me-2"/>Subject still has the automatic title:</h5>
               <ul class="list-arrow">
-                <li>The subject is still "{{ state.subject }}", filled in by this email type. Change it on the <a href="javascript:void(0)" (click)="goToCompose()">Compose step</a> before sending so recipients don't see a generated heading.</li>
+                <li>The subject is still "{{ state.subject }}", filled in by this email type. Change it on the <a href="javascript:void(0)" (click)="goToCompose()">Compose</a> step before sending so recipients don't see a generated heading.</li>
               </ul>
               <button type="button" class="btn btn-primary btn-sm mt-2" (click)="goToCompose()">
                 <fa-icon [icon]="faArrowLeft"/> Go and fix
@@ -5159,6 +5165,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     if (previousMode !== mode) {
       this.unbrandedListSendWarningDismissed = false;
       this.unbrandedSenderAlertDismissed = false;
+      this.state.addresseeType = defaultAddresseeTypeForBranding(mode);
     }
     if (mode === BrandingMode.UNBRANDED) {
       this.recipientsPanelExpanded = true;

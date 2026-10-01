@@ -612,6 +612,10 @@ export function recipientsWithoutEmails(list: ComposerExternalRecipient[], email
   return (list ?? []).filter(item => !emails.has(item.email.toLowerCase()));
 }
 
+export function defaultAddresseeTypeForBranding(mode: BrandingMode): AddresseeType {
+  return mode === BrandingMode.UNBRANDED ? AddresseeType.NONE : AddresseeType.FIRST_NAME;
+}
+
 export function defaultEmailComposerState(): EmailComposerState {
   return {
     context: { source: EmailComposerContextSource.ADMIN },
