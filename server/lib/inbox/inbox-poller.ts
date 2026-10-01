@@ -21,8 +21,8 @@ import {
 import {
   fetchFullMessage,
   fetchFullMessageDetailed,
-  listAllInboxMessageIds,
   listHistoryDelta,
+  listInboxPage,
   listRecentInboxMessageIds,
   listSpamMessageIds,
   mailboxHistoryId,
@@ -291,12 +291,31 @@ async function runConnectionSync(connection: InboxMailboxConnection, mailboxConn
   }
 }
 
+async function listGeneralInboxUntilCaughtUp(connection: InboxMailboxConnection, pageToken: string | null = null, remainingPages = 3, acc: string[] = []): Promise<string[]> {
+  if (remainingPages <= 0) {
+    return acc;
+  } else {
+    const page = await listInboxPage(connection, 50, pageToken);
+    const nextAcc = [...acc, ...page.ids];
+    const known = page.ids.length === 0
+      ? []
+      : await inboxMessageModel.find({tenantSlug: connection.tenantSlug, externalId: {$in: page.ids}}).select("externalId").lean();
+    const knownIds = new Set(known.map(row => row.externalId).filter(Boolean));
+    const caughtUp = page.ids.length === 0 || page.ids.every(id => knownIds.has(id)) || !page.nextPageToken;
+    if (caughtUp) {
+      return nextAcc;
+    } else {
+      return listGeneralInboxUntilCaughtUp(connection, page.nextPageToken, remainingPages - 1, nextAcc);
+    }
+  }
+}
+
 async function pollViaListing(connection: InboxMailboxConnection, aliases: InboxAliasConfig[]): Promise<string[]> {
   const realAliases = aliases.filter(alias => !isInboxGeneralRoleType(alias.roleType));
   const generalAliasPresent = aliases.some(alias => isInboxGeneralRoleType(alias.roleType));
-  const perAliasIdLists = await Promise.all(realAliases.map(alias => listRecentInboxMessageIds(connection, alias, 50)));
-  const broadIds = generalAliasPresent ? await listAllInboxMessageIds(connection, 50) : [];
-  const gmailMessageIds = [...new Set([...perAliasIdLists.flatMap(ids => ids), ...broadIds])];
+  const gmailMessageIds = generalAliasPresent
+    ? await listGeneralInboxUntilCaughtUp(connection)
+    : [...new Set((await Promise.all(realAliases.map(alias => listRecentInboxMessageIds(connection, alias, 50)))).flat())];
   const imported = await processGmailMessageIds(connection, aliases, gmailMessageIds);
   const latestHistoryId = await mailboxHistoryId(connection);
   if (latestHistoryId) {
