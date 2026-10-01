@@ -8,7 +8,8 @@ const debugLog = debug(envConfig.logNamespace("cloudflare:email-auth-records"));
 
 export const REQUIRED_SPF_INCLUDES = ["_spf.mx.cloudflare.net", "spf.brevo.com"];
 export const DEFAULT_SPF_QUALIFIER = "~all";
-export const BREVO_DMARC_REPORTING_TAG = "rua=mailto:rua@dmarc.brevo.com";
+export const BREVO_DMARC_RUA_URI = "mailto:rua@dmarc.brevo.com";
+export const BREVO_DMARC_REPORTING_TAG = `rua=${BREVO_DMARC_RUA_URI}`;
 export const DEFAULT_DMARC_POLICY = `v=DMARC1; p=none; ${BREVO_DMARC_REPORTING_TAG};`;
 
 function unquoteTxtContent(content: string): string {
@@ -29,12 +30,42 @@ function extractAllQualifier(spfContent: string): string {
   return match ? match[0] : DEFAULT_SPF_QUALIFIER;
 }
 
-function dmarcReportingConfigured(content: string): boolean {
-  return /(?:^|;)\s*rua\s*=\s*[^;\s]+/i.test(content);
+interface DmarcTagPart {
+  rawName: string;
+  name: string;
+  value: string;
+}
+
+function dmarcTagParts(content: string): DmarcTagPart[] {
+  return content.split(";").map(part => part.trim()).filter(part => part.length > 0).map(part => {
+    const separator = part.indexOf("=");
+    if (separator < 0) {
+      return { rawName: part, name: part.toLowerCase(), value: "" };
+    } else {
+      const rawName = part.slice(0, separator).trim();
+      return { rawName, name: rawName.toLowerCase(), value: part.slice(separator + 1).trim() };
+    }
+  });
+}
+
+function ruaUris(tag: DmarcTagPart): string[] {
+  return tag.value.split(",").map(uri => uri.trim().toLowerCase()).filter(uri => uri.length > 0);
+}
+
+export function dmarcReportingConfigured(content: string): boolean {
+  const tags = dmarcTagParts(content);
+  const ruaTags = tags.filter(tag => tag.name === "rua");
+  const uris = ruaTags.length === 1 ? ruaUris(ruaTags[0]) : [];
+  const forensicPresent = tags.some(tag => tag.name === "ruf");
+  return ruaTags.length === 1 && uris.length === 1 && uris[0] === BREVO_DMARC_RUA_URI && !forensicPresent;
 }
 
 export function withBrevoDmarcReporting(content: string): string {
-  return `${content.trim().replace(/;+\s*$/, "")}; ${BREVO_DMARC_REPORTING_TAG};`;
+  const source = content.trim() || DEFAULT_DMARC_POLICY;
+  const kept = dmarcTagParts(source).filter(tag => tag.name !== "rua" && tag.name !== "ruf");
+  const rebuilt = kept.map(tag => tag.value.length === 0 ? tag.rawName : `${tag.rawName}=${tag.value}`);
+  rebuilt.push(BREVO_DMARC_REPORTING_TAG);
+  return `${rebuilt.join("; ")};`;
 }
 
 export function buildSpfContent(existingIncludes: string[], qualifier: string = DEFAULT_SPF_QUALIFIER, otherMechanisms: string[] = []): string {

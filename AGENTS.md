@@ -17,6 +17,7 @@
 11. **Every data table is `app-sortable-table`** - never hand-roll a `<table>` for a list of records. New tables and any existing table you touch must use `app-sortable-table` (`modules/common/sortable-table/`). A raw `<table>` is only for a non-list layout (for example a two-column settings form with no rows a user would sort). Do not ship a static table "for now" and wait to be asked for sorting.
 12. **Tickets: look at what is already there, then use it.** Never open a GitHub issue until you have searched open (and recent closed) issues for the same problem. If one exists, use that number. If two look the same, they are the same: do not open a third, and do not keep both. If nothing fits, **ask** before creating. Creating a ticket is not a default step of committing.
    **The failure that keeps happening:** the action-button icon picker was already [#376](https://github.com/nbarrett/ngx-ramblers/issues/376); an agent opened [#377](https://github.com/nbarrett/ngx-ramblers/issues/377) six seconds later with the same title and body, then [#378](https://github.com/nbarrett/ngx-ramblers/issues/378) as a second bucket, then spent the rest of the session closing, reopening and amending. That is busywork. Search first (`gh issue list` / `gh issue search`). Reuse. Ask. Do not recreate.
+13. **Never put real people, groups, or live domains into the repo.** Tests, migrations, fixtures, snapshots, comments, tickets, and commit messages stay fictional. Do not copy a live DNS record, DMARC string, mailbox, member name, group name, or site hostname from staging, production, or a screenshot into source. Use placeholders only: `Alex Reed`, `alex.reed@example.com`, `chair@group.example.org.uk`, `Hillside Park`, `https://group.example.org.uk`. A value you saw in Mongo, Fly logs, Cloudflare, or Gmail is not a fixture. If you diagnosed against a real domain, rewrite it before the file is saved. This is a hard rule, not a style preference.
 
 ## Project Overview
 
@@ -242,6 +243,7 @@ Every button is **filled** with a Ramblers palette colour. Never Bootstrap defau
 - **Frontend**: `npm run test` (Karma + Jasmine). Use `provideHttpClientTesting`, `LoggerTestingModule`
 - **Backend**: `npm run test:server` (Mocha)
 - Pre-push hook runs tests for `main`/`pre-main` branches
+- **No live data in tests or migrations** - see Critical Rule 13. Specs and migration samples use `group.example.org.uk` and fictional people only. Never paste a real group's DMARC, SPF, MX, mailbox, or hostname into a `*.spec.ts` or migration file.
 
 ### Serenity/Playwright waits (mandatory)
 
