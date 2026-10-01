@@ -2,6 +2,7 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
 import { applyCommitteeRoleDefaultSender, BuiltInRole, CommitteeConfig, CommitteeMember, committeeMeetingTypesFromFileTypes, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, reassignCommitteeRoleMember, RoleType, roleEmailAddresses } from "../../models/committee.model";
+import { committeeSenderDisplayName } from "../../functions/committee-senders";
 import { normaliseEmail } from "../../functions/strings";
 import { memberFullName } from "../../functions/member-names";
 import { Member } from "../../models/member.model";
@@ -124,13 +125,7 @@ export class CommitteeConfigService {
   }
 
   public nameAndDescriptionFrom(data: CommitteeMember) {
-    const description = (data.description || "").trim();
-    const fullName = (data.fullName || "").trim();
-    if (description && fullName && description.toLowerCase() !== fullName.toLowerCase()) {
-      const fullNameAlreadyBracketed = fullName.startsWith("(") && fullName.endsWith(")");
-      return fullNameAlreadyBracketed ? `${description} ${fullName}` : `${description} (${fullName})`;
-    }
-    return description || fullName;
+    return committeeSenderDisplayName(data);
   }
 
   saveConfig(config: CommitteeConfig) {
