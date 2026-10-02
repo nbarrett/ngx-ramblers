@@ -1,11 +1,10 @@
 import { ChangeDetectorRef, Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 import { isArray } from "es-toolkit/compat";
 import { Subscription } from "rxjs";
 import { sortBy } from "../../../functions/arrays";
-import { openSerenityReport } from "../../../functions/serenity-report";
+import { SerenityReportButtonComponent } from "../../../modules/common/serenity-report-button/serenity-report-button";
 import { isRamblersAuditNoise } from "../../../models/ramblers-audit-noise";
 import { AuditType, FileUploadSummary, RamblersUploadAudit, Status } from "../../../models/ramblers-upload-audit.model";
 import { SerenityFeature } from "../../../models/serenity-feature.model";
@@ -23,7 +22,6 @@ import { ValueOrDefaultPipe } from "../../../pipes/value-or-default.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
-import { UrlService } from "../../../services/url.service";
 import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upload-audit.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
 import { StatusIconComponent } from "../../admin/status-icon";
@@ -33,7 +31,7 @@ const SESSION_HISTORY_MONTHS = 6;
 
 @Component({
   selector: "app-serenity-job-audit-panel",
-  imports: [FontAwesomeModule, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, SortableTableComponent, SortableTableCellDirective, UploadSessionSelectorComponent],
+  imports: [SerenityReportButtonComponent, FontAwesomeModule, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, SortableTableComponent, SortableTableCellDirective, UploadSessionSelectorComponent],
   template: `
     <div class="thumbnail-heading-frame">
       <div class="thumbnail-heading">Job progress</div>
@@ -57,10 +55,7 @@ const SESSION_HISTORY_MONTHS = 6;
       }
       @if (reportAudit) {
         <div class="mb-2">
-          <button type="button" class="btn btn-primary" (click)="openReport($event)">
-            <fa-icon [icon]="faCircleCheck" class="me-2"/>
-            View report
-          </button>
+          <app-serenity-report-button [audit]="reportAudit"/>
         </div>
       }
       <app-sortable-table
@@ -92,7 +87,6 @@ const SESSION_HISTORY_MONTHS = 6;
 export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDestroy {
   private webSocketClientService = inject(WebSocketClientService);
   private ramblersUploadAuditService = inject(RamblersUploadAuditService);
-  private urlService = inject(UrlService);
   private dateUtils = inject(DateUtilsService);
   private uiActions = inject(UiActionsService);
   private stringUtils = inject(StringUtilsService);
@@ -100,7 +94,6 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   private changeDetector = inject(ChangeDetectorRef);
   private subscriptions: Subscription[] = [];
   private refresh = {intervalId: null as ReturnType<typeof setInterval> | null, inFlight: false};
-  faCircleCheck = faCircleCheck;
   audits: RamblersUploadAudit[] = [];
   reportAudit: RamblersUploadAudit | null = null;
   latestAudit: RamblersUploadAudit | null = null;
@@ -143,10 +136,11 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
     if (changes.starting && this.starting) {
       this.clearAudits();
       this.selectedSession = null;
+      this.sessions = [];
       this.stopRefreshLoop();
     }
     const startingFinished = changes.starting && !this.starting;
-    if ((changes.fileName || startingFinished) && !this.starting) {
+    if ((changes.fileName || changes.feature || startingFinished) && !this.starting) {
       this.clearAudits();
       this.selectedSession = null;
       void this.refreshFromApi();
@@ -182,16 +176,20 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
 
   private async loadSessions(): Promise<void> {
     if (this.feature) {
-      const sessions = await this.ramblersUploadAuditService.uniqueUploadSessions(SESSION_HISTORY_MONTHS, this.feature);
-      const currentSession = this.fileName && !sessions.find(session => session.fileName === this.fileName)
-        ? [{fileName: this.fileName, status: Status.ACTIVE}]
-        : [];
-      this.sessions = currentSession.concat(sessions);
-      this.selectedSession = this.sessions.find(session => session.fileName === this.activeFileName())
-        || (this.fileName ? this.selectedSession : this.sessions[0])
-        || null;
-      if (!this.fileName && this.selectedSession) {
-        void this.refreshFromApi();
+      const feature = this.feature;
+      const fileName = this.fileName;
+      const sessions = await this.ramblersUploadAuditService.uniqueUploadSessions(SESSION_HISTORY_MONTHS, feature);
+      if (feature === this.feature && fileName === this.fileName && !this.starting) {
+        const currentSession = this.fileName && !sessions.find(session => session.fileName === this.fileName)
+          ? [{fileName: this.fileName, status: Status.ACTIVE}]
+          : [];
+        this.sessions = currentSession.concat(sessions);
+        this.selectedSession = this.sessions.find(session => session.fileName === this.activeFileName())
+          || (this.fileName ? this.selectedSession : this.sessions[0])
+          || null;
+        if (!this.fileName && this.selectedSession) {
+          void this.refreshFromApi();
+        }
       }
     }
   }
@@ -199,12 +197,6 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   ngOnDestroy(): void {
     this.stopRefreshLoop();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
-  }
-
-  openReport(event: MouseEvent): void {
-    if (this.reportAudit) {
-      openSerenityReport(this.reportAudit, event, this.urlService);
-    }
   }
 
   timing(audit: RamblersUploadAudit): string {
@@ -266,7 +258,7 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   }
 
   private async refreshFromApi(): Promise<void> {
-    if (this.activeFileName() && !this.refresh.inFlight) {
+    if (!this.starting && this.activeFileName() && !this.refresh.inFlight) {
       this.refresh.inFlight = true;
       try {
         const fileName = this.activeFileName();

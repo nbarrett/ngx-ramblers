@@ -176,3 +176,20 @@ export function requestedOsMapsRouteFixture(url: string): OsMapsRouteFixture {
     distanceToleranceKm: Number.MAX_SAFE_INTEGER
   };
 }
+
+export interface OsMapsRouteSearchRequest {
+  pageParameters: {
+    page: number;
+    size: number;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+export interface OsMapsRouteSearchPage {
+  content: unknown[];
+  number: number;
+  totalPages: number;
+  totalElements: number;
+  last: boolean;
+}
