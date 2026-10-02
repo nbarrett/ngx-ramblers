@@ -38,7 +38,7 @@ import { AppPath } from "../../../models/route-follow.model";
 import { Router } from "@angular/router";
 import { OsMapsLoginRequiredAlertComponent } from "../walk-edit/os-maps-login-required-alert";
 import { SerenityJobAuditPanelComponent } from "./serenity-job-audit-panel";
-import { SerenityFeature } from "../../../models/serenity-feature.model";
+import { serenityFeatureFromFileName, SerenityFeature } from "../../../models/serenity-feature.model";
 import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upload-audit.service";
 import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers-upload-audit.model";
 
@@ -219,8 +219,8 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
              (selectTab)="selectTab(OsMapsExportTab.JOB_PROGRESS)" heading="Job progress">
           <app-serenity-job-audit-panel [fileName]="currentJobFileName"
                                         [starting]="startingJob"
-                                        [jobRunning]="converting"
-                                        [feature]="SerenityFeature.OS_MAPS_EXPORT"/>
+                                        [jobRunning]="converting || loading"
+                                        [feature]="jobFeature"/>
         </tab>
       </tabset>
     </app-page>
@@ -272,6 +272,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   currentJobFileName: string | null = null;
   private currentJobId: string | null = null;
   startingJob = false;
+  jobFeature = SerenityFeature.OS_MAPS_EXPORT;
   private destroyed = false;
   faSync = faSync;
   faSpinner = faSpinner;
@@ -312,6 +313,13 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   private readonly sortKeys = ["createdAtValue", "title", "distanceMetres", "importedAt"];
 
   ngOnInit(): void {
+    const sessionFileName = this.activatedRoute.snapshot.queryParams[StoredValue.SESSION];
+    const sessionFeature = sessionFileName ? serenityFeatureFromFileName(sessionFileName) : null;
+    if (sessionFeature === SerenityFeature.OS_MAPS_LIST || sessionFeature === SerenityFeature.OS_MAPS_EXPORT) {
+      this.jobFeature = sessionFeature;
+      this.currentJobFileName = sessionFileName;
+      this.checkingJob = sessionFeature === SerenityFeature.OS_MAPS_EXPORT;
+    }
     const sortParam = this.activatedRoute.snapshot.queryParams[StoredValue.SORT];
     const matchedSortKey = this.sortKeys.find(key => this.stringUtils.kebabCase(key) === sortParam);
     if (matchedSortKey) {
@@ -489,6 +497,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
 
   private writeViewToUrl(): void {
     this.uiActions.updateQueryParameters({
+      [StoredValue.SESSION]: this.currentJobFileName,
       [StoredValue.TAB]: this.activeTabId === OsMapsExportTab.ROUTES ? null : this.activeTabId,
       [StoredValue.SORT]: this.sortKey ? this.stringUtils.kebabCase(this.sortKey) : null,
       [StoredValue.SORT_ORDER]: this.sortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC,
@@ -512,8 +521,10 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   private async loadLatestExportResult(): Promise<void> {
     try {
       const previousJobId = this.currentJobId;
-      const latest = await this.osMapsExportService.latestExportResult();
-      if (!this.destroyed && !this.startingJob && previousJobId === this.currentJobId) {
+      const latest = this.loading || this.jobFeature !== SerenityFeature.OS_MAPS_EXPORT
+        ? null
+        : await this.osMapsExportService.latestExportResult();
+      if (!this.destroyed && !this.loading && this.jobFeature === SerenityFeature.OS_MAPS_EXPORT && !this.startingJob && previousJobId === this.currentJobId) {
         const wasConverting = this.converting && this.currentJobId === latest?.jobId;
         if (latest?.jobId !== this.currentJobId) {
           this.clearMessages();
@@ -554,16 +565,30 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   async refreshRoutes(): Promise<void> {
     if (this.loginConfigured && !this.busy()) {
       this.loading = true;
+      this.startingJob = true;
+      this.jobFeature = SerenityFeature.OS_MAPS_LIST;
+      this.currentJobFileName = null;
+      this.currentJobId = null;
       this.clearMessages();
+      this.selectTab(OsMapsExportTab.JOB_PROGRESS);
       const previousListedAt = this.listing.listedAt;
       try {
         const started = await this.osMapsExportService.refresh();
         this.currentJobFileName = started.fileName || this.currentJobFileName;
+        this.currentJobId = started.jobId;
+        this.writeViewToUrl();
+        this.startingJob = false;
         await this.waitForFreshListing(previousListedAt);
+        if (this.listing.listedAt > previousListedAt) {
+          this.successMessage = "Routes reloaded from OS Maps";
+        } else {
+          this.warningMessage = "The route list has not updated yet. Check Job progress for the reload status.";
+        }
       } catch (error) {
         this.logger.error("refreshRoutes failed:", error);
         this.errorMessage = this.failureMessage(error, "Failed to start loading routes from OS Maps");
       }
+      this.startingJob = false;
       this.loading = false;
     }
   }
@@ -574,6 +599,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
         .filter(route => this.selectedIds.has(route.id))
         .map(route => route.url);
       this.converting = true;
+      this.jobFeature = SerenityFeature.OS_MAPS_EXPORT;
       this.startingJob = true;
       this.currentJobFileName = null;
       this.currentJobId = null;
@@ -583,6 +609,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
         const started = await this.osMapsExportService.exportRoutes(routeUrls);
         this.currentJobFileName = started.fileName || this.currentJobFileName;
         this.currentJobId = started.jobId;
+        this.writeViewToUrl();
       } catch (error) {
         this.logger.error("convertSelected failed:", error);
         this.errorMessage = this.failureMessage(error, "Failed to convert the selected routes");

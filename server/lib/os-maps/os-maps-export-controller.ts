@@ -3,10 +3,10 @@ import { isArray, isString } from "es-toolkit/compat";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { isOsMapsRouteUrl, OS_MAPS_EXPORT_MAX_WAIT_MS, OsMapsExportJobResult, OsMapsExportJobStatus, OsMapsRouteSource } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
+import { isOsMapsRouteUrl, OsMapsExportJobResult, OsMapsExportJobStatus, OsMapsRouteSource } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { dispatchOsMapsExport, dispatchOsMapsList } from "../ramblers/os-maps-export-dispatcher";
 import { cancelActiveWorkerQueueJob } from "../ramblers/integration-worker-queue-client";
-import { failOsMapsExportResult, latestOsMapsExportResult, osMapsExportResultByJobId } from "./os-maps-export-result-store";
+import { failOsMapsExportResult, latestOsMapsExportResult, osMapsExportResultByJobId, lastOsMapsExportActivityAt, osMapsExportResultWithActivity } from "./os-maps-export-result-store";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { latestOsMapsRouteListing, listedImportedOsMapsRoutes } from "./os-maps-route-listing-store";
 import { osMapsImportedRouteById, saveOsMapsImportedRoute } from "./os-maps-imported-route-store";
@@ -72,7 +72,7 @@ export async function exportOsMapsRoute(req: Request, res: Response): Promise<vo
   } else {
     try {
       const latest = await latestOsMapsExportResult();
-      const current = latest ? await withStaleQueuedJobFailed(latest) : null;
+      const current = latest ? await withExportActivityStatus(latest) : null;
       if (current?.status === OsMapsExportJobStatus.QUEUED) {
         res.status(409).json({error: "An OS Maps conversion is already running. Wait for it to finish or stop the current job.", jobId: current.jobId});
       } else {
@@ -134,14 +134,12 @@ export async function updateOsMapsImportedRoute(req: Request, res: Response): Pr
   }
 }
 
-async function withStaleQueuedJobFailed(result: OsMapsExportJobResult): Promise<OsMapsExportJobResult> {
-  const overdue = result.status === OsMapsExportJobStatus.QUEUED && dateTimeNowAsValue() - result.createdAt > OS_MAPS_EXPORT_MAX_WAIT_MS;
-  if (overdue) {
-    const minutes = Math.round(OS_MAPS_EXPORT_MAX_WAIT_MS / 60000);
-    debugLog("marking stale queued export as failed:", result.jobId, "created", result.createdAt);
-    return await failOsMapsExportResult(result.jobId, `No result came back from the worker within ${minutes} minutes, so this conversion has been abandoned. Try it again.`) || result;
-  } else {
+async function withExportActivityStatus(result: OsMapsExportJobResult): Promise<OsMapsExportJobResult> {
+  if (result.status === OsMapsExportJobStatus.COMPLETED) {
     return result;
+  } else {
+    const lastActivity = await lastOsMapsExportActivityAt(result);
+    return osMapsExportResultWithActivity(result, lastActivity, dateTimeNowAsValue());
   }
 }
 
@@ -151,7 +149,7 @@ export async function osMapsExportJobResult(req: Request, res: Response): Promis
     if (!result) {
       res.status(404).json({error: "OS Maps export job was not found"});
     } else {
-      res.json(await withStaleQueuedJobFailed(result));
+      res.json(await withExportActivityStatus(result));
     }
   } catch (error) {
     debugLog("export result failed:", (error as Error).message);
@@ -162,7 +160,7 @@ export async function osMapsExportJobResult(req: Request, res: Response): Promis
 export async function latestOsMapsExportJobResult(_req: Request, res: Response): Promise<void> {
   try {
     const latest = await latestOsMapsExportResult();
-    res.json(latest ? await withStaleQueuedJobFailed(latest) : null);
+    res.json(latest ? await withExportActivityStatus(latest) : null);
   } catch (error) {
     debugLog("latest export result failed:", (error as Error).message);
     res.status(500).json({error: (error as Error).message});

@@ -285,19 +285,24 @@ export async function executeRamblersUploadJobOnWorker(
     detached: true
   });
   const maxDurationMs = maxJobDurationMs();
-  const watchdog = setTimeout(() => {
+  const watchdog = isOsMapsExportJob(job) ? null : setTimeout(() => {
     const message = `Job stopped after exceeding the ${formatElapsed(maxDurationMs)} limit for a single worker job`;
     debugLog("watchdog for jobId:", job.jobId, message);
     void safePostProgress(callback, sharedSecret, {jobId: job.jobId, type: IntegrationWorkerEventType.LIFECYCLE, payload: message});
     killSerenityProcessTree(subprocess, job.jobId);
   }, maxDurationMs);
+  const stopWatchdog = () => {
+    if (watchdog) {
+      clearTimeout(watchdog);
+    }
+  };
   activeJobControl = {
     jobId: job.jobId,
     stop: (reason: string) => {
       const message = `Job stopped: ${reason}`;
       debugLog("cancel for jobId:", job.jobId, message);
       void safePostProgress(callback, sharedSecret, {jobId: job.jobId, type: IntegrationWorkerEventType.LIFECYCLE, payload: message});
-      clearTimeout(watchdog);
+      stopWatchdog();
       killSerenityProcessTree(subprocess, job.jobId);
     }
   };
@@ -347,7 +352,7 @@ export async function executeRamblersUploadJobOnWorker(
 
     subprocess.on("error", error => {
       stopKeepAlive();
-      clearTimeout(watchdog);
+      stopWatchdog();
       clearActiveJobControl();
       void finishJob(job, callback, sharedSecret, reportUpload, awsCredentials, IntegrationWorkerEventType.ERROR, Status.ERROR, error.message, preparedFiles.jobPath)
         .finally(() => {
@@ -359,7 +364,7 @@ export async function executeRamblersUploadJobOnWorker(
 
     subprocess.on("exit", (code, signal) => {
       stopKeepAlive();
-      clearTimeout(watchdog);
+      stopWatchdog();
       clearActiveJobControl();
       const status = code === 0 ? Status.SUCCESS : Status.ERROR;
       const type = code === 0 ? IntegrationWorkerEventType.COMPLETE : IntegrationWorkerEventType.ERROR;

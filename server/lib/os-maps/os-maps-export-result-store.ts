@@ -1,6 +1,8 @@
+import { isNumber } from "es-toolkit/compat";
+import { ramblersUploadAudit } from "../mongo/models/ramblers-upload-audit";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { osMapsExportResult } from "../mongo/models/os-maps-export-result";
-import { OsMapsExportJobResult, OsMapsExportJobStatus } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
+import { OS_MAPS_EXPORT_MAX_WAIT_MS, OsMapsExportJobResult, OsMapsExportJobStatus } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { FileNameData } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import * as mongooseClient from "../mongo/mongoose-client";
 
@@ -76,6 +78,25 @@ export async function completeOsMapsExportResult(jobId: string, gpxFiles: FileNa
       return result;
     }
   }));
+}
+
+export async function lastOsMapsExportActivityAt(result: OsMapsExportJobResult): Promise<number> {
+  const latest = await mongooseClient.execute(() => ramblersUploadAudit.findOne({jobId: result.jobId}).sort({auditTime: -1}).lean());
+  return isNumber(latest?.auditTime) ? Math.max(result.createdAt, latest.auditTime) : result.createdAt;
+}
+
+export function osMapsExportResultWithActivity(result: OsMapsExportJobResult, lastActivity: number, now: number): OsMapsExportJobResult {
+  const quiet = now - lastActivity > OS_MAPS_EXPORT_MAX_WAIT_MS;
+  const timeoutFailure = result.status === OsMapsExportJobStatus.FAILED
+    && (result.error?.startsWith("No result came back from the worker") || result.error?.startsWith("No activity came back from the worker"));
+  if (result.status === OsMapsExportJobStatus.QUEUED && quiet) {
+    const minutes = Math.round(OS_MAPS_EXPORT_MAX_WAIT_MS / 60000);
+    return {...result, status: OsMapsExportJobStatus.FAILED, error: `No activity came back from the worker for ${minutes} minutes, so this conversion has been abandoned. Try it again.`, completedAt: lastActivity + OS_MAPS_EXPORT_MAX_WAIT_MS};
+  } else if (timeoutFailure && !quiet) {
+    return {...result, status: OsMapsExportJobStatus.QUEUED, error: null, completedAt: null};
+  } else {
+    return result;
+  }
 }
 
 export async function failOsMapsExportResult(jobId: string, error: string): Promise<OsMapsExportJobResult | null> {

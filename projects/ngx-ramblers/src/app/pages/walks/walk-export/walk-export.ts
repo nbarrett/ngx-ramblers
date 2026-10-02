@@ -25,12 +25,11 @@ import {
   WalkExportData,
   WalkExportTab,
 } from "../../../models/walk.model";
-import { openSerenityReport } from "../../../functions/serenity-report";
+import { SerenityReportButtonComponent } from "../../../modules/common/serenity-report-button/serenity-report-button";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
-import { UrlService } from "../../../services/url.service";
 import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upload-audit.service";
 import { RamblersWalksAndEventsService } from "../../../services/walks-and-events/ramblers-walks-and-events.service";
 import { ExtendedGroupEventQueryService } from "../../../services/walks-and-events/extended-group-event-query.service";
@@ -323,10 +322,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
                   <div class="row">
                     @if (selectedSessionReportAudit) {
                       <div class="col-12 col-sm-6 mb-2">
-                        <input type="submit" value="View Report"
-                               (click)="openReport(selectedSessionReportAudit, $event)"
-                               title="View Serenity report for this session"
-                               class="btn btn-primary w-100"/>
+                        <app-serenity-report-button [audit]="selectedSessionReportAudit"/>
                       </div>
                     }
                   </div>
@@ -429,7 +425,7 @@ const AUDIT_SORT_FIELD_MAPPING: Record<string, string> = {
 
   `],
   styleUrls: ["./walk-export.sass"],
-  imports: [UploadSessionSelectorComponent, WalkProgrammePageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe, JointLeaderNamesPipe, SortableTableComponent, SortableTableCellDirective]
+  imports: [SerenityReportButtonComponent, UploadSessionSelectorComponent, WalkProgrammePageComponent, TabsetComponent, TabDirective, CsvExportComponent, FontAwesomeModule, FormsModule, RelatedLinkComponent, TooltipDirective, DisplayTimeWithSecondsPipe, ValueOrDefaultPipe, StatusIconComponent, EventDatesAndTimesPipe, JointLeaderNamesPipe, SortableTableComponent, SortableTableCellDirective]
 })
 
 export class WalkExport implements OnInit, OnDestroy {
@@ -448,7 +444,6 @@ export class WalkExport implements OnInit, OnDestroy {
   public display: WalkDisplayService = inject(WalkDisplayService);
   public dateUtils: DateUtilsService = inject(DateUtilsService);
   protected stringUtils: StringUtilsService = inject(StringUtilsService);
-  private urlService: UrlService = inject(UrlService);
   public distanceValidationService = inject(DistanceValidationService);
   private downloadStatusService = inject(ServerDownloadStatusService);
   private router = inject(Router);
@@ -880,9 +875,6 @@ export class WalkExport implements OnInit, OnDestroy {
     return this.ramblersWalksAndEventsService.selectedExportableWalks(this.walksForExport);
   }
 
-  openReport(audit: RamblersUploadAudit, event: MouseEvent) {
-    openSerenityReport(audit, event, this.urlService);
-  }
 
   populateWalkExport(walksForExport: WalkExportData[]): WalkExportData[] {
     this.logger.info("populateWalkExport: found", this.stringUtils.pluraliseWithCount(walksForExport.length, "exportable walk"), "walks:", walksForExport);

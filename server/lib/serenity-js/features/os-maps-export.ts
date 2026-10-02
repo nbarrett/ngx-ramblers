@@ -32,6 +32,8 @@ function exportRoutes(): OsMapsRouteFixture[] {
 
 describe("OS Maps GPX export", () => {
 
+  test.setTimeout(0);
+
   afterEach(async ({ actorCalled }) => {
     clearExportedGpx();
     await actorCalled(actor).attemptsTo(SaveBrowserSource.toFile("os-maps-export-after.html"));
