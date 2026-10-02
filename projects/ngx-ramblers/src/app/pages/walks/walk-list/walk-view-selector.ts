@@ -24,6 +24,7 @@ import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-walks-selector",
+  styleUrls: ["./walk-view-selector.sass"],
     imports: [
     DynamicContentPageComponent,
     WalkViewComponent,
