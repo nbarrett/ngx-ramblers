@@ -46,8 +46,10 @@ import {
   EmailRoutingActionType,
   EmailRoutingMatcherField,
   EmailRoutingMatcherType,
+  DomainRoutingRuleSummary,
   EmailRoutingRule,
   EmailWorkerScript,
+  OrphanedWorkerRow,
   NonSensitiveCloudflareConfig,
   SHARED_INBOX_ROUTER_WORKER_NAME
 } from "../../../../models/cloudflare-email-routing.model";
@@ -96,6 +98,9 @@ import { FormsModule } from "@angular/forms";
 import { AsyncPipe } from "@angular/common";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { EnvironmentSetupService } from "../../../../services/environment-setup/environment-setup.service";
+import { SortableTableComponent } from "../../../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective } from "../../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableColumn } from "../../../../modules/common/sortable-table/sortable-table.model";
 import { ThumbnailHeadingFrameComponent } from "../../../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
 import { DurationPickerComponent } from "../../../../modules/common/duration-picker/duration-picker";
 
@@ -262,6 +267,17 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                           (<strong>{{ catchAllDestination() }}</strong>)} so all role mail routes there instead.
                         Forwarding rules for any other domain or subdomain are left untouched. This cannot be undone.
                       </div>
+                      <ul class="mt-2 mb-0">
+                        @for (rule of domainRuleSummaries(); track rule.address) {
+                          <li><strong>{{ rule.address }}</strong> - {{ rule.actionLabel }}
+                            @if (rule.roleLabel) {
+                              ({{ rule.roleLabel }})
+                            } @else {
+                              (no committee role uses this address)
+                            }
+                          </li>
+                        }
+                      </ul>
                       <div class="d-flex gap-2 mt-2">
                         <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-2" [disabled]="clearForwardsPending || !domainForwardRules().length"
                                 (click)="clearAllForwards()">
@@ -330,6 +346,31 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                       </div>
                     </div>
                   }
+                  @if (domainRuleSummaries().length) {
+                    <div class="alert alert-warning d-flex align-items-start mb-3">
+                      <fa-icon [icon]="ALERT_ERROR.icon" class="mt-1"></fa-icon>
+                      <div class="ms-2">
+                        <strong>Address rules still on Cloudflare</strong>
+                        <div class="mt-2">
+                          These are live rules for individual addresses on {{ baseDomain }}. They are separate from the catch-all,
+                          and they stay in place while a role is open, so the role list does not have to be on screen to see them.
+                          Clear all forwards deletes this list.
+                        </div>
+                        <ul class="mt-2 mb-0">
+                          @for (rule of domainRuleSummaries(); track rule.address) {
+                            <li>
+                              <strong>{{ rule.address }}</strong> - {{ rule.actionLabel }}
+                              @if (rule.roleLabel) {
+                                <span class="text-muted"> · {{ rule.roleLabel }}</span>
+                              } @else {
+                                <span> · no committee role uses this address</span>
+                              }
+                            </li>
+                          }
+                        </ul>
+                      </div>
+                    </div>
+                  }
                   @if (committeeMembersLoaded && !editingRoleDraft && committeeMembersWithoutRole.length && !committeeRolesAlertDismissed) {
                     <div class="alert alert-warning committee-roles-alert">
                       <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
@@ -355,56 +396,47 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                       </div>
                     </div>
                   }
-                  @if (platformAdminEnabled && orphanedWorkerScripts.length) {
-                    <div class="mb-3">
-                      <h6 class="mb-2">Orphaned Cloudflare Workers</h6>
-                      <div class="table-responsive">
-                        <table class="table table-sm table-striped">
-                          <thead>
-                            <tr>
-                              <th>Script</th>
-                              <th>Mapped</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            @for (script of orphanedWorkerScripts; track script.id) {
-                              <tr>
-                                <td class="small">{{ script.id }}</td>
-                                <td class="small">{{ workerMappingLabel(script.id) }}</td>
-                                <td>
-                                  <div class="d-flex gap-2">
-                                    @if (workerServiceUrl(script.id)) {
-                                      <a class="btn btn-sm btn-outline-ramblers"
-                                         [href]="workerServiceUrl(script.id)"
-                                         target="_blank"
-                                         tooltip="Open in Cloudflare">
-                                        <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
-                                      </a>
-                                    }
-                                    @if (workerDeleteConfirmPending === script.id) {
-                                      <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-2"
-                                        (click)="deleteWorkerScript(script.id)">
-                                        <fa-icon [icon]="faCheck"/>Confirm
-                                      </button>
-                                      <button type="button" class="btn btn-sm btn-quiet d-inline-flex align-items-center gap-2"
-                                        (click)="cancelDeleteWorkerScript()">
-                                        <fa-icon [icon]="faTimes"/>Cancel
-                                      </button>
-                                    } @else {
-                                      <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-2"
-                                        [disabled]="workerDeletePending === script.id"
-                                        (click)="requestDeleteWorkerScript(script.id)">
-                                        <fa-icon [icon]="faTrash"/>Delete
-                                      </button>
-                                    }
-                                  </div>
-                                </td>
-                              </tr>
+                  @if (platformAdminEnabled && orphanedWorkerRows.length) {
+                    <div class="thumbnail-heading-frame mb-3">
+                      <div class="thumbnail-heading">Orphaned Cloudflare Workers</div>
+                      <app-sortable-table
+                        [columns]="orphanedWorkerColumns"
+                        [rows]="orphanedWorkerRows"
+                        defaultSortKey="id"
+                        emptyMessage="No orphaned Cloudflare workers"
+                        [trackBy]="trackOrphanedWorker">
+                        <ng-template appSortableTableCell="actions" let-row>
+                          <div class="d-flex gap-2">
+                            @if (workerServiceUrl(row.id)) {
+                              <a class="btn btn-icon btn-quiet"
+                                 [href]="workerServiceUrl(row.id)"
+                                 target="_blank"
+                                 tooltip="Open in Cloudflare">
+                                <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
+                              </a>
                             }
-                          </tbody>
-                        </table>
-                      </div>
+                            @if (workerDeleteConfirmPending === row.id) {
+                              <button type="button" class="btn btn-icon btn-danger"
+                                tooltip="Confirm delete"
+                                (click)="deleteWorkerScript(row.id)">
+                                <fa-icon [icon]="faCheck"/>
+                              </button>
+                              <button type="button" class="btn btn-icon btn-quiet"
+                                tooltip="Cancel"
+                                (click)="cancelDeleteWorkerScript()">
+                                <fa-icon [icon]="faTimes"/>
+                              </button>
+                            } @else {
+                              <button type="button" class="btn btn-icon btn-danger"
+                                tooltip="Delete worker"
+                                [disabled]="workerDeletePending === row.id"
+                                (click)="requestDeleteWorkerScript(row.id)">
+                                <fa-icon [icon]="faTrash"/>
+                              </button>
+                            }
+                          </div>
+                        </ng-template>
+                      </app-sortable-table>
                     </div>
                   }
                   @if (!editingRoleDraft) {
@@ -464,8 +496,10 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                               </td>
                               <td class="small">
                                 <div class="text-nowrap">{{ role.email || '\u2014' }}</div>
-                                @if (roleExtraMailboxCount(role); as extraCount) {
-                                  <div class="text-muted" [tooltip]="roleExtraMailboxTooltip(role)" container="body">+ {{ extraCount }} more</div>
+                                @if (roleMailboxAddresses(role); as addresses) {
+                                  @if (addresses.length > 1) {
+                                    <div class="text-muted" [tooltip]="addresses.join(', ')" container="body">{{ stringUtils.pluraliseWithCount(addresses.length, "address") }}</div>
+                                  }
                                 }
                               </td>
                               <td>{{ roleTypeLabel(role.roleType) }}</td>
@@ -631,8 +665,12 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                             }
                           } @else {
                           <p class="small text-muted mb-2">
-                            The catch-all decides what happens to mail sent to addresses on
-                            <strong>{{ baseDomain }}</strong> that don't match a specific role rule.
+                            Mail to an address on <strong>{{ baseDomain }}</strong> that is not a committee role comes here.
+                            @if (inboxFilesLocally()) {
+                              This site keeps mail in the Admin Inbox, so unmatched mail is delivered there.
+                            } @else {
+                              This site reads a Gmail account, so unmatched mail is forwarded to that account.
+                            }
                           </p>
                           @if (catchAllWorkerScriptName() && catchAllDeployedScriptOutOfDate && !editingCatchAll) {
                             <div class="d-flex align-items-center mb-2">
@@ -652,49 +690,24 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                             <div class="row g-2">
                               <div class="col-sm-4">
                                 <label class="form-label">Action</label>
-                                <select class="form-select form-select-sm" [(ngModel)]="catchAllDraftAction"
+                                <select class="form-select form-select-sm" [ngModel]="catchAllDraftAction"
+                                        (ngModelChange)="catchAllDraftActionChanged($event)"
                                         name="catch-all-action">
-                                  <option [ngValue]="CatchAllAction.DISABLED">Disabled (no rule active)</option>
-                                  <option [ngValue]="CatchAllAction.DROP">Drop (return undeliverable)</option>
-                                  <option [ngValue]="CatchAllAction.FORWARD">Forward to one address</option>
-                                  <option [ngValue]="CatchAllAction.WORKER">{{ catchAllWorkerScriptName() || "Worker" }}</option>
-                                  <option [ngValue]="CatchAllAction.SHARED_ROUTER">Shared inbox router (deliver to inboxes, forward the rest)</option>
+                                  @for (choice of catchAllActionChoices(); track choice.action) {
+                                    <option [ngValue]="choice.action">{{ choice.label }}</option>
+                                  }
                                 </select>
+                                <div class="small text-muted mt-1">{{ catchAllActionHelp() }}</div>
                               </div>
                               @if (catchAllDraftAction === CatchAllAction.SHARED_ROUTER) {
                                 <div class="col-sm-8">
-                                  <label class="form-label">Safety-net forward address</label>
+                                  <label class="form-label">Spare address if this site is down</label>
                                   <input type="email" class="form-control form-control-sm"
                                          [(ngModel)]="catchAllDraftSingleDestination"
                                          name="catch-all-router-fallback"
-                                         placeholder="only used if a site can't be reached, e.g. nick.barrett36@gmail.com">
+                                         placeholder="a mailbox that is not this site">
                                   <div class="small text-muted mt-1">
-                                    A safety net, not a routing choice: mail only comes here if a site on this zone can't be reached (its inbox endpoint is down or errors), so nothing is ever lost. Committee addresses with their own routing rules are unaffected.
-                                  </div>
-                                </div>
-                                <div class="col-sm-12 mt-2">
-                                  <h6 class="border-top pt-3 mb-1">This site's unmatched mail</h6>
-                                  <div class="small text-muted mb-2">Where <code>&#64;{{ baseDomain }}</code> addresses that don't match a committee role rule go &mdash; this site's own destination, separate from the safety net above. (Each subdomain sets its own in its Committee Settings.)</div>
-                                  <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="apex-site-catch-all-mode" id="apex-site-catch-all-inbox"
-                                           [checked]="siteCatchAllMode === InboxCatchAllMode.INBOX" (change)="siteCatchAllMode = InboxCatchAllMode.INBOX">
-                                    <label class="form-check-label" for="apex-site-catch-all-inbox">Deliver to this site's inbox (general mailbox)</label>
-                                  </div>
-                                  <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="apex-site-catch-all-mode" id="apex-site-catch-all-forward"
-                                           [checked]="siteCatchAllMode === InboxCatchAllMode.FORWARD" (change)="siteCatchAllMode = InboxCatchAllMode.FORWARD">
-                                    <label class="form-check-label" for="apex-site-catch-all-forward">Forward to an address</label>
-                                  </div>
-                                  @if (siteCatchAllMode === InboxCatchAllMode.FORWARD) {
-                                    <input type="email" class="form-control form-control-sm mt-1 mb-2"
-                                           [(ngModel)]="siteCatchAllForwardTo"
-                                           name="apex-site-catch-all-forward-to"
-                                           placeholder="e.g. committee@gmail.com">
-                                  }
-                                  <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="apex-site-catch-all-mode" id="apex-site-catch-all-drop"
-                                           [checked]="siteCatchAllMode === InboxCatchAllMode.DROP" (change)="siteCatchAllMode = InboxCatchAllMode.DROP">
-                                    <label class="form-check-label" for="apex-site-catch-all-drop">Drop (don't deliver unmatched mail)</label>
+                                    Normal mail is filed in the Admin Inbox. This address is used only when the site does not answer, so the message is not lost.
                                   </div>
                                 </div>
                               }
@@ -935,7 +948,7 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
         </div>
       </div>
     </app-page>`,
-    imports: [PageComponent, TabsetComponent, TabDirective, ContentTextEditor, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent, ThumbnailHeadingFrameComponent, DurationPickerComponent, CommitteeUnassignedRolesComponent]
+    imports: [PageComponent, TabsetComponent, TabDirective, ContentTextEditor, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent, ThumbnailHeadingFrameComponent, DurationPickerComponent, CommitteeUnassignedRolesComponent, SortableTableComponent, SortableTableCellDirective]
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   @ViewChild(CommitteeMemberEditor) private roleEditor: CommitteeMemberEditor | null = null;
@@ -1215,19 +1228,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
   roleMailboxAddresses(role: CommitteeMember): string[] {
     return roleEmailAddresses(role, this.baseDomain);
-  }
-
-  roleExtraMailboxAddresses(role: CommitteeMember): string[] {
-    return roleMailboxExtras(role, this.baseDomain);
-  }
-
-  roleExtraMailboxCount(role: CommitteeMember): number {
-    return this.roleExtraMailboxAddresses(role).length;
-  }
-
-  roleExtraMailboxTooltip(role: CommitteeMember): string {
-    return this.roleExtraMailboxAddresses(role).join(", ");
-  }
+    }
 
   get vacantCount(): number {
     return this.committeeConfig?.roles?.filter(r => r.vacant).length || 0;
@@ -1317,6 +1318,21 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
   get orphanedWorkerScripts(): EmailWorkerScript[] {
     return this.workerScriptsSorted.filter(script => !this.workerRuleForScript(script.id));
+  }
+
+  readonly orphanedWorkerColumns: SortableTableColumn<OrphanedWorkerRow>[] = [
+    {key: "id", label: "Script", sortKey: "id", cellGetter: row => row.id},
+    {key: "mapped", label: "Mapped", sortKey: "mapped", cellGetter: row => row.mapped},
+    {key: "actions", label: ""}
+  ];
+
+  readonly trackOrphanedWorker = (_index: number, row: OrphanedWorkerRow) => row.id;
+
+  get orphanedWorkerRows(): OrphanedWorkerRow[] {
+    return this.orphanedWorkerScripts.map(script => ({
+      id: script.id,
+      mapped: this.workerMappingLabel(script.id)
+    }));
   }
 
   private sortValue(role: CommitteeMember): string | boolean {
@@ -1558,6 +1574,37 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       && matcher.value.split("@")[1]?.toLowerCase() === domain));
   }
 
+  domainRuleSummaries(): DomainRoutingRuleSummary[] {
+    return this.domainForwardRules().map(rule => {
+      const address = rule.matchers?.find(matcher =>
+        matcher.type === EmailRoutingMatcherType.LITERAL && matcher.field === EmailRoutingMatcherField.TO && !!matcher.value
+      )?.value || rule.name;
+      const role = this.roleForRoutingAddress(address);
+      const forwardAction = rule.actions?.find(action => action.type === EmailRoutingActionType.FORWARD);
+      const workerAction = rule.actions?.find(action => action.type === EmailRoutingActionType.WORKER);
+      const roleRecipients = (role?.forwardEmailRecipients || []).filter(addressValue => !!addressValue);
+      const forwardDestinations = forwardAction?.value || [];
+      const actionLabel = workerAction
+        ? (roleRecipients.length ? `Re-sends to ${roleRecipients.join(", ")}` : `Worker ${workerAction.value?.[0] || "script"}`)
+        : (forwardDestinations.length ? `Forwards to ${forwardDestinations.join(", ")}` : "Drops the message");
+      const roleLabel = role
+        ? `${role.description || role.type}${role.fullName ? "" : ", no member name on the role"}`
+        : null;
+      return {address, actionLabel, roleLabel};
+    });
+  }
+
+  private roleForRoutingAddress(address: string): CommitteeMember | null {
+    const normalised = (address || "").toLowerCase();
+    const domain = (this.baseDomain || "").toLowerCase();
+    const matched = (this.committeeConfig?.roles ?? []).find(role => {
+      const roleEmail = (role.email || "").toLowerCase();
+      const derived = role.type && domain ? `${role.type}@${domain}` : "";
+      return roleEmail === normalised || derived === normalised;
+    });
+    return matched || null;
+  }
+
   async clearAllForwards(): Promise<void> {
     const rulesToDelete = this.domainForwardRules();
     this.clearForwardsConfirmPending = false;
@@ -1651,7 +1698,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       case CatchAllAction.WORKER:
         return this.catchAllWorkerScriptName() || "Worker";
       case CatchAllAction.SHARED_ROUTER:
-        return "Shared inbox router";
+        return "Delivers to this site's inbox";
       case CatchAllAction.DROP:
         return "Drop";
       case CatchAllAction.DISABLED:
@@ -1669,6 +1716,61 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       return "bg-warning";
     }
     return "bg-secondary";
+  }
+
+  inboxFilesLocally(): boolean {
+    return this.systemConfigInternal?.inbox?.provider === InboxReaderProvider.CLOUDFLARE_INGRESS;
+  }
+
+  catchAllActionChoices(): { action: CatchAllAction; label: string }[] {
+    const direct = this.inboxFilesLocally();
+    const matching = direct
+      ? [
+        {action: CatchAllAction.SHARED_ROUTER, label: "Deliver unmatched mail to this site's inbox"},
+        {action: CatchAllAction.DROP, label: "Refuse unmatched mail"},
+        {action: CatchAllAction.DISABLED, label: "No catch-all"}
+      ]
+      : [
+        {action: CatchAllAction.FORWARD, label: "Forward unmatched mail to one address"},
+        {action: CatchAllAction.DROP, label: "Refuse unmatched mail"},
+        {action: CatchAllAction.DISABLED, label: "No catch-all"}
+      ];
+    const current = this.catchAllDraftAction;
+    const alreadyListed = matching.some(choice => choice.action === current);
+    if (alreadyListed || !current) {
+      return matching;
+    } else {
+      const mismatch = current === CatchAllAction.SHARED_ROUTER
+        ? "Deliver to this site's inbox (this site reads Gmail, so change this)"
+        : current === CatchAllAction.FORWARD
+          ? "Forward to one address (this site keeps its own inbox, so change this)"
+          : current === CatchAllAction.WORKER
+            ? (this.catchAllWorkerScriptName() || "Custom worker")
+            : "Current catch-all";
+      return [{action: current, label: mismatch}, ...matching];
+    }
+  }
+
+  catchAllActionHelp(): string {
+    const action = this.catchAllDraftAction;
+    if (action === CatchAllAction.FORWARD) {
+      return "Every unmatched message is sent to the address you choose. This is the catch-all for a Gmail-connected inbox.";
+    } else if (action === CatchAllAction.SHARED_ROUTER) {
+      return "Every unmatched message is filed in the Admin Inbox. This is the catch-all for Direct to inbox.";
+    } else if (action === CatchAllAction.DROP) {
+      return "The sender is told the address does not exist.";
+    } else if (action === CatchAllAction.DISABLED) {
+      return "Cloudflare has no catch-all, so unmatched mail is left to the domain's default.";
+    } else {
+      return "This catch-all uses a custom worker. Pick one of the other choices to leave it.";
+    }
+  }
+
+  catchAllDraftActionChanged(action: CatchAllAction): void {
+    this.catchAllDraftAction = action;
+    if (action === CatchAllAction.SHARED_ROUTER && this.inboxFilesLocally()) {
+      this.siteCatchAllMode = InboxCatchAllMode.INBOX;
+    }
   }
 
   async startEditCatchAll(): Promise<void> {

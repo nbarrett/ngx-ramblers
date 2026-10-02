@@ -97,7 +97,7 @@ import { FileUtilsService } from "../../../file-utils.service";
         [imageFit]="column?.imageFit"
         [cropperDebugOffsets]="cropperDebugOffsets"
         [fixedHeight]="actions.isActionButtons(row)"
-        [height]="actions.isActionButtons(row) ? (row?.carousel?.coverImageHeight || 200) : null"
+        [height]="actions.isActionButtons(row) ? 200 : null"
         [imageLink]="column?.href"
         [borderRadius]="imageBorderRadius(column)"/>
       <div [class]="columnClass()">
