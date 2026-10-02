@@ -53,6 +53,12 @@ export interface EmailRoutingRule {
   priority?: number;
 }
 
+export interface DomainRoutingRuleSummary {
+  address: string;
+  actionLabel: string;
+  roleLabel: string | null;
+}
+
 export interface EmailRoutingRulesResponse {
   rules: EmailRoutingRule[];
 }
@@ -231,6 +237,11 @@ export interface EmailWorkerScript {
   etag?: string;
   modified_on?: string;
   created_on?: string;
+}
+
+export interface OrphanedWorkerRow {
+  id: string;
+  mapped: string;
 }
 
 export enum EmailForwardingMode {
