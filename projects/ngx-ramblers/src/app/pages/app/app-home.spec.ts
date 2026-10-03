@@ -9,6 +9,7 @@ describe("standalone recording launch", () => {
     component["followService"] = {requestCompassPermission: vi.fn().mockResolvedValue(null)} as unknown as typeof component["followService"];
     component["router"] = {navigate: vi.fn().mockResolvedValue(true)} as unknown as typeof component["router"];
     component["activeSession"] = null;
+    Object.defineProperty(component, "mobileAccess", {value: {allowed: () => true}});
     return component;
   }
 

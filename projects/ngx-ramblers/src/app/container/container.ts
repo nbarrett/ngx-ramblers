@@ -27,7 +27,9 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 @Component({
     selector: "app-root",
     template: `
-    <app-pull-to-refresh/>
+    @if (!appShellActive && !appShell.installed()) {
+      <app-pull-to-refresh/>
+    }
     <div class="app-page-shift">
     @if (!appShellActive) {
       @if (config?.header?.headerBar?.show) {
@@ -108,7 +110,7 @@ export class ContainerComponent implements OnInit, OnDestroy {
     if (this.floatingBackAvailable()) {
       this.routerHistory.navigateBackWithinApp();
     } else {
-      void this.router.navigateByUrl("/");
+      void this.router.navigateByUrl("/app");
     }
   }
 

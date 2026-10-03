@@ -1,3 +1,5 @@
+import { TitleCasePipe } from "@angular/common";
+import { DEFAULT_MOBILE_APP_CONFIG, MobileAppAction } from "../../../models/walks-config.model";
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit, QueryList, ViewChildren } from "@angular/core";
 import { faArrowDown, faArrowUp, faGear, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { first, kebabCase } from "es-toolkit/compat";
@@ -202,6 +204,25 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                   </div>
                 }
               </div>
+            </tab>
+            <tab [active]="tabActive(WalkConfigTab.MOBILE_APP)" (selectTab)="selectTab(WalkConfigTab.MOBILE_APP)" [heading]="WalkConfigTab.MOBILE_APP">
+              @if (walksConfig?.mobileApp) {
+                <div class="thumbnail-heading-frame">
+                  <div class="thumbnail-heading">Mobile app permissions</div>
+                  <p>Choose who can use each feature. Recording, importing and editing require a signed-in member so changes can be attributed.</p>
+                  @for (action of mobileAppActions; track action) {
+                    <label class="d-block mb-2">{{ action | titlecase }}
+                      <select class="form-select" [(ngModel)]="walksConfig.mobileApp[action]" [name]="'mobile-app-' + action">
+                        @for (level of mobileAccessLevels; track level) {
+                          @if (level !== AccessLevel.PUBLIC || action === MobileAppAction.ACCESS || action === MobileAppAction.FOLLOW) {
+                            <option [ngValue]="level">{{ accessLevelDescriptions[level] }}</option>
+                          }
+                        }
+                      </select>
+                    </label>
+                  }
+                </div>
+              }
             </tab>
             <tab [active]="tabActive(WalkConfigTab.RISK_ASSESSMENT)"
                  (selectTab)="selectTab(WalkConfigTab.RISK_ASSESSMENT)"
@@ -730,7 +751,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
       margin-top: 0
   `],
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, ContentTextEditor, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink, MapEditComponent, CardImageComponent, ResizerComponent, RelatedLinksPanelComponent, FormSaveActionsComponent, TooltipDirective, TimePicker]
+  imports: [TitleCasePipe, PageComponent, FontAwesomeModule, TabsetComponent, TabDirective, FormsModule, ContentTextEditor, MarkdownComponent, WalkMeetupConfigParametersComponent, RouterLink, MapEditComponent, CardImageComponent, ResizerComponent, RelatedLinksPanelComponent, FormSaveActionsComponent, TooltipDirective, TimePicker]
 })
 export class WalkConfigComponent implements OnInit, OnDestroy {
   adminSettingsSystemSettingsPath = AdminSettingsPath.SYSTEM_SETTINGS;
@@ -784,6 +805,10 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
   private mapPreviewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   protected exampleLocation: LocationDetails = this.defaultExampleLocation();
   public weekdayOptions: { label: string; value: number }[] = [];
+  protected readonly MobileAppAction = MobileAppAction;
+  protected readonly AccessLevel = AccessLevel;
+  protected readonly mobileAccessLevels = [...generalAccessLevels(), AccessLevel.EVENT_ADMIN];
+  protected readonly mobileAppActions = [MobileAppAction.ACCESS, MobileAppAction.FOLLOW, MobileAppAction.RECORD, MobileAppAction.IMPORT, MobileAppAction.EDIT];
   public accessLevels: AccessLevel[] = generalAccessLevels();
   public accessLevelDescriptions: Record<AccessLevel, string> = {
     [AccessLevel.HIDDEN]: "No access",
@@ -844,6 +869,7 @@ export class WalkConfigComponent implements OnInit, OnDestroy {
     }));
     this.subscriptions.push(this.walksConfigService.events().subscribe(config => {
       this.walksConfig = config;
+      this.walksConfig.mobileApp = {...DEFAULT_MOBILE_APP_CONFIG, ...this.walksConfig.mobileApp};
       if (!this.walksConfig.walkCreationAccessLevel) {
         this.walksConfig.walkCreationAccessLevel = AccessLevel.HIDDEN;
       }

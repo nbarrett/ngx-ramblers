@@ -29,10 +29,12 @@ export class VersionCheckService {
   readonly reloadDeferred$: Observable<boolean> = this.reloadDeferredSubject.asObservable();
 
   initialise(): void {
-    this.captureRunningVersion();
+    if (!this.appShell.active() && !this.appShell.installed()) {
+      void this.captureRunningVersion();
+    }
     setInterval(() => this.checkForNewVersion(), VERSION_CHECK_INTERVAL_MS);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && !this.appShell.active()) {
+      if (document.visibilityState === "visible" && !this.appShell.active() && !this.appShell.installed()) {
         this.checkForNewVersion();
       }
     });
@@ -58,7 +60,7 @@ export class VersionCheckService {
   }
 
   private async checkForNewVersion(): Promise<void> {
-    if (this.appShell.active()) {
+    if (this.appShell.active() || this.appShell.installed()) {
       this.logger.debug("version check deferred while the walking app is open");
     } else if (this.newVersionAvailable) {
       this.reloadIfReady();
@@ -97,7 +99,11 @@ export class VersionCheckService {
   }
 
   reloadNow(): void {
-    this.reloadPage();
+    if (!this.routeFollow.isBusy() && navigator.onLine) {
+      this.reloadPage();
+    } else {
+      this.logger.info("App update deferred until the walking session has finished and a connection is available");
+    }
   }
 
   private isTextEntry(target: EventTarget | null): boolean {
@@ -124,7 +130,7 @@ export class VersionCheckService {
   }
 
   private safeToReload(): boolean {
-    return !this.appShell.active()
+    return !this.appShell.active() && !this.appShell.installed()
       && !document.body.classList.contains("modal-open")
       && !this.userHasEditedSinceNavigation
       && !this.routeFollow.isBusy();

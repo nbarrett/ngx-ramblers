@@ -14,6 +14,12 @@ export const fileNameData = new mongoose.Schema({
     walkedAt: {type: Number},
     walkedByMemberId: {type: String},
     description: {type: String},
+    createdDate: {type: Number},
+    createdBy: {type: String},
+    createdByName: {type: String},
+    updatedDate: {type: Number},
+    updatedBy: {type: String},
+    updatedByName: {type: String},
     walkedByName: {type: String},
 }, {_id: false});
 

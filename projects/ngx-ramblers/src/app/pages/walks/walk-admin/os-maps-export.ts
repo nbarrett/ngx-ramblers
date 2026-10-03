@@ -1,3 +1,4 @@
+import { RouteAuditComponent } from "../../../modules/common/route-audit";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -44,7 +45,7 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
 
 @Component({
   selector: "app-os-maps-export",
-  imports: [PageComponent, FormsModule, FontAwesomeModule, OsMapsLoginRequiredAlertComponent, SerenityJobAuditPanelComponent, TabsetComponent, TabDirective, TooltipDirective, OsMapsRoutePreviewMapComponent],
+  imports: [RouteAuditComponent, PageComponent, FormsModule, FontAwesomeModule, OsMapsLoginRequiredAlertComponent, SerenityJobAuditPanelComponent, TabsetComponent, TabDirective, TooltipDirective, OsMapsRoutePreviewMapComponent],
   template: `
     <app-page pageTitle="OS Maps Routes">
       @if (!loginConfigured) {
@@ -201,6 +202,9 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
                           <fa-icon [icon]="route.source === OsMapsRouteSource.BOOKMARKED ? faBookmark : faMap"/>
                         </span>
                       </div>
+                      @if (route.gpxFile) {
+                        <app-route-audit [audit]="route.gpxFile"/>
+                      }
                       <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
                         <a [href]="route.url" target="_blank" rel="noopener" class="small d-inline-flex align-items-center gap-1">
                           <img src="/assets/images/local/os-api/os-logo-maps.svg" alt="" width="46" height="12"/>

@@ -57,6 +57,7 @@ export function riskAssessmentContentName(key: string): string {
 }
 
 export interface WalksConfig {
+  mobileApp?: MobileAppConfig;
   milesPerHour: number;
   mapZoomOutLevels?: number;
   requireRiskAssessment: boolean;
@@ -104,8 +105,30 @@ export enum CalendarColourBy {
 }
 
 export enum WalkConfigTab {
+  MOBILE_APP = "Mobile app",
   GENERAL = "General",
   RISK_ASSESSMENT = "Risk Assessment",
   MEETUP = "Meetup",
   WALK_VIEW = "Walk View",
 }
+
+export enum MobileAppAction {
+  ACCESS = "access",
+  FOLLOW = "follow",
+  RECORD = "record",
+  IMPORT = "import",
+  EDIT = "edit"
+}
+
+export interface MobileAppConfig {
+  access: AccessLevel;
+  follow: AccessLevel;
+  record: AccessLevel;
+  import: AccessLevel;
+  edit: AccessLevel;
+}
+
+export const DEFAULT_MOBILE_APP_CONFIG: MobileAppConfig = {
+  access: AccessLevel.PUBLIC, follow: AccessLevel.PUBLIC,
+  record: AccessLevel.LOGGED_IN_MEMBER, import: AccessLevel.LOGGED_IN_MEMBER, edit: AccessLevel.EVENT_ADMIN
+};

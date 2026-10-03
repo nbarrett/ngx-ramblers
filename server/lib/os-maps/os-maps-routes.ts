@@ -1,3 +1,4 @@
+import { requireMobileEdit } from "../walks/mobile-app-access";
 import express from "express";
 import * as authConfig from "../auth/auth-config";
 import { tileProxy } from "./os-maps-proxy";
@@ -20,7 +21,7 @@ router.get("/imported-routes", listImportedOsMapsRoutes);
 router.get("/imported-routes/:routeId", publicImportedOsMapsRoute);
 router.get("/routes", authConfig.authenticate(), authConfig.requireAdmin, listOsMapsRoutes);
 router.get("/routes/:routeId", authConfig.authenticate(), authConfig.requireAdmin, osMapsImportedRoute);
-router.put("/routes/:routeId", authConfig.authenticate(), authConfig.requireAdmin, updateOsMapsImportedRoute);
+router.put("/routes/:routeId", authConfig.authenticate(), requireMobileEdit, updateOsMapsImportedRoute);
 router.post("/routes/refresh", authConfig.authenticate(), authConfig.requireAdmin, refreshOsMapsRoutes);
 router.post("/export", authConfig.authenticate(), authConfig.requireAdmin, exportOsMapsRoute);
 router.post("/export/cancel", authConfig.authenticate(), authConfig.requireAdmin, cancelOsMapsExport);

@@ -1,3 +1,5 @@
+import { RouteContributor } from "../../../projects/ngx-ramblers/src/app/models/audit";
+import { gpxAudit } from "../walks/walk-gpx-persist";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { osMapsImportedRoute, OsMapsImportedRouteRecord } from "../mongo/models/os-maps-imported-route";
 import { FileNameData } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
@@ -12,11 +14,14 @@ export async function markOsMapsRoutesImported(imports: OsMapsRouteImport[]): Pr
     return routeId ? {routeId, url: routeImport.url, importedAt, gpxFile: routeImport.gpxFile, color: PaletteColor.COBALT, weight: 8, opacity: 1} : null;
   }).filter((record): record is NonNullable<typeof record> => !!record);
   if (records.length > 0) {
-    await mongooseClient.execute(() => Promise.all(records.map(record => osMapsImportedRoute.findOneAndUpdate(
-      {routeId: record.routeId},
-      record,
-      {upsert: true, new: true}
-    ))));
+    await mongooseClient.execute(() => Promise.all(records.map(async record => {
+      const existing = await osMapsImportedRoute.findOne({routeId: record.routeId}).lean();
+      const gpxFile = {...record.gpxFile,
+        createdDate: existing ? existing.gpxFile?.createdDate || null : record.gpxFile.createdDate,
+        createdBy: existing ? existing.gpxFile?.createdBy || null : record.gpxFile.createdBy,
+        createdByName: existing ? existing.gpxFile?.createdByName || null : record.gpxFile.createdByName};
+      return osMapsImportedRoute.findOneAndUpdate({routeId: record.routeId}, {...record, gpxFile}, {upsert: true, new: true});
+    })));
   }
 }
 
@@ -56,12 +61,16 @@ export async function saveOsMapsImportedRoute(routeId: string, update: {
   color?: string | null;
   weight?: number | null;
   opacity?: number | null;
-}): Promise<OsMapsImportedRouteRecord | null> {
-  return mongooseClient.execute(() => osMapsImportedRoute.findOneAndUpdate(
-    {routeId},
-    {$set: update},
-    {new: true, lean: true}
-  ));
+}, contributor: RouteContributor | null = null): Promise<OsMapsImportedRouteRecord | null> {
+  return mongooseClient.execute(async () => {
+    const existing = await osMapsImportedRoute.findOne({routeId}).lean();
+    const audit = gpxAudit(contributor);
+    const gpxFile = {...(update.gpxFile || existing?.gpxFile),
+      createdDate: existing?.gpxFile?.createdDate || null, createdBy: existing?.gpxFile?.createdBy || null,
+      createdByName: existing?.gpxFile?.createdByName || null,
+      updatedDate: audit.updatedDate, updatedBy: audit.updatedBy, updatedByName: audit.updatedByName};
+    return osMapsImportedRoute.findOneAndUpdate({routeId}, {$set: {...update, gpxFile}}, {new: true, lean: true});
+  });
 }
 
 export function withImportedAt(routes: OsMapsListedRoute[], importedById: Record<string, OsMapsImportedRouteRecord>): OsMapsListedRoute[] {

@@ -1,3 +1,4 @@
+import { StoredValue } from "../../models/ui-actions";
 import { RouteFollowMode, RouteFollowPayload, RouteFollowSession, RouteFollowSource } from "../../models/route-follow.model";
 import { RouteFollowComponent } from "./route-follow";
 
@@ -38,7 +39,7 @@ describe("route follow local restoration", () => {
     expect(view["applyLoaded"]).toHaveBeenCalledExactlyOnceWith(payload);
   });
 
-  it.each([RouteFollowMode.FOLLOWING, RouteFollowMode.RECORDING, RouteFollowMode.PAUSED])("restores %s without a network route refresh", async mode => {
+  it.each([RouteFollowMode.IDLE, RouteFollowMode.FOLLOWING, RouteFollowMode.RECORDING, RouteFollowMode.PAUSED])("restores %s without a network route refresh", async mode => {
     const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
     view["loadSequence"] = 0;
     view["mapTiles"] = {allowCachedOsTiles: vi.fn()} as unknown as typeof view["mapTiles"];
@@ -49,12 +50,10 @@ describe("route follow local restoration", () => {
       view["progress"] = {mode} as typeof view["progress"];
     });
     view["revealIdleSheet"] = vi.fn();
-    view["refreshFromNetwork"] = vi.fn();
     view["networkPayload"] = vi.fn();
     await view["load"](null, null, "fictional-walk", null, null);
     expect(view["applyLoaded"]).toHaveBeenCalledWith(payload);
     expect(view["networkPayload"]).not.toHaveBeenCalled();
-    expect(view["refreshFromNetwork"]).not.toHaveBeenCalled();
     expect(view["loading"]).toBe(false);
   });
 });
@@ -138,14 +137,56 @@ describe("standalone recording restoration", () => {
       view["progress"] = {mode} as typeof view["progress"];
     });
     view["revealIdleSheet"] = vi.fn();
-    view["refreshFromNetwork"] = vi.fn();
     view["networkPayload"] = vi.fn();
     view["recordRoute"] = vi.fn();
     await view["load"](null, null, null, null, null, 0, [], "fictional-id");
     expect(view["applyLoaded"]).toHaveBeenCalledWith(payload);
     expect(view["networkPayload"]).not.toHaveBeenCalled();
-    expect(view["refreshFromNetwork"]).not.toHaveBeenCalled();
     expect(view["recordRoute"]).not.toHaveBeenCalled();
     expect(view["usablePayload"](payload)).toBe(true);
+  });
+});
+
+
+describe("recording permissions", () => {
+  it("starts a separate recording when the original route cannot be edited", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    Object.defineProperty(view, "mobileAccess", {value: {allowed: () => true}});
+    view["payload"] = {source: RouteFollowSource.WALK, walkId: "fictional-walk"} as RouteFollowPayload;
+    view["canEditRoute"] = false;
+    view["router"] = {navigate: vi.fn()} as unknown as typeof view["router"];
+    view["followService"] = {startRecording: vi.fn()} as unknown as typeof view["followService"];
+    view.recordRoute();
+    expect(view["router"].navigate).toHaveBeenCalledWith(["/app/follow"], {queryParams: {[StoredValue.RECORD_ROUTE]: expect.any(String)}});
+    expect(view["followService"].startRecording).not.toHaveBeenCalled();
+    expect(view["payload"].walkId).toBe("fictional-walk");
+  });
+
+  it("does not restart GPS when recording permission is denied", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    Object.defineProperty(view, "mobileAccess", {value: {allowed: () => false}});
+    view["followService"] = {recordingSession: () => true, resume: vi.fn()} as unknown as typeof view["followService"];
+    view.resume();
+    expect(view["followService"].resume).not.toHaveBeenCalled();
+    expect(view["persistError"]).toContain("permission");
+  });
+});
+
+
+describe("restricted session restoration", () => {
+  it("keeps recorded points paused instead of restarting location tracking", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    const points = [{latitude: 51, longitude: 0}, {latitude: 51.001, longitude: 0.001}];
+    view["payload"] = {walkId: "fictional-walk", points, waypoints: []} as RouteFollowPayload;
+    view["storedFollowSession"] = vi.fn().mockReturnValue({walkId: "fictional-walk", mode: RouteFollowMode.RECORDING,
+      recordedPoints: points, visitedWaypointIds: []});
+    Object.defineProperty(view, "mobileAccess", {value: {allowed: () => false}});
+    view["followService"] = {setPreviewSpeed: vi.fn(), restorePaused: vi.fn(), restoreRecording: vi.fn()} as unknown as typeof view["followService"];
+    view["requestWakeLock"] = vi.fn();
+    view["restoreFollowSession"]();
+    expect(view["followService"].restorePaused).toHaveBeenCalledWith([], RouteFollowMode.RECORDING, points, 0);
+    expect(view["followService"].restoreRecording).not.toHaveBeenCalled();
+    expect(view["requestWakeLock"]).not.toHaveBeenCalled();
+    expect(view["persistError"]).toContain("permission");
   });
 });

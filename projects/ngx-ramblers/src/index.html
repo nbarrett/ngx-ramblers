@@ -11,7 +11,17 @@
   <meta name="apple-mobile-web-app-title" content="Ramblers">
   <script>
     (function () {
-      var walkingApp = location.pathname === "/app" || location.pathname.indexOf("/app/") === 0;
+      try {
+        var installed = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+        var lastAppUrl = localStorage.getItem("app-last-url");
+        if (installed && (location.pathname === "/" || location.pathname === "/app")) {
+          var restoredUrl = lastAppUrl && /^\/app(?:\/|\?|$)/.test(lastAppUrl) ? lastAppUrl : "/app";
+          history.replaceState(null, "", restoredUrl);
+        }
+      } catch (error) {
+        document.documentElement.dataset.appRestoreError = "true";
+      }
+      var walkingApp = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true || location.pathname === "/app" || location.pathname.indexOf("/app/") === 0;
       if (!walkingApp) {
         try {
           var xhr = new XMLHttpRequest();
@@ -95,7 +105,8 @@
       history.replaceState(null, "", location.pathname + (cleaned ? "?" + cleaned : "") + location.hash);
     }
 
-    if (local && location.pathname !== "/app" && location.pathname.indexOf("/app/") !== 0) {
+    var installed = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+    if (local && !installed && location.pathname !== "/app" && location.pathname.indexOf("/app/") !== 0) {
       dropWorkersAndCaches().then(function (hadWorker) {
         if (hadWorker) {
           clearChunkReloadKeys();
@@ -107,7 +118,7 @@
     window.addEventListener("unhandledrejection", function (event) {
       var reason = event && event.reason;
       var text = String((reason && reason.message) || reason || "");
-      var walkingApp = location.pathname === "/app" || location.pathname.indexOf("/app/") === 0;
+      var walkingApp = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true || location.pathname === "/app" || location.pathname.indexOf("/app/") === 0;
       if (!walkingApp && text.indexOf("Failed to fetch dynamically imported module") !== -1) {
         dropWorkersAndCaches().then(function () {
           clearChunkReloadKeys();

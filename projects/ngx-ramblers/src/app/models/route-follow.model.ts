@@ -1,3 +1,4 @@
+import { RouteAudit } from "./audit";
 import * as L from "leaflet";
 import { ExtendedGroupEvent } from "./group-event.model";
 import { Difficulty, LocationDetails, Metadata } from "./ramblers-walks-manager";
@@ -288,6 +289,7 @@ export function isLiveFollowMode(mode: RouteFollowMode): boolean {
 
 export enum RouteFollowLocationError {
   NONE = "none",
+  INACCURATE = "inaccurate",
   UNSUPPORTED = "unsupported",
   DENIED = "denied",
   UNAVAILABLE = "unavailable",
@@ -510,6 +512,7 @@ export interface RouteFollowWaypoint {
 }
 
 export interface RouteFollowPoint {
+  breakBefore?: boolean;
   recordedAt?: number | null;
   latitude: number;
   longitude: number;
@@ -544,7 +547,7 @@ export interface RouteFollowProgress {
   currentElevationMetres: number | null;
 }
 
-export interface RouteFollowPayload {
+export interface RouteFollowPayload extends RouteAudit {
   recordingId?: string | null;
   description?: string | null;
   source: RouteFollowSource;
@@ -568,7 +571,7 @@ export interface RouteFollowPayload {
   via?: number[];
 }
 
-export interface RouteFollowSummary {
+export interface RouteFollowSummary extends RouteAudit {
   recordingId?: string | null;
   description?: string | null;
   source: RouteFollowSource;
@@ -931,3 +934,7 @@ export function formatOsGridReference(eastings: number, northings: number): stri
     }
   }
 }
+
+export const RECORDING_MAX_ACCURACY_METRES = 30;
+export const RECORDING_MAX_SPEED_METRES_PER_SECOND = 4;
+export const RECORDING_GAP_MS = 30000;

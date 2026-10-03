@@ -51,9 +51,9 @@ export class RouteFollowSaveService {
 
   pointsToGpx(points: RouteFollowPoint[], name: string, description = ""): string {
     const stamp = points[0]?.recordedAt ? this.dateUtils.isoDateTime(points[0].recordedAt) : this.dateUtils.isoDateTimeNow();
-    const trackPoints = points.map(point => {
+    const trackPoints = points.map((point, index) => {
       const elevation = isNumber(point.elevation) ? point.elevation : 0;
-      return `      <trkpt lat="${point.latitude}" lon="${point.longitude}">
+      return `${index > 0 && point.breakBefore ? "    </trkseg>\n    <trkseg>\n" : ""}      <trkpt lat="${point.latitude}" lon="${point.longitude}">
         <ele>${elevation}</ele>${point.recordedAt ? `
         <time>${this.dateUtils.isoDateTime(point.recordedAt)}</time>` : ""}
       </trkpt>`;
@@ -83,7 +83,7 @@ ${trackPoints}
       if (!imported.routeId) {
         throw new Error("The saved route did not return an identifier. Your recording is kept for retry.");
       } else {
-        return {...payload, recordingId: null, source: RouteFollowSource.OS_MAPS, osMapsRouteId: imported.routeId,
+        return {...payload, ...imported.gpxFile, recordingId: null, source: RouteFollowSource.OS_MAPS, osMapsRouteId: imported.routeId,
           points, totalMetres: imported.gpxFile.distanceMetres || 0};
       }
     }
@@ -105,7 +105,7 @@ ${trackPoints}
       } else {
         throw new Error("This route cannot be saved back to the site.");
       }
-      return gpxFile;
+      return this.preserveCreationAudit(payload, gpxFile);
     }
   }
 
@@ -125,7 +125,7 @@ ${trackPoints}
 
   private async attachToWalk(walkId: string, gpxFile: FileNameData, payload: RouteFollowPayload): Promise<void> {
     const walk: ExtendedGroupEvent = await this.walksAndEvents.queryById(walkId);
-    walk.fields.gpxFile = gpxFile;
+    walk.fields.gpxFile = this.preserveCreationAudit(walk.fields.gpxFile, gpxFile);
     this.applyStyleToWalk(walk, payload);
     await this.walksAndEvents.createOrUpdate(walk);
   }
@@ -168,7 +168,7 @@ ${trackPoints}
             opacity: payload.opacity,
             visible: route.visible !== false
           };
-          return gpxFile ? {...next, gpxFile} : next;
+          return gpxFile ? {...next, gpxFile: this.preserveCreationAudit(route.gpxFile, gpxFile)} : next;
         } else {
           return route;
         }
@@ -184,6 +184,11 @@ ${trackPoints}
         ...(gpxFile ? {gpxFile} : {})
       }];
     }
+  }
+
+  private preserveCreationAudit(existing: FileNameData | null, uploaded: FileNameData): FileNameData {
+    return existing ? {...uploaded, createdDate: existing.createdDate || null,
+      createdBy: existing.createdBy || null, createdByName: existing.createdByName || null} : uploaded;
   }
 
   private gpxFile(payload: RouteFollowPayload, points: RouteFollowPoint[]): File {

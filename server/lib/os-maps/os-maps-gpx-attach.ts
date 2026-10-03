@@ -1,3 +1,4 @@
+import { gpxAudit } from "../walks/walk-gpx-persist";
 import debug from "debug";
 import { isString } from "es-toolkit/compat";
 import { ExportedGpxSummary, OsMapsRouteImport, osMapsRouteIdFromUrl, PersistedOsMapsGpx } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
@@ -77,8 +78,9 @@ export async function applyOsMapsExportWorkerResult(jobId: string, exportedGpx: 
   } else if (exportedGpx && exportedGpx.length > 0) {
     try {
       const persisted = await persistSummaries(exportedGpx);
-      const gpxFiles = persisted.map(item => item.gpxFile);
-      const imports = routeImportsFrom(existing.routeUrls || [], persisted);
+      const gpxFiles = persisted.map(item => ({...item.gpxFile, ...gpxAudit(existing.contributor)}));
+      const imports = routeImportsFrom(existing.routeUrls || [], persisted).map(routeImport => ({...routeImport,
+        gpxFile: {...routeImport.gpxFile, ...gpxAudit(existing.contributor)}}));
       await completeOsMapsExportResult(jobId, gpxFiles, await unconvertedRoutesMessage(existing.routeUrls || [], imports));
       await markOsMapsRoutesImported(imports);
       if (isString(existing.walkId) && existing.walkId && gpxFiles[0]) {

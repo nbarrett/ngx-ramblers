@@ -5,7 +5,7 @@ import debug from "debug";
 import * as fs from "fs";
 import { persistGpxContent } from "./walk-gpx-persist";
 import { osMapsImportedRouteById, saveFileImportedGpx } from "../os-maps/os-maps-imported-route-store";
-import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import { routeContributorFrom } from "../auth/request-member";
 import multer from "multer";
 import { isString } from "es-toolkit/compat";
 
@@ -14,14 +14,6 @@ debugLog.enabled = true;
 
 export const receiveWalkGpx = multer({dest: envConfig.server.uploadDir}).single("file");
 
-function walkerFrom(req: Request): {memberId?: string; name?: string} {
-  const user = req.user as Partial<MemberCookie> | undefined;
-  const name = [user?.firstName, user?.lastName].filter(part => !!part).join(" ").trim() || user?.userName || "";
-  return {
-    memberId: user?.memberId,
-    name: name || undefined
-  };
-}
 
 export function uploadWalkGpx(req: Request, res: Response) {
   const file = req.file;
@@ -35,7 +27,7 @@ export function uploadWalkGpx(req: Request, res: Response) {
   }
 
   const content = fs.readFileSync(file.path, "utf8");
-  persistGpxContent(file.originalname, content, undefined, walkerFrom(req))
+  persistGpxContent(file.originalname, content, undefined, routeContributorFrom(req))
     .then(fileNameData => {
       debugLog("Upload successful:", fileNameData);
       return res.status(200).json({ gpxFile: fileNameData });
@@ -65,7 +57,7 @@ export async function importWalkGpx(req: Request, res: Response): Promise<void> 
           const content = fs.readFileSync(file.path, "utf8");
           const title = isString(req.body?.title) ? req.body.title.trim().slice(0, 200) : "";
           const description = isString(req.body?.description) ? req.body.description.trim().slice(0, 10000) : "";
-          const gpxFile = await persistGpxContent(file.originalname, content, title || null, walkerFrom(req));
+          const gpxFile = await persistGpxContent(file.originalname, content, title || null, routeContributorFrom(req));
           gpxFile.description = description;
           const route = await saveFileImportedGpx(gpxFile, recordingId || null);
           debugLog("Import successful:", gpxFile.awsFileName, route?.routeId);

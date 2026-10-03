@@ -274,6 +274,7 @@ class LatLonEllipsoidal_Datum extends LatLonEllipsoidal {
 }
 
 export interface GpxTrackPoint {
+  breakBefore?: boolean;
   latitude: number;
   longitude: number;
   elevation?: number;
@@ -465,7 +466,8 @@ export class GpxParserService {
       if (!isNaN(lat) && !isNaN(lon)) {
         const point: GpxTrackPoint = {
           latitude: lat,
-          longitude: lon
+          longitude: lon,
+          breakBefore: trkptEl.parentElement?.tagName === "trkseg" && trkptEl === trkptEl.parentElement.querySelector("trkpt")
         };
 
         const eleText = this.getTextContent(trkptEl, "ele");
@@ -543,11 +545,11 @@ export class GpxParserService {
         const hasElevation = !isUndefined(point.elevation);
         const minElevation = hasElevation && (isUndefined(acc.minElevation) || point.elevation < acc.minElevation) ? point.elevation : acc.minElevation;
         const maxElevation = hasElevation && (isUndefined(acc.maxElevation) || point.elevation > acc.maxElevation) ? point.elevation : acc.maxElevation;
-        const elevationChange = hasElevation && !isUndefined(acc.previousElevation) ? point.elevation - acc.previousElevation : 0;
+        const elevationChange = !point.breakBefore && hasElevation && !isUndefined(acc.previousElevation) ? point.elevation - acc.previousElevation : 0;
         const totalAscent = elevationChange > 0 ? acc.totalAscent + elevationChange : acc.totalAscent;
         const totalDescent = elevationChange < 0 ? acc.totalDescent + Math.abs(elevationChange) : acc.totalDescent;
         const previousElevation = hasElevation ? point.elevation : acc.previousElevation;
-        const distanceInc = i > 0 ? this.calculateDistance(track.points[i - 1].latitude, track.points[i - 1].longitude, point.latitude, point.longitude) : 0;
+        const distanceInc = i > 0 && !point.breakBefore ? this.calculateDistance(track.points[i - 1].latitude, track.points[i - 1].longitude, point.latitude, point.longitude) : 0;
         return {totalDistance: acc.totalDistance + distanceInc, minElevation, maxElevation, totalAscent, totalDescent, previousElevation};
       },
       {totalDistance: 0, minElevation: undefined as number | undefined, maxElevation: undefined as number | undefined, totalAscent: 0, totalDescent: 0, previousElevation: undefined as number | undefined}
