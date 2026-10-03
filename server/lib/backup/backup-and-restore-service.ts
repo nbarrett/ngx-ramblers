@@ -141,7 +141,7 @@ export class BackupAndRestoreService {
 
   private buildMongoUriForConfig(cluster: string, username: string, password: string, database: string): string {
     const baseUri = buildMongoUri({ cluster, username, password, database });
-    return `${baseUri}&socketTimeoutMS=300000&connectTimeoutMS=30000&serverSelectionTimeoutMS=30000`;
+    return `${baseUri}&socketTimeoutMS=300000&connectTimeoutMS=30000&serverSelectionTimeoutMS=30000&compressors=zlib`;
   }
 
   async startBackup(options: BackupOptions): Promise<BackupSession> {
@@ -627,13 +627,15 @@ export class BackupAndRestoreService {
   }
 
   private async emitSessionUpdated(sessionId: string): Promise<void> {
-    try {
-      const fresh = await backupSession.findById(sessionId).lean() as BackupSession | null;
-      if (fresh) {
-        backupEvents.emit("session-updated", { session: fresh });
+    if (backupEvents.listenerCount("session-updated") > 0) {
+      try {
+        const fresh = await backupSession.findById(sessionId).lean() as BackupSession | null;
+        if (fresh) {
+          backupEvents.emit("session-updated", { session: fresh });
+        }
+      } catch (error) {
+        debugLog(`emitSessionUpdated failed for ${sessionId}:`, error);
       }
-    } catch (error) {
-      debugLog(`emitSessionUpdated failed for ${sessionId}:`, error);
     }
   }
 
@@ -866,6 +868,10 @@ export class BackupAndRestoreService {
 
   async session(sessionId: string): Promise<BackupSession | null> {
     return backupSession.findById(sessionId);
+  }
+
+  async sessionStatus(sessionId: string): Promise<Pick<BackupSession, "status" | "error"> | null> {
+    return backupSession.findById(sessionId).select({ status: 1, error: 1, _id: 0 }).lean();
   }
 
   async listEnvironments(): Promise<{ name: string; appName: string; database?: string; hasMongoConfig: boolean }[]> {
