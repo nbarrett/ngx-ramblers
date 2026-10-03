@@ -65,7 +65,7 @@ async function settings(): Promise<BackupsTaskSettings> {
 }
 
 async function waitForBackupCompletion(service: BackupAndRestoreService, sessionId: string, deadline: number, timeoutMinutes: number): Promise<BackupSessionStatus> {
-  const session = await service.session(sessionId);
+  const session = await service.sessionStatus(sessionId);
   if (session?.status === BackupSessionStatus.COMPLETED || session?.status === BackupSessionStatus.FAILED) {
     return session.status;
   }
@@ -89,7 +89,7 @@ async function backupEnvironment(service: BackupAndRestoreService, environmentNa
     const deadline = dateTimeNowAsValue() + taskSettings.perEnvironmentTimeoutMinutes * 60 * 1000;
     const status = await waitForBackupCompletion(service, session._id!.toString(), deadline, taskSettings.perEnvironmentTimeoutMinutes);
     if (status === BackupSessionStatus.FAILED) {
-      const failed = await service.session(session._id!.toString());
+      const failed = await service.sessionStatus(session._id!.toString());
       return failed?.error || "unknown error";
     } else {
       return null;
