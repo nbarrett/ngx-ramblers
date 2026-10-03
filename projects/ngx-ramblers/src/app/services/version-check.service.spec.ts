@@ -48,6 +48,20 @@ describe("VersionCheckService", () => {
     expect(reloads).toBe(1);
   });
 
+  it("does not contact the network for version checks in the walking app", async () => {
+    vi.spyOn(service["appShell"], "active").mockReturnValue(true);
+    await service["checkForNewVersion"]();
+    httpMock.expectNone("/api/version");
+    expect(reloads).toBe(0);
+  });
+
+  it("defers an already discovered update while the walking app is open", () => {
+    vi.spyOn(service["appShell"], "active").mockReturnValue(true);
+    service["newVersionAvailable"] = true;
+    service["reloadIfReady"]();
+    expect(reloads).toBe(0);
+  });
+
   it("keeps a live follow open when a new version is deployed", async () => {
     vi.spyOn(service["routeFollow"], "isBusy").mockReturnValue(true);
     const check = service["checkForNewVersion"]();

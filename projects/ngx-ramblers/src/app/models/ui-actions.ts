@@ -211,6 +211,7 @@ export enum StoredValue {
   Q = "q",
   RAMBLERS_SLUG = "ramblers-slug",
   RANGE = "range",
+  RECORD_ROUTE = "record-route",
   MEETING_RECORDINGS_SORT = "recordings-sort",
   MEETING_RECORDINGS_SORT_ORDER = "recordings-sort-order",
   REDIRECT = "redirect",

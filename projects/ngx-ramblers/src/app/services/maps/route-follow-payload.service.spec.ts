@@ -1,10 +1,10 @@
 import { TestBed } from "@angular/core/testing";
 import { provideHttpClient } from "@angular/common/http";
-import { provideHttpClientTesting } from "@angular/common/http/testing";
+import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { PageContent, PageContentType } from "../../models/content-text.model";
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
-import { OsMapsRouteSource } from "../../models/os-maps-export.model";
+import { OsMapsListedRoute, OsMapsRouteSource } from "../../models/os-maps-export.model";
 import { RouteFollowSource, RouteWaypointKind } from "../../models/route-follow.model";
 import { RouteFollowPayloadService } from "./route-follow-payload.service";
 import { UrlService } from "../url.service";
@@ -55,6 +55,23 @@ describe("RouteFollowPayloadService", () => {
       ]
     });
     service = TestBed.inject(RouteFollowPayloadService);
+  });
+
+  it("retains recorded point timestamps and the description when reopening a saved GPX", async () => {
+    const loading = service.payloadFromOsMapsRoute({
+      id: "recording-fictional-id", title: "Hillside trail",
+      gpxFile: {awsFileName: "gpx-routes/recording.gpx", description: "Through woods and fields"}
+    } as OsMapsListedRoute);
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne("/api/aws/s3/gpx-routes/recording.gpx").flush(`<gpx version="1.1"><trk><name>Hillside trail</name><trkseg>
+      <trkpt lat="51" lon="0"><time>2026-06-01T10:00:00Z</time></trkpt>
+      <trkpt lat="51.001" lon="0.001"><time>2026-06-01T10:00:10Z</time></trkpt>
+    </trkseg></trk></gpx>`);
+    const payload = await loading;
+    expect(payload.description).toBe("Through woods and fields");
+    expect(payload.points[0].recordedAt).toBeGreaterThan(0);
+    expect(payload.points[1].recordedAt - payload.points[0].recordedAt).toBe(10000);
+    http.verify();
   });
 
   it("finds a followable map row on a page", () => {

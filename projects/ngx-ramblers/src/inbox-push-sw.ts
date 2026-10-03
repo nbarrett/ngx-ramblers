@@ -79,7 +79,8 @@ async function cacheFollowResources(urls: string[]): Promise<void> {
         || parsed.pathname.startsWith("/assets/images/local/pwa-")
         || parsed.pathname === "/assets/images/local/apple-touch-icon.png"
         || /\.(?:js|css|woff2?)$/.test(parsed.pathname));
-    if (allowed) {
+    const existing = allowed ? await cache.match(parsed.href) : null;
+    if (allowed && !existing) {
       await fetch(url, {cache: "no-store"})
         .then(response => cacheable(response) ? cache.put(parsed.href, response) : undefined)
         .catch(() => undefined);
@@ -89,18 +90,22 @@ async function cacheFollowResources(urls: string[]): Promise<void> {
 
 async function followShell(request: Request): Promise<Response> {
   const cache = await caches.open(FOLLOW_SHELL);
-  try {
-    const fresh = await fetch(request, {cache: "no-store"});
-    if (fresh.ok) {
-      await cache.put("/app", fresh.clone());
+  const cached = await cache.match("/app") || await caches.match("/app");
+  if (cached) {
+    return cached;
+  } else {
+    try {
+      const fresh = await fetch(request, {cache: "no-store"});
+      if (fresh.ok) {
+        await cache.put("/app", fresh.clone());
+      }
+      return fresh;
+    } catch {
+      return new Response("This walking app is not available offline yet. Open it once while connected, then try again.", {
+        status: 503,
+        headers: {"Content-Type": "text/plain; charset=utf-8"}
+      });
     }
-    return fresh;
-  } catch {
-    const cached = await cache.match("/app") || await caches.match("/app");
-    return cached || new Response("This walking app is not available offline yet. Open it once while connected, then try again.", {
-      status: 503,
-      headers: {"Content-Type": "text/plain; charset=utf-8"}
-    });
   }
 }
 

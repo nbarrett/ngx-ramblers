@@ -6,6 +6,7 @@ import { BehaviorSubject, firstValueFrom, Observable } from "rxjs";
 import { filter } from "rxjs/operators";
 import { BuildVersion, VERSION_CHECK_INTERVAL_MS } from "../models/build-version.model";
 import { Logger, LoggerFactory } from "./logger-factory.service";
+import { AppShellService } from "./maps/app-shell.service";
 import { RouteFollowService } from "./maps/route-follow.service";
 
 const NON_TEXT_INPUT_TYPES = ["checkbox", "radio", "range", "color", "file", "submit", "button", "reset", "image"];
@@ -19,6 +20,7 @@ export class VersionCheckService {
   private http = inject(HttpClient);
   private router = inject(Router);
   private routeFollow = inject(RouteFollowService);
+  private appShell = inject(AppShellService);
   private BASE_URL = "/api/version";
   private runningBuildNumber: string;
   private newVersionAvailable = false;
@@ -30,7 +32,7 @@ export class VersionCheckService {
     this.captureRunningVersion();
     setInterval(() => this.checkForNewVersion(), VERSION_CHECK_INTERVAL_MS);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "visible" && !this.appShell.active()) {
         this.checkForNewVersion();
       }
     });
@@ -56,19 +58,19 @@ export class VersionCheckService {
   }
 
   private async checkForNewVersion(): Promise<void> {
-    if (this.newVersionAvailable) {
+    if (this.appShell.active()) {
+      this.logger.debug("version check deferred while the walking app is open");
+    } else if (this.newVersionAvailable) {
       this.reloadIfReady();
-      return;
-    }
-    if (!this.runningBuildNumber) {
+    } else if (!this.runningBuildNumber) {
       await this.captureRunningVersion();
-      return;
-    }
-    const buildNumber = await this.queryBuildNumber();
-    if (this.isNewerThanRunning(buildNumber)) {
-      this.logger.info("new build number:", buildNumber, "replacing:", this.runningBuildNumber);
-      this.newVersionAvailable = true;
-      this.reloadIfReady();
+    } else {
+      const buildNumber = await this.queryBuildNumber();
+      if (this.isNewerThanRunning(buildNumber)) {
+        this.logger.info("new build number:", buildNumber, "replacing:", this.runningBuildNumber);
+        this.newVersionAvailable = true;
+        this.reloadIfReady();
+      }
     }
   }
 
@@ -122,12 +124,28 @@ export class VersionCheckService {
   }
 
   private safeToReload(): boolean {
-    return !document.body.classList.contains("modal-open")
+    return !this.appShell.active()
+      && !document.body.classList.contains("modal-open")
       && !this.userHasEditedSinceNavigation
       && !this.routeFollow.isBusy();
   }
 
   protected reloadPage(): void {
+    void this.reloadWithFreshShell();
+  }
+
+  private async reloadWithFreshShell(): Promise<void> {
+    try {
+      if ("caches" in window) {
+        const cacheNames = await window.caches.keys();
+        await Promise.all(cacheNames.filter(name => name.startsWith("follow-shell-")).map(async name => {
+          const cache = await window.caches.open(name);
+          await cache.delete("/app");
+        }));
+      }
+    } catch (error) {
+      this.logger.warn("could not refresh the walking app shell", error);
+    }
     location.reload();
   }
 

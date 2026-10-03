@@ -1,5 +1,7 @@
+import { vi } from "vitest";
+import * as L from "leaflet";
 import { RouteFollowReturnDirection } from "../../models/route-follow.model";
-import { mapAngleDelta, returnDirectionFrom, screenDeltaToLocal, unwrapBearing } from "./map-gestures";
+import { MapGestures, mapAngleDelta, returnDirectionFrom, screenDeltaToLocal, unwrapBearing } from "./map-gestures";
 
 describe("mapAngleDelta", () => {
   it("returns the shortest signed turn between two headings", () => {
@@ -51,5 +53,44 @@ describe("screenDeltaToLocal", () => {
     const local = screenDeltaToLocal(10, 0, 90);
     expect(local.x).toBeCloseTo(0, 6);
     expect(local.y).toBeCloseTo(-10, 6);
+  });
+});
+
+
+describe("MapGestures pinch zoom", () => {
+  it("renders fractional zoom during the gesture and settles when fingers lift", () => {
+    const container = document.createElement("div");
+    container.style.width = "400px";
+    container.style.height = "400px";
+    document.body.appendChild(container);
+    const map = L.map(container, {zoomAnimation: false, zoomControl: false}).setView([51, 0], 10);
+    const gestures = new MapGestures();
+    gestures.attach(map);
+    const frame = {callback: null as FrameRequestCallback | null};
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => {
+      frame.callback = callback;
+      return 1;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => null);
+    const touch = (name: string, distance: number) => {
+      const event = new Event(name, {cancelable: true});
+      Object.defineProperty(event, "touches", {value: distance ? [
+        {clientX: 200 - distance / 2, clientY: 200},
+        {clientX: 200 + distance / 2, clientY: 200}
+      ] : []});
+      container.dispatchEvent(event);
+    };
+    touch("touchstart", 100);
+    touch("touchmove", 120);
+    touch("touchmove", 150);
+    expect(map.getZoom()).toBe(10);
+    frame.callback(0);
+    expect(map.getZoom()).toBeCloseTo(10 + Math.log2(1.5), 6);
+    touch("touchend", 0);
+    expect(map.getZoom()).toBe(11);
+    gestures.detach();
+    map.remove();
+    container.remove();
+    vi.restoreAllMocks();
   });
 });

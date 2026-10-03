@@ -70,11 +70,18 @@ describe("UiActionsService", () => {
     });
 
     it("saves values and removes them", () => {
-        service.saveValueFor(StoredValue.SEARCH, "needle");
+        expect(service.saveValueFor(StoredValue.SEARCH, "needle")).toBe(true);
         expect(storage[StoredValue.SEARCH]).toEqual("needle");
 
         service.removeItemFor(StoredValue.SEARCH);
         expect(storage[StoredValue.SEARCH]).toBeUndefined();
+    });
+
+    it("reports a storage failure instead of claiming the session was saved", () => {
+        vi.spyOn(localStorage, "setItem").mockImplementation(() => {
+            throw new Error("Storage quota exceeded");
+        });
+        expect(service.saveValueFor(StoredValue.FOLLOW_SESSION, {points: []})).toBe(false);
     });
 
     it("detects stored items", () => {

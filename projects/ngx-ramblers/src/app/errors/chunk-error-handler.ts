@@ -1,15 +1,19 @@
 import { ErrorHandler, inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
+import { AppShellService } from "../services/maps/app-shell.service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 
 @Injectable()
 export class ChunkErrorHandler implements ErrorHandler {
 
+  private appShell = inject(AppShellService);
   private logger: Logger = inject(LoggerFactory).createLogger("ChunkErrorHandler", NgxLoggerLevel.ERROR);
 
   handleError(error: unknown): void {
     const resolved = this.resolveError(error);
-    if (this.isChunkLoadError(error) || this.isChunkLoadError(resolved)) {
+    if (this.appShell.active() && (this.isChunkLoadError(error) || this.isChunkLoadError(resolved))) {
+      this.logger.error("Walking app resource unavailable; preserving the current session and offline cache", resolved);
+    } else if (this.isChunkLoadError(error) || this.isChunkLoadError(resolved)) {
       const storageKey = "chunk-reload-" + location.pathname;
       if (!sessionStorage.getItem(storageKey)) {
         this.logger.error("ChunkLoadError detected — reloading to fetch updated chunks");

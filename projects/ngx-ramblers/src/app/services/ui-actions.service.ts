@@ -74,18 +74,21 @@ export class UiActionsService {
     return this.booleanOf(this.initialValueFor(parameter, defaultValue));
   }
 
-  saveValueFor(parameter: StoredValue, value?: any, index?: number) {
+  saveValueFor(parameter: StoredValue, value?: any, index?: number): boolean {
     if (parameter) {
-      const storedValue: string = isObject(value) ? JSON.stringify(value) : value?.toString();
       const key = this.queryParameterName(parameter, index);
-      this.logger.debug("saving value for:", key, "as:", storedValue);
       try {
+        const storedValue: string = isObject(value) ? JSON.stringify(value) : value?.toString();
+        this.logger.debug("saving value for:", key, "as:", storedValue);
         localStorage.setItem(key, storedValue);
+        return true;
       } catch (error) {
         this.logger.warn("local storage unavailable when saving", parameter, error);
+        return false;
       }
     } else {
       this.logger.error("saveValueFor:no parameter value supplied for value:", value);
+      return false;
     }
   }
 

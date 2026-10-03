@@ -1,4 +1,5 @@
 import * as L from "leaflet";
+import { ExtendedGroupEvent } from "./group-event.model";
 import { Difficulty, LocationDetails, Metadata } from "./ramblers-walks-manager";
 import { Feature } from "./walk-feature.model";
 import { PageContentColumn, PageContentRow } from "./content-text.model";
@@ -244,7 +245,16 @@ export enum CompassCardinal {
   NW = "NW"
 }
 
+export interface CachedFollowRoute {
+  key: string;
+  payload: RouteFollowPayload;
+  savedAt: number;
+  tilesReady: boolean;
+  tileCount: number;
+}
+
 export interface RouteFollowSession {
+  recordingId?: string | null;
   walkId: string | null;
   path: string | null;
   routeId: string | null;
@@ -260,7 +270,15 @@ export interface RouteFollowSession {
   via: number[];
   mapCenter: RouteFollowPoint | null;
   mapZoom: number | null;
-  recordedPoints?: RouteFollowPoint[];
+  recordedPoints?: RouteFollowPoint[] | null;
+  payload?: RouteFollowPayload | null;
+  walk?: ExtendedGroupEvent | null;
+  progress?: RouteFollowProgress | null;
+  pausedFromMode?: RouteFollowMode;
+  followUser?: boolean;
+  mapBearing?: number;
+  showDirections?: boolean;
+  browsedWaypointId?: string | null;
 }
 
 export function isLiveFollowMode(mode: RouteFollowMode): boolean {
@@ -328,7 +346,8 @@ export enum RouteFollowSource {
   PAGE = "page",
   WALK = "walk",
   RAMBLERS_LIBRARY = "ramblers-library",
-  OS_MAPS = "os-maps"
+  OS_MAPS = "os-maps",
+  RECORDING = "recording"
 }
 
 export const MAP_GESTURES_FRAME_CLASS = "map-gestures-frame";
@@ -376,7 +395,15 @@ export interface MapCoverSize {
   parentPosition: string;
 }
 
+export interface MapPinchRenderer extends L.Map {
+  _moveStart(zoomChanged: boolean, noMoveStart: boolean): L.Map;
+  _move(center: L.LatLng, zoom: number, data: {pinch: boolean; round: boolean}): L.Map;
+  _animateZoom(center: L.LatLng, zoom: number, startAnim: boolean, noUpdate: boolean): void;
+  _resetView(center: L.LatLng, zoom: number): void;
+}
+
 export interface MapGestureAnchor {
+  latLng: L.LatLng;
   distance: number;
   angle: number;
   zoom: number;
@@ -483,6 +510,7 @@ export interface RouteFollowWaypoint {
 }
 
 export interface RouteFollowPoint {
+  recordedAt?: number | null;
   latitude: number;
   longitude: number;
   elevation?: number | null;
@@ -517,6 +545,8 @@ export interface RouteFollowProgress {
 }
 
 export interface RouteFollowPayload {
+  recordingId?: string | null;
+  description?: string | null;
   source: RouteFollowSource;
   title: string;
   path: string | null;
@@ -539,6 +569,8 @@ export interface RouteFollowPayload {
 }
 
 export interface RouteFollowSummary {
+  recordingId?: string | null;
+  description?: string | null;
   source: RouteFollowSource;
   title: string;
   path: string | null;
@@ -572,13 +604,16 @@ export interface RamblersLibraryRoute {
 }
 
 export function followCacheKey(parts: {
+  recordingId?: string | null;
   path?: string | null;
   routeId?: string | null;
   walkId?: string | null;
   ramblersSlug?: string | null;
   osMapsRouteId?: string | null;
 }): string | null {
-  if (parts.osMapsRouteId) {
+  if (parts.recordingId) {
+    return `recording:${parts.recordingId}`;
+  } else if (parts.osMapsRouteId) {
     return `os-maps:${parts.osMapsRouteId}`;
   } else if (parts.ramblersSlug) {
     return `ramblers:${parts.ramblersSlug}`;

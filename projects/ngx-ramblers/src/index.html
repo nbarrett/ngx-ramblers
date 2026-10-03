@@ -11,27 +11,30 @@
   <meta name="apple-mobile-web-app-title" content="Ramblers">
   <script>
     (function () {
-      try {
-        var xhr = new XMLHttpRequest();
-        xhr.open("GET", "/api/database/config?key=system", false);
-        xhr.send(null);
-        if (xhr.status >= 200 && xhr.status < 300) {
-          var payload = JSON.parse(xhr.responseText);
-          var doc = payload.response || payload;
-          var group = (doc && (doc.group || (doc.value && doc.value.group))) || {};
-          var name = group.shortName || group.longName;
-          if (name) {
-            var title = document.querySelector("meta[name=\"apple-mobile-web-app-title\"]");
-            var appName = document.querySelector("meta[name=\"application-name\"]");
-            if (title) {
-              title.setAttribute("content", name);
-            }
-            if (appName) {
-              appName.setAttribute("content", name);
+      var walkingApp = location.pathname === "/app" || location.pathname.indexOf("/app/") === 0;
+      if (!walkingApp) {
+        try {
+          var xhr = new XMLHttpRequest();
+          xhr.open("GET", "/api/database/config?key=system", false);
+          xhr.send(null);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            var payload = JSON.parse(xhr.responseText);
+            var doc = payload.response || payload;
+            var group = (doc && (doc.group || (doc.value && doc.value.group))) || {};
+            var name = group.shortName || group.longName;
+            if (name) {
+              var title = document.querySelector("meta[name=\"apple-mobile-web-app-title\"]");
+              var appName = document.querySelector("meta[name=\"application-name\"]");
+              if (title) {
+                title.setAttribute("content", name);
+              }
+              if (appName) {
+                appName.setAttribute("content", name);
+              }
             }
           }
+        } catch (error) {
         }
-      } catch (error) {
       }
     })();
   </script>
@@ -92,7 +95,7 @@
       history.replaceState(null, "", location.pathname + (cleaned ? "?" + cleaned : "") + location.hash);
     }
 
-    if (local) {
+    if (local && location.pathname !== "/app" && location.pathname.indexOf("/app/") !== 0) {
       dropWorkersAndCaches().then(function (hadWorker) {
         if (hadWorker) {
           clearChunkReloadKeys();
@@ -104,7 +107,8 @@
     window.addEventListener("unhandledrejection", function (event) {
       var reason = event && event.reason;
       var text = String((reason && reason.message) || reason || "");
-      if (text.indexOf("Failed to fetch dynamically imported module") !== -1) {
+      var walkingApp = location.pathname === "/app" || location.pathname.indexOf("/app/") === 0;
+      if (!walkingApp && text.indexOf("Failed to fetch dynamically imported module") !== -1) {
         dropWorkersAndCaches().then(function () {
           clearChunkReloadKeys();
           var next = new URLSearchParams(location.search);

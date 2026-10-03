@@ -1,5 +1,5 @@
 import * as L from "leaflet";
-import { MAP_BEARING_TRANSITION_MS, MAP_GESTURES_FRAME_CLASS, MapCoverSize, MapGestureAnchor, RouteFollowReturnDirection } from "../../models/route-follow.model";
+import { MAP_BEARING_TRANSITION_MS, MAP_GESTURES_FRAME_CLASS, MapCoverSize, MapGestureAnchor, MapPinchRenderer, RouteFollowReturnDirection } from "../../models/route-follow.model";
 
 const gesturesByMap = new WeakMap<L.Map, MapGestures>();
 const installState = {done: false};
@@ -69,6 +69,10 @@ export class MapGestures {
   private displayBearing = 0;
   private settleTimer: ReturnType<typeof setTimeout> | null = null;
   private pinchActive = false;
+  private pinchMoved = false;
+  private pinchCenter: L.LatLng | null = null;
+  private pinchZoom = 0;
+  private pinchFrame: number | null = null;
   private anchor: MapGestureAnchor | null = null;
   private onBearing: ((bearing: number) => void) | null = null;
   private onUserRotate: (() => void) | null = null;
@@ -130,6 +134,10 @@ export class MapGestures {
         this.map.removeControl(this.northControl);
       }
       el.style.transform = "";
+    }
+    if (this.pinchFrame !== null) {
+      cancelAnimationFrame(this.pinchFrame);
+      this.pinchFrame = null;
     }
     this.unhookDragCorrection();
     this.map = null;
@@ -210,7 +218,7 @@ export class MapGestures {
 
   private onGestureChange = (event: Event): void => {
     const rotation = (event as Event & {rotation?: number}).rotation;
-    if (this.gesture.active && rotation !== undefined && this.map) {
+    if (this.gesture.active && !this.pinchActive && rotation !== undefined && this.map) {
       event.preventDefault();
       this.setBearing(this.gesture.startBearing + rotation);
     }
@@ -225,6 +233,7 @@ export class MapGestures {
     if (event.touches.length === 2 && this.map) {
       event.preventDefault();
       this.pinchActive = true;
+      this.pinchMoved = false;
       if (this.onUserRotate) {
         this.onUserRotate();
       }
@@ -248,21 +257,31 @@ export class MapGestures {
         const zoom = this.anchor.zoom + Math.log2(scale);
         const minZoom = this.map.getMinZoom();
         const maxZoom = this.map.getMaxZoom();
-        const snapped = Math.round(zoom);
-        const bounded = snapped < minZoom ? minZoom : (snapped > maxZoom ? maxZoom : snapped);
-        this.bearing = this.anchor.bearing + mapAngleDelta(this.anchor.angle, next.angle);
-        this.applyBearing();
-        const mid = this.midpointFromEvent(event);
-        if (bounded !== this.map.getZoom()) {
-          this.map.setZoomAround(this.map.containerPointToLatLng(mid), bounded, {animate: false});
-        } else {
-          const panX = this.anchor.midX - mid.x;
-          const panY = this.anchor.midY - mid.y;
-          if (panX !== 0 || panY !== 0) {
-            this.map.panBy([panX, panY], {animate: false});
-          }
+        const bounded = Math.max(minZoom, Math.min(maxZoom, zoom));
+        const nextBearing = this.anchor.bearing + mapAngleDelta(this.anchor.angle, next.angle);
+        if (nextBearing !== this.bearing) {
+          this.bearing = nextBearing;
+          this.applyBearing();
         }
-        this.anchor = {...this.anchor, midX: mid.x, midY: mid.y};
+        const mid = this.midpointFromEvent(event);
+        const delta = mid.subtract(this.map.getSize().divideBy(2));
+        const center = this.map.unproject(this.map.project(this.anchor.latLng, bounded).subtract(delta), bounded);
+        this.pinchCenter = center;
+        this.pinchZoom = bounded;
+        const renderer = this.map as MapPinchRenderer;
+        if (!this.pinchMoved) {
+          renderer._moveStart(true, false);
+          this.pinchMoved = true;
+        }
+        if (this.pinchFrame !== null) {
+          cancelAnimationFrame(this.pinchFrame);
+        }
+        this.pinchFrame = requestAnimationFrame(() => {
+          this.pinchFrame = null;
+          if (this.map === renderer && this.pinchActive) {
+            renderer._move(center, bounded, {pinch: true, round: false});
+          }
+        });
         if (this.onBearing) {
           this.onBearing(this.bearing);
         }
@@ -276,11 +295,24 @@ export class MapGestures {
     } else if (event.touches.length === 2) {
       this.anchor = this.snapshot(event);
     } else {
+      if (this.pinchFrame !== null) {
+        cancelAnimationFrame(this.pinchFrame);
+        this.pinchFrame = null;
+      }
       this.pinchActive = false;
       this.anchor = null;
-      const snapped = Math.round(this.map.getZoom());
-      if (snapped !== this.map.getZoom()) {
-        this.map.setZoom(snapped, {animate: false});
+      if (this.pinchMoved) {
+        const renderer = this.map as MapPinchRenderer;
+        if (this.pinchCenter) {
+          renderer._move(this.pinchCenter, this.pinchZoom, {pinch: true, round: false});
+        }
+        const snapped = Math.max(this.map.getMinZoom(), Math.min(this.map.getMaxZoom(), Math.round(this.map.getZoom())));
+        if (this.map.options.zoomAnimation) {
+          renderer._animateZoom(this.map.getCenter(), snapped, true, !!this.map.options.zoomSnap);
+        } else {
+          renderer._resetView(this.map.getCenter(), snapped);
+        }
+        this.pinchMoved = false;
       }
       if (this.map.dragging) {
         this.map.dragging.enable();
@@ -293,6 +325,7 @@ export class MapGestures {
     const measured = this.measure(event);
     const mid = this.midpointFromEvent(event);
     return {
+      latLng: this.map.containerPointToLatLng(mid),
       distance: measured.distance,
       angle: measured.angle,
       zoom: this.map ? this.map.getZoom() : 0,
@@ -352,13 +385,16 @@ export class MapGestures {
           el.style.flex = "0 0 auto";
           el.style.maxWidth = "none";
           el.style.maxHeight = "none";
+          const sizeChanged = el.style.width !== `${side}px` || el.style.height !== `${side}px`;
           el.style.width = `${side}px`;
           el.style.height = `${side}px`;
           el.style.marginLeft = `${Math.round((frameWidth - side) / 2)}px`;
           el.style.marginTop = `${Math.round((frameHeight - side) / 2)}px`;
+          if (sizeChanged) {
+            this.map.invalidateSize({animate: false});
+          }
         }
         el.style.transform = `rotate(${this.displayBearing}deg)`;
-        this.map.invalidateSize({animate: false});
       }
       this.updateNorthControl(transition);
     }

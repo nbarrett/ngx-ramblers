@@ -15,7 +15,8 @@ describe("appAppearanceFromStored", () => {
 
 describe("followCacheKey", () => {
   it("builds a stable key for each kind of route", () => {
-    expect(followCacheKey({ramblersSlug: "egerton-kent"})).toBe("ramblers:egerton-kent");
+    expect(followCacheKey({recordingId: "fictional-id"})).toBe("recording:fictional-id");
+    expect(followCacheKey({ramblersSlug: "hillside-trail"})).toBe("ramblers:hillside-trail");
     expect(followCacheKey({walkId: "abc"})).toBe("walk:abc");
     expect(followCacheKey({path: "walks/foo", routeId: "r1"})).toBe("page:walks/foo:r1");
     expect(followCacheKey({osMapsRouteId: "29532353"})).toBe("os-maps:29532353");
@@ -34,6 +35,7 @@ describe("isLiveFollowMode", () => {
 });
 
 describe("RouteFollowService", () => {
+  const originalGeolocation = Object.getOwnPropertyDescriptor(navigator, "geolocation");
   let service: RouteFollowService;
 
   const eastWest = [
@@ -47,12 +49,39 @@ describe("RouteFollowService", () => {
       imports: [LoggerTestingModule],
       providers: [RouteFollowService, GeoDistanceService]
     });
+    Object.defineProperty(navigator, "geolocation", {configurable: true, value: {watchPosition: vi.fn().mockReturnValue(1), clearWatch: vi.fn()}});
     service = TestBed.inject(RouteFollowService);
     service.loadRoute(eastWest, [
       {id: "start", latitude: 51.2, longitude: 1.0, label: "1", instruction: "Leave the churchyard", kind: RouteWaypointKind.START},
       {id: "mid", latitude: 51.2, longitude: 1.01, label: "2", instruction: "Turn left at the stile", kind: RouteWaypointKind.TURN},
       {id: "end", latitude: 51.2, longitude: 1.02, label: "3", instruction: "Finish at the green", kind: RouteWaypointKind.END}
     ]);
+  });
+
+  it("records GPS points and timestamps from an empty standalone route and retains them on pause", () => {
+    service.loadRoute([], []);
+    service.startRecording(true);
+    const first = {coords: {latitude: 51, longitude: 0, altitude: 12, accuracy: 5, heading: 90}, timestamp: 1000} as GeolocationPosition;
+    const second = {coords: {latitude: 51.001, longitude: 0.001, altitude: 14, accuracy: 5, heading: 90}, timestamp: 2000} as GeolocationPosition;
+    service["onPosition"](first);
+    service["onPosition"](second);
+    service.pause();
+    expect(service.trackPoints()).toHaveLength(2);
+    expect(service.trackPoints()[0].recordedAt).toBe(1000);
+    expect(service.trackPoints()[1].recordedAt).toBe(2000);
+    expect(service.totalMetres()).toBeGreaterThan(0);
+    service.resume();
+    expect(service.progress().mode).toBe(RouteFollowMode.RECORDING);
+    expect(service.trackPoints()).toHaveLength(2);
+  });
+
+  afterEach(() => {
+    service.stop();
+    if (originalGeolocation) {
+      Object.defineProperty(navigator, "geolocation", originalGeolocation);
+    } else {
+      Reflect.deleteProperty(navigator, "geolocation");
+    }
   });
 
   it("snaps a point on the line to the nearest segment", () => {
@@ -208,6 +237,43 @@ describe("RouteFollowService", () => {
     expect(nearest).toBeTruthy();
     expect(nearest.index).toBe(0);
     expect(nearest.point.longitude).toBeCloseTo(1.01, 3);
+  });
+
+  it("keeps a recording and its points through pause and resume", () => {
+    service.restorePaused([], RouteFollowMode.RECORDING, eastWest);
+    expect(service.recordingSession()).toBe(true);
+    expect(service.trackPoints()).toEqual(eastWest);
+    service.resume();
+    expect(service.progress().mode).toBe(RouteFollowMode.RECORDING);
+    expect(service.trackPoints()).toEqual(eastWest);
+    service.pause();
+    expect(service.progress().mode).toBe(RouteFollowMode.PAUSED);
+    expect(service.pausedMode()).toBe(RouteFollowMode.RECORDING);
+    expect(service.recordingSession()).toBe(true);
+  });
+
+  it("resumes a paused preview as a preview at the stored position", () => {
+    service.restorePaused([], RouteFollowMode.PREVIEW, null, 300);
+    service.resume();
+    expect(service.progress().mode).toBe(RouteFollowMode.PREVIEW);
+    expect(service.previewProgressMetres()).toBe(300);
+    service.stop();
+  });
+
+  it.each([RouteFollowLocationError.UNAVAILABLE, RouteFollowLocationError.DENIED])("retains live follow state after %s", locationError => {
+    service.startFollowing();
+    service["applyLocationError"](locationError);
+    expect(service.progress().mode).toBe(RouteFollowMode.FOLLOWING);
+    expect(service.progress().locationError).toBe(locationError);
+    expect(service.isBusy()).toBe(true);
+  });
+
+  it("retains the GPS watch and recording on temporary location loss", () => {
+    service.startRecording(false);
+    service["onPositionError"]({code: 2, PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3, message: "No fix"});
+    expect(service.progress().mode).toBe(RouteFollowMode.RECORDING);
+    expect(service.trackPoints()).toEqual(eastWest);
+    expect(navigator.geolocation.clearWatch).not.toHaveBeenCalled();
   });
 
   it("restores a paused follow without losing visited waypoints", () => {

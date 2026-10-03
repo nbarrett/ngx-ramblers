@@ -1,3 +1,5 @@
+import { RouteFollowService } from "../../services/maps/route-follow.service";
+import { generateUid } from "../../functions/numbers";
 import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { DecimalPipe, NgTemplateOutlet } from "@angular/common";
@@ -132,6 +134,13 @@ import { AuthService } from "../../auth/auth.service";
           </div>
         </div>
       }
+      <div class="app-home-toolbar">
+        <div class="app-home-views">
+          <button class="btn btn-primary" type="button" (click)="recordStandaloneRoute()">
+            <fa-icon [icon]="faLocationDot"/>Record a route
+          </button>
+        </div>
+      </div>
       }
 
       @if (customising) {
@@ -233,6 +242,10 @@ import { AuthService } from "../../auth/auth.service";
                 <app-os-maps-route-preview-map [compact]="true" [route]="listedOsMapsRoute(route)" [points]="previewPoints[routeKey(route) || ''] || []"/>
               <div class="app-home-card-copy">
                 <h3>{{ route.title }}</h3>
+              @if (route.description) {
+                <p class="app-home-meta">{{ route.description }}</p>
+              }
+
                 <p class="app-home-meta">
                   @if (milesAwayLabel(route)) {
                     {{ milesAwayLabel(route) }}
@@ -404,6 +417,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   private followCache = inject(RouteFollowCacheService);
   private listCache = inject(AppHomeListCacheService);
   private router = inject(Router);
+  private followService = inject(RouteFollowService);
   private activatedRoute = inject(ActivatedRoute);
   private uiActions = inject(UiActionsService);
   protected display = inject(WalkDisplayService);
@@ -542,16 +556,30 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   }
 
   chooseGpxFile(): void {
+    this.afterSignIn(() => {
+      this.gpxUploader.authToken = `Bearer ${this.authService.authToken()}`;
+      this.gpxInput?.nativeElement?.click();
+    });
+  }
+
+  recordStandaloneRoute(): void {
+    this.afterSignIn(() => {
+      void this.followService.requestCompassPermission().catch(error => this.logger.info("Compass permission was not granted", error));
+      const queryParams = this.activeSession ? this.routeQuery(this.activeSession) : {[StoredValue.RECORD_ROUTE]: generateUid()};
+      void this.router.navigate(["/app/follow"], {queryParams});
+    });
+  }
+
+  private afterSignIn(action: () => void): void {
     if (!this.memberLogin.memberLoggedIn()) {
       this.modalService.show(LoginModalComponent, this.loginModalConfig);
       this.subscriptions.push(this.modalService.onHidden.pipe(take(1)).subscribe(() => {
         if (this.memberLogin.memberLoggedIn()) {
-          this.gpxInput?.nativeElement?.click();
+          action();
         }
       }));
     } else {
-      this.gpxUploader.authToken = `Bearer ${this.authService.authToken()}`;
-      this.gpxInput?.nativeElement?.click();
+      action();
     }
   }
 
@@ -845,6 +873,9 @@ export class AppHomeComponent implements OnInit, OnDestroy {
 
   routeQuery(route: RouteFollowSummary | RouteFollowSession): Record<string, string> {
     const params: Record<string, string> = {};
+    if (route.recordingId) {
+      params[StoredValue.RECORD_ROUTE] = route.recordingId;
+    }
     if (route.path) {
       params[StoredValue.FOLLOW_PATH] = route.path;
     }

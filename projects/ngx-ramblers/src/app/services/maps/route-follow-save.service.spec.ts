@@ -24,6 +24,7 @@ describe("RouteFollowSaveService", () => {
     }
   };
   const walkGpx = {
+    importGpxFile: vi.fn(() => of({gpxFile: {awsFileName: "saved.gpx", originalFileName: "saved.gpx", distanceMetres: 125}, routeId: "recording-fictional-id"})),
     uploadGpxFile: () => of({gpxFile: {awsFileName: "gpx-routes/saved.gpx", originalFileName: "saved.gpx"}})
   };
 
@@ -57,6 +58,32 @@ describe("RouteFollowSaveService", () => {
     expect(gpx).toContain("<trkpt lat=\"51.2\" lon=\"1\">");
     expect(gpx).toContain("<trkpt lat=\"51.21\" lon=\"1.01\">");
     expect(gpx).toContain("<name>Sunday walk</name>");
+  });
+
+  it("saves a standalone route through the shared import without changing a walk", async () => {
+    const points = [{latitude: 51, longitude: 0}, {latitude: 51.001, longitude: 0.001}];
+    const payload = TestBed.inject(RouteFollowPayloadService).recordingPayload("fictional-id");
+    payload.title = "Hillside trail";
+    payload.description = "A loop through the woods & fields";
+    const previousWalkCount = savedWalks.length;
+    const saved = await service.saveStandalone(payload, points);
+    const args = walkGpx.importGpxFile.mock.calls.at(-1) as unknown as [File, string, string, string];
+    expect(args.slice(1)).toEqual([payload.title, payload.description, "fictional-id"]);
+    expect(service.pointsToGpx(points, payload.title, payload.description)).toContain("<desc>A loop through the woods &amp; fields</desc>");
+    expect(saved.source).toBe(RouteFollowSource.OS_MAPS);
+    expect(saved.recordingId).toBeNull();
+    expect(saved.osMapsRouteId).toBe("recording-fictional-id");
+    expect(saved.totalMetres).toBe(125);
+    expect(savedWalks.length).toBe(previousWalkCount);
+    expect(payload.source).toBe(RouteFollowSource.RECORDING);
+  });
+
+  it("rejects unnamed recordings before upload", async () => {
+    const payload = TestBed.inject(RouteFollowPayloadService).recordingPayload("fictional-id");
+    payload.title = " ";
+    const imports = walkGpx.importGpxFile.mock.calls.length;
+    await expect(service.saveStandalone(payload, [{latitude: 51, longitude: 0}, {latitude: 51.001, longitude: 0.001}])).rejects.toThrow("Give the recording a name");
+    expect(walkGpx.importGpxFile.mock.calls.length).toBe(imports);
   });
 
   it("saves a walk line by uploading GPX and attaching it", async () => {
