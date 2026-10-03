@@ -20,9 +20,12 @@ export class WalkGpxService {
     );
   }
 
-  importGpxFile(file: File): Observable<{ gpxFile: ServerFileNameData; routeId?: string }> {
+  importGpxFile(file: File, title = "", description = "", recordingId = ""): Observable<{ gpxFile: ServerFileNameData; routeId?: string }> {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("title", title);
+    formData.append("description", description);
+    formData.append("recordingId", recordingId);
     return this.http.post<{ gpxFile: ServerFileNameData; routeId?: string }>(
       `${this.BASE_URL}/import`,
       formData

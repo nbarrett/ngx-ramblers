@@ -1,6 +1,7 @@
 import { inject, Injectable } from "@angular/core";
-import { isArray } from "es-toolkit/compat";
+import { isArray, isEqual } from "es-toolkit/compat";
 import {
+  CachedFollowRoute,
   followCacheKey,
   RouteFollowOfflineStatus,
   RouteFollowPayload,
@@ -15,14 +16,6 @@ const DB_VERSION = 1;
 const ROUTES_STORE = "routes";
 const DB_OPEN_TIMEOUT_MS = 5000;
 
-export interface CachedFollowRoute {
-  key: string;
-  payload: RouteFollowPayload;
-  savedAt: number;
-  tilesReady: boolean;
-  tileCount: number;
-}
-
 @Injectable({
   providedIn: "root"
 })
@@ -33,6 +26,7 @@ export class RouteFollowCacheService {
 
   keyForPayload(payload: RouteFollowPayload): string | null {
     return followCacheKey({
+      recordingId: payload.recordingId,
       path: payload.path,
       routeId: payload.routeId,
       walkId: payload.walkId,
@@ -47,12 +41,13 @@ export class RouteFollowCacheService {
       return null;
     } else {
       const existing = await this.cached(key);
+      const sameMap = existing?.payload.provider === payload.provider && existing?.payload.osStyle === payload.osStyle && isEqual(existing?.payload.points, payload.points);
       const record: CachedFollowRoute = {
         key,
         payload,
         savedAt: this.dateUtils.dateTimeNowAsValue(),
-        tilesReady: existing?.tilesReady || false,
-        tileCount: existing?.tileCount || 0
+        tilesReady: sameMap && !!existing?.tilesReady,
+        tileCount: sameMap ? existing?.tileCount || 0 : 0
       };
       await this.putRoute(record);
       return key;
@@ -98,12 +93,17 @@ export class RouteFollowCacheService {
     if (!key) {
       return RouteFollowOfflineStatus.NEEDS_NETWORK;
     } else {
-      const record = await this.cached(key);
-      if (record?.tilesReady) {
-        return RouteFollowOfflineStatus.AVAILABLE;
-      } else if (record) {
-        return RouteFollowOfflineStatus.SAVING;
-      } else {
+      try {
+        const record = await this.cached(key);
+        if (record?.tilesReady) {
+          return RouteFollowOfflineStatus.AVAILABLE;
+        } else if (record) {
+          return RouteFollowOfflineStatus.SAVING;
+        } else {
+          return RouteFollowOfflineStatus.NEEDS_NETWORK;
+        }
+      } catch (error) {
+        this.logger.warn("route cache status unavailable", error);
         return RouteFollowOfflineStatus.NEEDS_NETWORK;
       }
     }
@@ -114,12 +114,13 @@ export class RouteFollowCacheService {
     return records.map(record => ({
       source: record.payload.source,
       title: record.payload.title,
+      description: record.payload.description || null,
       path: record.payload.path,
       walkId: record.payload.walkId,
       routeId: record.payload.routeId,
       ramblersSlug: record.payload.ramblersSlug,
       osMapsRouteId: record.payload.osMapsRouteId,
-      distanceMiles: record.payload.guide?.distance_miles || null,
+      distanceMiles: record.payload.guide?.distance_miles || record.payload.totalMetres / 1609.34 || null,
       startDescription: record.payload.guide?.start_location?.description || record.payload.guide?.start_location?.postcode || null,
       startLatitude: record.payload.guide?.start_location?.latitude ?? record.payload.points?.[0]?.latitude ?? null,
       startLongitude: record.payload.guide?.start_location?.longitude ?? record.payload.points?.[0]?.longitude ?? null
@@ -149,13 +150,17 @@ export class RouteFollowCacheService {
       const acc = await previous;
       try {
         const response = await fetch(url, {mode: "cors", credentials: "same-origin"});
+        if (!response.ok) {
+          throw new Error(`Map tile request failed: ${response.status}`);
+        }
         const buffer = await response.arrayBuffer();
         const next = {saved: acc.saved + 1, total: unique.length, bytes: acc.bytes + buffer.byteLength};
         if (onProgress) {
           onProgress(index + 1, unique.length, next.bytes);
         }
         return next;
-      } catch {
+      } catch (error) {
+        this.logger.warn("map tile could not be saved", error);
         if (onProgress) {
           onProgress(index + 1, unique.length, acc.bytes);
         }
@@ -177,9 +182,11 @@ export class RouteFollowCacheService {
   private async putRoute(record: CachedFollowRoute): Promise<void> {
     const db = await this.database();
     return new Promise((resolve, reject) => {
-      const request = db.transaction(ROUTES_STORE, "readwrite").objectStore(ROUTES_STORE).put(record);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      const transaction = db.transaction(ROUTES_STORE, "readwrite");
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error || new Error("Route cache write was interrupted"));
+      transaction.objectStore(ROUTES_STORE).put(record);
     });
   }
 

@@ -26,7 +26,7 @@ import {
 import { generateUid } from "../../functions/numbers";
 import { eventSlug } from "../../functions/walks/event-slug";
 import { routeDirectionsFromPage } from "../../functions/route-directions";
-import { GpxParserService } from "./gpx-parser.service";
+import { GpxParserService, GpxTrack } from "./gpx-parser.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { UrlService } from "../url.service";
 
@@ -164,6 +164,15 @@ export class RouteFollowPayloadService {
     };
   }
 
+  recordingPayload(recordingId: string): RouteFollowPayload {
+    return {
+      source: RouteFollowSource.RECORDING, recordingId, title: "Recorded route", description: "",
+      path: null, walkId: null, routeId: null, ramblersSlug: null, osMapsRouteId: null,
+      provider: MapProvider.OS, osStyle: DEFAULT_OS_STYLE, color: PaletteColor.COBALT,
+      weight: ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT, opacity: 1, points: [], waypoints: [], totalMetres: 0, guide: null
+    };
+  }
+
   summaryFromOsMapsRoute(route: OsMapsListedRoute): RouteFollowSummary | null {
     if (!route?.id || !route.gpxFile?.awsFileName) {
       return null;
@@ -171,6 +180,7 @@ export class RouteFollowPayloadService {
       return {
         source: RouteFollowSource.OS_MAPS,
         title: route.title || "OS Maps route",
+        description: route.gpxFile.description || null,
         path: null,
         walkId: null,
         routeId: null,
@@ -231,6 +241,7 @@ export class RouteFollowPayloadService {
       return {
         source: RouteFollowSource.OS_MAPS,
         title: route.title || "OS Maps route",
+        description: route.gpxFile.description || null,
         path: null,
         walkId: null,
         routeId: null,
@@ -345,11 +356,12 @@ export class RouteFollowPayloadService {
         const content = await firstValueFrom(this.http.get(url, {responseType: "text"}).pipe(timeout(ROUTE_FOLLOW_NETWORK_TIMEOUT_MS)));
         const parsed = this.gpxParser.parseGpxFile(content);
         const tracks = parsed.tracks || [];
-        const chosen = tracks[trackIndex] || tracks[0];
-        const toPoints = (track: {points?: {latitude: number; longitude: number; elevation?: number | null}[]} | undefined): RouteFollowPoint[] => (track?.points || []).map(point => ({
+        const chosen = tracks[trackIndex] || tracks[0] || null;
+        const toPoints = (track: GpxTrack | null): RouteFollowPoint[] => (track?.points || []).map(point => ({
           latitude: point.latitude,
           longitude: point.longitude,
-          elevation: isNumber(point.elevation) ? point.elevation : null
+          elevation: isNumber(point.elevation) ? point.elevation : null,
+          ...(point.time ? {recordedAt: point.time.getTime()} : {})
         }));
         const points = toPoints(chosen);
         const waypoints = (parsed.waypoints || []).map((waypoint, index) => ({

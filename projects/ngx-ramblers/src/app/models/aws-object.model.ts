@@ -18,6 +18,7 @@ export interface FileNameData {
   originalFileName?: string;
   awsFileName?: string;
   title?: string;
+  description?: string;
   startLat?: number;
   startLng?: number;
   distanceMetres?: number;
@@ -46,6 +47,7 @@ export interface ServerFileNameData {
   originalFileName: string;
   awsFileName: string;
   title?: string;
+  description?: string;
   startLat?: number;
   startLng?: number;
   distanceMetres?: number;

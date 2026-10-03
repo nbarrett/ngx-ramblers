@@ -91,8 +91,8 @@
   white-space: nowrap
 
 .app-home-filters
-  display: flex
-  flex-wrap: wrap
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
   gap: 8px
   margin: 0 0 10px
 
@@ -106,8 +106,14 @@
   min-height: 40px
   white-space: nowrap
 
-.app-home-import
-  flex: 1 1 100%
+.app-home-import-drop
+  display: flex
+  align-items: center
+  justify-content: center
+  min-width: 0
+  min-height: 40px
+  margin: 0
+  height: auto
 
 .app-home-customise
   display: flex

@@ -36,6 +36,8 @@ export class RouteFollowSaveService {
   canPersist(payload: RouteFollowPayload | null): boolean {
     if (!payload) {
       return false;
+    } else if (payload.source === RouteFollowSource.RECORDING) {
+      return !!payload.recordingId;
     } else if (payload.source === RouteFollowSource.WALK) {
       return !!payload.walkId;
     } else if (payload.source === RouteFollowSource.PAGE) {
@@ -47,18 +49,20 @@ export class RouteFollowSaveService {
     }
   }
 
-  pointsToGpx(points: RouteFollowPoint[], name: string): string {
-    const stamp = this.dateUtils.isoDateTimeNow();
+  pointsToGpx(points: RouteFollowPoint[], name: string, description = ""): string {
+    const stamp = points[0]?.recordedAt ? this.dateUtils.isoDateTime(points[0].recordedAt) : this.dateUtils.isoDateTimeNow();
     const trackPoints = points.map(point => {
       const elevation = isNumber(point.elevation) ? point.elevation : 0;
       return `      <trkpt lat="${point.latitude}" lon="${point.longitude}">
-        <ele>${elevation}</ele>
+        <ele>${elevation}</ele>${point.recordedAt ? `
+        <time>${this.dateUtils.isoDateTime(point.recordedAt)}</time>` : ""}
       </trkpt>`;
     }).join("\n");
     return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="ngx-ramblers" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
   <metadata>
     <name>${escapeHtml(name)}</name>
+    <desc>${escapeHtml(description)}</desc>
     <time>${stamp}</time>
   </metadata>
   <trk>
@@ -69,6 +73,20 @@ ${trackPoints}
     </trkseg>
   </trk>
 </gpx>`;
+  }
+
+  async saveStandalone(payload: RouteFollowPayload, points: RouteFollowPoint[]): Promise<RouteFollowPayload> {
+    if (!payload.recordingId || !payload.title.trim() || points.length < 2) {
+      throw new Error("Give the recording a name and record at least two points before saving.");
+    } else {
+      const imported = await firstValueFrom(this.walkGpx.importGpxFile(this.gpxFile(payload, points), payload.title, payload.description || "", payload.recordingId));
+      if (!imported.routeId) {
+        throw new Error("The saved route did not return an identifier. Your recording is kept for retry.");
+      } else {
+        return {...payload, recordingId: null, source: RouteFollowSource.OS_MAPS, osMapsRouteId: imported.routeId,
+          points, totalMetres: imported.gpxFile.distanceMetres || 0};
+      }
+    }
   }
 
   async save(payload: RouteFollowPayload, points: RouteFollowPoint[]): Promise<FileNameData> {
@@ -173,7 +191,7 @@ ${trackPoints}
     const slug = payload.walkId || payload.path?.split("/").filter(item => item).pop() || "route";
     const safe = slug.replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase();
     const name = `${safe || "route"}-${stamp}.gpx`;
-    return new File([this.pointsToGpx(points, payload.title || "Recorded route")], name, {type: "application/gpx+xml"});
+    return new File([this.pointsToGpx(points, payload.title || "Recorded route", payload.description || "")], name, {type: "application/gpx+xml"});
   }
 
 }

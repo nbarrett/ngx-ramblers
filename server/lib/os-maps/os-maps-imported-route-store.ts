@@ -31,9 +31,9 @@ export async function osMapsImportedRouteById(routeId: string): Promise<OsMapsIm
   return mongooseClient.execute(() => osMapsImportedRoute.findOne({routeId}).lean());
 }
 
-export async function saveFileImportedGpx(gpxFile: FileNameData): Promise<OsMapsImportedRouteRecord> {
+export async function saveFileImportedGpx(gpxFile: FileNameData, recordingId: string | null = null): Promise<OsMapsImportedRouteRecord> {
   const awsFileName = gpxFile.awsFileName || "";
-  const routeId = `gpx-${awsFileName.replace(/\.gpx$/i, "")}`;
+  const routeId = recordingId ? `recording-${recordingId}` : `gpx-${awsFileName.replace(/\.gpx$/i, "")}`;
   const importedAt = dateTimeNowAsValue();
   const record = {
     routeId,

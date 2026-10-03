@@ -41,6 +41,7 @@ export class RouteFollowService {
   private waypoints: RouteFollowWaypoint[] = [];
   private visitedWaypointIds = new Set<string>();
   private watchId: number | null = null;
+  private pausedFromMode = RouteFollowMode.FOLLOWING;
   private readonly watchOptions: PositionOptions = {enableHighAccuracy: true, maximumAge: 1000, timeout: 15000};
   private previewTimer: ReturnType<typeof setInterval> | null = null;
   private previewMetres = 0;
@@ -255,9 +256,15 @@ export class RouteFollowService {
     this.beginLocationWatch();
   }
 
-  restorePaused(visitedWaypointIds: string[]): void {
+  restorePaused(visitedWaypointIds: string[], pausedFromMode = RouteFollowMode.FOLLOWING, points: RouteFollowPoint[] | null = null, previewMetres = 0): void {
     this.stopAll();
     this.visitedWaypointIds = new Set(visitedWaypointIds || []);
+    this.pausedFromMode = pausedFromMode;
+    this.previewMetres = previewMetres;
+    if (points && pausedFromMode === RouteFollowMode.RECORDING) {
+      this.track = points;
+      this.cumulativeMetres = this.buildCumulative(points);
+    }
     this.applyMode(RouteFollowMode.PAUSED);
   }
 
@@ -278,11 +285,27 @@ export class RouteFollowService {
     return this.previewMetres;
   }
 
+  pausedMode(): RouteFollowMode {
+    return this.pausedFromMode;
+  }
+
+  recordingSession(): boolean {
+    return this.state.mode === RouteFollowMode.RECORDING
+      || (this.state.mode === RouteFollowMode.PAUSED && this.pausedFromMode === RouteFollowMode.RECORDING);
+  }
+
+  restoreProgress(progress: RouteFollowProgress): void {
+    this.state = {...progress, mode: this.state.mode};
+    this.progressSubject.next(this.state);
+  }
+
   pause(): void {
-    if (this.state.mode === RouteFollowMode.FOLLOWING) {
+    if (this.state.mode === RouteFollowMode.FOLLOWING || this.state.mode === RouteFollowMode.RECORDING) {
+      this.pausedFromMode = this.state.mode;
       this.clearWatch();
       this.applyMode(RouteFollowMode.PAUSED);
     } else if (this.state.mode === RouteFollowMode.PREVIEW) {
+      this.pausedFromMode = RouteFollowMode.PREVIEW;
       this.stopPreviewTimerOnly();
       this.applyMode(RouteFollowMode.PAUSED);
     }
@@ -290,7 +313,13 @@ export class RouteFollowService {
 
   resume(): void {
     if (this.state.mode === RouteFollowMode.PAUSED) {
-      this.beginLocationWatch();
+      if (this.pausedFromMode === RouteFollowMode.RECORDING) {
+        this.restoreRecording(this.track, this.visitedIds());
+      } else if (this.pausedFromMode === RouteFollowMode.PREVIEW) {
+        this.restorePreview(this.previewMetres, this.visitedIds());
+      } else {
+        this.beginLocationWatch();
+      }
     }
   }
 
@@ -457,6 +486,7 @@ export class RouteFollowService {
 
   private onPosition(position: GeolocationPosition): void {
     const current: RouteFollowPoint = {
+      recordedAt: position.timestamp,
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,
       elevation: isNumber(position.coords.altitude) ? position.coords.altitude : null
@@ -482,15 +512,12 @@ export class RouteFollowService {
     this.logger.error("onPositionError:", error.code, error.message);
     if (error.code === error.PERMISSION_DENIED) {
       this.applyLocationError(RouteFollowLocationError.DENIED);
-    } else if (error.code === error.TIMEOUT) {
-      if (this.state.mode === RouteFollowMode.FOLLOWING || this.state.mode === RouteFollowMode.RECORDING) {
-        this.state = {...this.state, locationError: RouteFollowLocationError.TIMEOUT};
-        this.progressSubject.next(this.state);
-      } else {
-        this.applyLocationError(RouteFollowLocationError.TIMEOUT);
-      }
+    } else if (this.state.mode === RouteFollowMode.FOLLOWING || this.state.mode === RouteFollowMode.RECORDING) {
+      const locationError = error.code === error.TIMEOUT ? RouteFollowLocationError.TIMEOUT : RouteFollowLocationError.UNAVAILABLE;
+      this.state = {...this.state, locationError};
+      this.progressSubject.next(this.state);
     } else {
-      this.applyLocationError(RouteFollowLocationError.UNAVAILABLE);
+      this.applyLocationError(error.code === error.TIMEOUT ? RouteFollowLocationError.TIMEOUT : RouteFollowLocationError.UNAVAILABLE);
     }
   }
 
@@ -752,7 +779,6 @@ export class RouteFollowService {
     this.clearWatch();
     this.state = {
       ...this.state,
-      mode: RouteFollowMode.IDLE,
       locationError
     };
     this.progressSubject.next(this.state);

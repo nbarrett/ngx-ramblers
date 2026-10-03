@@ -13,6 +13,7 @@ export const fileNameData = new mongoose.Schema({
     distanceMetres: {type: Number},
     walkedAt: {type: Number},
     walkedByMemberId: {type: String},
+    description: {type: String},
     walkedByName: {type: String},
 }, {_id: false});
 
