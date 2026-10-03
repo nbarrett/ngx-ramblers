@@ -49,9 +49,9 @@ describe("DeploymentInfoService", () => {
     expect(service.releaseNotesForBuild(null, "877")).toEqual([]);
   });
 
-  it("asks the server for the release feed with the requested limit", async () => {
+  it("asks the server for the shared release feed with the requested limit", async () => {
     const pending = service.releaseFeed(5);
-    const request = httpMock.expectOne(candidate => candidate.url === "/api/public/releases" && candidate.params.get("limit") === "5");
+    const request = httpMock.expectOne(candidate => candidate.url === "/api/version/releases" && candidate.params.get("limit") === "5");
     request.flush(feed);
     expect((await pending).entries.length).toBe(4);
   });

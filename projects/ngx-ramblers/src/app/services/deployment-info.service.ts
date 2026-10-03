@@ -16,7 +16,7 @@ export class DeploymentInfoService {
   }
 
   releaseFeed(limit: number): Promise<ReleaseFeed> {
-    return firstValueFrom(this.http.get<ReleaseFeed>("/api/public/releases", {params: {limit}}));
+    return firstValueFrom(this.http.get<ReleaseFeed>("/api/version/releases", {params: {limit}}));
   }
 
   releaseNotesForBuild(feed: ReleaseFeed | null, buildNumber: string): ReleaseFeedEntry[] {
