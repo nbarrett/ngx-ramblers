@@ -1,3 +1,4 @@
+import { versionReleases } from "./release-notes/version-releases";
 import { registrationRoutes } from "./site-registration/registration-routes";
 import { scheduleRegistrationJobs } from "./site-registration/registration-jobs";
 import debug from "debug";
@@ -194,6 +195,7 @@ app.get("/api/files/download", download);
 app.get("/api/health", health);
 app.get("/api/version", buildVersion);
 app.get("/api/version/details", deploymentInfo);
+app.get("/api/version/releases", versionReleases);
 app.get("/api/health/memory", memoryUsage);
 app.get("/api/health/memory/heap-snapshot", authConfig.authenticate(), authConfig.requireAdmin, heapSnapshot);
 app.get("/api/health/memory/fly-stats", authConfig.authenticate(), authConfig.requireAdmin, flyStats);

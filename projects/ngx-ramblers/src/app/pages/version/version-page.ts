@@ -1,5 +1,4 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faArrowUpRightFromSquare, faCircleExclamation, faCodeBranch, faRotateRight } from "@fortawesome/free-solid-svg-icons";
 import { faGithub } from "@fortawesome/free-brands-svg-icons";
@@ -19,7 +18,7 @@ const RELEASE_FEED_LIMIT = 20;
 
 @Component({
   selector: "app-version-page",
-  imports: [FontAwesomeModule, RouterLink],
+  imports: [FontAwesomeModule],
   template: `
     <div class="version-page py-3">
       <h1 class="mb-1">About this version</h1>
@@ -138,28 +137,33 @@ const RELEASE_FEED_LIMIT = 20;
         <div class="row thumbnail-heading-frame">
           <div class="thumbnail-heading">What changed</div>
           <div class="col-sm-12">
-            @if (releaseNotes.length > 0) {
+            @if (feedError) {
+              <div class="alert alert-warning d-flex align-items-start">
+                <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                <div><strong>Release notes are unavailable</strong><div>The shared CMS could not be reached. Try again in a moment.</div></div>
+              </div>
+            } @else if (releaseNotes.length > 0) {
               <p class="mb-1">
                 <strong>{{ releaseNotesMatchBuild ? "Release notes for this build:" : "Latest release notes:" }}</strong>
               </p>
               <ul class="mb-2">
                 @for (releaseNote of releaseNotes; track releaseNote.path) {
-                  <li><a [routerLink]="'/' + releaseNote.path">{{ releaseNote.title }}</a></li>
+                  <li><a [href]="releaseNote.url">{{ releaseNote.title }}</a></li>
                 }
               </ul>
               @if (!releaseNotesMatchBuild && !isDevelopmentBuild()) {
                 <p class="text-muted mb-2">There is no release note dedicated to build {{ info.buildNumber }}, so the most recent one is shown.</p>
               }
             } @else if (feedLoaded) {
-              <p class="text-muted mb-2">No release notes have been published on this site yet.</p>
+              <p class="text-muted mb-2">No release notes are available from the shared CMS.</p>
             } @else {
               <p class="text-muted mb-2">Looking up the release notes…</p>
             }
             @if (feed?.indexPath) {
               <p class="mb-0">
-                <a class="btn btn-primary me-2" [routerLink]="'/' + feed.indexPath">All release notes</a>
+                <a class="btn btn-primary me-2" [href]="feed.indexUrl">All release notes</a>
                 @if (feed.humansIndexPath) {
-                  <a class="btn btn-quiet" [routerLink]="'/' + feed.humansIndexPath">Release notes for members</a>
+                  <a class="btn btn-quiet" [href]="feed.humansIndexUrl">Release notes for members</a>
                 }
               </p>
             }
@@ -190,6 +194,7 @@ export class VersionPageComponent implements OnInit, OnDestroy {
   protected info: DeploymentInfo | null = null;
   protected feed: ReleaseFeed | null = null;
   protected feedLoaded = false;
+  protected feedError = false;
   protected releaseNotes: ReleaseFeedEntry[] = [];
   protected releaseNotesMatchBuild = false;
   protected error: string | null = null;
@@ -216,6 +221,7 @@ export class VersionPageComponent implements OnInit, OnDestroy {
       this.releaseNotes = forBuild.length > 0 ? forBuild : (this.feed?.entries || []).slice(0, 1);
     } catch (error) {
       this.logger.error("could not load release feed", error);
+      this.feedError = true;
     }
     this.feedLoaded = true;
   }
