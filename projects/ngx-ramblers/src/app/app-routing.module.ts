@@ -1,3 +1,4 @@
+import { MobileAppAccessGuard } from "./guards/mobile-app-access-guard";
 import { inject, NgModule } from "@angular/core";
 import { NoPreloading, RouterModule, Routes, UrlMatchResult, UrlSegment } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -45,11 +46,13 @@ const routes: Routes = [
   },
   {
     path: "app/follow",
+    canActivate: [MobileAppAccessGuard],
     loadComponent: () => import("./pages/app/route-follow")
       .then(m => m.RouteFollowComponent)
   },
   {
     path: "app",
+    canActivate: [MobileAppAccessGuard],
     loadComponent: () => import("./pages/app/app-home")
       .then(m => m.AppHomeComponent)
   },

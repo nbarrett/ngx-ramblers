@@ -1,3 +1,8 @@
+import { VersionCheckService } from "../../services/version-check.service";
+import { uniqBy } from "es-toolkit/compat";
+import { RouteContributor } from "../../models/audit";
+import { MobileAppAccessService } from "../../services/maps/mobile-app-access.service";
+import { MobileAppAction } from "../../models/walks-config.model";
 import { RouteFollowService } from "../../services/maps/route-follow.service";
 import { generateUid } from "../../functions/numbers";
 import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
@@ -43,6 +48,7 @@ import { SystemConfigService } from "../../services/system/system-config.service
 import { WalkProgrammeService } from "../../services/walks-and-events/walk-programme.service";
 import { UrlService } from "../../services/url.service";
 import { WalkDisplayService } from "../walks/walk-display.service";
+import { RouteAuditComponent } from "../../modules/common/route-audit";
 import { DisplayDatePipe } from "../../pipes/display-date.pipe";
 import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { StoredValue } from "../../models/ui-actions";
@@ -110,6 +116,14 @@ import { AuthService } from "../../auth/auth.service";
         </div>
       </div>
       @if (view === AppHomeView.MAPS && layout.savedRoutes) {
+        <label class="d-block mb-2">Creator
+          <select class="form-select" [ngModel]="creator" (ngModelChange)="chooseCreator($event)">
+            <option value="">All creators</option>
+            @for (contributor of creatorOptions(); track contributor.memberId) {
+              <option [value]="contributor.memberId">{{ contributor.name }}</option>
+            }
+          </select>
+        </label>
         <div class="app-home-filters" role="group" aria-label="Map filters">
           <button class="btn" type="button" [attr.aria-pressed]="nearbyOnly"
                   [class.btn-primary]="nearbyOnly" [class.btn-quiet]="!nearbyOnly"
@@ -123,7 +137,7 @@ import { AuthService } from "../../auth/auth.service";
             <fa-icon [icon]="faStar"/>
             Favourites
           </button>
-          <button class="btn btn-primary app-home-import" type="button" (click)="chooseGpxFile()" [disabled]="importingGpx">
+          <button class="btn btn-primary app-home-import" type="button" (click)="chooseGpxFile()" [disabled]="importingGpx || (memberLogin.memberLoggedIn() && !mobileAccess.allowed(MobileAppAction.IMPORT))">
             <fa-icon [icon]="faFileImport"/>
             {{ importingGpx ? "Importing…" : "Import GPX" }}
           </button>
@@ -136,7 +150,7 @@ import { AuthService } from "../../auth/auth.service";
       }
       <div class="app-home-toolbar">
         <div class="app-home-views">
-          <button class="btn btn-primary" type="button" (click)="recordStandaloneRoute()">
+          <button class="btn btn-primary" type="button" [disabled]="memberLogin.memberLoggedIn() && !mobileAccess.allowed(MobileAppAction.RECORD)" (click)="recordStandaloneRoute()">
             <fa-icon [icon]="faLocationDot"/>Record a route
           </button>
         </div>
@@ -166,6 +180,10 @@ import { AuthService } from "../../auth/auth.service";
           @if (hiddenKeys.length) {
             <button class="btn btn-quiet" type="button" (click)="showHiddenMaps()">Show hidden maps ({{ hiddenKeys.length }})</button>
           }
+          <button class="btn btn-quiet" type="button" (click)="versionCheck.reloadNow()" [disabled]="!navigatorOnline() || !!activeSession">
+            Update app
+          </button>
+          <p class="app-home-meta">Download the latest app version when connected and after finishing your saved walking session.</p>
           <h2>Appearance</h2>
           <ng-container *ngTemplateOutlet="appearanceControls"/>
         </section>
@@ -266,6 +284,7 @@ import { AuthService } from "../../auth/auth.service";
                 @if (route.ramblersSlug) {
                   <p class="app-home-meta">Saved from a Ramblers route link</p>
                 }
+                <app-route-audit [audit]="route"/>
                 @if (route.walkedByName || route.walkedAt) {
                   <p class="app-home-meta">
                     Walked
@@ -400,7 +419,7 @@ import { AuthService } from "../../auth/auth.service";
     </ng-template>
   `,
   styleUrls: ["./app-home.sass"],
-  imports: [RouterLink, FormsModule, FontAwesomeModule, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, TooltipModule, DecimalPipe, DistanceRangeSlider, NgTemplateOutlet, FileUploadModule]
+  imports: [RouterLink, FormsModule, FontAwesomeModule, RouteAuditComponent, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, TooltipModule, DecimalPipe, DistanceRangeSlider, NgTemplateOutlet, FileUploadModule]
 })
 export class AppHomeComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("AppHomeComponent", NgxLoggerLevel.ERROR);
@@ -423,7 +442,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected display = inject(WalkDisplayService);
   private mediaQueryService = inject(MediaQueryService);
   protected payloadService = inject(RouteFollowPayloadService);
-  private memberLogin = inject(MemberLoginService);
+  protected memberLogin = inject(MemberLoginService);
   private authService = inject(AuthService);
   private modalService = inject(BsModalService);
   @ViewChild("gpxInput") private gpxInput!: ElementRef<HTMLInputElement>;
@@ -439,6 +458,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     authToken: `Bearer ${this.authService.authToken()}`
   });
   protected routes: RouteFollowSummary[] = [];
+  protected creator = "";
   protected layout: AppHomeLayout = {savedRoutes: true, upcomingWalks: true};
   protected readonly APP_NEARBY_MILES_MAX = APP_NEARBY_MILES_MAX;
   protected readonly AppHomeView = AppHomeView;
@@ -488,6 +508,9 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected readonly AppInstallPlatform = AppInstallPlatform;
   protected readonly AppAppearance = AppAppearance;
   protected appearance: AppAppearance = AppAppearance.SYSTEM;
+  protected readonly versionCheck = inject(VersionCheckService);
+  protected readonly mobileAccess = inject(MobileAppAccessService);
+  protected readonly MobileAppAction = MobileAppAction;
   private subscriptions: Subscription[] = [];
 
   ngOnInit(): void {
@@ -495,6 +518,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     this.favouriteKeys = this.uiActions.initialObjectValueFor<string[]>(StoredValue.APP_FAVOURITE_ROUTES, []);
     this.hiddenKeys = this.uiActions.initialObjectValueFor<string[]>(StoredValue.APP_HIDDEN_ROUTES, []);
     this.view = this.activatedRoute.snapshot.queryParamMap.get(StoredValue.TAB) === AppHomeView.UPCOMING ? AppHomeView.UPCOMING : AppHomeView.MAPS;
+    this.creator = this.activatedRoute.snapshot.queryParamMap.get(StoredValue.CREATOR) || "";
     this.routeSearch = this.activatedRoute.snapshot.queryParamMap.get(StoredValue.SEARCH) || "";
     this.nearbyOnly = this.activatedRoute.snapshot.queryParamMap.get(StoredValue.NEARBY) === "true";
     const storedMiles = Number(this.activatedRoute.snapshot.queryParamMap.get(StoredValue.NEARBY_MILES));
@@ -557,16 +581,24 @@ export class AppHomeComponent implements OnInit, OnDestroy {
 
   chooseGpxFile(): void {
     this.afterSignIn(() => {
-      this.gpxUploader.authToken = `Bearer ${this.authService.authToken()}`;
-      this.gpxInput?.nativeElement?.click();
+      if (this.mobileAccess.allowed(MobileAppAction.IMPORT)) {
+        this.gpxUploader.authToken = `Bearer ${this.authService.authToken()}`;
+        this.gpxInput?.nativeElement?.click();
+      } else {
+        this.importError = "You do not have permission to import routes.";
+      }
     });
   }
 
   recordStandaloneRoute(): void {
     this.afterSignIn(() => {
-      void this.followService.requestCompassPermission().catch(error => this.logger.info("Compass permission was not granted", error));
-      const queryParams = this.activeSession ? this.routeQuery(this.activeSession) : {[StoredValue.RECORD_ROUTE]: generateUid()};
-      void this.router.navigate(["/app/follow"], {queryParams});
+      if (!this.mobileAccess.allowed(MobileAppAction.RECORD)) {
+        this.importError = "You do not have permission to record routes.";
+      } else {
+        void this.followService.requestCompassPermission().catch(error => this.logger.info("Compass permission was not granted", error));
+        const queryParams = this.activeSession ? this.routeQuery(this.activeSession) : {[StoredValue.RECORD_ROUTE]: generateUid()};
+        void this.router.navigate(["/app/follow"], {queryParams});
+      }
     });
   }
 
@@ -653,6 +685,20 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     }
   }
 
+  navigatorOnline(): boolean {
+    return navigator.onLine;
+  }
+
+  creatorOptions(): RouteContributor[] {
+    return uniqBy(this.routes.filter(route => !!route.createdBy).map(route => ({memberId: route.createdBy, name: route.createdByName || "Unknown user"})), contributor => contributor.memberId)
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  chooseCreator(value: string): void {
+    this.creator = value;
+    void this.uiActions.updateQueryParameter(StoredValue.CREATOR, value || null);
+  }
+
   visibleRoutes(): RouteFollowSummary[] {
     const needle = this.routeSearch.trim().toLowerCase();
     const shown = this.routes.filter(route => {
@@ -661,7 +707,8 @@ export class AppHomeComponent implements OnInit, OnDestroy {
       const favourite = !this.favouritesOnly || this.isFavourite(route);
       const named = needle.length === 0 || (route.title || "").toLowerCase().includes(needle);
       const nearby = !this.nearbyOnly || this.isNearby(route);
-      return visible && favourite && named && nearby;
+      const creator = !this.creator || route.createdBy === this.creator;
+      return visible && favourite && named && nearby && creator;
     });
     return this.nearbyOnly ? [...shown].sort((left, right) => (this.milesAway(left) ?? 9999) - (this.milesAway(right) ?? 9999)) : shown;
   }

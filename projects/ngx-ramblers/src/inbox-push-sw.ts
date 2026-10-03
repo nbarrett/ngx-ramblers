@@ -20,8 +20,7 @@ sw.addEventListener("activate", event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
     await Promise.all(keys
-      .filter(key => (key.startsWith("follow-tiles-") && key !== FOLLOW_TILES)
-        || (key.startsWith("follow-shell-") && key !== FOLLOW_SHELL))
+      .filter(key => key.startsWith("follow-tiles-") && key !== FOLLOW_TILES)
       .map(key => caches.delete(key)));
     await sw.clients.claim();
   })());

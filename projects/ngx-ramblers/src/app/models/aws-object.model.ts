@@ -1,5 +1,5 @@
 import { Dimensions } from "ngx-image-cropper";
-import { AuditStatus } from "./audit";
+import { AuditStatus, RouteAudit } from "./audit";
 
 export enum FileServeDisposition {
   DOWNLOAD = "download",
@@ -14,7 +14,7 @@ export const CONVERTIBLE_DOCUMENT_EXTENSIONS: string[] = ["docx", "pdf"];
 
 export const FILE_ICON_EXTENSIONS: string[] = ["doc", "docx", "jpg", "pdf", "ppt", "png", "txt", "xls", "xlsx"];
 
-export interface FileNameData {
+export interface FileNameData extends RouteAudit {
   originalFileName?: string;
   awsFileName?: string;
   title?: string;
@@ -42,7 +42,7 @@ export interface AuditMessage {
   message: string;
 }
 
-export interface ServerFileNameData {
+export interface ServerFileNameData extends RouteAudit {
   rootFolder: string;
   originalFileName: string;
   awsFileName: string;

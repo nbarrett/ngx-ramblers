@@ -11,7 +11,7 @@ export class ChunkErrorHandler implements ErrorHandler {
 
   handleError(error: unknown): void {
     const resolved = this.resolveError(error);
-    if (this.appShell.active() && (this.isChunkLoadError(error) || this.isChunkLoadError(resolved))) {
+    if ((this.appShell.active() || this.appShell.installed()) && (this.isChunkLoadError(error) || this.isChunkLoadError(resolved))) {
       this.logger.error("Walking app resource unavailable; preserving the current session and offline cache", resolved);
     } else if (this.isChunkLoadError(error) || this.isChunkLoadError(resolved)) {
       const storageKey = "chunk-reload-" + location.pathname;

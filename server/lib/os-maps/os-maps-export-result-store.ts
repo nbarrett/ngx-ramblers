@@ -1,3 +1,4 @@
+import { RouteContributor } from "../../../projects/ngx-ramblers/src/app/models/audit";
 import { isNumber } from "es-toolkit/compat";
 import { ramblersUploadAudit } from "../mongo/models/ramblers-upload-audit";
 import { dateTimeNowAsValue } from "../shared/dates";
@@ -12,6 +13,7 @@ function toResult(document: OsMapsExportJobResult | null): OsMapsExportJobResult
   } else {
     return {
       jobId: document.jobId,
+      contributor: document.contributor || null,
       fileName: document.fileName || "",
       status: document.status,
       walkId: document.walkId || null,
@@ -24,13 +26,14 @@ function toResult(document: OsMapsExportJobResult | null): OsMapsExportJobResult
   }
 }
 
-export async function createQueuedOsMapsExportResult(jobId: string, fileName: string, walkId?: string, routeUrls: string[] = []): Promise<OsMapsExportJobResult> {
+export async function createQueuedOsMapsExportResult(jobId: string, fileName: string, walkId?: string, routeUrls: string[] = [], contributor: RouteContributor | null = null): Promise<OsMapsExportJobResult> {
   const createdAt = dateTimeNowAsValue();
   return mongooseClient.execute(() => osMapsExportResult.findOneAndUpdate(
     {jobId},
     {
       jobId,
       fileName,
+      contributor,
       status: OsMapsExportJobStatus.QUEUED,
       walkId: walkId || null,
       routeUrls,

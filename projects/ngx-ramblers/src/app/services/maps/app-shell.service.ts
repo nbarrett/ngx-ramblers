@@ -21,7 +21,7 @@ export class AppShellService {
   private router = inject(Router);
   private document = inject(DOCUMENT);
   private logger: Logger = inject(LoggerFactory).createLogger("AppShellService", NgxLoggerLevel.ERROR);
-  private activeSubject = new BehaviorSubject<boolean>(this.isAppUrl(this.router.url));
+  private activeSubject = new BehaviorSubject<boolean>(this.isAppUrl(this.document.defaultView?.location.pathname || this.router.url));
   readonly active$ = this.activeSubject.asObservable();
   private installPrompt: BeforeInstallPromptEvent | null = null;
   private installAvailableSubject = new BehaviorSubject<boolean>(false);
@@ -38,6 +38,13 @@ export class AppShellService {
         this.apply(this.isAppUrl(event.url));
       } else if (event instanceof NavigationEnd) {
         this.apply(this.isAppUrl(event.urlAfterRedirects));
+        if (this.active()) {
+          try {
+            this.document.defaultView?.localStorage.setItem(StoredValue.APP_LAST_URL, event.urlAfterRedirects);
+          } catch (error) {
+            this.logger.warn("Could not save the last walking app screen", error);
+          }
+        }
         if (this.active() && this.followWorkerRegistration) {
           this.cacheLoadedFollowResources(this.followWorkerRegistration);
         }

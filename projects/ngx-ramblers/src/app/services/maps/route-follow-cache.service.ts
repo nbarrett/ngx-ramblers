@@ -115,6 +115,8 @@ export class RouteFollowCacheService {
       source: record.payload.source,
       title: record.payload.title,
       description: record.payload.description || null,
+      createdDate: record.payload.createdDate, createdBy: record.payload.createdBy, createdByName: record.payload.createdByName,
+      updatedDate: record.payload.updatedDate, updatedBy: record.payload.updatedBy, updatedByName: record.payload.updatedByName,
       path: record.payload.path,
       walkId: record.payload.walkId,
       routeId: record.payload.routeId,

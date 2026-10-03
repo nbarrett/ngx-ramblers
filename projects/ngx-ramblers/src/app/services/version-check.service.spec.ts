@@ -55,8 +55,24 @@ describe("VersionCheckService", () => {
     expect(reloads).toBe(0);
   });
 
+  it("does not contact the network when an installed app returns on a website screen", async () => {
+    vi.spyOn(service["appShell"], "active").mockReturnValue(false);
+    vi.spyOn(service["appShell"], "installed").mockReturnValue(true);
+    await service["checkForNewVersion"]();
+    httpMock.expectNone("/api/version");
+    expect(reloads).toBe(0);
+  });
+
   it("defers an already discovered update while the walking app is open", () => {
     vi.spyOn(service["appShell"], "active").mockReturnValue(true);
+    service["newVersionAvailable"] = true;
+    service["reloadIfReady"]();
+    expect(reloads).toBe(0);
+  });
+
+  it("defers reloads on every screen of an installed walking app", () => {
+    vi.spyOn(service["appShell"], "active").mockReturnValue(false);
+    vi.spyOn(service["appShell"], "installed").mockReturnValue(true);
     service["newVersionAvailable"] = true;
     service["reloadIfReady"]();
     expect(reloads).toBe(0);
@@ -113,6 +129,12 @@ describe("VersionCheckService", () => {
     service["userHasEditedSinceNavigation"] = false;
     service["reloadIfReady"]();
     expect(reloads).toBe(1);
+  });
+
+  it("does not apply an explicit update during a walking session", () => {
+    vi.spyOn(service["routeFollow"], "isBusy").mockReturnValue(true);
+    service.reloadNow();
+    expect(reloads).toBe(0);
   });
 
   it("reloads immediately when asked to from the notice", () => {

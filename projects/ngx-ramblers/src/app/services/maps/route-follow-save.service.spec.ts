@@ -50,6 +50,18 @@ describe("RouteFollowSaveService", () => {
     service = TestBed.inject(RouteFollowSaveService);
   });
 
+  it("keeps the original creator while accepting the new modification audit", () => {
+    const saved = service["preserveCreationAudit"](
+      {createdDate: 100, createdBy: "creator-id", createdByName: "Alex Reed"},
+      {createdDate: 200, createdBy: "editor-id", createdByName: "Sam Field", updatedDate: 200, updatedBy: "editor-id"}
+    );
+    expect(saved.createdDate).toBe(100);
+    expect(saved.createdBy).toBe("creator-id");
+    expect(saved.createdByName).toBe("Alex Reed");
+    expect(saved.updatedDate).toBe(200);
+    expect(saved.updatedBy).toBe("editor-id");
+  });
+
   it("writes a GPX track from the recorded points", () => {
     const gpx = service.pointsToGpx([
       {latitude: 51.2, longitude: 1.0, elevation: 20},

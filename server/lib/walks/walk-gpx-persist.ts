@@ -1,3 +1,5 @@
+import { RouteAudit, RouteContributor } from "../../../projects/ngx-ramblers/src/app/models/audit";
+import { dateTimeNowAsValue } from "../shared/dates";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { ServerFileNameData } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { generateAwsFileName, createFileNameData, isAwsUploadErrorResponse } from "../aws/aws-utils";
@@ -14,12 +16,13 @@ export async function persistGpxContent(
   originalFileName: string,
   content: string,
   title?: string,
-  walker?: {memberId?: string; name?: string}
+  walker?: RouteContributor
 ): Promise<ServerFileNameData> {
   const safeName = hasFileExtension(originalFileName, ".gpx") ? originalFileName : `${originalFileName}.gpx`;
   const awsFileName = generateAwsFileName(safeName);
   const resolvedTitle = title || safeName.replace(/\.gpx$/i, "");
   const fileNameData = createFileNameData(RootFolder.gpxRoutes, safeName, awsFileName, resolvedTitle);
+  Object.assign(fileNameData, gpxAudit(walker));
   try {
     const summary = parseExportedGpx(content, safeName);
     fileNameData.startLat = summary.startLat;
@@ -46,4 +49,10 @@ export async function persistGpxContent(
   } else {
     return fileNameData;
   }
+}
+
+export function gpxAudit(contributor: RouteContributor | null = null): RouteAudit {
+  const timestamp = dateTimeNowAsValue();
+  return {createdDate: timestamp, createdBy: contributor?.memberId || null, createdByName: contributor?.name || null,
+    updatedDate: timestamp, updatedBy: contributor?.memberId || null, updatedByName: contributor?.name || null};
 }

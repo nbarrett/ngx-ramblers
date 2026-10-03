@@ -14,7 +14,7 @@ export function metresBetween(from: RouteFollowPoint, to: RouteFollowPoint): num
 export function cumulativeDistances(points: RouteFollowPoint[]): number[] {
   const running = {total: 0};
   return points.map((point, index) => {
-    running.total += index === 0 ? 0 : metresBetween(points[index - 1], point);
+    running.total += index === 0 || point.breakBefore ? 0 : metresBetween(points[index - 1], point);
     return running.total;
   });
 }
@@ -105,4 +105,9 @@ export function snapToRoute(points: RouteFollowPoint[], cumulative: number[], po
       } : best;
     }, {point: points[0], index: 0, distanceMetres: Number.POSITIVE_INFINITY, progressMetres: 0});
   }
+}
+
+export function routeSegments(points: RouteFollowPoint[]): RouteFollowPoint[][] {
+  const starts = points.map((point, index) => index === 0 || point.breakBefore ? index : -1).filter(index => index >= 0);
+  return starts.map((start, index) => points.slice(start, starts[index + 1] ?? points.length));
 }

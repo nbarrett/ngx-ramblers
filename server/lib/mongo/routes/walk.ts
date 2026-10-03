@@ -1,3 +1,4 @@
+import { requireMobileImport } from "../../walks/mobile-app-access";
 import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import { walk } from "../models/walk";
@@ -42,7 +43,7 @@ router.get("/sync/status", async (req: Request, res: Response) => {
 router.post("/leader-rematch", authConfig.authenticate(), handleWalkLeaderRematch);
 
 router.post("/gpx/upload", authConfig.authenticate(), receiveWalkGpx, uploadWalkGpx);
-router.post("/gpx/import", authConfig.authenticate(), receiveWalkGpx, importWalkGpx);
+router.post("/gpx/import", authConfig.authenticate(), receiveWalkGpx, requireMobileImport, importWalkGpx);
 router.get("/gpx/list", listWalkGpxFiles);
 router.post("/album-photos-added", authConfig.optionalAuthenticate(), requirePhotoContributionAccess, notifyWalkPhotosAdded);
 router.get("/event-stats", authConfig.authenticate(), eventStats);

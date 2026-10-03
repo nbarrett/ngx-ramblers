@@ -84,6 +84,7 @@ export class RouteFollowPayloadService {
       const route = this.preferredRoute(row?.map, null);
       const title = row?.routeGuide?.title || route?.name || this.titleFromPath(page.path);
       return row && route ? {
+        ...route?.gpxFile,
         source: RouteFollowSource.PAGE,
         title,
         path: page.path || null,
@@ -104,6 +105,7 @@ export class RouteFollowPayloadService {
       return null;
     } else {
       return {
+        ...walk.fields?.gpxFile,
         source: RouteFollowSource.WALK,
         title: walk.groupEvent?.title || "Walk",
         path: null,
@@ -181,6 +183,8 @@ export class RouteFollowPayloadService {
         source: RouteFollowSource.OS_MAPS,
         title: route.title || "OS Maps route",
         description: route.gpxFile.description || null,
+        createdDate: route.gpxFile.createdDate, createdBy: route.gpxFile.createdBy, createdByName: route.gpxFile.createdByName,
+        updatedDate: route.gpxFile.updatedDate, updatedBy: route.gpxFile.updatedBy, updatedByName: route.gpxFile.updatedByName,
         path: null,
         walkId: null,
         routeId: null,
@@ -210,6 +214,7 @@ export class RouteFollowPayloadService {
       const taken = branches.filter(branch => composition.taken.includes(branch.index));
       const waypoints = this.mergeWaypoints([...markersOnTrack(map.markers || [], points), ...taken.flatMap(branch => branchMarkers(branch))], parsed.waypoints);
       return {
+        ...route?.gpxFile,
         source: RouteFollowSource.PAGE,
         branches,
         via: composition.taken,
@@ -242,6 +247,8 @@ export class RouteFollowPayloadService {
         source: RouteFollowSource.OS_MAPS,
         title: route.title || "OS Maps route",
         description: route.gpxFile.description || null,
+        createdDate: route.gpxFile.createdDate, createdBy: route.gpxFile.createdBy, createdByName: route.gpxFile.createdByName,
+        updatedDate: route.gpxFile.updatedDate, updatedBy: route.gpxFile.updatedBy, updatedByName: route.gpxFile.updatedByName,
         path: null,
         walkId: null,
         routeId: null,
@@ -279,6 +286,7 @@ export class RouteFollowPayloadService {
         : authored;
       const waypoints = this.mergeWaypoints(planningMarkers, parsed.waypoints);
       return {
+        ...walk.fields?.gpxFile,
         source: RouteFollowSource.WALK,
         title: walk.groupEvent?.title || "Walk",
         path: null,
@@ -360,6 +368,7 @@ export class RouteFollowPayloadService {
         const toPoints = (track: GpxTrack | null): RouteFollowPoint[] => (track?.points || []).map(point => ({
           latitude: point.latitude,
           longitude: point.longitude,
+          breakBefore: point.breakBefore,
           elevation: isNumber(point.elevation) ? point.elevation : null,
           ...(point.time ? {recordedAt: point.time.getTime()} : {})
         }));

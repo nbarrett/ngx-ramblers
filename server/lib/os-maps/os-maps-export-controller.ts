@@ -1,3 +1,4 @@
+import { routeContributorFrom } from "../auth/request-member";
 import { Request, Response } from "express";
 import { isArray, isString } from "es-toolkit/compat";
 import debug from "debug";
@@ -76,7 +77,7 @@ export async function exportOsMapsRoute(req: Request, res: Response): Promise<vo
       if (current?.status === OsMapsExportJobStatus.QUEUED) {
         res.status(409).json({error: "An OS Maps conversion is already running. Wait for it to finish or stop the current job.", jobId: current.jobId});
       } else {
-        const result = await dispatchOsMapsExport(routeUrls, walkId, actorNameFrom(req));
+        const result = await dispatchOsMapsExport(routeUrls, walkId, actorNameFrom(req), routeContributorFrom(req));
         res.json(result);
       }
     } catch (error) {
@@ -122,7 +123,7 @@ export async function updateOsMapsImportedRoute(req: Request, res: Response): Pr
       color: req.body?.color,
       weight: req.body?.weight,
       opacity: req.body?.opacity
-    });
+    }, routeContributorFrom(req));
     if (!saved) {
       res.status(404).json({error: "That imported OS Maps route was not found"});
     } else {

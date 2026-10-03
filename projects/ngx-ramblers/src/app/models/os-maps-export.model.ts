@@ -1,3 +1,4 @@
+import { RouteContributor } from "./audit";
 import { FileNameData, ServerFileNameData } from "./aws-object.model";
 
 export enum OsMapsRouteSource {
@@ -80,6 +81,7 @@ export interface OsMapsRouteImport {
 }
 
 export interface OsMapsExportJobResult {
+  contributor?: RouteContributor | null;
   jobId: string;
   fileName: string;
   status: OsMapsExportJobStatus;

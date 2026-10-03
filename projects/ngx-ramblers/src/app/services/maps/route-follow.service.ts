@@ -3,6 +3,7 @@ import { isNumber } from "es-toolkit/compat";
 import { BehaviorSubject } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
+  RECORDING_MAX_ACCURACY_METRES, RECORDING_MAX_SPEED_METRES_PER_SECOND, RECORDING_GAP_MS,
   ROUTE_FOLLOW_APPROACH_METRES,
   ROUTE_FOLLOW_OFF_ROUTE_METRES,
   ROUTE_FOLLOW_RECORD_MIN_POINT_METRES,
@@ -48,12 +49,16 @@ export class RouteFollowService {
   private previewSpeedValue = ROUTE_FOLLOW_PREVIEW_SPEED_DEFAULT;
   private compassHeading: number | null = null;
   private orientationHandler: ((event: DeviceOrientationEvent) => void) | null = null;
+  private recordingGap = false;
+  private recordingCandidate: RouteFollowPoint | null = null;
   private state: RouteFollowProgress = this.emptyProgress();
   private progressSubject = new BehaviorSubject<RouteFollowProgress>(this.state);
   readonly progress$ = this.progressSubject.asObservable();
 
   loadRoute(points: RouteFollowPoint[], waypoints: RouteFollowWaypoint[]): void {
     this.stopAll();
+    this.recordingGap = false;
+    this.recordingCandidate = null;
     this.track = points || [];
     this.waypoints = waypoints || [];
     this.cumulativeMetres = this.buildCumulative(this.track);
@@ -301,6 +306,7 @@ export class RouteFollowService {
 
   pause(): void {
     if (this.state.mode === RouteFollowMode.FOLLOWING || this.state.mode === RouteFollowMode.RECORDING) {
+      this.recordingGap = this.recordingGap || this.state.mode === RouteFollowMode.RECORDING;
       this.pausedFromMode = this.state.mode;
       this.clearWatch();
       this.applyMode(RouteFollowMode.PAUSED);
@@ -389,7 +395,7 @@ export class RouteFollowService {
     } else {
       const result = this.track.slice(1).reduce((acc, end, offset) => {
         const start = this.track[offset];
-        const projected = this.projectOnSegment(position, start, end);
+        const projected = end.breakBefore ? {distanceMetres: Number.POSITIVE_INFINITY, point: start, alongMetres: 0} : this.projectOnSegment(position, start, end);
         const better = projected.distanceMetres < acc.distanceMetres;
         return better ? {
           point: projected.point,
@@ -494,15 +500,46 @@ export class RouteFollowService {
     const heading = isNumber(position.coords.heading) && !isNaN(position.coords.heading)
       ? position.coords.heading
       : this.headingFromLast(current);
-    if (this.state.mode === RouteFollowMode.RECORDING) {
-      this.appendRecordedPoint(current);
+    const recording = this.state.mode === RouteFollowMode.RECORDING;
+    const accepted = !recording || this.acceptRecordingPosition(current, position.coords.accuracy);
+    if (accepted) {
+      if (recording) {
+        this.appendRecordedPoint({...current, breakBefore: this.recordingGap});
+        this.recordingGap = false;
+        this.recordingCandidate = null;
+      }
+      this.applyPosition(current, heading, position.coords.accuracy);
+    } else {
+      this.recordingGap = true;
+      this.state = {...this.state, locationError: RouteFollowLocationError.INACCURATE};
+      this.progressSubject.next(this.state);
     }
-    this.applyPosition(current, heading, position.coords.accuracy);
+  }
+
+  private acceptRecordingPosition(point: RouteFollowPoint, accuracy: number): boolean {
+    const last = this.track.at(-1);
+    const elapsed = last?.recordedAt ? point.recordedAt - last.recordedAt : null;
+    const candidateElapsed = this.recordingCandidate?.recordedAt ? point.recordedAt - this.recordingCandidate.recordedAt : null;
+    const accurate = isNumber(accuracy) && Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= RECORDING_MAX_ACCURACY_METRES;
+    if (!accurate || !Number.isFinite(point.latitude) || !Number.isFinite(point.longitude)
+      || Math.abs(point.latitude) > 90 || Math.abs(point.longitude) > 180 || (isNumber(elapsed) && elapsed <= 0)) {
+      return false;
+    } else if (!last || !isNumber(elapsed)) {
+      return true;
+    } else if (elapsed > RECORDING_GAP_MS || this.metresBetween(last, point) > accuracy + 10 + elapsed / 1000 * RECORDING_MAX_SPEED_METRES_PER_SECOND) {
+      const confirmed = !!this.recordingCandidate && candidateElapsed > 0 && candidateElapsed <= RECORDING_GAP_MS
+        && this.metresBetween(this.recordingCandidate, point) <= accuracy + 10 + candidateElapsed / 1000 * RECORDING_MAX_SPEED_METRES_PER_SECOND;
+      this.recordingCandidate = point;
+      this.recordingGap = true;
+      return confirmed;
+    } else {
+      return true;
+    }
   }
 
   private appendRecordedPoint(point: RouteFollowPoint): void {
     const last = this.track.length > 0 ? this.track[this.track.length - 1] : null;
-    if (!last || this.metresBetween(last, point) >= ROUTE_FOLLOW_RECORD_MIN_POINT_METRES) {
+    if (!last || point.breakBefore || this.metresBetween(last, point) >= ROUTE_FOLLOW_RECORD_MIN_POINT_METRES) {
       this.track = [...this.track, point];
       this.cumulativeMetres = this.buildCumulative(this.track);
     }
@@ -510,6 +547,7 @@ export class RouteFollowService {
 
   private onPositionError(error: GeolocationPositionError): void {
     this.logger.error("onPositionError:", error.code, error.message);
+    this.recordingGap = this.recordingGap || this.state.mode === RouteFollowMode.RECORDING;
     if (error.code === error.PERMISSION_DENIED) {
       this.applyLocationError(RouteFollowLocationError.DENIED);
     } else if (this.state.mode === RouteFollowMode.FOLLOWING || this.state.mode === RouteFollowMode.RECORDING) {

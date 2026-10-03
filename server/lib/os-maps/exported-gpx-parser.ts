@@ -1,11 +1,7 @@
+import { RouteFollowPoint } from "../../../projects/ngx-ramblers/src/app/models/route-follow.model";
 import { DOMParser } from "@xmldom/xmldom";
 import { ExportedGpxSummary } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { dateTimeFromIso } from "../shared/dates";
-
-interface GpxPoint {
-  latitude: number;
-  longitude: number;
-}
 
 const EARTH_RADIUS_METRES = 6371e3;
 
@@ -23,17 +19,19 @@ function textOf(parent: Element, tagName: string): string {
   }
 }
 
-function pointFrom(element: Element): GpxPoint | null {
+function pointFrom(element: Element): RouteFollowPoint | null {
   const latitude = parseFloat(element.getAttribute("lat") || "");
   const longitude = parseFloat(element.getAttribute("lon") || "");
   if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
     return null;
   } else {
-    return {latitude, longitude};
+    const parent = element.parentNode as Element;
+    const breakBefore = parent?.nodeName === "trkseg" && elementsNamed(parent, "trkpt")[0] === element;
+    return {latitude, longitude, breakBefore};
   }
 }
 
-function distanceMetres(from: GpxPoint, to: GpxPoint): number {
+function distanceMetres(from: RouteFollowPoint, to: RouteFollowPoint): number {
   const fromLat = from.latitude * Math.PI / 180;
   const toLat = to.latitude * Math.PI / 180;
   const deltaLat = (to.latitude - from.latitude) * Math.PI / 180;
@@ -43,20 +41,20 @@ function distanceMetres(from: GpxPoint, to: GpxPoint): number {
   return EARTH_RADIUS_METRES * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
-function trackPointsFrom(doc: Document): GpxPoint[] {
+function trackPointsFrom(doc: Document): RouteFollowPoint[] {
   const trackPoints = elementsNamed(doc, "trkpt")
     .map(pointFrom)
-    .filter((point): point is GpxPoint => !!point);
+    .filter((point): point is RouteFollowPoint => !!point);
   if (trackPoints.length > 0) {
     return trackPoints;
   } else {
     return elementsNamed(doc, "rtept")
       .map(pointFrom)
-      .filter((point): point is GpxPoint => !!point);
+      .filter((point): point is RouteFollowPoint => !!point);
   }
 }
 
-function totalDistanceMetres(points: GpxPoint[]): number {
+function totalDistanceMetres(points: RouteFollowPoint[]): number {
   if (points.length < 2) {
     return 0;
   } else {
@@ -64,7 +62,7 @@ function totalDistanceMetres(points: GpxPoint[]): number {
       if (index === 0) {
         return total;
       } else {
-        return total + distanceMetres(points[index - 1], point);
+        return total + (point.breakBefore ? 0 : distanceMetres(points[index - 1], point));
       }
     }, 0);
   }
@@ -88,7 +86,7 @@ function parseNonEmptyGpx(content: string, fileName: string): ExportedGpxSummary
     const trackPoints = trackPointsFrom(doc);
     const waypoints = elementsNamed(doc, "wpt")
       .map(pointFrom)
-      .filter((point): point is GpxPoint => !!point);
+      .filter((point): point is RouteFollowPoint => !!point);
     const metres = totalDistanceMetres(trackPoints);
     const firstPoint = trackPoints[0];
     return {

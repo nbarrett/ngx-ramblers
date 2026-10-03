@@ -1,3 +1,4 @@
+import { RouteContributor } from "../../../projects/ngx-ramblers/src/app/models/audit";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { systemConfig } from "../config/system-config";
@@ -24,11 +25,11 @@ async function osMapsWorkerCredentials(): Promise<{userName: string; password: s
   }
 }
 
-export async function dispatchOsMapsExport(routeUrls: string[], walkId?: string, ramblersUser?: string): Promise<IntegrationWorkerJobResponse> {
+export async function dispatchOsMapsExport(routeUrls: string[], walkId?: string, ramblersUser?: string, contributor: RouteContributor | null = null): Promise<IntegrationWorkerJobResponse> {
   const credentials = await osMapsWorkerCredentials();
   const job = buildOsMapsExportJob(routeUrls, walkId, ramblersUser);
   debugLog("submitting OS Maps export job", job.jobId, "routes:", routeUrls.length, "walkId:", walkId || null);
-  await createQueuedOsMapsExportResult(job.jobId, job.data.fileName, walkId, routeUrls);
+  await createQueuedOsMapsExportResult(job.jobId, job.data.fileName, walkId, routeUrls, contributor);
   try {
     return await dispatchRemoteIntegrationWorkerJob(job, credentials, detachedAuditSocket());
   } catch (error) {

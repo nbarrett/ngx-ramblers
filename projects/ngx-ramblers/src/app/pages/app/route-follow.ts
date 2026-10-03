@@ -1,3 +1,8 @@
+import { generateUid } from "../../functions/numbers";
+import { MobileAppAccessService } from "../../services/maps/mobile-app-access.service";
+import { MobileAppAction } from "../../models/walks-config.model";
+import { routeSegments } from "../../functions/route-geometry";
+import { RouteAuditComponent } from "../../modules/common/route-audit";
 import { downloadBlob } from "../../functions/file-download";
 import { FormsModule } from "@angular/forms";
 import { Component, HostListener, inject, NgZone, OnDestroy, OnInit } from "@angular/core";
@@ -500,11 +505,11 @@ import { RouterHistoryService } from "../../services/router-history.service";
             <div class="follow-peek-stats">
               @if (sheetMinimised && hasLine && progress?.mode !== RouteFollowMode.EDITING) {
                 <div class="follow-peek-stat">
-                  <span>Remaining</span>
+                  <span>{{ recordingSession ? "Recorded" : "Remaining" }}</span>
                   <strong>{{ remainingDistance }}</strong>
                 </div>
                 <div class="follow-peek-stat">
-                  <span>Time left</span>
+                  <span>{{ recordingSession ? "Elapsed" : "Time left" }}</span>
                   <strong>{{ remainingTime }}</strong>
                 </div>
               }
@@ -519,6 +524,16 @@ import { RouterHistoryService } from "../../services/router-history.service";
           }
           <div class="follow-sheet-body-slot">
           <div class="follow-sheet-body">
+          @if (payload && payload.source !== RouteFollowSource.RECORDING) {
+            <app-route-audit [audit]="payload"/>
+          }
+          @if (recordingSession) {
+            <p class="follow-offline-status">
+              @if (mapTilesLoading) { Loading map tiles… }
+              @else if (mapTilesFailed) { Some map tiles could not load. Waiting for a connection. }
+              @else { {{ mapTileLoads }} map tiles loaded }
+            </p>
+          }
           @if (hasLine && offlineStatus === RouteFollowOfflineStatus.AVAILABLE) {
             <p class="follow-offline-status">Available off-line</p>
           } @else if (offlineStatus === RouteFollowOfflineStatus.SAVING) {
@@ -596,11 +611,11 @@ import { RouterHistoryService } from "../../services/router-history.service";
           @if (hasLine && progress?.mode !== RouteFollowMode.EDITING) {
             <div class="follow-stats">
               <div class="follow-stat">
-                <span>Remaining distance</span>
+                <span>{{ recordingSession ? "Distance recorded" : "Remaining distance" }}</span>
                 <strong>{{ remainingDistance }}</strong>
               </div>
               <div class="follow-stat">
-                <span>Remaining time</span>
+                <span>{{ recordingSession ? "Elapsed time" : "Remaining time" }}</span>
                 <strong>{{ remainingTime }}</strong>
               </div>
               <div class="follow-stat">
@@ -625,11 +640,6 @@ import { RouterHistoryService } from "../../services/router-history.service";
               <textarea id="recording-description" class="form-control" maxlength="10000" rows="3" [(ngModel)]="payload.description" (ngModelChange)="recordingDetailsChanged()" [disabled]="savingRoute"></textarea>
               <p class="mt-2 mb-0">Saving adds this route to the group's Maps list.</p>
             </div>
-          }
-          @if (hasLine && progress?.mode === RouteFollowMode.IDLE) {
-            <button class="btn btn-quiet mb-2" type="button" (click)="exportGpx()">
-              <fa-icon [icon]="faDownload"/>Export GPX
-            </button>
           }
           <div class="follow-actions">
             @if (!thinningPrompt && progress?.mode === RouteFollowMode.EDITING) {
@@ -695,6 +705,8 @@ import { RouterHistoryService } from "../../services/router-history.service";
                   <fa-icon [icon]="faPencil"/>
                   {{ hasLine ? "Edit" : "Draw" }}
                 </button>
+              }
+              @if (mobileAccess.allowed(MobileAppAction.RECORD)) {
                 <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="recordRoute()">
                   <fa-icon class="red-icon" [icon]="faCircle"/>
                   Record
@@ -710,7 +722,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
     </div>
   `,
   styleUrls: ["./route-follow.sass"],
-  imports: [FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
+  imports: [RouteAuditComponent, FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
 })
 export class RouteFollowComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowComponent", NgxLoggerLevel.ERROR);
@@ -778,6 +790,11 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected persistMessage = "";
   protected persistError: string | null = null;
   protected savingRoute = false;
+  protected readonly mobileAccess = inject(MobileAppAccessService);
+  protected readonly MobileAppAction = MobileAppAction;
+  protected mapTileLoads = 0;
+  protected mapTilesLoading = false;
+  protected mapTilesFailed = false;
   protected canEditRoute = false;
   protected styleRoute: MapRoute | null = null;
   private savedStyle: {color: string; weight: number; opacity: number} | null = null;
@@ -962,10 +979,16 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (document.visibilityState === "hidden") {
       this.persistFollowSession(true);
     } else if (document.visibilityState === "visible" && this.progress && isLiveFollowMode(this.progress.mode)) {
-      this.followService.resumeWatchIfLive();
-      this.followService.listenForCompass();
-      this.mapRef?.invalidateSize();
-      void this.requestWakeLock();
+      const action = this.recordingSession ? MobileAppAction.RECORD : MobileAppAction.FOLLOW;
+      if (this.mobileAccess.allowed(action)) {
+        this.followService.resumeWatchIfLive();
+        this.followService.listenForCompass();
+        this.mapRef?.invalidateSize();
+        void this.requestWakeLock();
+      } else {
+        this.pause();
+        this.persistError = "You no longer have permission to resume this session.";
+      }
     }
   }
 
@@ -994,12 +1017,17 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (!this.hasLine && !this.progress?.position) {
       return "—";
     } else {
-      return this.followService.formatDistance(this.progress?.remainingMetres ?? this.payload?.totalMetres ?? 0);
+      return this.followService.formatDistance(this.recordingSession ? this.followService.totalMetres() : (this.progress?.remainingMetres ?? this.payload?.totalMetres ?? 0));
     }
   }
 
   get remainingTime(): string {
-    if (!this.hasLine && !this.progress?.position) {
+    if (this.recordingSession) {
+      const points = this.followService.trackPoints();
+      const first = points[0]?.recordedAt;
+      const last = points.at(-1)?.recordedAt;
+      return this.followService.formatDuration(first && last ? (last - first) / 60000 : 0);
+    } else if (!this.hasLine && !this.progress?.position) {
       return "—";
     } else {
       return this.followService.formatDuration(this.progress?.remainingMinutes ?? 0);
@@ -1117,7 +1145,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   get locationMessage(): string | null {
     const error = this.progress?.locationError;
     const platform = this.appShell.platform();
-    if (error === RouteFollowLocationError.DENIED) {
+    if (error === RouteFollowLocationError.INACCURATE) {
+      return "Waiting for an accurate GPS signal. Unreliable points are not recorded; gaps stay separate.";
+    } else if (error === RouteFollowLocationError.DENIED) {
       return platform === AppInstallPlatform.IOS
         ? "Location is off. On iPhone go to Settings, then Privacy & Security, then Location Services, and allow it for this browser."
         : "Location is off. On Android open Settings, then Apps, then this browser, then Permissions, then Location.";
@@ -1614,6 +1644,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   async start(): Promise<void> {
+    if (!this.mobileAccess.allowed(MobileAppAction.FOLLOW)) {
+      this.persistError = "You do not have permission to follow routes.";
+    } else {
     this.followUser = true;
     try {
       await this.followService.requestCompassPermission();
@@ -1623,6 +1656,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.followService.startFollowing();
     this.minimiseSheet();
     void this.requestWakeLock();
+    }
   }
 
   async saveOffline(): Promise<void> {
@@ -1666,10 +1700,15 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   resume(): void {
-    this.followUser = true;
-    this.followService.resume();
-    this.persistFollowSession(true);
-    void this.requestWakeLock();
+    const action = this.recordingSession ? MobileAppAction.RECORD : MobileAppAction.FOLLOW;
+    if (this.mobileAccess.allowed(action)) {
+      this.followUser = true;
+      this.followService.resume();
+      this.persistFollowSession(true);
+      void this.requestWakeLock();
+    } else {
+      this.persistError = "You no longer have permission to resume this session.";
+    }
   }
 
   stop(): void {
@@ -1686,7 +1725,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   editRoute(): void {
-    if (!this.payload) {
+    if (!this.mobileAccess.allowed(MobileAppAction.EDIT)) {
+      this.persistError = "You do not have permission to edit routes.";
+    } else if (!this.payload) {
       return;
     } else {
       const source = this.followService.trackPoints().length >= 2
@@ -1701,8 +1742,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   recordRoute(): void {
-    if (!this.payload) {
+    if (!this.mobileAccess.allowed(MobileAppAction.RECORD)) {
+      this.persistError = "You do not have permission to record routes.";
+    } else if (!this.payload) {
       return;
+    } else if (this.payload.source !== RouteFollowSource.RECORDING && !this.canEditRoute) {
+      void this.router.navigate(["/app/follow"], {queryParams: {[StoredValue.RECORD_ROUTE]: generateUid()}});
     } else {
       this.persistError = null;
       this.persistMessage = "";
@@ -1880,8 +1925,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         if (standalone) {
           this.payload = await this.routeSave.saveStandalone(this.payload, recorded);
         } else {
-          await this.routeSave.save(this.payload, recorded);
-          this.payload = {...this.payload, points: recorded};
+          const savedFile = await this.routeSave.save(this.payload, recorded);
+          this.payload = {...this.payload, points: recorded,
+            createdDate: savedFile.createdDate, createdBy: savedFile.createdBy, createdByName: savedFile.createdByName,
+            updatedDate: savedFile.updatedDate, updatedBy: savedFile.updatedBy, updatedByName: savedFile.updatedByName};
         }
         this.rememberSavedStyle(this.payload);
         this.draftPoints = [];
@@ -2415,7 +2462,13 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       this.previewSpeed = session.previewSpeed || ROUTE_FOLLOW_PREVIEW_SPEED_DEFAULT;
       this.followService.setPreviewSpeed(this.previewSpeed);
       const visited = session.visitedWaypointIds || [];
-      if (session.mode === RouteFollowMode.RECORDING) {
+      const restoredMode = session.mode === RouteFollowMode.PAUSED ? session.pausedFromMode || RouteFollowMode.FOLLOWING : session.mode;
+      const requiredAction = restoredMode === RouteFollowMode.RECORDING ? MobileAppAction.RECORD : MobileAppAction.FOLLOW;
+      if (!this.mobileAccess.allowed(requiredAction)) {
+        this.draftPoints = this.payload.points;
+        this.followService.restorePaused(visited, restoredMode, session.recordedPoints || null, session.previewMetres || 0);
+        this.persistError = "Your saved session is kept, but you no longer have permission to resume it.";
+      } else if (session.mode === RouteFollowMode.RECORDING) {
         this.followUser = true;
         this.lastRecordedPointCount = (session.recordedPoints || []).length;
         this.draftPoints = this.payload.points;
@@ -2464,9 +2517,6 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
           }
         } else if (this.usablePayload(cached)) {
           await this.applyLoaded(cached);
-          if (sequence === this.loadSequence && !isLiveFollowMode(this.progress?.mode)) {
-            void this.refreshFromNetwork(path, routeId, walkId, ramblersSlug, osMapsRouteId, trackIndex, via);
-          }
         } else {
           const loaded = await this.networkPayload(path, routeId, walkId, ramblersSlug, osMapsRouteId, trackIndex, via);
           if (sequence === this.loadSequence) {
@@ -2494,18 +2544,6 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         ? this.loadRamblers(ramblersSlug)
         : (walkId ? this.loadWalk(walkId) : this.loadPage(path, routeId, trackIndex, via)));
     return firstCompleted(request, ROUTE_FOLLOW_NETWORK_TIMEOUT_MS, "Route follow network timed out");
-  }
-
-  private async refreshFromNetwork(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null, trackIndex = 0, via: number[] = []): Promise<void> {
-    try {
-      const loaded = await this.networkPayload(path, routeId, walkId, ramblersSlug, osMapsRouteId, trackIndex, via);
-      const requestedKey = followCacheKey({path, routeId, walkId, ramblersSlug, osMapsRouteId});
-      if (this.usablePayload(loaded) && requestedKey === followCacheKey(this.payload) && !isLiveFollowMode(this.progress?.mode)) {
-        await this.applyLoaded(loaded);
-      }
-    } catch (error) {
-      this.logger.info("background route refresh skipped", error);
-    }
   }
 
   private usablePayload(payload: RouteFollowPayload | null): boolean {
@@ -2546,7 +2584,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         this.loadedWalk = session && followCacheKey(session) === key ? session.walk || this.loadedWalk : this.loadedWalk;
         this.offlineStatus = offlineStatus;
         this.payload = loaded;
-        this.canEditRoute = this.routeIsEditable(loaded);
+        this.canEditRoute = loaded.source === RouteFollowSource.RECORDING
+          ? this.mobileAccess.allowed(MobileAppAction.RECORD)
+          : this.routeIsEditable(loaded) && this.mobileAccess.allowed(MobileAppAction.EDIT);
         this.loginPrompt = !this.canEditRoute && loaded.source !== RouteFollowSource.RAMBLERS_LIBRARY && !this.memberLogin.memberLoggedIn();
         this.styleRoute = this.styleFromPayload(loaded);
         this.rememberSavedStyle(loaded);
@@ -2622,7 +2662,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     } else if (payload.source === RouteFollowSource.PAGE) {
       return this.memberLogin.allowContentEdits();
     } else if (payload.source === RouteFollowSource.OS_MAPS) {
-      return this.memberLogin.allowWalkAdminEdits();
+      return this.mobileAccess.allowed(MobileAppAction.EDIT);
     } else {
       return false;
     }
@@ -2638,6 +2678,17 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     return this.payloadService.payloadFromLibraryRoute(route);
   }
 
+  private observeMapTiles(layer: L.Layer): void {
+    if (layer instanceof L.LayerGroup) {
+      layer.eachLayer(child => this.observeMapTiles(child));
+    } else {
+      layer.on("loading", () => this.zone.run(() => { this.mapTilesLoading = true; this.redraw(); }));
+      layer.on("load", () => this.zone.run(() => { this.mapTilesLoading = false; this.redraw(); }));
+      layer.on("tileload", () => this.zone.run(() => { this.mapTileLoads += 1; this.mapTilesFailed = false; this.redraw(); }));
+      layer.on("tileerror", () => this.zone.run(() => { this.mapTilesFailed = true; this.redraw(); }));
+    }
+  }
+
   private buildMapOptions(payload: RouteFollowPayload, view: {center: L.LatLng; zoom: number} | null = null): void {
     const provider = this.mapProvider;
     const style = this.osStyle;
@@ -2645,8 +2696,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     const maxZoom = this.mapTiles.maxZoomForStyle(provider, style);
     const zoom = view ? Math.min(view.zoom, maxZoom) : maxZoom - 2;
     const center = view?.center || L.latLng(first.latitude, first.longitude);
+    const baseLayer = this.mapTiles.createBaseLayer(provider, style);
+    this.observeMapTiles(baseLayer);
     this.options = {
-      layers: [this.mapTiles.createBaseLayer(provider, style)],
+      layers: [baseLayer],
       zoom,
       center,
       crs: this.mapTiles.crsForStyle(provider, style),
@@ -2813,8 +2866,6 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       const points = this.followService.trackPoints().length > 0 ? this.followService.trackPoints() : this.payload.points;
       const latLngs = points.map(point => [point.latitude, point.longitude] as [number, number]);
       const completedIndex = this.progress?.snap?.index ?? 0;
-      const completed = latLngs.slice(0, completedIndex + 1);
-      const remaining = latLngs.slice(completedIndex);
       const lineColor = this.payload.color || PaletteColor.ROSE;
       const lineWeight = this.payload.weight || ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT;
       const lineOpacity = this.payload.opacity ?? 1;
@@ -2829,7 +2880,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       } else {
         this.removeEditLine();
         this.layers = latLngs.length >= 2 ? [
-          L.polyline(latLngs, {
+          L.polyline(routeSegments(points).map(segment => segment.map(point => L.latLng(point.latitude, point.longitude))), {
             color: "#ffffff",
             weight: lineWeight + 2,
             opacity: 0.9,
@@ -2837,7 +2888,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
             lineCap: "round",
             interactive: false
           }),
-          L.polyline(completed.length > 1 ? completed : [latLngs[0], latLngs[0]], {
+          L.polyline(routeSegments(points.slice(0, completedIndex + 1)).map(segment => segment.map(point => L.latLng(point.latitude, point.longitude))), {
             color: paint.walked,
             weight: lineWeight,
             opacity: 0.85,
@@ -2845,7 +2896,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
             lineCap: "round",
             interactive: false
           }),
-          L.polyline(remaining.length > 1 ? remaining : latLngs, {
+          L.polyline(routeSegments(points.slice(completedIndex)).map(segment => segment.map(point => L.latLng(point.latitude, point.longitude))), {
             color: paint.ahead,
             weight: lineWeight,
             opacity: lineOpacity,
