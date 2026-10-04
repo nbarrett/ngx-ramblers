@@ -22,6 +22,7 @@ import { SelectAllHeaderComponent } from "./select-all-header";
       [multiple]="multiple"
       [closeOnSelect]="!multiple"
       [searchable]="true"
+      [searchFn]="environmentSearch"
       [clearable]="true"
       [appendTo]="'body'"
       [dropdownPosition]="'bottom'"
@@ -39,18 +40,20 @@ import { SelectAllHeaderComponent } from "./select-all-header";
       }
       @if (!multiple) {
         <ng-template ng-label-tmp>
-          {{ selectedName | humanise }}
+          {{ selectedLabel() }}
         </ng-template>
       }
       <ng-template ng-option-tmp let-item="item">
         <div>
           <strong>{{ item.ngSelectAttributes.label }}</strong>
-          <div><small>Database: {{ item.database }}</small></div>
+          @if (item.description || item.database) {
+            <div><small>{{ item.description || ("Database: " + item.database) }}</small></div>
+          }
         </div>
       </ng-template>
     </ng-select>
   `,
-  imports: [FormsModule, NgSelectComponent, NgHeaderTemplateDirective, NgLabelTemplateDirective, NgOptionTemplateDirective, HumanisePipe, SelectAllHeaderComponent]
+  imports: [FormsModule, NgSelectComponent, NgHeaderTemplateDirective, NgLabelTemplateDirective, NgOptionTemplateDirective, SelectAllHeaderComponent]
 })
 export class EnvironmentSelectComponent {
   private _items: EnvironmentInfo[] = [];
@@ -58,7 +61,7 @@ export class EnvironmentSelectComponent {
     this._items = value || [];
     this.displayItems = this._items.map(item => ({
       ...item,
-      ngSelectAttributes: { label: this.humanise.transform(item.name) }
+      ngSelectAttributes: { label: item.displayName || this.humanise.transform(item.name) }
     }));
     this.syncNgModelFromInputs();
   }
@@ -89,6 +92,11 @@ export class EnvironmentSelectComponent {
   displayItems: (EnvironmentInfo & HasNgSelectAttributes)[] = [];
 
   ngModelValue: any;
+
+  readonly environmentSearch = (term: string, item: EnvironmentInfo & HasNgSelectAttributes): boolean => {
+    const searchableText = [item.name, item.ngSelectAttributes.label, item.description, item.database].filter(Boolean).join(" ").toLowerCase();
+    return term.toLowerCase().trim().split(/\s+/).every(part => searchableText.includes(part));
+  };
 
   private syncNgModelFromInputs() {
     if (this.multiple) {
@@ -128,6 +136,10 @@ export class EnvironmentSelectComponent {
     } else {
       this.selectAll();
     }
+  }
+
+  selectedLabel(): string {
+    return this.displayItems.find(item => item.name === this.selectedName)?.ngSelectAttributes.label || this.humanise.transform(this.selectedName);
   }
 
   labelText(): string {

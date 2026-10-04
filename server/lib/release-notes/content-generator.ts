@@ -1,3 +1,4 @@
+import { documentationMenuLinks, rewriteDocumentationMarkdown } from "../documentation/documentation-link-sweep";
 import type {
   CommitGroup,
   ConventionalCommit,
@@ -213,10 +214,6 @@ export function generateMarkdown(data: ReleaseNotesData, githubRepo: string): st
     .flatMap(group => formatGroupCommits(group, githubRepo))
     .filter(section => section.length > 0);
 
-  // Drop the `### **scope**: subject` heading line when its subject is already conveyed by the H1.
-  // The H1 is the bare subject (no scope), so strip `**scope**:` / `scope:` prefixes before comparing,
-  // and use a "starts with" match so multi-commit groupings whose first subject is in the title also
-  // collapse. We only remove the heading line, never the body, so unique detail is preserved.
   const stripScopePrefix = (text: string): string => text.replace(/^\*\*[^*]+\*\*:\s*/, "").replace(/^[a-z0-9-]+:\s*/i, "");
   const normaliseForCompare = (text: string): string => stripScopePrefix(text)
     .replace(/\([^)]*\)/g, "")
@@ -245,7 +242,7 @@ export function generateMarkdown(data: ReleaseNotesData, githubRepo: string): st
     ...dedupedSections
   ].filter(section => section.trim().length > 0);
 
-  return sections.join("\n\n").trim();
+  return rewriteDocumentationMarkdown(sections.join("\n\n").trim(), {origins: [], menuLinks: documentationMenuLinks([])});
 }
 
 function formatGroupCommits(group: CommitGroup, githubRepo: string): string[] {

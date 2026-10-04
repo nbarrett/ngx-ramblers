@@ -1,3 +1,4 @@
+import { documentationLinkPath } from "../../../../functions/documentation-links";
 import { Component, inject, Input, OnInit } from "@angular/core";
 import { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { faImage, faSearch } from "@fortawesome/free-solid-svg-icons";
@@ -29,7 +30,8 @@ const FIXED_CARD_IMAGE_HEIGHT = 200;
       @if (externalImageLink()) {
         <a class="card-image-link"
            [href]="externalImageLink()"
-           target="_blank"
+           [attr.target]="documentationImageLink() ? null : '_blank'"
+           [attr.data-documentation-link]="documentationImageLink() ? imageLink : null"
            rel="noopener noreferrer">
           <ng-container [ngTemplateOutlet]="imageContent"/>
         </a>
@@ -212,8 +214,12 @@ export class CardImageComponent implements OnInit {
     return this.externalImageLink() ? null : this.urlService.routerLinkUrl(this.imageLink);
   }
 
+  documentationImageLink(): boolean {
+    return !!documentationLinkPath(this.imageLink);
+  }
+
   externalImageLink(): string {
-    return this.imageLink && this.urlService.isRemoteUrl(this.imageLink) ? this.imageLink : null;
+    return this.imageLink && (this.documentationImageLink() || this.urlService.isRemoteUrl(this.imageLink)) ? this.imageLink : null;
   }
 
   ngOnInit() {

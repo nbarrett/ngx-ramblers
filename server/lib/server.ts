@@ -68,6 +68,7 @@ import { crossEnvironmentHealthRoutes } from "./health/cross-environment-health-
 import { download } from "./files/files";
 import { extendedGroupEventRoutes } from "./mongo/routes/extended-group-event";
 import { venueRoutes } from "./mongo/routes/venue";
+import { documentationRoutes } from "./documentation/documentation-routes";
 import { environmentSetupRoutes } from "./environment-setup/routes/environment-setup-routes";
 import { cloudflareEmailRoutingRoutes } from "./cloudflare/cloudflare-email-routing-routes";
 import { cloudflareWebAnalyticsRoutes } from "./cloudflare/cloudflare-web-analytics-routes";
@@ -286,6 +287,7 @@ app.use("/api/cloudflare/web-analytics", cloudflareWebAnalyticsRoutes);
 app.use("/api/inbox/oauth", lazyRouter(async () => (await import("./inbox/oauth-routes")).inboxOauthRoutes));
 app.use("/api/inbox", lazyRouter(async () => (await import("./inbox/inbox-routes")).inboxRoutes));
 app.use("/api/environment-setup", environmentSetupRoutes);
+app.use("/api/documentation", documentationRoutes);
 app.use("/api/public/content", contentExportRoutes);
 app.use(contentExportForPageUrl);
 app.use(redirectMiddleware);

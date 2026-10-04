@@ -99,6 +99,8 @@ export interface RestoreRequest {
 
 export interface EnvironmentInfo {
   name: string;
+  displayName?: string;
+  description?: string;
   appName: string;
   hasMongoConfig: boolean;
   database?: string;

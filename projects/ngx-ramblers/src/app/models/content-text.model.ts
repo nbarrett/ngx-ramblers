@@ -182,6 +182,11 @@ export interface PageContent extends HasPageContentRows {
   debugLogs?: string[];
 }
 
+export interface PageContentPatch {
+  path?: string;
+  [field: string]: unknown;
+}
+
 export interface PageContentToRows {
   pageContent: PageContent;
   rows?: PageContentRow[];

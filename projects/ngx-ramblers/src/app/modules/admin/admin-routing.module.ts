@@ -13,6 +13,8 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
 import { contactUsGuard } from "../../pages/contact-us/contact-us.guard";
 import {
   adminRelativePath,
+  ADMIN_PATH_REDIRECTS,
+  LegacyAdminPath,
   AdminPath,
   AdminProfilePath,
   AdminMembersPath,
@@ -188,6 +190,7 @@ const rp = adminRelativePath;
     { path: "content/banners", redirectTo: rp(AdminPath.BANNERS), pathMatch: "full" },
     { path: "carousel-editor", redirectTo: rp(AdminContentPath.CAROUSEL_EDITOR), pathMatch: "full" },
     { path: "page-content-navigator", redirectTo: rp(AdminContentPath.PAGE_CONTENT_NAVIGATOR), pathMatch: "full" },
+    { path: rp(LegacyAdminPath.FRAGMENT_INDEX), redirectTo: rp(ADMIN_PATH_REDIRECTS[LegacyAdminPath.FRAGMENT_INDEX]), pathMatch: "full" },
     { path: "content-templates", redirectTo: rp(AdminContentPath.CONTENT_TEMPLATES), pathMatch: "full" },
     { path: "content-migration", redirectTo: rp(AdminContentPath.CONTENT_MIGRATION), pathMatch: "full" },
     { path: "image-migration", redirectTo: rp(AdminContentPath.CONTENT_MIGRATION), pathMatch: "full" },

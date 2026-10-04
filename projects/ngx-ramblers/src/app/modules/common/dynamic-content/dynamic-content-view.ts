@@ -24,10 +24,13 @@ import { FragmentService } from "../../../services/fragment.service";
 import { DynamicContentViewIndex } from "./dynamic-content-view-index";
 import { DynamicContentViewMigrationNote } from "./dynamic-content-view-migration-note";
 
+import { DocumentationLinksComponent } from "../documentation-links/documentation-links";
+
 @Component({
     selector: "app-dynamic-content-view",
     template: `
       @if (forceView || !siteEditService.active()) {
+        <app-documentation-links>
         @for (row of viewablePageContent?.rows || []; let rowIndex = $index; track trackRowKey(row, rowIndex)) {
           @if (false) {
             {{ 'row ' + (rowIndex + 1) + ' ' + row.type + ' of ' + viewablePageContent.rows.length }}
@@ -102,9 +105,10 @@ import { DynamicContentViewMigrationNote } from "./dynamic-content-view-migratio
             </div>
           }
         }
+        </app-documentation-links>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-  imports: [DynamicContentViewMigrationNote, ActionButtons, CommitteeDocumentsRow, DynamicContentViewTextRow, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, FontAwesomeModule, AreaMap, DynamicContentViewMap, DynamicContentViewRoute, DynamicContentViewLocation]
+  imports: [DocumentationLinksComponent, DynamicContentViewMigrationNote, ActionButtons, CommitteeDocumentsRow, DynamicContentViewTextRow, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, FontAwesomeModule, AreaMap, DynamicContentViewMap, DynamicContentViewRoute, DynamicContentViewLocation]
 })
 export class DynamicContentViewComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);

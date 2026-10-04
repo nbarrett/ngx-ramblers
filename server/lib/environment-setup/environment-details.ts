@@ -9,7 +9,7 @@ import { EnvironmentDetails, EnvironmentStoredRamblersInfo } from "../../../proj
 const debugLog = debug(envConfig.logNamespace("environment-setup:details"));
 const errorDebugLog = createErrorDebugLog("environment-setup:details");
 
-async function environmentRamblersInfo(envConfigData: EnvironmentConfig): Promise<EnvironmentStoredRamblersInfo> {
+export async function environmentRamblersInfo(envConfigData: EnvironmentConfig): Promise<EnvironmentStoredRamblersInfo> {
   try {
     const {client, db} = await connectToEnvironmentMongo(envConfigData);
     try {

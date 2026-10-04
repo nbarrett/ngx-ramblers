@@ -230,7 +230,7 @@ export class DynamicContentViewTextRow implements OnInit {
   }
 
   imageLinkFor(column: PageContentColumn): string {
-    return this.siteEditService.active() ? null : (column.href || firstLinkHref(column.contentText));
+    return this.siteEditService.active() ? null : (column.href || firstLinkHref(column.contentText, true));
   }
 
   altFor(column: PageContentColumn): string {

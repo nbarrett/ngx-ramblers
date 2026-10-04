@@ -1,3 +1,4 @@
+import { DOCUMENTATION_SITE_PLACEHOLDER } from "../models/documentation-links.model";
 import { escape } from "es-toolkit";
 import { isBoolean, isString, kebabCase } from "es-toolkit/compat";
 
@@ -180,9 +181,9 @@ export function unescapeMarkdownLinks(value: string): string {
   return isString(value) ? value.replace(/\\\[([^\]]*)\\\]\(([^)]*)\)/g, "[$1]($2)") : value;
 }
 
-export function firstLinkHref(text: string): string {
-  const match = /(?<!!)\[[^\]]*]\(([^)\s]+)[^)]*\)/.exec(text || "");
-  return match ? match[1] : null;
+export function firstLinkHref(text: string, includeDocumentationSite = false): string {
+  const match = /(?<!!)\[[^\]]*]\(([^)\s]+)([^)]*)\)/.exec(text || "");
+  return match ? (includeDocumentationSite && match[1].startsWith("/") && match[2].includes(DOCUMENTATION_SITE_PLACEHOLDER) ? `${DOCUMENTATION_SITE_PLACEHOLDER}${match[1]}` : match[1]) : null;
 }
 
 export function firstLinkText(text: string): string {

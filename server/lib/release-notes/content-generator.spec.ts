@@ -309,6 +309,13 @@ describe("content-generator generateMarkdown commit body paragraphs", () => {
     };
   }
 
+  it("links future release-note instructions to the reader's chosen website", () => {
+    const data = createReleaseNotesData([makeCommit("## What's new\n\nOpen **Admin → Members → Member Bulk Load** or [Inbox](/admin/inbox).")], null, "owner/repo");
+    const markdown = generateMarkdown(data, "owner/repo");
+    expect(markdown).toContain("[**Admin → Members → Member Bulk Load**](/admin/members/member-bulk-load \"{{siteUrl}}\")");
+    expect(markdown).toContain("[Inbox](/admin/inbox \"{{siteUrl}}\")");
+  });
+
   it("preserves paragraph breaks between sections in a commit body", () => {
     const body = [
       "First paragraph of context.",
