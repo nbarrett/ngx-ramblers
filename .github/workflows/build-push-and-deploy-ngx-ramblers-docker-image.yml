@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   resolve:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       chrome_version: ${{ steps.vars.outputs.chrome_version }}
       auto_deploy_target: ${{ steps.vars.outputs.auto_deploy_target }}
@@ -61,7 +61,7 @@ jobs:
 
   test:
     needs: resolve
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -122,7 +122,7 @@ jobs:
 
   deploy:
     needs: [resolve, test]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: deploy-group
       cancel-in-progress: false
@@ -306,7 +306,7 @@ jobs:
   deploy-jitsi:
     needs: [ resolve, test ]
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: deploy-jitsi-group
       cancel-in-progress: true

@@ -11,7 +11,7 @@ env:
 
 jobs:
   check-estate-health:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Skip while a deployment is running
         id: deployments
