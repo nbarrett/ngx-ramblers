@@ -70,7 +70,9 @@ export class WalkProgrammeViewSelector {
   get tabs(): SectionToggleTab[] {
     return PROGRAMME_VIEWS
       .filter(view => {
-        if (view.localPopulationOnly) {
+        if (view.loggedInOnly) {
+          return this.memberLoginService.memberLoggedIn();
+        } else if (view.localPopulationOnly) {
           return this.localWalksAdmin();
         } else if (view.adminOnly) {
           return this.walkAdmin();
@@ -100,7 +102,9 @@ export class WalkProgrammeViewSelector {
   openView(segment: string): Promise<boolean> {
     this.display.rememberReturnUrl();
     const area = this.display.walksArea();
-    if (segment === WALKS_LEADER_SEGMENT) {
+    if (segment === WalksAdminSegment.ROUTES || segment === WalksAdminSegment.CALENDAR) {
+      return this.router.navigate(["/" + area, segment], {queryParamsHandling: "preserve"});
+    } else if (segment === WALKS_LEADER_SEGMENT) {
       return this.router.navigate(["/" + walksLeaderPath(area)], {queryParamsHandling: "preserve"});
     } else if (segment === WALKS_ADMIN_SEGMENT) {
       return this.router.navigate(["/" + walksAdminPath(area)], {queryParamsHandling: "preserve"});

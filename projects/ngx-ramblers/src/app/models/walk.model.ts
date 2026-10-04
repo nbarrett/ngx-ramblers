@@ -480,6 +480,7 @@ export const FALLBACK_MEDIA: BasicMedia = {
 };
 
 export enum WalkListView {
+  CALENDAR = "calendar",
   TABLE = "table",
   CARDS = "cards",
   MAP = "map",
