@@ -73,6 +73,8 @@ export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadPara
         type: data.type,
         status: data.status,
         message: data.message,
+        durationMs: data.durationMs ?? null,
+        errorResponse: data.errorResponse ?? null,
       }, debugLog);
       unfilteredAuditRecords.push(created);
     }

@@ -1,14 +1,10 @@
-import { Ensure, equals, includes, isGreaterThan } from "@serenity-js/assertions";
 import { afterEach, describe, it, test } from "@serenity-js/playwright-test";
 import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { OsMapsRouteFixture, requestedOsMapsRouteFixture } from "../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
-import { NavigateWithDomLoaded } from "../screenplay/tasks/common/navigate-with-dom-loaded";
 import { SaveBrowserSource } from "../screenplay/tasks/common/save-browser-source";
 import { Start } from "../screenplay/tasks/common/start";
-import { ExportOsRouteToGpx } from "../screenplay/tasks/os-maps/export-os-route-to-gpx";
+import { ExportRequestedOsMapsRoutes } from "../screenplay/tasks/os-maps/export-requested-os-maps-routes";
 import { LoginToOsMaps } from "../screenplay/tasks/os-maps/login-to-os-maps";
-import { ExportedGpxFile } from "../screenplay/questions/os-maps/exported-gpx-file";
-import { ExportedGpxValidator } from "../screenplay/questions/os-maps/exported-gpx-validator";
 import { clearExportedGpx } from "../screenplay/questions/os-maps/exported-gpx-store";
 import { resolveSerenityActorName } from "../resolve-actor-name";
 
@@ -48,18 +44,7 @@ describe("OS Maps GPX export", () => {
       Start.onOsMapsRoute(routes[0].url),
       LoginToOsMaps.withConfiguredCredentials()
     );
-    for (const route of routes) {
-      clearExportedGpx();
-      await exporter.attemptsTo(
-        NavigateWithDomLoaded.to(route.url),
-        ExportOsRouteToGpx.asGpx(),
-        Ensure.that(ExportedGpxFile.fileName(), includes(".gpx")),
-        Ensure.that(ExportedGpxFile.creator(), includes("OS Maps")),
-        Ensure.that(ExportedGpxFile.trackPointCount(), isGreaterThan(route.minimumTrackPoints - 1)),
-        Ensure.that(ExportedGpxFile.waypointCount(), isGreaterThan(route.minimumWaypoints - 1)),
-        Ensure.that(ExportedGpxValidator.matches(route), equals(true))
-      );
-    }
+    await exporter.attemptsTo(ExportRequestedOsMapsRoutes.from(routes));
   });
 
 });

@@ -1,5 +1,4 @@
 import * as AWS from "@aws-sdk/client-s3";
-import AdmZip from "adm-zip";
 import { CopyObjectCommand, GetObjectCommand, GetObjectRequest, S3 } from "@aws-sdk/client-s3";
 import { Upload, Progress } from "@aws-sdk/lib-storage";
 import { ListObjectsV2CommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsV2Command";
@@ -26,6 +25,10 @@ import { ApiAction } from "../../../projects/ngx-ramblers/src/app/models/api-res
 import { AWS_DEFAULTS } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { contentTypeFrom } from "./aws-utils";
 import { dateTimeFromJsDate, dateTimeNow } from "../shared/dates";
+import { createWriteStream } from "fs";
+import { Readable } from "stream";
+import { pipeline } from "stream/promises";
+import { extractedSerenityReportDirectory } from "./serenity-report-archive";
 
 const logObject = false;
 const debugLog = debug(envConfig.logNamespace("aws-controllers"));
@@ -54,7 +57,6 @@ const s3Config = createLazyGetter<AWSConfig>(() => {
 });
 
 const s3 = createLazyGetter<S3>(() => new AWS.S3(s3Config()));
-const reportExtractionPromises = new Map<string, Promise<string>>();
 
 export function queryAWSConfig(): AWSConfig {
   return s3Config();
@@ -160,7 +162,7 @@ export async function reportObject(req: Request, res: Response) {
   }
 
   try {
-    const extractedDir = await ensureExtractedReportDirectory(bucket, reportKeyPrefix);
+    const extractedDir = await extractedSerenityReportDirectory(bucket, reportKeyPrefix, downloadReportArchive);
     const resolvedRoot = path.resolve(extractedDir);
     const resolvedPath = path.resolve(extractedDir, relativePath);
 
@@ -346,46 +348,13 @@ function contentDisposition(type: string, filename: string): string {
   return `${type}; filename="${safe}"; filename*=UTF-8''${encoded}`;
 }
 
-async function ensureExtractedReportDirectory(bucket: string, reportKeyPrefix: string): Promise<string> {
-  const cacheKey = `${bucket}:${reportKeyPrefix}`;
-  const existingPromise = reportExtractionPromises.get(cacheKey);
-
-  if (existingPromise) {
-    return existingPromise;
+async function downloadReportArchive(bucket: string, key: string, archivePath: string): Promise<void> {
+  const response = await s3().send(new GetObjectCommand({Bucket: bucket, Key: key}));
+  if (!response.Body) {
+    throw new Error("Report archive download did not produce a stream");
+  } else {
+    await pipeline(response.Body as Readable, createWriteStream(archivePath));
   }
-
-  const extractionPromise = extractReportArchive(bucket, reportKeyPrefix)
-    .finally(() => {
-      reportExtractionPromises.delete(cacheKey);
-    });
-
-  reportExtractionPromises.set(cacheKey, extractionPromise);
-  return extractionPromise;
-}
-
-async function extractReportArchive(bucket: string, reportKeyPrefix: string): Promise<string> {
-  const baseCacheDir = path.resolve("target/report-cache");
-  const cacheHash = crypto.createHash("sha1").update(`${bucket}:${reportKeyPrefix}`).digest("hex");
-  const extractionDir = path.join(baseCacheDir, cacheHash);
-  const readyMarker = path.join(extractionDir, ".ready");
-
-  if (fs.existsSync(readyMarker)) {
-    return extractionDir;
-  }
-
-  await fs.promises.rm(extractionDir, { recursive: true, force: true });
-  await fs.promises.mkdir(extractionDir, { recursive: true });
-
-  const archiveBuffer = await reportArchiveBuffer(bucket, `${reportKeyPrefix}.zip`);
-  const archive = new AdmZip(archiveBuffer);
-  archive.extractAllTo(extractionDir, true);
-  await fs.promises.writeFile(readyMarker, dateTimeNow().toISO() || "ready", "utf8");
-  return extractionDir;
-}
-
-async function reportArchiveBuffer(bucket: string, key: string): Promise<Buffer> {
-  const response: any = await s3().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-  return streamToBuffer(response.Body);
 }
 
 export async function objectBufferForKey(key: string): Promise<Buffer> {

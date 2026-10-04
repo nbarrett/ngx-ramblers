@@ -11,6 +11,7 @@ import { exhaustMap, Subscription, timer } from "rxjs";
 import { OsMapsRoutePreviewMapComponent } from "./os-maps-route-preview-map";
 import {
   OsMapsExportJobStatus,
+  OsMapsExportJobResult,
   OsMapsExportTab,
   OS_MAPS_EXPORT_POLL_INTERVAL_MS,
   OsMapsListedRoute,
@@ -63,7 +64,7 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
         } @else {
           <button type="button" class="btn btn-primary" (click)="convertSelected()" [disabled]="busy() || !loginConfigured || selectedIds.size === 0">
             <fa-icon [icon]="converting ? faSpinner : faDownload" [animation]="converting ? 'spin' : null" class="me-2"/>
-            {{ converting ? "Converting…" : "Convert selected to GPX" }}
+            {{ converting ? (jobStatusUnavailable ? "Checking conversion…" : "Converting…") : "Convert selected to GPX" }}
           </button>
           @if (converting) {
             <button type="button" class="btn btn-quiet" (click)="confirmCancel = true" [disabled]="cancelling">
@@ -224,6 +225,8 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
           <app-serenity-job-audit-panel [fileName]="currentJobFileName"
                                         [starting]="startingJob"
                                         [jobRunning]="converting || loading"
+                                        [exportResult]="exportResult"
+                                        (finished)="onJobFinished($event)"
                                         [feature]="jobFeature"/>
         </tab>
       </tabset>
@@ -274,6 +277,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   loginConfigured = false;
   currentJobFileName: string | null = null;
+  exportResult: OsMapsExportJobResult | null = null;
   private currentJobId: string | null = null;
   startingJob = false;
   jobFeature = SerenityFeature.OS_MAPS_EXPORT;
@@ -295,6 +299,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   selectedIds = new Set<string>();
   loading = false;
   converting = false;
+  jobStatusUnavailable = false;
   checkingJob = true;
   cancelling = false;
   confirmCancel = false;
@@ -529,12 +534,17 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
         ? null
         : await this.osMapsExportService.latestExportResult();
       if (!this.destroyed && !this.loading && this.jobFeature === SerenityFeature.OS_MAPS_EXPORT && !this.startingJob && previousJobId === this.currentJobId) {
+        if (this.jobStatusUnavailable) {
+          this.clearMessages();
+          this.jobStatusUnavailable = false;
+        }
         const wasConverting = this.converting && this.currentJobId === latest?.jobId;
         if (latest?.jobId !== this.currentJobId) {
           this.clearMessages();
           this.confirmCancel = false;
         }
         this.currentJobFileName = latest?.fileName || null;
+        this.exportResult = latest;
         this.currentJobId = latest?.jobId || null;
         this.converting = latest?.status === OsMapsExportJobStatus.QUEUED;
         this.checkingJob = false;
@@ -552,12 +562,19 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       }
     } catch (error) {
       this.logger.error("loadLatestExportResult failed:", error);
-      this.errorMessage = this.failureMessage(error, "Could not check the current OS Maps job. Retrying…");
+      this.jobStatusUnavailable = true;
+      this.errorMessage = "Could not check conversion progress. Retrying automatically…";
     }
   }
 
   busy(): boolean {
     return this.loading || this.converting || this.checkingJob;
+  }
+
+  async onJobFinished(fileName: string): Promise<void> {
+    if (fileName === this.currentJobFileName && this.jobFeature === SerenityFeature.OS_MAPS_EXPORT && !this.startingJob) {
+      await this.loadLatestExportResult();
+    }
   }
 
   private clearMessages(): void {
@@ -572,6 +589,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       this.startingJob = true;
       this.jobFeature = SerenityFeature.OS_MAPS_LIST;
       this.currentJobFileName = null;
+      this.exportResult = null;
       this.currentJobId = null;
       this.clearMessages();
       this.selectTab(OsMapsExportTab.JOB_PROGRESS);
@@ -606,6 +624,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       this.jobFeature = SerenityFeature.OS_MAPS_EXPORT;
       this.startingJob = true;
       this.currentJobFileName = null;
+      this.exportResult = null;
       this.currentJobId = null;
       this.clearMessages();
       this.selectTab(OsMapsExportTab.JOB_PROGRESS);
@@ -616,6 +635,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
         this.writeViewToUrl();
       } catch (error) {
         this.logger.error("convertSelected failed:", error);
+        this.converting = false;
         this.errorMessage = this.failureMessage(error, "Failed to convert the selected routes");
       }
       this.startingJob = false;
