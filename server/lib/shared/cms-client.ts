@@ -1,6 +1,6 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
-import type { PageContent } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import type { PageContent, PageContentPatch } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import type { DataQueryOptions } from "../../../projects/ngx-ramblers/src/app/models/api-request.model";
 import type { AuthResponse } from "../../../projects/ngx-ramblers/src/app/models/auth-data.model";
 import { S3_BASE_URL } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
@@ -59,7 +59,7 @@ export async function login(baseUrl: string, username: string, password: string)
 
   const data: AuthResponse = await response.json();
 
-  debugLog("Login response:", JSON.stringify(data, null, 2));
+  debugLog("Login response received");
 
   if (!data.tokens || !data.tokens.auth) {
     const receivedKeys = keys(data || {}).join(", ");
@@ -156,7 +156,7 @@ export async function createPageContent(auth: CMSAuth, content: PageContent): Pr
   return data;
 }
 
-export async function updatePageContent(auth: CMSAuth, id: string, content: PageContent): Promise<PageContent> {
+export async function updatePageContent(auth: CMSAuth, id: string, content: PageContent | PageContentPatch): Promise<PageContent> {
   const url = `${auth.baseUrl}/api/database/page-content/${id}`;
   const payload = { ...content, id };
 

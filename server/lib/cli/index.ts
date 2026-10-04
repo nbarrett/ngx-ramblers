@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import debug from "debug";
 import { values } from "es-toolkit/compat";
+import { createDocumentationLinksCommand } from "./commands/documentation-links";
 import { createEnvironmentCommand } from "./commands/environment";
 import { createFlyCommand } from "./commands/fly";
 import { createDatabaseCommand } from "./commands/database";
@@ -28,7 +29,7 @@ function logEnvironmentVariables() {
   debugLog("Environment variables loaded:");
   values(Environment).forEach(varName => {
     const value = process.env[varName];
-    debugLog("  %s: %s", varName, value || "(not set)");
+    debugLog("  %s: %s", varName, value ? "(set)" : "(not set)");
   });
 }
 
@@ -50,9 +51,13 @@ function configureHelp(cmd: Command): Command {
 
 function normalizeFlags(argv: string[]): string[] {
   return argv.map(arg => {
-    if (arg === "--h") return "--help";
-    if (arg === "-v" || arg === "--v") return "--version";
-    return arg;
+    if (arg === "--h") {
+      return "--help";
+    } else if (arg === "-v" || arg === "--v") {
+      return "--version";
+    } else {
+      return arg;
+    }
   });
 }
 
@@ -64,6 +69,7 @@ program
   .version("1.0.0")
   .helpOption("-h, --help", "display help for command");
 
+program.addCommand(configureHelp(createDocumentationLinksCommand()));
 program.addCommand(configureHelp(createEnvironmentCommand()));
 program.addCommand(configureHelp(createFlyCommand()));
 program.addCommand(configureHelp(createDatabaseCommand()));

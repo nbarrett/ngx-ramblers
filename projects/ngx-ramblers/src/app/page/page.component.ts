@@ -1,4 +1,5 @@
-import { booleanAttribute, Component, inject, Input, OnInit } from "@angular/core";
+import { booleanAttribute, Component, inject, Input, OnInit, signal, TemplateRef } from "@angular/core";
+import { NgTemplateOutlet } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { PageService } from "../services/page.service";
@@ -11,7 +12,8 @@ import { RouterLink } from "@angular/router";
     <main>
       <div>
         @if (pageService.nested() && showBreadcrumb) {
-          <ul class="breadcrumb bg-transparent mb-1 ms-0 p-1">
+          <div class="d-flex align-items-center gap-2 mb-1">
+          <ul class="breadcrumb bg-transparent mb-0 ms-0 p-1 flex-grow-1">
             <span class="d-md-none">...</span>
             @for (page of pageService.relativePages(includeLastSegment); track page.href) {
               <li class="breadcrumb-item d-none d-md-inline">
@@ -20,6 +22,8 @@ import { RouterLink } from "@angular/router";
             }
             <li class="breadcrumb-item d-none d-md-inline active">{{ suppliedOrDefaultPageTitle() }}</li>
           </ul>
+          <ng-container [ngTemplateOutlet]="breadcrumbActions()"/>
+          </div>
         }
         @if (pageTitle && showTitle) {
           <h1>{{ pageTitle }}</h1>
@@ -31,12 +35,13 @@ import { RouterLink } from "@angular/router";
     </main>
   `,
     styleUrls: ["./page.component.sass"],
-    imports: [RouterLink]
+    imports: [RouterLink, NgTemplateOutlet]
 })
 export class PageComponent implements OnInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("PageComponent", NgxLoggerLevel.ERROR);
   pageService = inject(PageService);
+  readonly breadcrumbActions = signal<TemplateRef<unknown> | null>(null);
 
 
   public pageTitle: string;
@@ -69,4 +74,3 @@ export class PageComponent implements OnInit {
     return this.pageTitle || this.pageService.pageSubtitle();
   }
 }
-

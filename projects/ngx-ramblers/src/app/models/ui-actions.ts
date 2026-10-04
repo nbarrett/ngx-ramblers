@@ -101,6 +101,7 @@ export enum StoredValue {
   DOCUMENT = "document",
   DOCUMENT_EDIT = "document-edit",
   DOCUMENT_MODE = "document-mode",
+  DOCUMENTATION_SITE = "documentation-site",
   DRAFT_ID = "draft-id",
   DURATION = "duration",
   EDIT = "edit",

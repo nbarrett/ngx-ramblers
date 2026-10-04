@@ -28,6 +28,10 @@ export enum AdminPath {
   VERSION = "admin/version",
 }
 
+export enum LegacyAdminPath {
+  FRAGMENT_INDEX = "admin/fragment-index"
+}
+
 export function adminRelativePath(fullPath: string): string {
   return fullPath === AdminPath.ADMIN ? "" : fullPath.replace(/^admin\//, "");
 }
@@ -86,6 +90,10 @@ export enum AdminPlatformPath {
   CONTRIBUTOR_ENVIRONMENT = "admin/platform/contributor-environment",
   LITE_TEMPLATES = "admin/platform/lite-templates",
 }
+
+export const ADMIN_PATH_REDIRECTS: Record<LegacyAdminPath, string> = {
+  [LegacyAdminPath.FRAGMENT_INDEX]: AdminContentPath.CONTENT_TEMPLATES
+};
 
 const NGX_LITE_ADMIN_PATHS: string[] = [
   AdminProfilePath.ROOT,
