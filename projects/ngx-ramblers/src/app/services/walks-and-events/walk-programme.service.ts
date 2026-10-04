@@ -1,3 +1,4 @@
+import { walkLeaderIdsCriteria } from "../../functions/group-event-id-criteria";
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -98,7 +99,6 @@ export class WalkProgrammeService {
   }
 
   async walksLedBy(identifiers: string[], dateFrom: number, dateTo: number): Promise<ExtendedGroupEvent[]> {
-    const leaderIds = identifiers.filter(identifier => identifier);
     const criteria: object = {
       $and: [
         {[GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK},
@@ -109,12 +109,7 @@ export class WalkProgrammeService {
             $lte: this.dateUtils.isoDateTime(dateTo)
           }
         },
-        {
-          $or: [
-            {[EventField.CONTACT_DETAILS_MEMBER_ID]: {$in: leaderIds}},
-            {[GroupEventField.WALK_LEADER_ID]: {$in: leaderIds}}
-          ]
-        }
+        walkLeaderIdsCriteria(identifiers)
       ]
     };
     const dataQueryOptions: DataQueryOptions = {

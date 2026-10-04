@@ -1910,7 +1910,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     if (route?.id) {
       queryParams.routeId = route.id;
     }
-    void this.router.navigate(["/app/follow"], {queryParams});
+    void this.router.navigate(["/app/route"], {queryParams});
   }
 
   toggleControls() {

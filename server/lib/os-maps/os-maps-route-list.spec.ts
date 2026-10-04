@@ -39,7 +39,7 @@ describe("os-maps-route-list", () => {
         characteristics: {distance: 10581.24}
       }]
     }, OsMapsRouteSource.CREATED);
-    const merged = withImportedAt(routes, {"1001": {routeId: "1001", url: routes[0].url, importedAt: 1700000000000}});
+    const merged = withImportedAt(routes, {"1001": {routeId: "1001", number: 1, url: routes[0].url, importedAt: 1700000000000}});
     expect(merged[0].importedAt).toEqual(1700000000000);
   });
 

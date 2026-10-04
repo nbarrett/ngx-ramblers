@@ -41,7 +41,7 @@ import {
 import * as L from "leaflet";
 import { isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Subscription } from "rxjs";
+import { combineLatest, Subscription } from "rxjs";
 import {
   AppAppearance,
   AppInstallPlatform,
@@ -67,6 +67,9 @@ import {
   editExtendAfterIndex,
   firstCompleted,
   followCacheKey,
+  followRouteCommands,
+  followRouteIdFromQuery,
+  followRouteNumberFromParam,
   CompassTapeMark,
   FollowMapScaleBar,
   compassHeadingLabel,
@@ -117,7 +120,7 @@ import { MemberLoginService } from "../../services/member/member-login.service";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { RangeSliderComponent } from "../../components/range-slider";
-import { MapRoute, PaletteColor } from "../../models/content-text.model";
+import { MapRoute, PaletteColor, RouteParam } from "../../models/content-text.model";
 import { MapRouteStylePaletteComponent } from "../../modules/common/dynamic-content/map-route-style-palette.component";
 import { DEFAULT_WALKS_AREA } from "../../models/walks-route-paths.model";
 import { StoredValue } from "../../models/ui-actions";
@@ -679,6 +682,10 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 {{ savingRoute ? "Saving" : "Save" }}
               </button>
             } @else if (!thinningPrompt && (progress?.mode === RouteFollowMode.FOLLOWING || progress?.mode === RouteFollowMode.PAUSED || progress?.mode === RouteFollowMode.PREVIEW)) {
+              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="stop()">
+                <fa-icon [icon]="faStop"/>
+                Stop
+              </button>
               <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)">
                 <fa-icon [icon]="startControlIcon()"/>
                 {{ startControlLabel() }}
@@ -932,16 +939,20 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       }
     }));
     this.rememberHowWeArrived();
-    this.subscriptions.push(this.route.queryParamMap.subscribe(params => {
+    this.subscriptions.push(combineLatest([this.route.paramMap, this.route.queryParamMap]).subscribe(([pathParams, queryParams]) => {
+      const routeNumber = followRouteNumberFromParam(pathParams.get(RouteParam.ROUTE_NUMBER));
+      const routeKey = routeNumber
+        ? String(routeNumber)
+        : followRouteIdFromQuery(queryParams.get(StoredValue.ROUTE)) || queryParams.get(StoredValue.OS_MAPS_ROUTE_ID);
       void this.load(
-        params.get(StoredValue.FOLLOW_PATH),
-        params.get(StoredValue.ROUTE_ID),
-        params.get(StoredValue.WALK_ID),
-        params.get(StoredValue.RAMBLERS_SLUG),
-        params.get(StoredValue.OS_MAPS_ROUTE_ID),
-        Number(params.get(StoredValue.TRACK)) || 0,
-        viaFromQuery(params.get(StoredValue.VIA)),
-        params.get(StoredValue.RECORD_ROUTE)
+        queryParams.get(StoredValue.FOLLOW_PATH),
+        queryParams.get(StoredValue.ROUTE_ID),
+        queryParams.get(StoredValue.WALK_ID),
+        queryParams.get(StoredValue.RAMBLERS_SLUG),
+        routeKey,
+        Number(queryParams.get(StoredValue.TRACK)) || 0,
+        viaFromQuery(queryParams.get(StoredValue.VIA)),
+        queryParams.get(StoredValue.RECORD_ROUTE)
       );
     }));
   }
@@ -1712,6 +1723,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   stop(): void {
+    this.cancelTravel();
     this.clearInsertHover();
     this.followService.stop();
     this.clearFollowSession();
@@ -1747,7 +1759,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     } else if (!this.payload) {
       return;
     } else if (this.payload.source !== RouteFollowSource.RECORDING && !this.canEditRoute) {
-      void this.router.navigate(["/app/follow"], {queryParams: {[StoredValue.RECORD_ROUTE]: generateUid()}});
+      void this.router.navigate(["/app/route"], {queryParams: {[StoredValue.RECORD_ROUTE]: generateUid()}});
     } else {
       this.persistError = null;
       this.persistMessage = "";
@@ -1946,7 +1958,11 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
           } catch (error) {
             this.logger.warn("Saved route could not be cached locally", error);
           }
-          await this.router.navigate(["/app/follow"], {queryParams: {[StoredValue.OS_MAPS_ROUTE_ID]: this.payload.osMapsRouteId}, replaceUrl: true});
+          if (this.payload.routeNumber) {
+            await this.router.navigate(followRouteCommands(this.payload.routeNumber, this.payload.title), {replaceUrl: true});
+          } else if (this.payload.osMapsRouteId) {
+            await this.router.navigate(["/app/route"], {queryParams: {[StoredValue.OS_MAPS_ROUTE_ID]: this.payload.osMapsRouteId}, replaceUrl: true});
+          }
         }
         void this.saveOffline();
       } catch (error) {
@@ -2378,7 +2394,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   private isFollowPath(url: string): boolean {
     const path = (url || "").split("?")[0];
-    const follow = "/" + AppPath.ROOT + "/" + AppPath.FOLLOW;
+    const follow = "/" + AppPath.ROOT + "/" + AppPath.ROUTE;
     return path === follow || path.startsWith(follow + "/");
   }
 
@@ -2409,6 +2425,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       walkId: this.payload?.walkId || null,
       path: this.payload?.path || null,
       routeId: this.payload?.routeId || null,
+      routeNumber: this.payload?.routeNumber || null,
       ramblersSlug: this.payload?.ramblersSlug || null,
       osMapsRouteId: this.payload?.osMapsRouteId || null,
       mode: this.progress?.mode || RouteFollowMode.FOLLOWING,

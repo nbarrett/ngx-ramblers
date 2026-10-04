@@ -6,7 +6,8 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 export enum ResizerOrientation {
   HORIZONTAL = "horizontal",
-  VERTICAL = "vertical"
+  VERTICAL = "vertical",
+  CORNER = "corner"
 }
 
 export enum ResizerVariant {
@@ -43,7 +44,7 @@ export enum ResizerMode {
           }
         </div>
       } @else if (variant === ResizerVariant.BAR) {
-        <span class="resizer-glyph">{{ orientation === ResizerOrientation.VERTICAL ? "⋯" : "⋮" }}</span>
+        <span class="resizer-glyph">{{ barGlyph() }}</span>
       } @else {
         <div class="resize-handle"></div>
         @if (isResizing) {
@@ -75,6 +76,8 @@ export enum ResizerMode {
       cursor: col-resize
     :host(.resizer--vertical) .resizer-surface
       cursor: ns-resize
+    :host(.resizer--corner) .resizer-surface
+      cursor: nwse-resize
     :host(.resizer--bar) .resizer-surface
       background: #e9ecef
       border-radius: 4px
@@ -91,17 +94,60 @@ export enum ResizerMode {
       border-radius: 0
     :host(.resizer--bar.resizer--subtle) .resizer-glyph
       display: none
+    :host(.resizer--bar.resizer--subtle.resizer--horizontal)
+      position: relative
+      z-index: 2
+    :host(.resizer--bar.resizer--subtle.resizer--horizontal) .resizer-surface
+      position: absolute
+      top: 0
+      bottom: 0
+      left: 50%
+      width: 40px
+      transform: translateX(-50%)
     :host(.resizer--bar.resizer--subtle) .resizer-surface::before
       content: ""
+      background: rgba(31, 31, 31, 0.12)
+      border-radius: 0
+      transition: background 0.15s ease, width 0.15s ease, height 0.15s ease
+    :host(.resizer--bar.resizer--subtle.resizer--horizontal) .resizer-surface::before
       width: 1px
       height: 100%
-      background: rgba(31, 31, 31, 0.12)
-      transition: background 0.15s ease, width 0.15s ease
-    :host(.resizer--bar.resizer--subtle):hover .resizer-surface::before,
-    :host(.resizer--bar.resizer--subtle.resizing) .resizer-surface::before
+    :host(.resizer--bar.resizer--subtle.resizer--vertical) .resizer-surface::before
+      width: 100%
+      height: 1px
+    :host(.resizer--bar.resizer--subtle.resizer--horizontal):hover .resizer-surface::before,
+    :host(.resizer--bar.resizer--subtle.resizer--horizontal.resizing) .resizer-surface::before
       width: 3px
       border-radius: 2px
       background: rgba(155, 200, 171, 0.9)
+    :host(.resizer--bar.resizer--subtle.resizer--vertical):hover .resizer-surface::before,
+    :host(.resizer--bar.resizer--subtle.resizer--vertical.resizing) .resizer-surface::before
+      height: 3px
+      border-radius: 2px
+      background: rgba(155, 200, 171, 0.9)
+    :host(.resizer--bar.resizer--subtle.resizer--corner)
+      position: relative
+      z-index: 3
+    :host(.resizer--bar.resizer--subtle.resizer--corner) .resizer-surface
+      position: absolute
+      right: 0
+      bottom: 0
+      width: 40px
+      height: 40px
+    :host(.resizer--bar.resizer--subtle.resizer--corner) .resizer-surface::before
+      position: absolute
+      right: 6px
+      bottom: 6px
+      width: 12px
+      height: 12px
+      border-right: 2px solid rgba(31, 31, 31, 0.28)
+      border-bottom: 2px solid rgba(31, 31, 31, 0.28)
+      background: transparent
+      box-sizing: border-box
+    :host(.resizer--bar.resizer--subtle.resizer--corner):hover .resizer-surface::before,
+    :host(.resizer--bar.resizer--subtle.resizer--corner.resizing) .resizer-surface::before
+      border-right-color: rgba(155, 200, 171, 0.95)
+      border-bottom-color: rgba(155, 200, 171, 0.95)
     .resizer-grip
       display: flex
       align-items: center
@@ -196,6 +242,9 @@ export class ResizerComponent implements OnDestroy {
   @Input() size = 300;
   @Input() minSize = 0;
   @Input() maxSize = Number.POSITIVE_INFINITY;
+  @Input() secondarySize = 300;
+  @Input() minSecondarySize = 0;
+  @Input() maxSecondarySize = Number.POSITIVE_INFINITY;
 
   @Input() leftColumn: PageContentColumn;
   @Input() rightColumn: PageContentColumn;
@@ -205,7 +254,9 @@ export class ResizerComponent implements OnDestroy {
   }
 
   @Output() sizeChange = new EventEmitter<number>();
+  @Output() secondarySizeChange = new EventEmitter<number>();
   @Output() resizeEnd = new EventEmitter<number>();
+  @Output() secondaryResizeEnd = new EventEmitter<number>();
   @Output() sizeClear = new EventEmitter<void>();
   @Input() resizeHint: string = null;
   @Input() set subtle(value: boolean) {
@@ -221,8 +272,10 @@ export class ResizerComponent implements OnDestroy {
   canClear = false;
   isResizing = false;
 
-  private start = 0;
+  private startX = 0;
+  private startY = 0;
   private startSize = 0;
+  private startSecondarySize = 0;
   private startLeftCols = 0;
   private startRightCols = 0;
   private combinedCols = 0;
@@ -255,6 +308,10 @@ export class ResizerComponent implements OnDestroy {
     return this.orientation === ResizerOrientation.VERTICAL;
   }
 
+  @HostBinding("class.resizer--corner") get isCorner(): boolean {
+    return this.orientation === ResizerOrientation.CORNER;
+  }
+
   @HostBinding("class.resizing") get resizing(): boolean {
     return this.isResizing;
   }
@@ -274,16 +331,28 @@ export class ResizerComponent implements OnDestroy {
   displayLabel(): string {
     if (this.label !== null) {
       return this.label;
-    }
-    if (this.mode === ResizerMode.GRID && this.leftColumn && this.rightColumn) {
+    } else if (this.mode === ResizerMode.GRID && this.leftColumn && this.rightColumn) {
       return `${this.leftColumn.columns} | ${this.rightColumn.columns}`;
+    } else if (this.orientation === ResizerOrientation.CORNER) {
+      return `${Math.round(this.size)} × ${Math.round(this.secondarySize)}px`;
+    } else {
+      return `${Math.round(this.size)}px`;
     }
-    return `${Math.round(this.size)}px`;
+  }
+
+  barGlyph(): string {
+    if (this.orientation === ResizerOrientation.VERTICAL) {
+      return "⋯";
+    } else if (this.orientation === ResizerOrientation.CORNER) {
+      return "◢";
+    } else {
+      return "⋮";
+    }
   }
 
   onMouseDown(event: MouseEvent): void {
     event.preventDefault();
-    this.begin(this.coordinate(event.clientX, event.clientY));
+    this.begin(event.clientX, event.clientY);
     document.addEventListener("mousemove", this.onMouseMove);
     document.addEventListener("mouseup", this.onMouseUp);
   }
@@ -300,13 +369,9 @@ export class ResizerComponent implements OnDestroy {
   }
 
   onTouchStart(event: TouchEvent): void {
-    this.begin(this.coordinate(event.touches[0].clientX, event.touches[0].clientY));
+    this.begin(event.touches[0].clientX, event.touches[0].clientY);
     document.addEventListener("touchmove", this.onTouchMove);
     document.addEventListener("touchend", this.onTouchEnd);
-  }
-
-  private coordinate(clientX: number, clientY: number): number {
-    return this.orientation === ResizerOrientation.HORIZONTAL ? clientX : clientY;
   }
 
   private clearSize(): void {
@@ -319,9 +384,10 @@ export class ResizerComponent implements OnDestroy {
     }
   }
 
-  private begin(position: number): void {
+  private begin(clientX: number, clientY: number): void {
     this.isResizing = true;
-    this.start = position;
+    this.startX = clientX;
+    this.startY = clientY;
     if (this.mode === ResizerMode.GRID) {
       this.startLeftCols = this.leftColumn?.columns || 6;
       this.startRightCols = this.rightColumn?.columns || 6;
@@ -330,29 +396,38 @@ export class ResizerComponent implements OnDestroy {
       this.gridUnitPx = rowElement ? rowElement.getBoundingClientRect().width / 12 : 80;
     } else {
       this.startSize = this.size;
+      this.startSecondarySize = this.secondarySize;
     }
     this.showOverlay();
   }
 
-  private onMouseMove = (event: MouseEvent) => this.move(this.coordinate(event.clientX, event.clientY));
-  private onTouchMove = (event: TouchEvent) => this.move(this.coordinate(event.touches[0].clientX, event.touches[0].clientY));
+  private onMouseMove = (event: MouseEvent) => this.move(event.clientX, event.clientY);
+  private onTouchMove = (event: TouchEvent) => this.move(event.touches[0].clientX, event.touches[0].clientY);
 
-  private move(position: number): void {
-    if (!this.isResizing) {
-      return;
+  private move(clientX: number, clientY: number): void {
+    if (this.isResizing) {
+      const deltaX = clientX - this.startX;
+      const deltaY = clientY - this.startY;
+      this.zone.run(() => {
+        if (this.mode === ResizerMode.GRID) {
+          const gridDelta = Math.round(deltaX / this.gridUnitPx);
+          const newLeft = Math.max(1, Math.min(this.combinedCols - 1, this.startLeftCols + gridDelta));
+          this.leftColumn.columns = newLeft;
+          this.rightColumn.columns = this.combinedCols - newLeft;
+        } else if (this.orientation === ResizerOrientation.CORNER) {
+          const widthDelta = this.growsTowardsStart ? -deltaX : deltaX;
+          const heightDelta = this.growsTowardsStart ? -deltaY : deltaY;
+          this.size = Math.min(this.maxSize, Math.max(this.minSize, this.startSize + widthDelta));
+          this.secondarySize = Math.min(this.maxSecondarySize, Math.max(this.minSecondarySize, this.startSecondarySize + heightDelta));
+          this.sizeChange.emit(this.size);
+          this.secondarySizeChange.emit(this.secondarySize);
+        } else {
+          const delta = this.orientation === ResizerOrientation.HORIZONTAL ? deltaX : deltaY;
+          this.size = Math.min(this.maxSize, Math.max(this.minSize, this.startSize + (this.growsTowardsStart ? -delta : delta)));
+          this.sizeChange.emit(this.size);
+        }
+      });
     }
-    const delta = position - this.start;
-    this.zone.run(() => {
-      if (this.mode === ResizerMode.GRID) {
-        const gridDelta = Math.round(delta / this.gridUnitPx);
-        const newLeft = Math.max(1, Math.min(this.combinedCols - 1, this.startLeftCols + gridDelta));
-        this.leftColumn.columns = newLeft;
-        this.rightColumn.columns = this.combinedCols - newLeft;
-      } else {
-        this.size = Math.min(this.maxSize, Math.max(this.minSize, this.startSize + (this.growsTowardsStart ? -delta : delta)));
-        this.sizeChange.emit(this.size);
-      }
-    });
   }
 
   private onMouseUp = () => this.end();
@@ -364,17 +439,29 @@ export class ResizerComponent implements OnDestroy {
     this.cleanup();
     if (this.mode !== ResizerMode.GRID) {
       this.resizeEnd.emit(this.size);
+      if (this.orientation === ResizerOrientation.CORNER) {
+        this.secondaryResizeEnd.emit(this.secondarySize);
+      }
+    }
+  }
+
+  private overlayCursor(): string {
+    if (this.orientation === ResizerOrientation.HORIZONTAL) {
+      return "col-resize";
+    } else if (this.orientation === ResizerOrientation.CORNER) {
+      return "nwse-resize";
+    } else {
+      return "ns-resize";
     }
   }
 
   private showOverlay(): void {
-    if (isUndefined(document)) {
-      return;
+    if (!isUndefined(document)) {
+      this.overlay = document.createElement("div");
+      this.overlay.style.cssText = `position:fixed;inset:0;z-index:100000;cursor:${this.overlayCursor()};`;
+      document.body.appendChild(this.overlay);
+      document.body.style.userSelect = "none";
     }
-    this.overlay = document.createElement("div");
-    this.overlay.style.cssText = `position:fixed;inset:0;z-index:100000;cursor:${this.orientation === ResizerOrientation.HORIZONTAL ? "col-resize" : "ns-resize"};`;
-    document.body.appendChild(this.overlay);
-    document.body.style.userSelect = "none";
   }
 
   private removeOverlay(): void {

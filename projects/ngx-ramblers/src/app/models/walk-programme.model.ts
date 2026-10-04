@@ -215,6 +215,7 @@ export enum ProgrammeViewKey {
   MAP = "map",
   LEADER = "leader",
   EXPORT = "export",
+  ROUTES = "routes",
   ADMIN = "admin"
 }
 
@@ -232,10 +233,22 @@ export const PROGRAMME_VIEWS: ProgrammeView[] = [
   {view: ProgrammeViewKey.CALENDAR, segment: WalksAdminSegment.CALENDAR, label: "Calendar"},
   {view: ProgrammeViewKey.MAP, segment: WalksAdminSegment.MAP, label: "Map"},
   {view: ProgrammeViewKey.EXPORT, segment: WalksAdminSegment.EXPORT, label: "Export", adminOnly: true},
+  {view: ProgrammeViewKey.ROUTES, segment: WalksAdminSegment.ROUTES, label: "Routes", adminOnly: true},
   {view: ProgrammeViewKey.ADMIN, segment: WALKS_ADMIN_SEGMENT, label: "Admin", adminOnly: true}
 ];
 
 export interface DateRangeBounds {
   minDate: DateTime;
   maxDate: DateTime;
+}
+
+export enum CalendarSubscriptionScope {
+  OWN = "own",
+  EVERYONE = "everyone"
+}
+
+export enum OutlookCalendarPlatform {
+  MAC = "mac",
+  WINDOWS_NEW = "windows-new",
+  WINDOWS_CLASSIC = "windows-classic"
 }

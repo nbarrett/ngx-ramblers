@@ -15,6 +15,8 @@ import { AdminContentPath } from "./models/admin-route-paths.model";
 import { LEGACY_VERSION_PAGE_PATH, VERSION_PAGE_PATH } from "./models/build-version.model";
 import { LOCATE_PAGE_PATH } from "./models/locate.model";
 import { PlatformEnabledGuard } from "./guards/platform-enabled-guard";
+import { RouteParam } from "./models/content-text.model";
+import { AppPath } from "./models/route-follow.model";
 
 export function locateMatcher(segments: UrlSegment[]): UrlMatchResult | null {
   return segments.length > 0 && segments[segments.length - 1].path === LOCATE_PAGE_PATH ? {consumed: segments} : null;
@@ -45,10 +47,37 @@ const routes: Routes = [
     canActivate: [SystemHealthyGuard]
   },
   {
-    path: "app/follow",
+    path: `${AppPath.ROOT}/${AppPath.ROUTE}/:${RouteParam.ROUTE_NUMBER}/:${RouteParam.SLUG}`,
     canActivate: [MobileAppAccessGuard],
     loadComponent: () => import("./pages/app/route-follow")
       .then(m => m.RouteFollowComponent)
+  },
+  {
+    path: `${AppPath.ROOT}/${AppPath.ROUTE}/:${RouteParam.ROUTE_NUMBER}`,
+    canActivate: [MobileAppAccessGuard],
+    loadComponent: () => import("./pages/app/route-follow")
+      .then(m => m.RouteFollowComponent)
+  },
+  {
+    path: `${AppPath.ROOT}/${AppPath.ROUTE}`,
+    canActivate: [MobileAppAccessGuard],
+    loadComponent: () => import("./pages/app/route-follow")
+      .then(m => m.RouteFollowComponent)
+  },
+  {
+    path: `${AppPath.ROOT}/${AppPath.LEGACY_FOLLOW}/:${RouteParam.ROUTE_NUMBER}/:${RouteParam.SLUG}`,
+    redirectTo: `/${AppPath.ROOT}/${AppPath.ROUTE}/:${RouteParam.ROUTE_NUMBER}/:${RouteParam.SLUG}`,
+    pathMatch: "full"
+  },
+  {
+    path: `${AppPath.ROOT}/${AppPath.LEGACY_FOLLOW}/:${RouteParam.ROUTE_NUMBER}`,
+    redirectTo: `/${AppPath.ROOT}/${AppPath.ROUTE}/:${RouteParam.ROUTE_NUMBER}`,
+    pathMatch: "full"
+  },
+  {
+    path: `${AppPath.ROOT}/${AppPath.LEGACY_FOLLOW}`,
+    redirectTo: `/${AppPath.ROOT}/${AppPath.ROUTE}`,
+    pathMatch: "full"
   },
   {
     path: "app",

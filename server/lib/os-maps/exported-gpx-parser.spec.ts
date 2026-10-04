@@ -85,6 +85,16 @@ describe("exported-gpx-parser", () => {
 });
 
 describe("recording signal gaps", () => {
+  it("keeps segment boundaries after skipping invalid points", () => {
+    const summary = parseExportedGpx(`<gpx><trk>
+      <trkseg><trkpt lat="51" lon="0"/><trkpt lat="51.0001" lon="0"/></trkseg>
+      <trkseg><trkpt lat="invalid" lon="1"/><trkpt lat="52" lon="1"/><trkpt lat="52.0001" lon="1"/></trkseg>
+    </trk></gpx>`, "fictional.gpx");
+    expect(summary.trackPointCount).toBe(4);
+    expect(summary.totalDistanceMetres).toBeGreaterThan(20);
+    expect(summary.totalDistanceMetres).toBeLessThan(25);
+  });
+
   it("does not count the connection between separate GPX segments", () => {
     const summary = parseExportedGpx(`<gpx><trk>
       <trkseg><trkpt lat="51" lon="0"/><trkpt lat="51.0001" lon="0"/></trkseg>

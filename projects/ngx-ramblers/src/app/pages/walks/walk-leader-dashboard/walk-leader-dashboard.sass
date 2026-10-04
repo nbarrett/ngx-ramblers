@@ -45,12 +45,16 @@
   border-left: 6px solid var(--status-colour)
   border-radius: var(--rsm-panel-radius)
   background: var(--rsm-panel-bg)
-  cursor: pointer
-  transition: box-shadow 150ms ease
-  &:hover,
-  &:focus-visible
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12)
-    border-color: var(--status-colour)
+  &:not(.calendar-subscription-row)
+    cursor: pointer
+    transition: box-shadow 150ms ease
+    &:hover,
+    &:focus-visible
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12)
+      border-color: var(--status-colour)
+
+.calendar-subscription-row
+  grid-template-columns: 1fr
 
 .walk-row-date
   display: flex
@@ -109,6 +113,9 @@
     grid-template-columns: 68px 1fr
     grid-template-areas: "date main" "actions actions"
     gap: var(--space-3)
+  .calendar-subscription-row
+    grid-template-columns: 1fr
+    grid-template-areas: none
   .walk-row-date
     grid-area: date
   .walk-row-main

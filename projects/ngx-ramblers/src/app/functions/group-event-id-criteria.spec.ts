@@ -1,4 +1,5 @@
-import {groupEventIdsCriteria} from "./group-event-id-criteria";
+import {EventField, GroupEventField} from "../models/walk.model";
+import {groupEventIdsCriteria, walkLeaderIdsCriteria} from "./group-event-id-criteria";
 
 describe("groupEventIdsCriteria", () => {
   it("queries a numeric Ramblers ID without treating it as a Mongo ID", () => {
@@ -17,6 +18,18 @@ describe("groupEventIdsCriteria", () => {
         {_id: {$in: [mongoId]}},
         {"groupEvent.id": {$in: [mongoId, "100480509"]}},
         {"fields.migratedFromId": {$in: [mongoId, "100480509"]}}
+      ]
+    });
+  });
+});
+
+
+describe("walkLeaderIdsCriteria", () => {
+  it("matches either stored member IDs or external contact IDs and drops missing identifiers", () => {
+    expect(walkLeaderIdsCriteria(["member-example", null, "contact-example"])).toEqual({
+      $or: [
+        {[EventField.CONTACT_DETAILS_MEMBER_ID]: {$in: ["member-example", "contact-example"]}},
+        {[GroupEventField.WALK_LEADER_ID]: {$in: ["member-example", "contact-example"]}}
       ]
     });
   });

@@ -68,6 +68,8 @@ describe("Serenity job progress summary", () => {
     sendProgress(7, 50);
     const element = state.fixture.nativeElement as HTMLElement;
     expect(element.textContent).toContain("7 of 50 routes converted");
+    expect(element.querySelector(".alert")).toBeNull();
+    expect(element.querySelector("button fa-icon")).not.toBeNull();
     expect(element.querySelector("[role=progressbar]")?.getAttribute("aria-valuenow")).toBe("14");
     expect(element.querySelector("app-sortable-table")).toBeNull();
     expect(element.textContent).toContain("Show details");
@@ -96,6 +98,15 @@ describe("Serenity job progress summary", () => {
     expect(state.fixture.componentInstance.summaryMessage()).toBe("49 of 50 routes converted");
     expect(state.fixture.componentInstance.progressPercent()).toBe(98);
     expect(state.fixture.nativeElement.textContent).toContain("1 route could not be converted");
+    const element = state.fixture.nativeElement as HTMLElement;
+    const alert = element.querySelector(".alert-warning");
+    expect(element.querySelectorAll(".alert")).toHaveLength(1);
+    expect(alert?.querySelector("strong")?.textContent).toContain("1 route could not be converted");
+    expect(alert?.querySelector("fa-icon")).not.toBeNull();
+    expect(alert?.textContent).toContain("Show details to see why.");
+    expect(alert?.querySelector("[role=progressbar]")).toBeNull();
+    expect(alert?.querySelector("button")).toBeNull();
+    expect(alert?.textContent).not.toContain("49 of 50");
   });
 
   it("restores the final conversion counts from a saved result", () => {
@@ -105,6 +116,21 @@ describe("Serenity job progress summary", () => {
     });
     state.fixture.detectChanges();
     expect(state.fixture.componentInstance.summaryProgress()).toEqual({converted: 1, total: 2, failed: 1});
+  });
+
+  it("resets progress for a new job and ignores late progress from the previous job", () => {
+    sendProgress(5, 5);
+    state.fixture.componentRef.setInput("fileName", "next-export.gpx");
+    state.fixture.detectChanges();
+    expect(state.fixture.componentInstance.summaryProgress()).toBeNull();
+    sendProgress(5, 5);
+    expect(state.fixture.componentInstance.summaryProgress()).toBeNull();
+    progressMessages.next({audits: [{
+      id: "next-progress", record: 1, type: AuditType.STEP, status: Status.SUCCESS,
+      fileName: "next-export.gpx", message: osMapsExportProgressMessage({converted: 0, total: 50, failed: 0})
+    }]});
+    state.fixture.detectChanges();
+    expect(state.fixture.componentInstance.summaryProgress()).toEqual({converted: 0, total: 50, failed: 0});
   });
 
   it("ignores progress from another job", () => {

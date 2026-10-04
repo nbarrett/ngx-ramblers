@@ -157,7 +157,7 @@ describe("recording permissions", () => {
     view["router"] = {navigate: vi.fn()} as unknown as typeof view["router"];
     view["followService"] = {startRecording: vi.fn()} as unknown as typeof view["followService"];
     view.recordRoute();
-    expect(view["router"].navigate).toHaveBeenCalledWith(["/app/follow"], {queryParams: {[StoredValue.RECORD_ROUTE]: expect.any(String)}});
+    expect(view["router"].navigate).toHaveBeenCalledWith(["/app/route"], {queryParams: {[StoredValue.RECORD_ROUTE]: expect.any(String)}});
     expect(view["followService"].startRecording).not.toHaveBeenCalled();
     expect(view["payload"].walkId).toBe("fictional-walk");
   });

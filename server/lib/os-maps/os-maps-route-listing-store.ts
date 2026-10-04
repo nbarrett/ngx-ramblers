@@ -1,3 +1,4 @@
+import { osMapsImportedRoute } from "../mongo/models/os-maps-imported-route";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { osMapsRouteListing } from "../mongo/models/os-maps-route-listing";
 import { OsMapsListedRoute, OsMapsRouteListing, OsMapsRouteSource } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
@@ -39,6 +40,7 @@ export async function listedImportedOsMapsRoutes(): Promise<OsMapsListedRoute[]>
     .filter(record => record.gpxFile?.awsFileName && !listedIds.has(record.routeId))
     .map(record => ({
       id: record.routeId,
+      number: record.number || null,
       title: record.gpxFile?.title || record.url || record.routeId,
       url: record.url || "",
       createdAt: "",
@@ -54,4 +56,11 @@ export async function listedImportedOsMapsRoutes(): Promise<OsMapsListedRoute[]>
       walkedByName: record.gpxFile?.walkedByName || null
     }));
   return [...fromListing, ...extras].sort((left, right) => (right.importedAt || 0) - (left.importedAt || 0));
+}
+
+export async function removeOsMapsRouteFromApp(routeId: string): Promise<void> {
+  await mongooseClient.execute(async () => {
+    await osMapsRouteListing.updateOne({key: LISTING_KEY}, {$pull: {routes: {id: routeId}}});
+    await osMapsImportedRoute.deleteOne({routeId});
+  });
 }

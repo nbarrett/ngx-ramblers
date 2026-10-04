@@ -27,6 +27,7 @@ import {
   AppPath,
   firstCompleted,
   followCacheKey,
+  followRouteCommands,
   isLiveFollowMode,
   ROUTE_FOLLOW_NETWORK_TIMEOUT_MS,
   RouteFollowOfflineStatus,
@@ -216,7 +217,7 @@ import { AuthService } from "../../auth/auth.service";
       @if (!customising && view === AppHomeView.MAPS && layout.savedRoutes && activeSession) {
         <section class="app-home-section">
           <h2>Continue your route</h2>
-          <a class="app-home-card" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.FOLLOW"
+          <a class="app-home-card" [routerLink]="routeLink(activeSession)"
              [queryParams]="routeQuery(activeSession)">
             <div class="app-home-card-copy">
               <h3>Your walk is ready to resume</h3>
@@ -255,7 +256,7 @@ import { AuthService } from "../../auth/auth.service";
           <h2 class="visually-hidden">Maps</h2>
           @for (route of visibleRoutes(); track routeKey(route)) {
             <div class="app-home-card">
-              <a class="app-home-route-main" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.FOLLOW"
+              <a class="app-home-route-main" [routerLink]="routeLink(route)"
                  [queryParams]="routeQuery(route)">
                 <app-os-maps-route-preview-map [compact]="true" [route]="listedOsMapsRoute(route)" [points]="previewPoints[routeKey(route) || ''] || []"/>
               <div class="app-home-card-copy">
@@ -365,12 +366,12 @@ import { AuthService } from "../../auth/auth.service";
             </a>
             <div class="app-home-route-actions">
               @if (payloadService.walkHasGpx(walk)) {
-                <a class="btn btn-primary btn-icon" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.FOLLOW"
+                <a class="btn btn-primary btn-icon" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.ROUTE"
                    [queryParams]="walkQuery(walk)" aria-label="Follow" tooltip="Follow">
                   <fa-icon [icon]="faPersonWalking"/>
                 </a>
               } @else if (canRecordWalk(walk)) {
-                <a class="btn btn-primary btn-icon" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.FOLLOW"
+                <a class="btn btn-primary btn-icon" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.ROUTE"
                    [queryParams]="walkQuery(walk)" aria-label="Record route" tooltip="Record route">
                   <fa-icon class="red-icon" [icon]="faCircle"/>
                 </a>
@@ -597,7 +598,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
       } else {
         void this.followService.requestCompassPermission().catch(error => this.logger.info("Compass permission was not granted", error));
         const queryParams = this.activeSession ? this.routeQuery(this.activeSession) : {[StoredValue.RECORD_ROUTE]: generateUid()};
-        void this.router.navigate(["/app/follow"], {queryParams});
+        void this.router.navigate(["/app/route"], {queryParams});
       }
     });
   }
@@ -918,38 +919,56 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     return ["/" + area, this.display.walkSlug(walk)];
   }
 
+  routeLink(route: RouteFollowSummary | RouteFollowSession): string[] {
+    if (route.routeNumber) {
+      const title = "title" in route ? route.title : route.payload?.title;
+      return followRouteCommands(route.routeNumber, title);
+    } else {
+      return ["/", AppPath.ROOT, AppPath.ROUTE];
+    }
+  }
+
   routeQuery(route: RouteFollowSummary | RouteFollowSession): Record<string, string> {
     const params: Record<string, string> = {};
-    if (route.recordingId) {
-      params[StoredValue.RECORD_ROUTE] = route.recordingId;
-    }
-    if (route.path) {
-      params[StoredValue.FOLLOW_PATH] = route.path;
-    }
-    if (route.routeId) {
-      params[StoredValue.ROUTE_ID] = route.routeId;
-    }
-    if (route.ramblersSlug) {
-      params[StoredValue.RAMBLERS_SLUG] = route.ramblersSlug;
-    }
-    if (route.osMapsRouteId) {
-      params[StoredValue.OS_MAPS_ROUTE_ID] = route.osMapsRouteId;
-    }
-    if (route.walkId) {
-      params[StoredValue.WALK_ID] = route.walkId;
-    }
-    if ("trackIndex" in route && route.trackIndex) {
-      params[StoredValue.TRACK] = String(route.trackIndex);
-    }
-    if ("via" in route && route.via?.length) {
-      params[StoredValue.VIA] = route.via.join(",");
+    if (route.routeNumber) {
+      if ("trackIndex" in route && route.trackIndex) {
+        params[StoredValue.TRACK] = String(route.trackIndex);
+      }
+      if ("via" in route && route.via?.length) {
+        params[StoredValue.VIA] = route.via.join(",");
+      }
+    } else {
+      if (route.recordingId) {
+        params[StoredValue.RECORD_ROUTE] = route.recordingId;
+      }
+      if (route.path) {
+        params[StoredValue.FOLLOW_PATH] = route.path;
+      }
+      if (route.routeId) {
+        params[StoredValue.ROUTE_ID] = route.routeId;
+      }
+      if (route.ramblersSlug) {
+        params[StoredValue.RAMBLERS_SLUG] = route.ramblersSlug;
+      }
+      if (route.osMapsRouteId) {
+        params[StoredValue.OS_MAPS_ROUTE_ID] = route.osMapsRouteId;
+      }
+      if (route.walkId) {
+        params[StoredValue.WALK_ID] = route.walkId;
+      }
+      if ("trackIndex" in route && route.trackIndex) {
+        params[StoredValue.TRACK] = String(route.trackIndex);
+      }
+      if ("via" in route && route.via?.length) {
+        params[StoredValue.VIA] = route.via.join(",");
+      }
     }
     return params;
   }
 
   private resumeActiveFollowSession(): boolean {
     if (this.activeSession) {
-      void this.router.navigate(["/" + AppPath.ROOT, AppPath.FOLLOW], {
+      void this.router.navigate(this.routeLink(this.activeSession), {
         queryParams: this.routeQuery(this.activeSession),
         replaceUrl: true
       });

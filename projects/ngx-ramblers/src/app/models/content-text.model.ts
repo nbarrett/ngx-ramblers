@@ -612,6 +612,8 @@ export enum RouteParam {
   AREA = "area",
   COMMITTEE_EVENT_ID = "committee-event-id",
   ID = "id",
+  ROUTE_NUMBER = "routeNumber",
+  SLUG = "slug",
   WALK_ID = "walk-id",
 }
 

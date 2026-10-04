@@ -26,6 +26,21 @@ describe("route geometry", () => {
     expect(beyond.point).toEqual(line[1]);
   });
 
+  it("snaps only to recorded segments and keeps progress within the recorded distance", () => {
+    const segments = [
+      {latitude: 51, longitude: 0},
+      {latitude: 51.001, longitude: 0},
+      {latitude: 51.1, longitude: 0, breakBefore: true},
+      {latitude: 51.101, longitude: 0}
+    ];
+    const cumulative = cumulativeDistances(segments);
+    const snap = snapToRoute(segments, cumulative, {latitude: 51.05, longitude: 0});
+    expect(snap.distanceMetres).toBeGreaterThan(5000);
+    expect(snap.progressMetres).toBeLessThanOrEqual(cumulative.at(-1));
+    expect(snap.point).toEqual(segments[1]);
+    expect(snapToRoute([segments[0], segments[2]], [0, 0], segments[1])).toBeNull();
+  });
+
   it("snaps a dragged position to the nearest place on the whole route", () => {
     const snap = snapToRoute(line, cumulativeDistances(line), {latitude: 51.0151, longitude: 1.002});
     expect(snap?.index).toBe(1);

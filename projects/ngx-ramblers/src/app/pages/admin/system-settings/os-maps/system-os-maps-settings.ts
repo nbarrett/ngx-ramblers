@@ -48,7 +48,7 @@ import { DEFAULT_WALKS_AREA, walksAdminPath, WalksAdminSegment } from "../../../
               </div>
             </div>
             <div class="col-12">
-              <a class="btn btn-primary" [routerLink]="walksAdminHref">Choose routes to convert</a>
+              <a class="btn btn-primary" [routerLink]="walksAdminHref">Manage routes</a>
             </div>
           </div>
         </div>
@@ -62,7 +62,7 @@ export class SystemOsMapsSettings implements OnInit, OnDestroy {
   private logger = inject(LoggerFactory).createLogger("SystemOsMapsSettings", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
   protected readonly InputSize = InputSize;
-  protected readonly walksAdminHref = "/" + walksAdminPath(DEFAULT_WALKS_AREA, WalksAdminSegment.OS_MAPS_EXPORT);
+  protected readonly walksAdminHref = "/" + walksAdminPath(DEFAULT_WALKS_AREA, WalksAdminSegment.ROUTES);
 
 
   @Input({ alias: "config", required: true }) set configValue(systemConfig: SystemConfig) {

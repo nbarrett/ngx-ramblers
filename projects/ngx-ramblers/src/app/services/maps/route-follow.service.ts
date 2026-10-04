@@ -29,7 +29,7 @@ import {
 import { GeoDistanceService } from "./geo-distance.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { returnDirectionFrom } from "./map-gestures";
-import { cumulativeDistances, projectOnSegment } from "../../functions/route-geometry";
+import { cumulativeDistances, projectOnSegment, snapToRoute } from "../../functions/route-geometry";
 
 @Injectable({
   providedIn: "root"
@@ -390,27 +390,7 @@ export class RouteFollowService {
   }
 
   snapToRoute(position: RouteFollowPoint): RouteFollowSnap | null {
-    if (this.track.length < 2) {
-      return null;
-    } else {
-      const result = this.track.slice(1).reduce((acc, end, offset) => {
-        const start = this.track[offset];
-        const projected = end.breakBefore ? {distanceMetres: Number.POSITIVE_INFINITY, point: start, alongMetres: 0} : this.projectOnSegment(position, start, end);
-        const better = projected.distanceMetres < acc.distanceMetres;
-        return better ? {
-          point: projected.point,
-          index: offset,
-          distanceMetres: projected.distanceMetres,
-          progressMetres: this.cumulativeMetres[offset] + projected.alongMetres
-        } : acc;
-      }, {
-        point: this.track[0],
-        index: 0,
-        distanceMetres: Number.POSITIVE_INFINITY,
-        progressMetres: 0
-      });
-      return result.distanceMetres === Number.POSITIVE_INFINITY ? null : result;
-    }
+    return snapToRoute(this.track, this.cumulativeMetres, position);
   }
 
   remainingFrom(progressMetres: number): number {

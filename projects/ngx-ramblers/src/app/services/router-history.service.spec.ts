@@ -38,16 +38,16 @@ describe("RouterHistoryService app navigation", () => {
     const service = TestBed.inject(RouterHistoryService);
     const router = TestBed.inject(Router);
     state.events.next(new NavigationEnd(1, "/app", "/app"));
-    state.events.next(new NavigationEnd(2, "/app/follow", "/app/follow"));
+    state.events.next(new NavigationEnd(2, "/app/route", "/app/route"));
     state.events.next(new NavigationEnd(3, "/walks/a", "/walks/a"));
     Object.assign(router, {url: "/walks/a"});
-    expect(service.appBackDestination()).toBe("/app/follow");
+    expect(service.appBackDestination()).toBe("/app/route");
     service.navigateBackWithinApp();
-    state.events.next(new NavigationEnd(4, "/app/follow", "/app/follow"));
-    Object.assign(router, {url: "/app/follow"});
+    state.events.next(new NavigationEnd(4, "/app/route", "/app/route"));
+    Object.assign(router, {url: "/app/route"});
     expect(service.appBackDestination()).toBe("/app");
     service.navigateBackWithinApp();
-    expect(state.router.navigateByUrl).toHaveBeenNthCalledWith(1, "/app/follow");
+    expect(state.router.navigateByUrl).toHaveBeenNthCalledWith(1, "/app/route");
     expect(state.router.navigateByUrl).toHaveBeenNthCalledWith(2, "/app");
   });
 
@@ -55,8 +55,8 @@ describe("RouterHistoryService app navigation", () => {
     const service = TestBed.inject(RouterHistoryService);
     const router = TestBed.inject(Router);
     state.events.next(new NavigationEnd(1, "/app", "/app"));
-    state.events.next(new NavigationEnd(2, "/app/follow", "/app/follow"));
-    Object.assign(router, {url: "/app/follow"});
+    state.events.next(new NavigationEnd(2, "/app/route", "/app/route"));
+    Object.assign(router, {url: "/app/route"});
     service.forgetCurrentPage();
     state.events.next(new NavigationEnd(3, "/walks/a", "/walks/a"));
     Object.assign(router, {url: "/walks/a"});

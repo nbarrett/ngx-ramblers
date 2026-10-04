@@ -199,18 +199,23 @@ export const ADMIN_MENU_ITEMS: ActionButtonColumn[] = [
   }
 ];
 
-export function osMapsExportMenuItem(walksArea = DEFAULT_WALKS_AREA): ActionButtonColumn {
+export function routesMenuItem(walksArea = DEFAULT_WALKS_AREA): ActionButtonColumn {
   return {
     accessLevel: "loggedInMember",
-    title: "OS Maps Routes",
+    title: "Routes",
     icon: "faMapLocationDot",
     iconColour: "ramblers",
-    href: walksAdminPath(walksArea, WalksAdminSegment.OS_MAPS_EXPORT),
-    contentText: "* Load the routes saved on the group's OS Maps account\n* Convert chosen routes to GPX\n* Attach an imported GPX to a walk that already has an OS Maps link"
+    href: walksAdminPath(walksArea, WalksAdminSegment.ROUTES),
+    contentText: "* Browse routes already in the system and see which are imported\n* Load routes saved on the group's OS Maps account\n* Convert chosen routes to GPX and attach them to walks"
   };
 }
 
-export const OS_MAPS_EXPORT_MENU_ITEM: ActionButtonColumn = osMapsExportMenuItem();
+export function osMapsExportMenuItem(walksArea = DEFAULT_WALKS_AREA): ActionButtonColumn {
+  return routesMenuItem(walksArea);
+}
+
+export const ROUTES_MENU_ITEM: ActionButtonColumn = routesMenuItem();
+export const OS_MAPS_EXPORT_MENU_ITEM: ActionButtonColumn = ROUTES_MENU_ITEM;
 
 export const SOCIAL_MEDIA_PUBLISHING_MENU_ITEM: ActionButtonColumn = {
   accessLevel: "loggedInMember",

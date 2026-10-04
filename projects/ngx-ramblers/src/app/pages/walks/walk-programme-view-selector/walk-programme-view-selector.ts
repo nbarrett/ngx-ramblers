@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
 import { Router } from "@angular/router";
-import { faCalendarDays, faCloudArrowUp, faListCheck, faMap, faPersonHiking, faUserShield } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarDays, faCloudArrowUp, faListCheck, faMap, faMapLocationDot, faPersonHiking, faUserShield } from "@fortawesome/free-solid-svg-icons";
 import { PROGRAMME_VIEWS, ProgrammeViewKey } from "../../../models/walk-programme.model";
 import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { WALKS_ADMIN_SEGMENT, WALKS_LEADER_SEGMENT, walksAdminPath, walksLeaderPath, WalksAdminSegment } from "../../../models/walks-route-paths.model";
@@ -15,6 +15,7 @@ const PROGRAMME_VIEW_ICONS = {
   [ProgrammeViewKey.MAP]: faMap,
   [ProgrammeViewKey.LEADER]: faPersonHiking,
   [ProgrammeViewKey.EXPORT]: faCloudArrowUp,
+  [ProgrammeViewKey.ROUTES]: faMapLocationDot,
   [ProgrammeViewKey.ADMIN]: faUserShield
 };
 

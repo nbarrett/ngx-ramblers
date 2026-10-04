@@ -52,7 +52,7 @@ export async function importWalkGpx(req: Request, res: Response): Promise<void> 
       } else {
         const existing = recordingId ? await osMapsImportedRouteById(`recording-${recordingId}`) : null;
         if (existing?.gpxFile) {
-          res.status(200).json({gpxFile: existing.gpxFile, routeId: existing.routeId});
+          res.status(200).json({gpxFile: existing.gpxFile, routeId: existing.routeId, number: existing.number || null});
         } else {
           const content = fs.readFileSync(file.path, "utf8");
           const title = isString(req.body?.title) ? req.body.title.trim().slice(0, 200) : "";
@@ -60,8 +60,8 @@ export async function importWalkGpx(req: Request, res: Response): Promise<void> 
           const gpxFile = await persistGpxContent(file.originalname, content, title || null, routeContributorFrom(req));
           gpxFile.description = description;
           const route = await saveFileImportedGpx(gpxFile, recordingId || null);
-          debugLog("Import successful:", gpxFile.awsFileName, route?.routeId);
-          res.status(200).json({gpxFile, routeId: route?.routeId});
+          debugLog("Import successful:", gpxFile.awsFileName, route?.routeId, route?.number);
+          res.status(200).json({gpxFile, routeId: route?.routeId, number: route?.number || null});
         }
       }
     } catch (error) {

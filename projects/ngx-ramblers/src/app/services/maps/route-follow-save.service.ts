@@ -84,7 +84,7 @@ ${trackPoints}
         throw new Error("The saved route did not return an identifier. Your recording is kept for retry.");
       } else {
         return {...payload, ...imported.gpxFile, recordingId: null, source: RouteFollowSource.OS_MAPS, osMapsRouteId: imported.routeId,
-          points, totalMetres: imported.gpxFile.distanceMetres || 0};
+          routeNumber: imported.number || null, points, totalMetres: imported.gpxFile.distanceMetres || 0};
       }
     }
   }

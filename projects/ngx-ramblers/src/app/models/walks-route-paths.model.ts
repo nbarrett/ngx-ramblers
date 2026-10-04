@@ -5,7 +5,7 @@ export enum WalksAdminSegment {
   MAP = "map",
   EXPORT = "export",
   IMPORT = "import",
-  OS_MAPS_EXPORT = "os-maps-export",
+  ROUTES = "routes",
   CONFIG = "config",
   EVENT_DATA_MANAGEMENT = "event-data-management",
 }

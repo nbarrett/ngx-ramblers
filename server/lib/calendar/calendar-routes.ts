@@ -5,6 +5,8 @@ const router = express.Router();
 
 router.get("/events.ics", eventsCalendarFeed);
 
+router.get("/member/:memberId/events.ics", eventsCalendarFeed);
+
 router.get("/event/:eventId", eventCalendar);
 
 router.get("/meeting/:id", meetingInviteCalendar);

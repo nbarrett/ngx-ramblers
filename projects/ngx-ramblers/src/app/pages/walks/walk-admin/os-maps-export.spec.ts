@@ -15,7 +15,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upload-audit.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { SerenityFeature } from "../../../models/serenity-feature.model";
-import { OsMapsExportTab } from "../../../models/os-maps-export.model";
+import { OsMapsExportTab, OsMapsListedRoute } from "../../../models/os-maps-export.model";
 import { OS_MAPS_EXPORT_POLL_INTERVAL_MS, OsMapsExportJobResult, OsMapsExportJobStatus } from "../../../models/os-maps-export.model";
 
 describe("OS Maps export job reconnection", () => {
@@ -32,6 +32,7 @@ describe("OS Maps export job reconnection", () => {
   };
   const service = {
     listing: vi.fn(),
+    deleteRoute: vi.fn(),
     latestExportResult: vi.fn(),
     exportRoutes: vi.fn(),
     cancelActive: vi.fn(),
@@ -54,7 +55,7 @@ describe("OS Maps export job reconnection", () => {
       ...[DistanceValidationService, DateUtilsService, UiActionsService, UrlService, WalkDisplayService, Router]
         .map(provide => ({provide, useValue: {}}))
     ]});
-    TestBed.overrideProvider(UiActionsService, {useValue: {updateQueryParameters: vi.fn()}});
+    TestBed.overrideProvider(UiActionsService, {useValue: {updateQueryParameters: vi.fn(), initialValueFor: () => null}});
     state.page = TestBed.runInInjectionContext(() => new OsMapsExportPage());
     state.page.ngOnInit();
   });
@@ -138,6 +139,60 @@ describe("OS Maps export job reconnection", () => {
     expect(state.page.loading).toBe(false);
     expect(state.page.startingJob).toBe(false);
     expect(state.page.errorMessage).toContain("Worker unavailable");
+  });
+
+  it("clears dispatched selections so the next conversion includes only newly selected routes", async () => {
+    service.latestExportResult.mockResolvedValue(null);
+    await vi.advanceTimersByTimeAsync(0);
+    const routes = [
+      {id: "first", url: "https://group.example.org.uk/routes/first"},
+      {id: "second", url: "https://group.example.org.uk/routes/second"}
+    ];
+    service.listing.mockResolvedValue({listedAt: 0, routes});
+    await vi.advanceTimersByTimeAsync(OS_MAPS_EXPORT_POLL_INTERVAL_MS);
+    state.page.listing = {listedAt: 0, routes} as typeof state.page.listing;
+    service.exportRoutes.mockResolvedValue({jobId: "first-job", fileName: "first-job.gpx"});
+    state.page.selectedIds.add("first");
+    await state.page.convertSelected();
+    expect(state.page.selectedIds.size).toBe(0);
+    state.page.selectedIds.add("second");
+    service.exportRoutes.mockResolvedValue({jobId: "second-job", fileName: "second-job.gpx"});
+    await state.page.convertSelected();
+    expect(service.exportRoutes.mock.calls.map(call => call[0])).toEqual([[routes[0].url], [routes[1].url]]);
+  });
+
+  it("keeps the selection available for retry if dispatch fails", async () => {
+    service.latestExportResult.mockResolvedValue(null);
+    await vi.advanceTimersByTimeAsync(0);
+    state.page.selectedIds.add("first");
+    service.exportRoutes.mockRejectedValue(new Error("Worker unavailable"));
+    await state.page.convertSelected();
+    expect(state.page.selectedIds.has("first")).toBe(true);
+  });
+
+  it("uses the public walk path for referenced walk links", () => {
+    TestBed.inject(WalkDisplayService).walksArea = () => "walks";
+    expect(state.page.walkReferenceLink({id: "walk-one", slug: "hillside-walk", title: "Hillside walk", startDateTime: ""}))
+      .toEqual(["/walks", "hillside-walk"]);
+  });
+
+  it("does not request deletion for a route linked to a walk", async () => {
+    const route = {id: "1001", walks: [{id: "walk-one"}]} as OsMapsListedRoute;
+    state.page.deleteRouteId = route.id;
+    await state.page.deleteRoute(route);
+    expect(service.deleteRoute).not.toHaveBeenCalled();
+    expect(state.page.errorMessage).toContain("linked to a walk");
+    expect(state.page.deleteRouteId).toBeNull();
+  });
+
+  it("reloads references when the server rejects a stale delete request", async () => {
+    await vi.advanceTimersByTimeAsync(0);
+    service.deleteRoute.mockRejectedValue({error: {error: "This route cannot be deleted because it is linked to a walk"}});
+    const route = {id: "1001", walks: []} as OsMapsListedRoute;
+    await state.page.deleteRoute(route);
+    expect(service.listing).toHaveBeenCalledTimes(2);
+    expect(state.page.errorMessage).toContain("linked to a walk");
+    expect(state.page.deletingRoute).toBe(false);
   });
 
   it("stops polling when the page is closed", async () => {

@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, ElementRef, inject, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild } from "@angular/core";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -11,13 +12,17 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { GpxParserService } from "../../../services/maps/gpx-parser.service";
 import { RouteFollowPayloadService } from "../../../services/maps/route-follow-payload.service";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
-import { MapProvider } from "../../../models/map.model";
+import { MapZoomService } from "../../../services/maps/map-zoom.service";
+import { MapProvider, OUTDOOR_OS_STYLE } from "../../../models/map.model";
 import { OsMapsListedRoute } from "../../../models/os-maps-export.model";
 import { RouteFollowPoint } from "../../../models/route-follow.model";
 
 @Component({
   selector: "app-os-maps-route-preview-map",
   imports: [FontAwesomeModule, TooltipDirective],
+  host: {
+    "[class.fill]": "fill"
+  },
   template: `
     <div class="os-maps-route-preview" [class.os-maps-route-preview-compact]="compact" [style.background-color]="'#eef1ea'">
       <div class="os-maps-route-preview-map" #mapContainer></div>
@@ -36,24 +41,33 @@ import { RouteFollowPoint } from "../../../models/route-follow.model";
   `,
   styles: [`
     :host
-      display: flex
+      display: block
       align-self: stretch
       flex-shrink: 0
+      width: 96px
+      max-width: 100%
+
+    :host.fill
+      width: 100%
+      height: 100%
+      min-height: 0
 
     .os-maps-route-preview
       position: relative
-      width: 96px
+      width: 100%
       min-height: 72px
       max-height: 140px
       height: 100%
       border-radius: .25rem
       overflow: hidden
-      flex-shrink: 0
 
     .os-maps-route-preview-compact
-      width: 96px
       min-height: 88px
       max-height: 88px
+
+    :host.fill .os-maps-route-preview
+      min-height: inherit
+      max-height: none
 
     .os-maps-route-preview-badge
       position: absolute
@@ -92,27 +106,27 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
   private gpxParser = inject(GpxParserService);
   private routeFollowPayload = inject(RouteFollowPayloadService);
   private mapTiles = inject(MapTilesService);
+  private mapZoom = inject(MapZoomService);
   private dateUtils = inject(DateUtilsService);
   @ViewChild("mapContainer", {static: true}) mapContainerRef!: ElementRef<HTMLDivElement>;
   @Input() route: OsMapsListedRoute | null = null;
   @Input() points: RouteFollowPoint[] = [];
   @Input() compact = false;
+  fill = false;
+
+  @Input("fill") set fillValue(value: boolean) {
+    this.fill = coerceBooleanProperty(value);
+  }
   faMap = faMap;
   faCircleCheck = faCircleCheck;
   hasLine = false;
-  options: L.MapOptions = {
-    zoomControl: false,
-    attributionControl: false,
-    dragging: false,
-    touchZoom: false,
-    scrollWheelZoom: false,
-    doubleClickZoom: false,
-    boxZoom: false,
-    keyboard: false
-  };
   private mapRef: L.Map | null = null;
   private latLngs: L.LatLngExpression[] = [];
   private loadedRouteKey: string | null = null;
+  private readonly osStyle = OUTDOOR_OS_STYLE;
+  private readonly fitPaddingPercent = 0.18;
+  private resizeObserver: ResizeObserver | null = null;
+  private refitWait: ReturnType<typeof setTimeout> | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     const key = this.routeKey();
@@ -122,6 +136,8 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
       this.drawIfReady();
     } else if (changes.route && key !== this.loadedRouteKey) {
       void this.loadRoute();
+    } else if ((changes.fill || changes.compact) && this.mapRef) {
+      this.refitRoute();
     }
   }
 
@@ -138,13 +154,42 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
     if (element._leaflet_id) {
       element._leaflet_id = undefined;
     }
-    this.mapRef = L.map(element, this.options);
+    this.mapRef = L.map(element, this.mapOptions());
+    this.resizeObserver = new ResizeObserver(() => this.refitRoute());
+    this.resizeObserver.observe(element);
     this.drawIfReady();
   }
 
   ngOnDestroy(): void {
+    if (this.refitWait) {
+      clearTimeout(this.refitWait);
+      this.refitWait = null;
+    }
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     this.mapRef?.remove();
     this.mapRef = null;
+  }
+
+  private mapProvider(): MapProvider {
+    return this.mapTiles.hasOsApiKey() ? MapProvider.OS : MapProvider.OSM;
+  }
+
+  private mapOptions(): L.MapOptions {
+    const provider = this.mapProvider();
+    const style = provider === MapProvider.OS ? this.osStyle : "";
+    return {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false,
+      touchZoom: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false,
+      crs: this.mapTiles.crsForStyle(provider, style),
+      maxZoom: this.mapTiles.maxZoomForStyle(provider, style)
+    };
   }
 
   private async loadRoute(): Promise<void> {
@@ -171,12 +216,27 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
   private drawIfReady(): void {
     if (this.mapRef && this.hasLine && this.latLngs.length >= 2) {
       const map = this.mapRef;
+      const provider = this.mapProvider();
+      const style = provider === MapProvider.OS ? this.osStyle : "";
       map.eachLayer(layer => map.removeLayer(layer));
-      map.addLayer(this.mapTiles.createBaseLayer(MapProvider.OSM, ""));
+      map.addLayer(this.mapTiles.createBaseLayer(provider, style));
       const polyline = L.polyline(this.latLngs, {color: this.route?.routeColor || "#2f6f4f", weight: 3});
       polyline.addTo(map);
-      map.fitBounds(polyline.getBounds(), {padding: [3, 3]});
-      setTimeout(() => map.invalidateSize(), 0);
+      this.refitRoute();
+    }
+  }
+
+  private refitRoute(): void {
+    if (this.mapRef && this.hasLine && this.latLngs.length >= 2) {
+      if (this.refitWait) {
+        clearTimeout(this.refitWait);
+      }
+      const map = this.mapRef;
+      const paddedBounds = L.latLngBounds(this.latLngs).pad(this.fitPaddingPercent);
+      this.refitWait = setTimeout(() => {
+        this.refitWait = null;
+        this.mapZoom.invalidateAndApplyBounds(map, paddedBounds, {maxZoom: map.getMaxZoom()});
+      }, 50);
     }
   }
 }

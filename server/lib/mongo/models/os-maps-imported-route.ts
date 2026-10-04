@@ -3,8 +3,14 @@ import { ensureModel } from "../utils/model-utils";
 import { FileNameData } from "../../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { fileNameData } from "./banner";
 
+export interface ImportedRouteNumberCounter {
+  _id: string;
+  seq: number;
+}
+
 export interface OsMapsImportedRouteRecord {
   routeId: string;
+  number?: number | null;
   url: string;
   importedAt: number;
   gpxFile?: FileNameData | null;
@@ -15,6 +21,7 @@ export interface OsMapsImportedRouteRecord {
 
 const osMapsImportedRouteSchema = new mongoose.Schema({
   routeId: {type: String, unique: true},
+  number: {type: Number, unique: true, sparse: true},
   url: {type: String},
   importedAt: {type: Number},
   gpxFile: fileNameData,

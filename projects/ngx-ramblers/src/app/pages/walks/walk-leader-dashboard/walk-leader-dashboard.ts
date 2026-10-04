@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowLeft, faCircleExclamation, faHandshake, faPenToSquare, faPersonHiking, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faCalendarPlus, faCircleExclamation, faHandshake, faPenToSquare, faPersonHiking, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk-programme-page";
+import { CalendarSubscribeComponent } from "../../../modules/common/related-links/calendar-subscribe";
 import { Member } from "../../../models/member.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { DisplayedWalk, EventType } from "../../../models/walk.model";
@@ -22,7 +23,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 @Component({
   selector: "app-walk-leader-dashboard",
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [WalkProgrammePageComponent, NgTemplateOutlet, FontAwesomeModule],
+  imports: [CalendarSubscribeComponent, WalkProgrammePageComponent, NgTemplateOutlet, FontAwesomeModule],
   styleUrls: ["./walk-leader-dashboard.sass"],
   template: `
     <app-walk-programme-page>
@@ -34,6 +35,13 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
           <p>Your walks in one place: what you are leading, anything still needing detail or approval, and slots you can
             put your name to.</p>
         </div>
+
+        <section class="leader-section">
+          <h3><fa-icon [icon]="faCalendarPlus" class="ramblers"/> Keep up with walks and events</h3>
+          <div class="walk-row calendar-subscription-row">
+            <app-calendar-subscribe class="d-block" [memberId]="member?.id"/>
+          </div>
+        </section>
 
         <section class="leader-section">
           <h3><fa-icon [icon]="faCircleExclamation" class="ramblers"/> Needs your attention</h3>
@@ -123,6 +131,8 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
   `
 })
 export class WalkLeaderDashboardComponent implements OnInit, OnDestroy {
+
+  protected readonly faCalendarPlus = faCalendarPlus;
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkLeaderDashboardComponent", NgxLoggerLevel.ERROR);
   private walkProgrammeService = inject(WalkProgrammeService);

@@ -1,13 +1,18 @@
+import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableColumn, SortableTableSortState } from "../../../modules/common/sortable-table/sortable-table.model";
+import { RouteWalkReference } from "../../../models/os-maps-export.model";
 import { RouteAuditComponent } from "../../../modules/common/route-audit";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowUpShortWide, faBookmark, faCalendarDays, faCircleCheck, faCircleExclamation, faDownload, faMagnifyingGlass, faMap, faPersonWalking, faPowerOff, faSpinner, faSync } from "@fortawesome/free-solid-svg-icons";
+import { faTrash, faArrowLeft, faArrowUpRightFromSquare, faXmark, faArrowDownWideShort, faArrowUpShortWide, faBookmark, faCalendarDays, faCircleCheck, faCircleExclamation, faDownload, faMagnifyingGlass, faMap, faPersonWalking, faPowerOff, faSpinner, faSync } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { exhaustMap, Subscription, timer } from "rxjs";
+import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../../modules/common/resizer/resizer";
 import { OsMapsRoutePreviewMapComponent } from "./os-maps-route-preview-map";
 import {
   OsMapsExportJobStatus,
@@ -18,12 +23,12 @@ import {
   OsMapsRouteListFilter,
   OsMapsRouteListing,
   OsMapsRouteSource,
+  osMapsRouteUserNames,
   osMapsRouteVisible
 } from "../../../models/os-maps-export.model";
 import { SortDirection } from "../../../models/sort.model";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { DEFAULT_WALKS_AREA, WALKS_ADMIN_SEGMENT } from "../../../models/walks-route-paths.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
@@ -33,29 +38,29 @@ import { DistanceUnit } from "../../../models/walk.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { UrlService } from "../../../services/url.service";
-import { PageComponent } from "../../../page/page.component";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalkDisplayService } from "../walk-display.service";
-import { AppPath } from "../../../models/route-follow.model";
-import { Router } from "@angular/router";
+import { followRouteCommands } from "../../../models/route-follow.model";
+import { Router, RouterLink } from "@angular/router";
 import { OsMapsLoginRequiredAlertComponent } from "../walk-edit/os-maps-login-required-alert";
 import { SerenityJobAuditPanelComponent } from "./serenity-job-audit-panel";
 import { serenityFeatureFromFileName, SerenityFeature } from "../../../models/serenity-feature.model";
 import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upload-audit.service";
 import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers-upload-audit.model";
+import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk-programme-page";
 
 @Component({
   selector: "app-os-maps-export",
-  imports: [RouteAuditComponent, PageComponent, FormsModule, FontAwesomeModule, OsMapsLoginRequiredAlertComponent, SerenityJobAuditPanelComponent, TabsetComponent, TabDirective, TooltipDirective, OsMapsRoutePreviewMapComponent],
+  imports: [SortableTableComponent, SortableTableCellDirective, RouterLink, RouteAuditComponent, WalkProgrammePageComponent, FormsModule, FontAwesomeModule, OsMapsLoginRequiredAlertComponent, SerenityJobAuditPanelComponent, TabsetComponent, TabDirective, TooltipDirective, OsMapsRoutePreviewMapComponent, ResizerComponent],
   template: `
-    <app-page pageTitle="OS Maps Routes">
+    <app-walk-programme-page>
       @if (!loginConfigured) {
         <div class="mb-3">
           <app-os-maps-login-required-alert/>
         </div>
       }
       <div class="os-maps-export-actions d-flex flex-wrap align-items-center gap-2 mb-3">
-        <button type="button" class="btn btn-quiet" (click)="navigateBackToAdmin()">Back to walks admin</button>
+        <button type="button" class="btn btn-quiet" (click)="navigateBackToAdmin()"><fa-icon [icon]="faArrowLeft" class="me-2"/>Back to walks admin</button>
         @if (listing.routes.length === 0) {
           <button type="button" class="btn btn-primary" (click)="refreshRoutes()" [disabled]="busy() || !loginConfigured">
             <fa-icon [icon]="loading ? faSpinner : faSync" [animation]="loading ? 'spin' : null" class="me-2"/>
@@ -90,21 +95,18 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
           </div>
         </div>
       }
-      @if (warningMessage) {
-        <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
-          <fa-icon [icon]="faCircleExclamation"/>
+      @if (warningMessage || successMessage) {
+        <div class="alert d-flex align-items-start gap-2" [class.alert-warning]="!!warningMessage"
+             [class.alert-success]="!warningMessage" role="alert">
+          <fa-icon [icon]="warningMessage ? faCircleExclamation : faCircleCheck"/>
           <div>
-            <strong>Some routes were not converted</strong>
-            <div>{{ warningMessage }}</div>
-          </div>
-        </div>
-      }
-      @if (successMessage) {
-        <div class="alert alert-success d-flex align-items-start gap-2" role="alert">
-          <fa-icon [icon]="faCircleCheck"/>
-          <div>
-            <strong>Routes converted</strong>
-            <div>{{ successMessage }}</div>
+            <strong>{{ completionTitle() }}</strong>
+            @if (successMessage) {
+              <div>{{ successMessage }}</div>
+            }
+            @if (warningMessage) {
+              <div>{{ warningMessage }}</div>
+            }
           </div>
         </div>
       }
@@ -115,29 +117,33 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
             <strong>Stop this job?</strong>
             <div>The conversion will be stopped and reported as failed.</div>
             <div class="mt-2 d-flex gap-2">
-              <button type="button" class="btn btn-primary btn-sm" (click)="cancelActive()">Stop job</button>
-              <button type="button" class="btn btn-quiet btn-sm" (click)="confirmCancel = false">Cancel</button>
+              <button type="button" class="btn btn-primary btn-sm" (click)="cancelActive()"><fa-icon [icon]="faPowerOff" class="me-2"/>Stop job</button>
+              <button type="button" class="btn btn-quiet btn-sm" (click)="confirmCancel = false"><fa-icon [icon]="faXmark" class="me-2"/>Cancel</button>
             </div>
           </div>
         </div>
       }
       <tabset class="custom-tabset">
         <tab [active]="activeTabId === OsMapsExportTab.ROUTES" (selectTab)="selectTab(OsMapsExportTab.ROUTES)"
-             heading="OS Maps routes">
+             heading="Routes">
           <div class="thumbnail-heading-frame">
-            <div class="thumbnail-heading">OS Maps routes</div>
-            <p>Search and tick the routes you want, then convert them to GPX. Imported routes stay marked so you can see what is still to do next time. When new routes have been saved on the OS Maps account, reload the list using the button next to the last-loaded time.</p>
+            <div class="thumbnail-heading">Routes</div>
+            <p class="os-maps-route-intro">Search and tick the routes you want, then convert them to GPX. Imported routes stay marked so you can see what is still to do next time. When new routes have been saved on an OS Maps account, reload the list using the button next to the last-loaded time.</p>
             <div class="os-maps-route-filters d-flex flex-wrap align-items-end gap-2 mb-2">
-              <div class="flex-grow-1">
+              <div class="os-maps-route-filter-search flex-grow-1">
                 <label class="form-label mb-1" for="os-maps-route-search">Search</label>
                 <div class="input-group">
-                  <span class="input-group-text"><fa-icon [icon]="faMagnifyingGlass"/></span>
-                  <input id="os-maps-route-search" type="search" class="form-control"
+                  <label class="input-group-text" for="os-maps-route-search" aria-label="Focus search">
+                    <fa-icon [icon]="faMagnifyingGlass"/>
+                  </label>
+                  <input id="os-maps-route-search" name="os-maps-route-search" type="text" class="form-control"
                          placeholder="Search route titles"
-                         [ngModel]="search" (ngModelChange)="onSearchChange($event)"/>
+                         [ngModel]="search" (ngModelChange)="onSearchChange($event)"
+                         autocapitalize="none" autocomplete="search" autocorrect="off" spellcheck="false"
+                         data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other"/>
                 </div>
               </div>
-              <div>
+              <div class="os-maps-route-filter-show">
                 <label class="form-label mb-1" for="os-maps-route-filter">Show</label>
                 <select id="os-maps-route-filter" class="form-select" [ngModel]="importFilter" (ngModelChange)="onFilterChange($event)">
                   <option [value]="OsMapsRouteListFilter.ALL">All routes</option>
@@ -145,7 +151,16 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
                   <option [value]="OsMapsRouteListFilter.IMPORTED">Imported</option>
                 </select>
               </div>
-              <div>
+              <div class="os-maps-route-filter-user">
+                <label class="form-label mb-1" for="os-maps-route-user">User</label>
+                <select id="os-maps-route-user" class="form-select" [ngModel]="userFilter" (ngModelChange)="onUserFilterChange($event)">
+                  <option value="">All users</option>
+                  @for (user of userFilterOptions(); track user) {
+                    <option [value]="user">{{ user }}</option>
+                  }
+                </select>
+              </div>
+              <div class="os-maps-route-filter-sort">
                 <label class="form-label mb-1" for="os-maps-route-sort">Sort by</label>
                 <div class="d-flex">
                   <select id="os-maps-route-sort" class="form-select" [ngModel]="sortKey" (ngModelChange)="onSortKeyChange($event)">
@@ -154,8 +169,7 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
                     <option value="distanceMetres">Distance</option>
                     <option value="importedAt">Imported</option>
                   </select>
-                  <button type="button" class="btn btn-quiet flex-shrink-0 d-flex align-items-center justify-content-center ms-1"
-                          [style.width.px]="38" [style.padding.px]="0" (click)="toggleSortDirection()"
+                  <button type="button" class="btn btn-quiet btn-icon flex-shrink-0 ms-1" (click)="toggleSortDirection()"
                           tooltip="Reverse sort order" container="body" aria-label="Reverse sort order">
                     <fa-icon [icon]="sortDirection === ASCENDING ? faArrowUpShortWide : faArrowDownWideShort"/>
                   </button>
@@ -185,31 +199,105 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
             }
             <div class="d-flex flex-column gap-2">
                 @for (route of visibleRoutes(); track route.id) {
-                  <div class="img-thumbnail d-flex gap-3 p-2">
-                    <input type="checkbox" class="form-check-input mt-1 align-self-start" [checked]="isSelected(route)" (change)="toggleSelected(route)"/>
-                    <app-os-maps-route-preview-map [route]="route"
+                  <div class="img-thumbnail os-maps-route-card p-3"
+                       [style.--os-maps-route-preview-width.px]="previewWidth">
+                    <app-os-maps-route-preview-map class="os-maps-route-preview" fill [route]="route"
+                                                    [style.height.px]="previewHeight"
                                                     [style.cursor]="canEditRoute(route) ? 'pointer' : null"
                                                     (click)="canEditRoute(route) && editRoute(route)"/>
-                    <div class="flex-grow-1 min-w-0">
-                      @if (canEditRoute(route)) {
-                        <button type="button" class="btn btn-link p-0 fw-bold text-start" (click)="editRoute(route)">{{ route.title }}</button>
-                      } @else {
-                        <span class="fw-bold">{{ route.title }}</span>
-                      }
-                      <div class="d-flex flex-wrap align-items-center gap-2 text-muted mt-1">
+                    <app-resizer class="os-maps-route-width-resizer" subtle
+                                 [orientation]="ResizerOrientation.HORIZONTAL" [variant]="ResizerVariant.BAR"
+                                 [size]="previewWidth" [minSize]="minPreviewWidth" [maxSize]="maxPreviewWidth"
+                                 resizeHint="Drag to change the width of the map"
+                                 (sizeChange)="onPreviewWidthChange($event)" (resizeEnd)="savePreviewWidth()"/>
+                    <app-resizer class="os-maps-route-height-resizer" subtle
+                                 [orientation]="ResizerOrientation.VERTICAL" [variant]="ResizerVariant.BAR"
+                                 [size]="previewHeight" [minSize]="minPreviewHeight" [maxSize]="maxPreviewHeight"
+                                 resizeHint="Drag to change the height of the map"
+                                 (sizeChange)="onPreviewHeightChange($event)" (resizeEnd)="savePreviewHeight()"/>
+                    <app-resizer class="os-maps-route-corner-resizer" subtle
+                                 [orientation]="ResizerOrientation.CORNER" [variant]="ResizerVariant.BAR"
+                                 [size]="previewWidth" [minSize]="minPreviewWidth" [maxSize]="maxPreviewWidth"
+                                 [secondarySize]="previewHeight" [minSecondarySize]="minPreviewHeight" [maxSecondarySize]="maxPreviewHeight"
+                                 resizeHint="Drag to change the width and height of the map"
+                                 (sizeChange)="onPreviewWidthChange($event)" (secondarySizeChange)="onPreviewHeightChange($event)"
+                                 (resizeEnd)="savePreviewWidth()" (secondaryResizeEnd)="savePreviewHeight()"/>
+                    <div class="os-maps-route-copy min-w-0">
+                      <div class="os-maps-route-header d-flex align-items-start gap-2 min-w-0">
+                        <span class="fw-bold flex-grow-1 min-w-0 text-break">{{ route.title }}</span>
+                        <input type="checkbox" class="form-check-input flex-shrink-0 mt-1 os-maps-route-selection"
+                               [attr.aria-label]="'Select ' + route.title"
+                               [checked]="isSelected(route)" (change)="toggleSelected(route)"/>
+                      </div>
+                      <div class="os-maps-route-details d-flex flex-wrap align-items-center gap-2 text-muted">
                         <span><fa-icon [icon]="faPersonWalking" class="me-1"/>{{ displayDistance(route) }}</span>
                         <span><fa-icon [icon]="faCalendarDays" class="me-1"/>{{ displayDateShort(route) }}</span>
                         <span [tooltip]="sourceLabel(route)" container="body">
                           <fa-icon [icon]="route.source === OsMapsRouteSource.BOOKMARKED ? faBookmark : faMap"/>
                         </span>
                       </div>
-                      @if (route.gpxFile) {
-                        <app-route-audit [audit]="route.gpxFile"/>
+                      @if (route.walkedByName || route.walkedAt) {
+                        <small class="d-block text-muted text-break">
+                          Walked
+                          @if (route.walkedByName) {
+                            by {{ route.walkedByName }}
+                          }
+                          @if (route.walkedAt) {
+                            on {{ displayWalkedDate(route) }}
+                          }
+                        </small>
                       }
-                      <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
-                        <a [href]="route.url" target="_blank" rel="noopener" class="small d-inline-flex align-items-center gap-1">
+                      @if (route.gpxFile) {
+                        <app-route-audit class="os-maps-route-audit min-w-0" compact createdLabel="Imported" [audit]="route.gpxFile"/>
+                      }
+                      <div class="mt-2">
+                        @if (route.walks?.length) {
+                          <strong>Referenced by {{ route.walks.length }} {{ route.walks.length === 1 ? 'walk' : 'walks' }}</strong>
+                          <app-sortable-table [columns]="walkColumns" [rows]="route.walks || []" [flat]="true"
+                                              [defaultSortKey]="walkSortKey" [defaultSortDirection]="walkSortDirection"
+                                              emptyMessage="No walks reference this route" (sortChange)="changeWalkSort($event)">
+                            <ng-template appSortableTableCell="title" let-walk>
+                              <a [routerLink]="walkReferenceLink(walk)">{{ walk.title }}</a>
+                            </ng-template>
+                            <ng-template appSortableTableCell="startDateTime" let-walk>
+                              <a [routerLink]="walkReferenceLink(walk)">{{ displayReferenceDate(walk) }}</a>
+                            </ng-template>
+                          </app-sortable-table>
+                        } @else {
+                          <span>No walks reference this route</span>
+                        }
+                      </div>
+                      @if (deleteRouteId === route.id) {
+                        <div class="alert alert-warning d-flex align-items-start gap-2 mt-2">
+                          <fa-icon [icon]="faCircleExclamation"/>
+                          <div>
+                            <strong class="d-block">Delete this route?</strong>
+                            <p class="mb-2">The original route saved on an OS Maps account and its GPX file will be kept. Reloading the OS Maps list may show this route again.</p>
+                            <button type="button" class="btn btn-danger me-2" [disabled]="deletingRoute" (click)="deleteRoute(route)">Confirm delete</button>
+                            <button type="button" class="btn btn-quiet" [disabled]="deletingRoute" (click)="deleteRouteId = null">Cancel</button>
+                          </div>
+                        </div>
+                      }
+                      <div class="os-maps-route-actions d-flex flex-wrap align-items-stretch gap-2 mt-auto pt-1">
+                        @if (canEditRoute(route)) {
+                          <button type="button" class="btn btn-primary btn-sm flex-grow-1" (click)="editRoute(route)"
+                                  [attr.aria-label]="'Open ' + route.title">
+                            <fa-icon [icon]="faArrowUpRightFromSquare" class="me-2"/>Open
+                          </button>
+                        }
+                        @if (route.gpxFile?.awsFileName) {
+                          <span [tooltip]="route.walks?.length ? 'Cannot delete a route linked to a walk' : 'Delete route'" container="body">
+                            <button type="button" class="btn btn-grey-danger btn-icon" aria-label="Delete route"
+                                    [disabled]="loading || deletingRoute || !route.walks || route.walks.length > 0"
+                                    (click)="deleteRouteId = route.id">
+                              <fa-icon [icon]="faTrash"/>
+                            </button>
+                          </span>
+                        }
+                        <a [href]="route.url" target="_blank" rel="noopener"
+                           class="btn btn-quiet btn-sm flex-grow-1 d-inline-flex align-items-center justify-content-center gap-2">
                           <img src="/assets/images/local/os-api/os-logo-maps.svg" alt="" width="46" height="12"/>
-                          Open in OS Maps
+                          OS Maps
                         </a>
                       </div>
                     </div>
@@ -230,9 +318,75 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
                                         [feature]="jobFeature"/>
         </tab>
       </tabset>
-    </app-page>
+    </app-walk-programme-page>
   `,
   styles: [`
+    .os-maps-route-card
+      display: grid
+      grid-template-columns: var(--os-maps-route-preview-width, 638px) 14px minmax(12rem, 1fr)
+      grid-template-rows: auto 14px
+      grid-template-areas: "map width copy" "height corner copy"
+      gap: 0
+      align-items: stretch
+
+      @media (max-width: 575.98px)
+        grid-template-columns: minmax(0, 1fr)
+        grid-template-rows: auto auto auto
+        grid-template-areas: "map" "height" "copy"
+        gap: var(--space-2, .5rem)
+
+    .os-maps-route-preview
+      grid-area: map
+      width: 100%
+      min-width: 0
+      min-height: 0
+
+    .os-maps-route-width-resizer
+      grid-area: width
+      min-height: 8rem
+
+      @media (max-width: 575.98px)
+        display: none
+
+    .os-maps-route-height-resizer
+      grid-area: height
+      width: 100%
+      height: 14px
+
+    .os-maps-route-corner-resizer
+      grid-area: corner
+
+      @media (max-width: 575.98px)
+        display: none
+
+    .os-maps-route-copy
+      grid-area: copy
+      display: flex
+      flex-direction: column
+      gap: 0.35rem
+      min-width: 0
+      min-height: 100%
+
+    .os-maps-route-selection
+      width: 1.25rem
+      height: 1.25rem
+      margin: 0
+
+    .os-maps-route-audit
+      overflow-wrap: anywhere
+
+    .os-maps-route-actions
+      .btn
+        min-height: 40px
+
+      @media (max-width: 575.98px)
+        .btn
+          flex: 1 1 calc(50% - 0.25rem)
+
+    .os-maps-route-intro
+      @media (max-width: 575.98px)
+        display: none
+
     .os-maps-export-actions
       @media (max-width: 575.98px)
         flex-direction: column
@@ -246,9 +400,18 @@ import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers
           margin-left: 0
 
     .os-maps-route-filters
+      .input-group-text
+        cursor: pointer
+
       @media (max-width: 575.98px)
-        > div
+        .os-maps-route-filter-search
           flex: 1 1 100%
+
+        .os-maps-route-filter-show,
+        .os-maps-route-filter-user,
+        .os-maps-route-filter-sort
+          flex: 1 1 calc(50% - 0.5rem)
+          min-width: 9rem
 
     .os-maps-route-summary
       @media (max-width: 575.98px)
@@ -282,6 +445,10 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   startingJob = false;
   jobFeature = SerenityFeature.OS_MAPS_EXPORT;
   private destroyed = false;
+  faTrash = faTrash;
+  faArrowLeft = faArrowLeft;
+  faArrowUpRightFromSquare = faArrowUpRightFromSquare;
+  faXmark = faXmark;
   faSync = faSync;
   faSpinner = faSpinner;
   faDownload = faDownload;
@@ -297,6 +464,14 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   faArrowDownWideShort = faArrowDownWideShort;
   listing: OsMapsRouteListing = {listedAt: 0, routes: []};
   selectedIds = new Set<string>();
+  deleteRouteId: string | null = null;
+  deletingRoute = false;
+  walkSortKey = "startDateTime";
+  walkSortDirection = DESCENDING;
+  walkColumns: SortableTableColumn<RouteWalkReference>[] = [
+    {key: "title", label: "Walk", sortKey: "title"},
+    {key: "startDateTime", label: "Date", sortKey: "startDateTime", cellClass: "text-nowrap"}
+  ];
   loading = false;
   converting = false;
   jobStatusUnavailable = false;
@@ -309,6 +484,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   successMessage = "";
   search = "";
   importFilter = OsMapsRouteListFilter.ALL;
+  userFilter = "";
   sortKey = "createdAtValue";
   sortDirection = DESCENDING;
   lastLoadedLabel = "";
@@ -317,9 +493,35 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   protected readonly OsMapsExportTab = OsMapsExportTab;
   protected readonly SerenityFeature = SerenityFeature;
   protected readonly ASCENDING = ASCENDING;
+  protected readonly ResizerOrientation = ResizerOrientation;
+  protected readonly ResizerVariant = ResizerVariant;
+  protected readonly minPreviewWidth = 240;
+  protected readonly maxPreviewWidth = 720;
+  protected readonly defaultPreviewWidth = 638;
+  protected readonly minPreviewHeight = 160;
+  protected readonly maxPreviewHeight = 560;
+  protected readonly defaultPreviewHeight = 257;
+  protected previewWidth = Number(this.uiActions.initialValueFor(StoredValue.OS_MAPS_ROUTE_PREVIEW_WIDTH)) || this.defaultPreviewWidth;
+  protected previewHeight = Number(this.uiActions.initialValueFor(StoredValue.OS_MAPS_ROUTE_PREVIEW_HEIGHT)) || this.defaultPreviewHeight;
   private searchWait = {timer: null as ReturnType<typeof setTimeout> | null};
   private readonly maxVisibleRoutes = 50;
   private readonly sortKeys = ["createdAtValue", "title", "distanceMetres", "importedAt"];
+
+  onPreviewWidthChange(width: number): void {
+    this.previewWidth = width;
+  }
+
+  savePreviewWidth(): void {
+    this.uiActions.saveValueFor(StoredValue.OS_MAPS_ROUTE_PREVIEW_WIDTH, this.previewWidth);
+  }
+
+  onPreviewHeightChange(height: number): void {
+    this.previewHeight = height;
+  }
+
+  savePreviewHeight(): void {
+    this.uiActions.saveValueFor(StoredValue.OS_MAPS_ROUTE_PREVIEW_HEIGHT, this.previewHeight);
+  }
 
   ngOnInit(): void {
     const sessionFileName = this.activatedRoute.snapshot.queryParams[StoredValue.SESSION];
@@ -329,6 +531,9 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       this.currentJobFileName = sessionFileName;
       this.checkingJob = sessionFeature === SerenityFeature.OS_MAPS_EXPORT;
     }
+    const walkSortParam = this.activatedRoute.snapshot.queryParams[StoredValue.ROUTE_WALKS_SORT];
+    this.walkSortKey = walkSortParam === "title" ? "title" : "startDateTime";
+    this.walkSortDirection = this.activatedRoute.snapshot.queryParams[StoredValue.ROUTE_WALKS_SORT_ORDER] === SortDirection.ASC ? ASCENDING : DESCENDING;
     const sortParam = this.activatedRoute.snapshot.queryParams[StoredValue.SORT];
     const matchedSortKey = this.sortKeys.find(key => this.stringUtils.kebabCase(key) === sortParam);
     if (matchedSortKey) {
@@ -342,6 +547,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       this.activeTabId = tabParam;
     }
     this.search = this.activatedRoute.snapshot.queryParams[StoredValue.SEARCH] || "";
+    this.userFilter = this.activatedRoute.snapshot.queryParams[StoredValue.USER] || "";
     const filterParam = this.activatedRoute.snapshot.queryParams[StoredValue.FILTER];
     if (filterParam === OsMapsRouteListFilter.IMPORTED || filterParam === OsMapsRouteListFilter.NOT_IMPORTED) {
       this.importFilter = filterParam;
@@ -364,9 +570,16 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  completionTitle(): string {
+    if (this.exportResult?.status === OsMapsExportJobStatus.COMPLETED) {
+      return `${this.exportResult.gpxFiles.length} of ${this.exportResult.routeUrls?.length || this.exportResult.gpxFiles.length} routes converted`;
+    } else {
+      return this.warningMessage ? "Check job progress" : "Routes loaded";
+    }
+  }
+
   navigateBackToAdmin(): void {
-    const area = this.urlService.area() === WALKS_ADMIN_SEGMENT ? DEFAULT_WALKS_AREA : this.urlService.area();
-    this.urlService.navigateTo([area, WALKS_ADMIN_SEGMENT]);
+    this.urlService.backToAdmin();
   }
 
   displayDate(route: OsMapsListedRoute): string {
@@ -394,19 +607,27 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
     }
   }
 
+  displayWalkedDate(route: OsMapsListedRoute): string {
+    if (!route.walkedAt) {
+      return "";
+    } else {
+      return this.dateUtils.displayDate(route.walkedAt);
+    }
+  }
+
   canEditRoute(route: OsMapsListedRoute): boolean {
-    return !!route.importedAt && !!route.gpxFile?.awsFileName;
+    return !!route.number && !!route.importedAt && !!route.gpxFile?.awsFileName;
   }
 
   editRoute(route: OsMapsListedRoute): void {
-    this.walkDisplay.rememberFollowReturnUrl();
-    void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.FOLLOW], {
-      queryParams: {[StoredValue.OS_MAPS_ROUTE_ID]: route.id}
-    });
+    if (route.number) {
+      this.walkDisplay.rememberFollowReturnUrl();
+      void this.router.navigate(followRouteCommands(route.number, route.title));
+    }
   }
 
   private matchedRoutes(): OsMapsListedRoute[] {
-    return this.sortRoutes(this.listing.routes.filter(route => osMapsRouteVisible(route, this.search, this.importFilter)));
+    return this.sortRoutes(this.listing.routes.filter(route => osMapsRouteVisible(route, this.search, this.importFilter, this.userFilter)));
   }
 
   matchedCount(): number {
@@ -415,6 +636,13 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
 
   visibleRoutes(): OsMapsListedRoute[] {
     return this.matchedRoutes().slice(0, this.maxVisibleRoutes);
+  }
+
+  userFilterOptions(): string[] {
+    return this.listing.routes
+      .reduce((names: string[], route) => [...names, ...osMapsRouteUserNames(route)], [])
+      .filter((name, index, names) => names.indexOf(name) === index)
+      .sort((first, second) => first.localeCompare(second));
   }
 
   sourceLabel(route: OsMapsListedRoute): string {
@@ -440,9 +668,9 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
 
   emptyMessage(): string {
     if (this.listing.routes.length === 0) {
-      return "No OS Maps routes loaded yet. Use Load routes from OS Maps.";
+      return "No routes loaded yet. Use Load routes from OS Maps.";
     } else {
-      return "No OS Maps routes match that search.";
+      return "No routes match those filters.";
     }
   }
 
@@ -489,6 +717,11 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
     this.writeViewToUrl();
   }
 
+  onUserFilterChange(value: string): void {
+    this.userFilter = value || "";
+    this.writeViewToUrl();
+  }
+
   onSortKeyChange(value: string): void {
     this.sortKey = value || "createdAtValue";
     this.writeViewToUrl();
@@ -511,8 +744,50 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       [StoredValue.SORT]: this.sortKey ? this.stringUtils.kebabCase(this.sortKey) : null,
       [StoredValue.SORT_ORDER]: this.sortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC,
       [StoredValue.SEARCH]: this.search || null,
-      [StoredValue.FILTER]: this.importFilter === OsMapsRouteListFilter.ALL ? null : this.importFilter
+      [StoredValue.FILTER]: this.importFilter === OsMapsRouteListFilter.ALL ? null : this.importFilter,
+      [StoredValue.USER]: this.userFilter || null
     });
+  }
+
+  walkReferenceLink(walk: RouteWalkReference): string[] {
+    return ["/" + this.walkDisplay.walksArea(), walk.slug || walk.id];
+  }
+
+  displayReferenceDate(walk: RouteWalkReference): string {
+    return walk.startDateTime ? this.dateUtils.displayDate(walk.startDateTime) : "Date not set";
+  }
+
+  changeWalkSort(sort: SortableTableSortState): void {
+    this.walkSortKey = sort.key || "startDateTime";
+    this.walkSortDirection = sort.direction;
+    void this.uiActions.updateQueryParameters({
+      [StoredValue.ROUTE_WALKS_SORT]: this.walkSortKey,
+      [StoredValue.ROUTE_WALKS_SORT_ORDER]: sort.direction === ASCENDING ? SortDirection.ASC : SortDirection.DESC
+    });
+  }
+
+  async deleteRoute(route: OsMapsListedRoute): Promise<void> {
+    if (route.walks?.length) {
+      this.errorMessage = "This route cannot be deleted because it is linked to a walk";
+      this.deleteRouteId = null;
+    } else {
+      this.deletingRoute = true;
+      this.errorMessage = "";
+      try {
+        await this.osMapsExportService.deleteRoute(route.id);
+        this.selectedIds = new Set([...this.selectedIds].filter(id => id !== route.id));
+        this.deleteRouteId = null;
+        await this.loadListing();
+        this.successMessage = "Route deleted";
+      } catch (error) {
+        this.logger.error("deleteRoute failed:", error);
+        this.errorMessage = this.failureMessage(error, "Failed to delete route");
+        this.deleteRouteId = null;
+        await this.loadListing();
+      } finally {
+        this.deletingRoute = false;
+      }
+    }
   }
 
   async loadListing(): Promise<void> {
@@ -630,6 +905,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       this.selectTab(OsMapsExportTab.JOB_PROGRESS);
       try {
         const started = await this.osMapsExportService.exportRoutes(routeUrls);
+        this.selectedIds = new Set<string>();
         this.currentJobFileName = started.fileName || this.currentJobFileName;
         this.currentJobId = started.jobId;
         this.writeViewToUrl();
