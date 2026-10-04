@@ -1,3 +1,4 @@
+import { requireRouteFileAccess } from "../os-maps/os-maps-route-access";
 import express from "express";
 import * as authConfig from "../auth/auth-config";
 import * as controller from "./aws-controllers";
@@ -8,10 +9,10 @@ const router = express.Router();
 
 router.post("/s3/file-upload", authConfig.optionalAuthenticate(), requirePhotoContributionAccess, restrictPublicUploadToAlbums, receiveFileUpload, uploadFile);
 router.get("/list-buckets", controller.listBuckets);
-router.get("/metadata/list-objects", controller.listObjects);
+router.get("/metadata/list-objects", authConfig.optionalAuthenticate(), controller.listObjects);
 router.get("/metadata/list-prefixes", controller.listPrefixes);
 router.get("/report/:bucket/*", controller.reportObject);
-router.get("/s3/:bucket*", controller.objectData);
+router.get("/s3/:bucket*", authConfig.optionalAuthenticate(), requireRouteFileAccess, controller.objectData);
 router.get("/url-to-file", controller.urlToFile);
 
 export const awsRoutes = router;

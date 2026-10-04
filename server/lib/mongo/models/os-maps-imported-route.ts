@@ -1,3 +1,4 @@
+import { OsMapsImportContext } from "../../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import mongoose from "mongoose";
 import { ensureModel } from "../utils/model-utils";
 import { FileNameData } from "../../../../projects/ngx-ramblers/src/app/models/aws-object.model";
@@ -8,7 +9,7 @@ export interface ImportedRouteNumberCounter {
   seq: number;
 }
 
-export interface OsMapsImportedRouteRecord {
+export interface OsMapsImportedRouteRecord extends OsMapsImportContext {
   routeId: string;
   number?: number | null;
   url: string;
@@ -24,6 +25,8 @@ const osMapsImportedRouteSchema = new mongoose.Schema({
   number: {type: Number, unique: true, sparse: true},
   url: {type: String},
   importedAt: {type: Number},
+  ownerMemberId: {type: String},
+  visibility: {type: String},
   gpxFile: fileNameData,
   color: {type: String},
   weight: {type: Number},

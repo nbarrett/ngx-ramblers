@@ -8,13 +8,13 @@ import { importedRecordsByRouteId, withImportedAt } from "./os-maps-imported-rou
 
 const LISTING_KEY = "latest";
 
-export async function saveOsMapsRouteListing(routes: OsMapsListedRoute[]): Promise<OsMapsRouteListing> {
+export async function saveOsMapsRouteListing(routes: OsMapsListedRoute[], ownerMemberId: string | null = null): Promise<OsMapsRouteListing> {
   const listedAt = dateTimeNowAsValue();
   const importedById = await importedRecordsByRouteId();
   const merged = withImportedAt(routes, importedById);
   return mongooseClient.execute(() => osMapsRouteListing.findOneAndUpdate(
-    {key: LISTING_KEY},
-    {key: LISTING_KEY, listedAt, routes: merged},
+    {key: ownerMemberId || LISTING_KEY},
+    {key: ownerMemberId || LISTING_KEY, listedAt, routes: merged},
     {upsert: true, new: true, lean: true}
   ).then(document => ({
     listedAt: document?.listedAt || listedAt,
@@ -22,9 +22,9 @@ export async function saveOsMapsRouteListing(routes: OsMapsListedRoute[]): Promi
   })));
 }
 
-export async function latestOsMapsRouteListing(): Promise<OsMapsRouteListing> {
+export async function latestOsMapsRouteListing(ownerMemberId: string | null = null): Promise<OsMapsRouteListing> {
   const importedById = await importedRecordsByRouteId();
-  return mongooseClient.execute(() => osMapsRouteListing.findOne({key: LISTING_KEY}).lean()
+  return mongooseClient.execute(() => osMapsRouteListing.findOne({key: ownerMemberId || LISTING_KEY}).lean()
     .then(document => ({
       listedAt: document?.listedAt || 0,
       routes: withImportedAt(document?.routes || [], importedById)
@@ -40,6 +40,8 @@ export async function listedImportedOsMapsRoutes(): Promise<OsMapsListedRoute[]>
     .filter(record => record.gpxFile?.awsFileName && !listedIds.has(record.routeId))
     .map(record => ({
       id: record.routeId,
+      ownerMemberId: record.ownerMemberId || null,
+      visibility: record.visibility || null,
       number: record.number || null,
       title: record.gpxFile?.title || record.url || record.routeId,
       url: record.url || "",
@@ -60,7 +62,7 @@ export async function listedImportedOsMapsRoutes(): Promise<OsMapsListedRoute[]>
 
 export async function removeOsMapsRouteFromApp(routeId: string): Promise<void> {
   await mongooseClient.execute(async () => {
-    await osMapsRouteListing.updateOne({key: LISTING_KEY}, {$pull: {routes: {id: routeId}}});
+    await osMapsRouteListing.updateMany({}, {$pull: {routes: {id: routeId}}});
     await osMapsImportedRoute.deleteOne({routeId});
   });
 }

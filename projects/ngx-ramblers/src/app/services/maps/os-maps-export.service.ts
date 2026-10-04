@@ -3,7 +3,7 @@ import { inject, Injectable } from "@angular/core";
 import { firstValueFrom } from "rxjs";
 import { IntegrationWorkerJobResponse, IntegrationWorkerQueueCancelResult } from "../../models/integration-worker.model";
 import { FileNameData } from "../../models/aws-object.model";
-import { OS_MAPS_EXPORT_MAX_WAIT_MS, OS_MAPS_EXPORT_POLL_INTERVAL_MS, OsMapsExportJobResult, OsMapsExportJobStatus, OsMapsListedRoute, OsMapsRouteListing } from "../../models/os-maps-export.model";
+import { OS_MAPS_EXPORT_MAX_WAIT_MS, OS_MAPS_EXPORT_POLL_INTERVAL_MS, OsMapsExportJobResult, OsMapsExportJobStatus, OsMapsListedRoute, OsMapsRouteListing, OsMapsAccountScope, OsMapsPersonalAccount, OsMapsPersonalCredentials, RouteVisibility } from "../../models/os-maps-export.model";
 import { WebSocketClientService } from "../websockets/websocket-client.service";
 
 @Injectable({
@@ -18,8 +18,20 @@ export class OsMapsExportService {
     await this.webSocketClientService.connect();
   }
 
-  listing(): Promise<OsMapsRouteListing> {
-    return firstValueFrom(this.http.get<OsMapsRouteListing>(`${this.baseUrl}/routes`));
+  listing(account = OsMapsAccountScope.GROUP): Promise<OsMapsRouteListing> {
+    return firstValueFrom(this.http.get<OsMapsRouteListing>(`${this.baseUrl}/routes`, {params: {account}}));
+  }
+
+  personalAccount(): Promise<OsMapsPersonalAccount> {
+    return firstValueFrom(this.http.get<OsMapsPersonalAccount>(`${this.baseUrl}/personal-account`));
+  }
+
+  savePersonalAccount(credentials: OsMapsPersonalCredentials): Promise<OsMapsPersonalAccount> {
+    return firstValueFrom(this.http.put<OsMapsPersonalAccount>(`${this.baseUrl}/personal-account`, credentials));
+  }
+
+  changeVisibility(routeId: string, visibility: RouteVisibility): Promise<OsMapsListedRoute> {
+    return firstValueFrom(this.http.put<OsMapsListedRoute>(`${this.baseUrl}/routes/${encodeURIComponent(routeId)}`, {visibility}));
   }
 
   deleteRoute(routeId: string): Promise<{deleted: boolean}> {
@@ -43,15 +55,21 @@ export class OsMapsExportService {
     return firstValueFrom(this.http.put<OsMapsListedRoute>(`${this.baseUrl}/routes/${routeId}`, update));
   }
 
-  async refresh(): Promise<IntegrationWorkerJobResponse> {
-    await this.connectForReporting();
-    return firstValueFrom(this.http.post<IntegrationWorkerJobResponse>(`${this.baseUrl}/routes/refresh`, {}));
+  async refresh(account = OsMapsAccountScope.GROUP): Promise<IntegrationWorkerJobResponse> {
+    if (account === OsMapsAccountScope.GROUP) {
+      await this.connectForReporting();
+    }
+    return firstValueFrom(this.http.post<IntegrationWorkerJobResponse>(`${this.baseUrl}/routes/refresh`, {account}));
   }
 
-  async exportRoutes(routeUrls: string[], walkId?: string): Promise<IntegrationWorkerJobResponse> {
-    await this.connectForReporting();
+  async exportRoutes(routeUrls: string[], walkId?: string, account = OsMapsAccountScope.GROUP, visibility = RouteVisibility.PRIVATE): Promise<IntegrationWorkerJobResponse> {
+    if (account === OsMapsAccountScope.GROUP) {
+      await this.connectForReporting();
+    }
     return firstValueFrom(this.http.post<IntegrationWorkerJobResponse>(`${this.baseUrl}/export`, {
       routeUrls,
+      account,
+      visibility,
       ...(walkId ? {walkId} : {})
     }));
   }

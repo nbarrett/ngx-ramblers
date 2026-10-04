@@ -22,7 +22,7 @@ export async function walksWithGpxFiles(): Promise<ExtendedGroupEvent[]> {
 
 export async function importedRoutesWithGpxFiles(): Promise<OsMapsImportedRouteRecord[]> {
   return osMapsImportedRoute.find({[IMPORTED_ROUTE_AWS_FILE_NAME]: HAS_GPX_FILE})
-    .select({gpxFile: 1, importedAt: 1})
+    .select({gpxFile: 1, importedAt: 1, visibility: 1, ownerMemberId: 1})
     .lean<OsMapsImportedRouteRecord[]>()
     .exec();
 }

@@ -4,7 +4,7 @@ import { dateTimeNowAsValue } from "../shared/dates";
 import { ImportedRouteNumberCounter, osMapsImportedRoute, OsMapsImportedRouteRecord } from "../mongo/models/os-maps-imported-route";
 import { FileNameData } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import { PaletteColor } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { OsMapsListedRoute, OsMapsRouteImport, osMapsRouteIdFromUrl } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
+import { OsMapsImportContext, RouteVisibility, OsMapsListedRoute, OsMapsRouteImport, osMapsRouteIdFromUrl } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import * as mongooseClient from "../mongo/mongoose-client";
 import mongoose from "mongoose";
 
@@ -34,7 +34,7 @@ async function immutableRouteNumber(existing: OsMapsImportedRouteRecord | null):
   }
 }
 
-export async function markOsMapsRoutesImported(imports: OsMapsRouteImport[]): Promise<void> {
+export async function markOsMapsRoutesImported(imports: OsMapsRouteImport[], context: OsMapsImportContext = {}): Promise<void> {
   const importedAt = dateTimeNowAsValue();
   const records = (imports || []).map(routeImport => {
     const routeId = osMapsRouteIdFromUrl(routeImport.url);
@@ -43,6 +43,9 @@ export async function markOsMapsRoutesImported(imports: OsMapsRouteImport[]): Pr
   if (records.length > 0) {
     await mongooseClient.execute(() => Promise.all(records.map(async record => {
       const existing = await osMapsImportedRoute.findOne({routeId: record.routeId}).lean();
+      if (context.accountOwnerId && existing?.gpxFile?.awsFileName && existing.ownerMemberId !== context.ownerMemberId) {
+        throw new Error("This route has already been imported by another member");
+      }
       const number = await immutableRouteNumber(existing);
       const gpxFile = {...record.gpxFile,
         createdDate: existing ? existing.gpxFile?.createdDate || null : record.gpxFile.createdDate,
@@ -50,7 +53,7 @@ export async function markOsMapsRoutesImported(imports: OsMapsRouteImport[]): Pr
         createdByName: existing ? existing.gpxFile?.createdByName || null : record.gpxFile.createdByName};
       return osMapsImportedRoute.findOneAndUpdate(
         {routeId: record.routeId},
-        {$set: {...record, number, gpxFile}},
+        {$set: {...record, number, gpxFile, ownerMemberId: existing?.ownerMemberId || context.ownerMemberId || null, visibility: existing?.visibility || context.visibility || null}},
         {upsert: true, new: true}
       );
     })));
@@ -98,6 +101,7 @@ export async function saveFileImportedGpx(gpxFile: FileNameData, recordingId: st
 }
 
 export async function saveOsMapsImportedRoute(routeId: string, update: {
+  visibility?: RouteVisibility;
   gpxFile?: FileNameData | null;
   color?: string | null;
   weight?: number | null;
@@ -125,6 +129,8 @@ export function withImportedAt(routes: OsMapsListedRoute[], importedById: Record
       ...route,
       number: imported?.number || route.number || null,
       importedAt: imported?.importedAt || 0,
+      ownerMemberId: imported?.ownerMemberId || null,
+      visibility: imported?.visibility || null,
       gpxFile: imported?.gpxFile || null,
       routeColor: imported?.color || null,
       routeWeight: imported?.weight || null,

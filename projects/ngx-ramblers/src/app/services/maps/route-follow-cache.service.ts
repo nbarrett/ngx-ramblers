@@ -1,3 +1,5 @@
+import { MemberLoginService } from "../member/member-login.service";
+import { routeEditableByMember, routeVisibleToMember } from "../../functions/route-access";
 import { inject, Injectable } from "@angular/core";
 import { isArray, isEqual } from "es-toolkit/compat";
 import {
@@ -5,6 +7,7 @@ import {
   followCacheKey,
   RouteFollowOfflineStatus,
   RouteFollowPayload,
+  RouteFollowSource,
   RouteFollowSummary
 } from "../../models/route-follow.model";
 import { DateUtilsService } from "../date-utils.service";
@@ -20,6 +23,7 @@ const DB_OPEN_TIMEOUT_MS = 5000;
   providedIn: "root"
 })
 export class RouteFollowCacheService {
+  private memberLogin = inject(MemberLoginService);
   private dateUtils = inject(DateUtilsService);
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowCacheService", NgxLoggerLevel.ERROR);
   private dbPromise: Promise<IDBDatabase> | null = null;
@@ -65,7 +69,12 @@ export class RouteFollowCacheService {
     const db = await this.database();
     return new Promise((resolve, reject) => {
       const request = db.transaction(ROUTES_STORE, "readonly").objectStore(ROUTES_STORE).get(key);
-      request.onsuccess = () => resolve((request.result as CachedFollowRoute) || null);
+      request.onsuccess = () => {
+        const record = request.result as CachedFollowRoute;
+        const member = this.memberLogin.loggedInMember();
+        resolve(record && routeVisibleToMember(record.payload, member) ? {...record, payload: {...record.payload,
+          canEdit: record.payload.source === RouteFollowSource.OS_MAPS ? routeEditableByMember(record.payload, member) : record.payload.canEdit}} : null);
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -113,6 +122,9 @@ export class RouteFollowCacheService {
     const records = await this.allRoutesOrNone();
     return records.map(record => ({
       source: record.payload.source,
+      visibility: record.payload.visibility,
+      ownerMemberId: record.payload.ownerMemberId,
+      canEdit: record.payload.canEdit,
       title: record.payload.title,
       description: record.payload.description || null,
       createdDate: record.payload.createdDate, createdBy: record.payload.createdBy, createdByName: record.payload.createdByName,
@@ -139,7 +151,7 @@ export class RouteFollowCacheService {
 
   private async allRoutesOrNone(): Promise<CachedFollowRoute[]> {
     try {
-      return await this.allRoutes();
+      return (await this.allRoutes()).filter(record => routeVisibleToMember(record.payload, this.memberLogin.loggedInMember()));
     } catch (error) {
       this.logger.warn("route cache unavailable:", error);
       return [];

@@ -1,9 +1,10 @@
+import { SerenityFeature } from "../../../projects/ngx-ramblers/src/app/models/serenity-feature.model";
 import { RouteContributor } from "../../../projects/ngx-ramblers/src/app/models/audit";
 import { isNumber } from "es-toolkit/compat";
 import { ramblersUploadAudit } from "../mongo/models/ramblers-upload-audit";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { osMapsExportResult } from "../mongo/models/os-maps-export-result";
-import { OS_MAPS_EXPORT_MAX_WAIT_MS, OsMapsExportJobResult, OsMapsExportJobStatus } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
+import { OS_MAPS_EXPORT_MAX_WAIT_MS, OsMapsImportContext, OsMapsExportJobResult, OsMapsExportJobStatus } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { FileNameData } from "../../../projects/ngx-ramblers/src/app/models/aws-object.model";
 import * as mongooseClient from "../mongo/mongoose-client";
 
@@ -14,6 +15,10 @@ function toResult(document: OsMapsExportJobResult | null): OsMapsExportJobResult
     return {
       jobId: document.jobId,
       contributor: document.contributor || null,
+      ownerMemberId: document.ownerMemberId || null,
+      accountOwnerId: document.accountOwnerId || null,
+      visibility: document.visibility || null,
+      feature: document.feature,
       fileName: document.fileName || "",
       status: document.status,
       walkId: document.walkId || null,
@@ -26,7 +31,7 @@ function toResult(document: OsMapsExportJobResult | null): OsMapsExportJobResult
   }
 }
 
-export async function createQueuedOsMapsExportResult(jobId: string, fileName: string, walkId?: string, routeUrls: string[] = [], contributor: RouteContributor | null = null): Promise<OsMapsExportJobResult> {
+export async function createQueuedOsMapsExportResult(jobId: string, fileName: string, walkId?: string, routeUrls: string[] = [], contributor: RouteContributor | null = null, context: OsMapsImportContext = {}, feature: string = SerenityFeature.OS_MAPS_EXPORT): Promise<OsMapsExportJobResult> {
   const createdAt = dateTimeNowAsValue();
   return mongooseClient.execute(() => osMapsExportResult.findOneAndUpdate(
     {jobId},
@@ -34,6 +39,8 @@ export async function createQueuedOsMapsExportResult(jobId: string, fileName: st
       jobId,
       fileName,
       contributor,
+      ...context,
+      feature,
       status: OsMapsExportJobStatus.QUEUED,
       walkId: walkId || null,
       routeUrls,
@@ -58,8 +65,8 @@ export async function osMapsExportResultByJobId(jobId: string): Promise<OsMapsEx
     .then(document => toResult(document)));
 }
 
-export async function latestOsMapsExportResult(): Promise<OsMapsExportJobResult | null> {
-  return mongooseClient.execute(() => osMapsExportResult.findOne().sort({createdAt: -1}).lean()
+export async function latestOsMapsExportResult(memberId: string | null = null): Promise<OsMapsExportJobResult | null> {
+  return mongooseClient.execute(() => osMapsExportResult.findOne({feature: {$ne: SerenityFeature.OS_MAPS_LIST}, ...(memberId ? {"contributor.memberId": memberId} : {})}).sort({createdAt: -1}).lean()
     .then(document => toResult(document)));
 }
 

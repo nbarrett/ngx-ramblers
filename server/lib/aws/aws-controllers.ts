@@ -1,3 +1,6 @@
+import { canViewImportedRoute } from "../os-maps/os-maps-route-access";
+import { importedRoutesWithGpxFiles } from "../walks/walk-gpx-records";
+import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import * as AWS from "@aws-sdk/client-s3";
 import { CopyObjectCommand, GetObjectCommand, GetObjectRequest, S3 } from "@aws-sdk/client-s3";
 import { Upload, Progress } from "@aws-sdk/lib-storage";
@@ -83,9 +86,12 @@ export function listObjects(req: Request, res: Response) {
   const bucketParams = listBucketParams(req.query.prefix.toString());
   debugLog("listObjects:request:bucketParams:", bucketParams);
   objectsWithPrefix(bucketParams.Prefix)
-    .then((response: S3Metadata[]) => {
+    .then(async (response: S3Metadata[]) => {
+      const records = await importedRoutesWithGpxFiles();
+      const denied = new Set(records.filter(route => !canViewImportedRoute(route, req.user as MemberCookie || null)).map(route => `gpx-routes/${route.gpxFile?.awsFileName}`));
+      const visible = response.filter(item => !denied.has(item.key));
       debugLog("listObjects:response data for:bucketParams:", bucketParams, "returned:", response.length, "items");
-      const apiResponse: S3MetadataApiResponse = {request: bucketParams, response, action: ApiAction.QUERY};
+      const apiResponse: S3MetadataApiResponse = {request: bucketParams, response: visible, action: ApiAction.QUERY};
       res.status(200).send(apiResponse);
     })
     .catch(err => {
@@ -123,7 +129,7 @@ export async function objectData(req: Request, res: Response) {
     }
     const headers: Record<string, string> = {
       "Content-Type": contentTypeFrom(options.Key),
-      "Cache-Control": "public, max-age=31536000, immutable"
+      "Cache-Control": res.locals.privateRouteFile ? "private, no-store" : "public, max-age=31536000, immutable"
     };
     const disposition = contentDispositionFrom(req);
     if (disposition) {

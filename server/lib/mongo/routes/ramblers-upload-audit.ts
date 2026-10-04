@@ -9,9 +9,9 @@ const controller = crudController.create<RamblersUploadAudit>(ramblersUploadAudi
 const router = express.Router();
 
 router.post("", authConfig.authenticate(), controller.create);
-router.get("", controller.findByConditions);
-router.get("/all", controller.all);
-router.get("/upload-sessions", queryUploadSessions);
+router.get("", authConfig.authenticate(), authConfig.requireAdmin, controller.findByConditions);
+router.get("/all", authConfig.authenticate(), authConfig.requireAdmin, controller.all);
+router.get("/upload-sessions", authConfig.authenticate(), authConfig.requireAdmin, queryUploadSessions);
 router.delete("/:id", authConfig.authenticate(), controller.deleteOne);
 
 export const ramblersUploadAuditRoutes = router;

@@ -10,6 +10,7 @@ export enum RamblersUploadJobState {
 }
 
 export interface RamblersUploadJobData {
+  osMapsPersonalAccount?: boolean;
   fileName: string;
   walkIdDeletionList: string[];
   walkIdUploadList: WalkUploadInfo[];

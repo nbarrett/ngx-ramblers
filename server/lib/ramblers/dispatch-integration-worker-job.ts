@@ -1,3 +1,4 @@
+import { updateRamblersUploadSession } from "./ramblers-upload-session-registry";
 import WebSocket from "ws";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
@@ -24,6 +25,7 @@ export async function dispatchRemoteIntegrationWorkerJob(
   ws: WebSocket
 ): Promise<IntegrationWorkerJobResponse> {
   registerUploadStart(job.data.fileName, ws, job.jobId, job.data.feature);
+  updateRamblersUploadSession(job.jobId, {personalJob: !!job.data.osMapsPersonalAccount});
   downloadStatusManager.startDownload(job.data.fileName);
   debugLog("submitting job", job.jobId, "fileName:", job.data.fileName, "feature:", job.data.feature);
   try {

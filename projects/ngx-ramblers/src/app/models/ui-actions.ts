@@ -200,6 +200,7 @@ export enum StoredValue {
   NEARBY_MILES = "nearby-miles",
   NO_LOCATION = "no-location",
   OAUTH_ERROR = "oauth-error",
+  OS_MAPS_ACCOUNT = "os-maps-account",
   OS_MAPS_ROUTE_ID = "os-maps-route-id",
   OS_MAPS_ROUTE_PREVIEW_HEIGHT = "os-maps-route-preview-height",
   OS_MAPS_ROUTE_PREVIEW_WIDTH = "os-maps-route-preview-width",

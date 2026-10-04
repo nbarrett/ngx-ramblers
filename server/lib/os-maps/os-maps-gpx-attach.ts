@@ -1,3 +1,4 @@
+import { SerenityFeature } from "../../../projects/ngx-ramblers/src/app/models/serenity-feature.model";
 import { gpxAudit } from "../walks/walk-gpx-persist";
 import debug from "debug";
 import { isString } from "es-toolkit/compat";
@@ -73,7 +74,7 @@ async function attachGpxToWalkIfMissing(walkId: string, gpxFile: FileNameData): 
 
 export async function applyOsMapsExportWorkerResult(jobId: string, exportedGpx: ExportedGpxSummary[] | undefined, errorMessage?: string): Promise<boolean> {
   const existing = await osMapsExportResultByJobId(jobId);
-  if (!existing) {
+  if (!existing || existing.feature === SerenityFeature.OS_MAPS_LIST) {
     return false;
   } else if (exportedGpx && exportedGpx.length > 0) {
     try {
@@ -81,8 +82,8 @@ export async function applyOsMapsExportWorkerResult(jobId: string, exportedGpx: 
       const gpxFiles = persisted.map(item => ({...item.gpxFile, ...gpxAudit(existing.contributor)}));
       const imports = routeImportsFrom(existing.routeUrls || [], persisted).map(routeImport => ({...routeImport,
         gpxFile: {...routeImport.gpxFile, ...gpxAudit(existing.contributor)}}));
+      await markOsMapsRoutesImported(imports, existing);
       await completeOsMapsExportResult(jobId, gpxFiles, await unconvertedRoutesMessage(existing.routeUrls || [], imports));
-      await markOsMapsRoutesImported(imports);
       if (isString(existing.walkId) && existing.walkId && gpxFiles[0]) {
         await attachGpxToWalkIfMissing(existing.walkId, gpxFiles[0]);
       }

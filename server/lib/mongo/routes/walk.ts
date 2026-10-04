@@ -44,7 +44,7 @@ router.post("/leader-rematch", authConfig.authenticate(), handleWalkLeaderRematc
 
 router.post("/gpx/upload", authConfig.authenticate(), receiveWalkGpx, uploadWalkGpx);
 router.post("/gpx/import", authConfig.authenticate(), receiveWalkGpx, requireMobileImport, importWalkGpx);
-router.get("/gpx/list", listWalkGpxFiles);
+router.get("/gpx/list", authConfig.optionalAuthenticate(), listWalkGpxFiles);
 router.post("/album-photos-added", authConfig.optionalAuthenticate(), requirePhotoContributionAccess, notifyWalkPhotosAdded);
 router.get("/event-stats", authConfig.authenticate(), eventStats);
 router.get("/earliest-date", earliestDate);

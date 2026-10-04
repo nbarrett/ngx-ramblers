@@ -1,3 +1,4 @@
+import { completeOsMapsExportResult, osMapsExportResultByJobId } from "../os-maps/os-maps-export-result-store";
 import { dateTimeNowAsValue } from "../shared/dates";
 import debug from "debug";
 import { isString } from "es-toolkit/compat";
@@ -235,8 +236,12 @@ router.post("/result", async (req: Request, res: Response) => {
     }
 
     const request: IntegrationWorkerResultCallbackRequest = req.body;
-    if (request.listedRoutes && request.listedRoutes.length > 0) {
-      await saveOsMapsRouteListing(request.listedRoutes);
+    if (request.listedRoutes) {
+      const listingJob = await osMapsExportResultByJobId(request.jobId);
+      await saveOsMapsRouteListing(request.listedRoutes, listingJob?.accountOwnerId || null);
+      if (listingJob) {
+        await completeOsMapsExportResult(request.jobId, []);
+      }
     }
     const handledExport = await applyOsMapsExportWorkerResult(request.jobId, request.exportedGpx, request.payload)
       || await applyOsDataHubApiKeyWorkerResult(request.jobId, request.osDataHubApiKey, request.payload);
@@ -244,7 +249,7 @@ router.post("/result", async (req: Request, res: Response) => {
 
     if (!session) {
       debugLog("POST /result no active session for jobId:", request.jobId);
-      if ((request.listedRoutes && request.listedRoutes.length > 0) || handledExport) {
+      if (!!request.listedRoutes || handledExport) {
         res.json({ success: true });
       } else {
         res.status(404).json({ error: `No upload session found for job ${request.jobId}` });

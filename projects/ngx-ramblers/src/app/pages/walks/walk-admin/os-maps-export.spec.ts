@@ -1,3 +1,5 @@
+import { MemberLoginService } from "../../../services/member/member-login.service";
+import { RouteNearbyService } from "../../../services/maps/route-nearby.service";
 import { TestBed } from "@angular/core/testing";
 import { ActivatedRoute, Router } from "@angular/router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -46,6 +48,8 @@ describe("OS Maps export job reconnection", () => {
     service.listing.mockResolvedValue({listedAt: 0, routes: []});
     service.latestExportResult.mockResolvedValue(queued);
     TestBed.configureTestingModule({providers: [
+      {provide: MemberLoginService, useValue: {loggedInMember: () => ({memberId: "member-admin", walkAdmin: true})}},
+      {provide: RouteNearbyService, useValue: {}},
       {provide: OsMapsExportService, useValue: service},
       {provide: LoggerFactory, useValue: {createLogger: () => ({error: vi.fn()})}},
       {provide: ActivatedRoute, useValue: {snapshot: {queryParams: {}}}},
@@ -64,6 +68,17 @@ describe("OS Maps export job reconnection", () => {
     state.page?.ngOnDestroy();
     vi.useRealTimers();
     TestBed.resetTestingModule();
+  });
+
+  it("allows members to select their own unimported routes but not reimport shared routes", () => {
+    state.page["memberLogin"] = {loggedInMember: () => ({memberId: "alex"})} as unknown as MemberLoginService;
+    const imported = {id: "shared", importedAt: 1} as OsMapsListedRoute;
+    const pending = {id: "personal", importedAt: 0} as OsMapsListedRoute;
+    state.page.toggleSelected(imported);
+    state.page.toggleSelected(pending);
+    expect(state.page.selectedIds.has(imported.id)).toBe(false);
+    expect(state.page.selectedIds.has(pending.id)).toBe(true);
+    expect(state.page.isAdmin()).toBe(false);
   });
 
   it("blocks another export while checking and restores the running job after reopening", async () => {

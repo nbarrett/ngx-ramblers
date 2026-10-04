@@ -112,6 +112,8 @@ export enum ResizerMode {
     :host(.resizer--bar.resizer--subtle.resizer--horizontal) .resizer-surface::before
       width: 1px
       height: 100%
+    :host(.resizer--bar.resizer--subtle.resizer--vertical) .resizer-surface
+      align-items: var(--resizer-vertical-alignment, center)
     :host(.resizer--bar.resizer--subtle.resizer--vertical) .resizer-surface::before
       width: 100%
       height: 1px
@@ -137,7 +139,7 @@ export enum ResizerMode {
     :host(.resizer--bar.resizer--subtle.resizer--corner) .resizer-surface::before
       position: absolute
       right: 6px
-      bottom: 6px
+      bottom: var(--resizer-corner-bottom-inset, 6px)
       width: 12px
       height: 12px
       border-right: 2px solid rgba(31, 31, 31, 0.28)

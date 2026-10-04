@@ -1,6 +1,32 @@
 import { RouteContributor } from "./audit";
 import { FileNameData, ServerFileNameData } from "./aws-object.model";
 
+export enum RouteVisibility {
+  PRIVATE = "private",
+  GROUP = "group"
+}
+
+export enum OsMapsAccountScope {
+  GROUP = "group",
+  PERSONAL = "personal"
+}
+
+export interface OsMapsPersonalCredentials {
+  email: string;
+  password: string;
+}
+
+export interface OsMapsPersonalAccount {
+  email: string;
+  configured: boolean;
+}
+
+export interface OsMapsImportContext {
+  ownerMemberId?: string | null;
+  visibility?: RouteVisibility | null;
+  accountOwnerId?: string | null;
+}
+
 export enum OsMapsRouteSource {
   CREATED = "created",
   BOOKMARKED = "bookmarked"
@@ -19,7 +45,8 @@ export interface RouteWalkReference {
   startDateTime: string;
 }
 
-export interface OsMapsListedRoute {
+export interface OsMapsListedRoute extends OsMapsImportContext {
+  canEdit?: boolean;
   id: string;
   number?: number | null;
   title: string;
@@ -89,7 +116,8 @@ export interface OsMapsRouteImport {
   gpxFile: FileNameData;
 }
 
-export interface OsMapsExportJobResult {
+export interface OsMapsExportJobResult extends OsMapsImportContext {
+  feature?: string;
   contributor?: RouteContributor | null;
   jobId: string;
   fileName: string;

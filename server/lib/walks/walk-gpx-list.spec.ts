@@ -1,3 +1,5 @@
+import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import { RouteVisibility } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import expect from "expect";
 import sinon from "sinon";
 import { afterEach, beforeEach, describe, it } from "mocha";
@@ -39,6 +41,15 @@ describe("walkGpxFileList", () => {
 
   afterEach(() => {
     sandbox.restore();
+  });
+
+  it("does not rediscover another member's private route as an unassigned S3 file", async () => {
+    importedRoutes.resolves([{routeId: "personal-route", importedAt: 1, ownerMemberId: "alex", visibility: RouteVisibility.PRIVATE,
+      gpxFile: {awsFileName: UUID_FILE, title: "Private hillside route"}}]);
+    storedObjects.resolves([{key: `gpx-routes/${UUID_FILE}`, lastModified: 1}]);
+    expect(await walkGpxFileList({memberId: "robin"} as MemberCookie)).toEqual([]);
+    expect((await walkGpxFileList({memberId: "alex"} as MemberCookie)).length).toBe(1);
+    expect((await walkGpxFileList({memberId: "admin", walkAdmin: true} as MemberCookie)).length).toBe(1);
   });
 
   it("lists a GPX file in S3 that no walk or imported route refers to, dated from S3", async () => {

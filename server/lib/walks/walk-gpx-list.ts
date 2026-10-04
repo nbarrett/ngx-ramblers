@@ -1,3 +1,5 @@
+import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import { canViewImportedRoute } from "../os-maps/os-maps-route-access";
 import { Request, Response } from "express";
 import debug from "debug";
 import { isNumber, kebabCase, uniq } from "es-toolkit/compat";
@@ -17,9 +19,9 @@ const debugLog: debug.Debugger = debug(envConfig.logNamespace("walk-gpx-list"));
 const GPX_PREFIX = `${RootFolder.gpxRoutes}/`;
 const NO_COORDINATES: GpxCoordinates = {startLat: 0, startLng: 0};
 
-export async function listWalkGpxFiles(_req: Request, res: Response) {
+export async function listWalkGpxFiles(req: Request, res: Response) {
   try {
-    const fileList = await walkGpxFileList();
+    const fileList = await walkGpxFileList(req.user as MemberCookie || null);
     debugLog("Returning", fileList.length, "GPX files");
     res.json(fileList);
   } catch (error) {
@@ -29,8 +31,9 @@ export async function listWalkGpxFiles(_req: Request, res: Response) {
   }
 }
 
-export async function walkGpxFileList(): Promise<GpxFileListItem[]> {
+export async function walkGpxFileList(member: MemberCookie | null = null): Promise<GpxFileListItem[]> {
   const [walks, importedRoutes, storedObjects] = await Promise.all([walksWithGpxFiles(), importedRoutesWithGpxFiles(), gpxObjectsInS3()]);
+  const deniedFiles = new Set(importedRoutes.filter(route => !canViewImportedRoute(route, member)).map(route => route.gpxFile?.awsFileName));
   const lastModifiedByName = new Map(storedObjects.map(object => [object.awsFileName, object.lastModified]));
   const repairedCoordinates = await repairedWalkCoordinates(walks);
   const byName = new Map<string, GpxFileListItem>();
@@ -54,7 +57,7 @@ export async function walkGpxFileList(): Promise<GpxFileListItem[]> {
     .filter(object => !byName.has(object.awsFileName))
     .forEach(object => byName.set(object.awsFileName, listItem({awsFileName: object.awsFileName}, NO_COORDINATES, object.lastModified)));
   debugLog("Listed", walks.length, "walk files,", importedRoutes.length, "imported routes and", storedObjects.length, "stored objects as", byName.size, "GPX files");
-  return [...byName.values()];
+  return [...byName.values()].filter(item => !deniedFiles.has(item.fileData.awsFileName));
 }
 
 async function gpxObjectsInS3(): Promise<StoredGpxObject[]> {
