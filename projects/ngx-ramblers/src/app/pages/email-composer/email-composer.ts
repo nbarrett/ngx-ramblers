@@ -1895,70 +1895,63 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     html?: string;
     consume: () => void;
   }): void {
-    const titled = extractLeadingTitle(event.text, event.html);
-    const parsedHeaders = parseEmailHeadersFromMarkdown(event.text);
-    if (parsedHeaders?.subject && emailHeadersNearTop(event.text)) {
-      this.session.state.subject = parsedHeaders.subject;
-    }
-    if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
-      if (shouldRunIntroSmartPaste(true, !!this.session.inboxReplyContext)) {
-        const existingIntro = this.session.state.introMarkdown ?? "";
-        const hasExistingIntro = existingIntro.trim().length > 0;
-        const parsed = parsedHeaders;
-        if (titled && !(parsed && emailHeadersNearTop(event.text))) {
-          const plan = planTitledIntroPaste(event.text, titled, this.session.state.subject ?? "", this.session.state.notificationConfig?.subject?.text ?? "", hasExistingIntro);
-          if (plan.apply) {
-            event.consume();
-            if (plan.subject) {
-              this.session.state.subject = plan.subject;
-            }
-            this.session.state.introMarkdown = this.introEditor?.unwrapIfEnabled(plan.body) ?? plan.body;
-            this.session.state.addresseeType = AddresseeType.NONE;
-            this.pendingForwardedHeaderLines = [];
-            queueMicrotask(() => this.introEditor?.focusAtStart());
-          }
-        } else {
-          if (parsed) {
-            event.consume();
-            const incomingAddresses = [...parsed.to, ...parsed.cc];
-            const existing = new Set(this.session.state.externalRecipients.map(item => item.email.toLowerCase()));
-            const additions = incomingAddresses
-              .filter(addr => !existing.has(addr.email.toLowerCase()))
-              .map(addr => ({
-                email: addr.email,
-                name: addr.name || this.sender.nameFromEmail(addr.email) || undefined,
-                saveForReuse: true
-              }));
-            if (additions.length > 0) {
-              this.session.state.externalRecipients = [...this.session.state.externalRecipients, ...additions];
-            }
-            if (parsed.subject) {
-              this.session.state.subject = parsed.subject;
-            }
-            if (!hasExistingIntro) {
-              this.session.state.addresseeType = AddresseeType.NONE;
-            }
-            const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
-            const forwardedMarkdown = buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, unwrappedBody);
-            this.session.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, forwardedMarkdown, true);
-            this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
-            queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
-          }
-        }
-      } else if (this.session.inboxReplyContext) {
-        const parsed = parsedHeaders;
-        if (parsed && emailHeadersNearTop(event.text)) {
-          event.consume();
-          const existingIntro = this.session.state.introMarkdown ?? "";
-          const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
-          this.session.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, unwrappedBody, true);
-          queueMicrotask(() => this.introEditor?.focusAtStart());
-        }
+    if (!this.session.inboxReplyContext) {
+      const titled = extractLeadingTitle(event.text, event.html);
+      const parsedHeaders = parseEmailHeadersFromMarkdown(event.text);
+      if (parsedHeaders?.subject && emailHeadersNearTop(event.text)) {
+        this.session.state.subject = parsedHeaders.subject;
       }
-      this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
-    }
-    if (titled && this.subjectStillAutomatic()) {
-      this.session.state.subject = titled.title;
+      if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
+        if (shouldRunIntroSmartPaste(true, !!this.session.inboxReplyContext)) {
+          const existingIntro = this.session.state.introMarkdown ?? "";
+          const hasExistingIntro = existingIntro.trim().length > 0;
+          const parsed = parsedHeaders;
+          if (titled && !(parsed && emailHeadersNearTop(event.text))) {
+            const plan = planTitledIntroPaste(event.text, titled, this.session.state.subject ?? "", this.session.state.notificationConfig?.subject?.text ?? "", hasExistingIntro);
+            if (plan.apply) {
+              event.consume();
+              if (plan.subject) {
+                this.session.state.subject = plan.subject;
+              }
+              this.session.state.introMarkdown = this.introEditor?.unwrapIfEnabled(plan.body) ?? plan.body;
+              this.session.state.addresseeType = AddresseeType.NONE;
+              this.pendingForwardedHeaderLines = [];
+              queueMicrotask(() => this.introEditor?.focusAtStart());
+            }
+          } else {
+            if (parsed) {
+              event.consume();
+              const incomingAddresses = [...parsed.to, ...parsed.cc];
+              const existing = new Set(this.session.state.externalRecipients.map(item => item.email.toLowerCase()));
+              const additions = incomingAddresses
+                .filter(addr => !existing.has(addr.email.toLowerCase()))
+                .map(addr => ({
+                  email: addr.email,
+                  name: addr.name || this.sender.nameFromEmail(addr.email) || undefined,
+                  saveForReuse: true
+                }));
+              if (additions.length > 0) {
+                this.session.state.externalRecipients = [...this.session.state.externalRecipients, ...additions];
+              }
+              if (parsed.subject) {
+                this.session.state.subject = parsed.subject;
+              }
+              if (!hasExistingIntro) {
+                this.session.state.addresseeType = AddresseeType.NONE;
+              }
+              const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
+              const forwardedMarkdown = buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, unwrappedBody);
+              this.session.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, forwardedMarkdown, true);
+              this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
+              queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
+            }
+          }
+        }
+        this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
+      }
+      if (titled && this.subjectStillAutomatic()) {
+        this.session.state.subject = titled.title;
+      }
     }
   }
 
