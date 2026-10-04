@@ -531,6 +531,9 @@ import { RouterHistoryService } from "../../services/router-history.service";
             <app-route-audit [audit]="payload"/>
           }
           @if (recordingSession) {
+            <p class="follow-offline-status">{{ followService.backgroundRecordingSupported()
+              ? "Recording continues when the screen is locked or you use another app."
+              : "Keep this screen open while recording." }}</p>
             <p class="follow-offline-status">
               @if (mapTilesLoading) { Loading map tiles… }
               @else if (mapTilesFailed) { Some map tiles could not load. Waiting for a connection. }
@@ -773,7 +776,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private osMapsExport = inject(OsMapsExportService);
   private ramblersLibrary = inject(RamblersLibraryRouteService);
   private followCache = inject(RouteFollowCacheService);
-  private followService = inject(RouteFollowService);
+  protected followService = inject(RouteFollowService);
   private walkDisplay = inject(WalkDisplayService);
   private memberLogin = inject(MemberLoginService);
   private uiActions = inject(UiActionsService);
@@ -1915,8 +1918,11 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   async saveRoute(): Promise<void> {
+    const recovered = await this.followService.flushRecording();
     const recorded = this.followService.trackPoints();
-    if (this.payload?.source !== RouteFollowSource.RECORDING && this.progress?.mode === RouteFollowMode.RECORDING && recorded.length > ROUTE_FOLLOW_EDIT_THIN_FROM) {
+    if (!recovered) {
+      this.persistError = "The background recording could not be read. Your points are kept on this phone; try saving again.";
+    } else if (this.payload?.source !== RouteFollowSource.RECORDING && this.progress?.mode === RouteFollowMode.RECORDING && recorded.length > ROUTE_FOLLOW_EDIT_THIN_FROM) {
       this.offerThinning(recorded, "");
     } else if (!this.payload || this.savingRoute) {
       return;
@@ -2612,7 +2618,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         const stored = this.mapControls.queryInitialState({osStyle: loaded.osStyle});
         this.mapProvider = stored.provider;
         this.osStyle = stored.osStyle;
-        this.followService.loadRoute(loaded.points, loaded.waypoints);
+        this.followService.loadRoute(loaded.points, loaded.waypoints, key);
         this.followService.listenForCompass();
         this.restoreFollowSession();
         this.refreshArrows();

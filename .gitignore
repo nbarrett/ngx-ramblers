@@ -67,3 +67,11 @@ Thumbs.db
 /.claude/hooks/
 /.claude/launch.json
 /.agents/
+
+/mobile/android/app/src/main/assets/public/
+/mobile/android/app/src/main/assets/capacitor.config.json
+/mobile/android/app/src/main/assets/capacitor.plugins.json
+/mobile/ios/App/App/public/
+/mobile/ios/App/App/capacitor.config.json
+/mobile/ios/App/App.xcodeproj/xcuserdata/
+/mobile/ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
