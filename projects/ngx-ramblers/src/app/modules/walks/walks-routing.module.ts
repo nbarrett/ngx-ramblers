@@ -50,10 +50,14 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [WalksAuthGuard]
     },
     {
-      path: "admin/calendar",
+      path: "calendar",
       loadComponent: () => import("../../pages/walks/walk-programme-calendar/walk-programme-calendar")
-        .then(m => m.WalkProgrammeCalendarComponent),
-      canActivate: [WalksAuthGuard]
+        .then(m => m.WalkProgrammeCalendarComponent)
+    },
+    {
+      path: "admin/calendar",
+      redirectTo: "calendar",
+      pathMatch: "full"
     },
     {
       path: "admin/map",
@@ -74,14 +78,19 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [WalksAuthGuard]
     },
     {
-      path: "admin/routes",
+      path: "routes",
       loadComponent: () => import("../../pages/walks/walk-admin/os-maps-export")
         .then(m => m.OsMapsExportPage),
-      canActivate: [WalksAuthGuard]
+      canActivate: [WalkLeaderAuthGuard]
+    },
+    {
+      path: "admin/routes",
+      redirectTo: "routes",
+      pathMatch: "full"
     },
     {
       path: "admin/os-maps-export",
-      redirectTo: "admin/routes",
+      redirectTo: "routes",
       pathMatch: "full"
     },
     {

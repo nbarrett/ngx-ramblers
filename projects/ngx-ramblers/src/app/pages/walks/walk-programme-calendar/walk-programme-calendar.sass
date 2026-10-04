@@ -29,6 +29,9 @@
   align-items: center
   gap: var(--space-4)
   flex-wrap: wrap
+  app-section-toggle
+    display: flex
+    align-items: center
 
 .control-field
   display: flex
@@ -43,6 +46,18 @@
     width: auto
 
 .control-toggle
+  margin: 0
+  display: flex
+  align-items: center
+  gap: var(--space-2)
+  padding-left: 0
+  white-space: nowrap
+  .form-check-input
+    float: none
+    margin: 0
+
+.calendar-controls .control-toggle .form-check-label
+  color: $ramblers-colour-granite
   margin: 0
 
 .calendar-hint

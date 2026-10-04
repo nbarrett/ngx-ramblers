@@ -225,15 +225,16 @@ export interface ProgrammeView {
   label: string;
   localPopulationOnly?: boolean;
   adminOnly?: boolean;
+  loggedInOnly?: boolean;
 }
 
 export const PROGRAMME_VIEWS: ProgrammeView[] = [
-  {view: ProgrammeViewKey.LEADER, segment: WALKS_LEADER_SEGMENT, label: "My Walks"},
-  {view: ProgrammeViewKey.OVERVIEW, segment: WalksAdminSegment.PROGRAMME, label: "Overview"},
+  {view: ProgrammeViewKey.LEADER, segment: WALKS_LEADER_SEGMENT, label: "My Walks", loggedInOnly: true},
+  {view: ProgrammeViewKey.OVERVIEW, segment: WalksAdminSegment.PROGRAMME, label: "Overview", adminOnly: true},
   {view: ProgrammeViewKey.CALENDAR, segment: WalksAdminSegment.CALENDAR, label: "Calendar"},
-  {view: ProgrammeViewKey.MAP, segment: WalksAdminSegment.MAP, label: "Map"},
+  {view: ProgrammeViewKey.MAP, segment: WalksAdminSegment.MAP, label: "Map", adminOnly: true},
   {view: ProgrammeViewKey.EXPORT, segment: WalksAdminSegment.EXPORT, label: "Export", adminOnly: true},
-  {view: ProgrammeViewKey.ROUTES, segment: WalksAdminSegment.ROUTES, label: "Routes", adminOnly: true},
+  {view: ProgrammeViewKey.ROUTES, segment: WalksAdminSegment.ROUTES, label: "Routes", loggedInOnly: true},
   {view: ProgrammeViewKey.ADMIN, segment: WALKS_ADMIN_SEGMENT, label: "Admin", adminOnly: true}
 ];
 

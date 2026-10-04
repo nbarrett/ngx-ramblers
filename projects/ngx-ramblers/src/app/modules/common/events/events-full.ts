@@ -1,3 +1,4 @@
+import { WalkProgrammeCalendarComponent } from "../../../pages/walks/walk-programme-calendar/walk-programme-calendar";
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { Location } from "@angular/common";
@@ -6,7 +7,7 @@ import { toPairs, isArray, isNull, isUndefined } from "es-toolkit/compat";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { faBug, faCalendarPlus, faCheck, faImages, faPeopleGroup, faTableCells, faWalking } from "@fortawesome/free-solid-svg-icons";
+import { faBug, faCalendarDays, faCalendarPlus, faCheck, faImages, faPeopleGroup, faTableCells, faWalking } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
@@ -67,7 +68,7 @@ import { environment } from "../../../../environments/environment";
                 <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn me-0"
                         dropdownToggle type="button">
                   <fa-icon
-                    [icon]="walkListView === WalkListView.CARDS ? faImages : (walkListView === WalkListView.TABLE ? faTableCells : faWalking)"/>
+                    [icon]="walkListView === WalkListView.CALENDAR ? faCalendarDays : walkListView === WalkListView.CARDS ? faImages : (walkListView === WalkListView.TABLE ? faTableCells : faWalking)"/>
                   <span class="ms-2">{{ stringUtils.asTitle(walkListView) }} View</span>
                   <span class="caret"></span>
                 </button>
@@ -90,6 +91,12 @@ import { environment } from "../../../../environments/environment";
                       <fa-icon [icon]="faCheck" class="ms-auto ps-3"/>
                     }
                   </a></li>
+                  @if (!eventsData.eventTypes?.length || eventsData.eventTypes.includes(RamblersEventType.GROUP_WALK)) {
+                    <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.CALENDAR)" class="dropdown-item d-flex align-items-center">
+                      <fa-icon [icon]="faCalendarDays" class="me-2"/>Calendar View
+                      @if (walkListView === WalkListView.CALENDAR) { <fa-icon [icon]="faCheck" class="ms-auto ps-3"/> }
+                    </a></li>
+                  }
                   @if (display.memberCanAddWalk(eventsData)) {
                     <li class="dropdown-divider"></li>
                     <li role="menuitem"><a role="button" (click)="display.addMemberLedWalk()" class="dropdown-item d-flex align-items-center">
@@ -106,12 +113,15 @@ import { environment } from "../../../../environments/environment";
               }
             </div>
           </div>
-          @if (walkListView !== WalkListView.MAP && pageCount > 1) {
+          @if (walkListView !== WalkListView.MAP && walkListView !== WalkListView.CALENDAR && pageCount > 1) {
             <ng-container *ngTemplateOutlet="paginationControls"/>
           }
         </app-walks-search>
         @if (showDiagnostics) {
           <pre class="bg-dark text-light p-3 rounded mb-2 mt-2" style="font-size: 0.8rem; max-height: 300px; overflow: auto;">{{ debugCriteria() | json }}</pre>
+        }
+        @if (walkListView === WalkListView.CALENDAR) {
+          <app-walk-programme-calendar [embedded]="true" [readOnly]="true" [displayedWalks]="filteredWalks"/>
         }
         @if (walkListView === WalkListView.CARDS) {
           <app-walk-card-list [currentPageWalks]="currentPageWalks"/>
@@ -142,7 +152,7 @@ import { environment } from "../../../../environments/environment";
       </div>
     </ng-template>
   `,
-  imports: [WalkSearch, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective,
+  imports: [WalkProgrammeCalendarComponent,WalkSearch, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective,
     PaginationComponent, FormsModule, WalkCardListComponent, WalksMapView, WalkViewComponent, EventTableView, JsonPipe, NgTemplateOutlet]
 })
 export class EventsFull implements OnInit, OnDestroy {
@@ -169,6 +179,7 @@ export class EventsFull implements OnInit, OnDestroy {
   protected readonly faImages = faImages;
   protected readonly faBug = faBug;
   protected readonly faCalendarPlus = faCalendarPlus;
+  protected readonly faCalendarDays = faCalendarDays;
   protected readonly faCheck = faCheck;
   protected readonly WalkListView = WalkListView;
   protected readonly production = environment.production;
@@ -494,7 +505,7 @@ export class EventsFull implements OnInit, OnDestroy {
       if (this.walkListView === WalkListView.MAP) {
         dataQueryOptions.select = MAP_VIEW_SELECT;
         dataQueryOptions.limit = MAP_VIEW_MAX_EVENTS;
-      } else if (clientSidePagination) {
+      } else if (this.walkListView === WalkListView.CALENDAR || clientSidePagination) {
         dataQueryOptions.select = PUBLIC_GROUP_EVENT_SELECT;
         dataQueryOptions.limit = MAP_VIEW_MAX_EVENTS;
       } else {

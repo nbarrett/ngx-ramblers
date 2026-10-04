@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, inject, Input, OnDestroy, OnInit, Output, OnChanges, SimpleChanges } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
-import { Location } from "@angular/common";
+import { NgTemplateOutlet, Location } from "@angular/common";
 import { CdkDrag, CdkDragDrop, CdkDropList, CdkDropListGroup } from "@angular/cdk/drag-drop";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -67,10 +67,17 @@ const LEADER_GRADE_PALETTE: string[] = [
 @Component({
   selector: "app-walk-programme-calendar",
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [WalkProgrammePageComponent, FormsModule, FontAwesomeModule, CdkDropListGroup, CdkDropList, CdkDrag, SectionToggle],
+  imports: [NgTemplateOutlet, WalkProgrammePageComponent, FormsModule, FontAwesomeModule, CdkDropListGroup, CdkDropList, CdkDrag, SectionToggle],
   styleUrls: ["./walk-programme-calendar.sass"],
   template: `
-    <app-walk-programme-page [showSelector]="!selectMode">
+    @if (embedded) {
+      <ng-container *ngTemplateOutlet="calendarContent"/>
+    } @else {
+      <app-walk-programme-page [showSelector]="!selectMode">
+        <ng-container *ngTemplateOutlet="calendarContent"/>
+      </app-walk-programme-page>
+    }
+    <ng-template #calendarContent>
       @if (selectMode) {
         <div class="select-mode-nav">
           <button type="button" class="btn pager-btn rounded" (click)="goBackFromSelect()">
@@ -99,7 +106,7 @@ const LEADER_GRADE_PALETTE: string[] = [
               <app-section-toggle stackOnMobile [tabs]="colourByTabs" [selectedTab]="colourBy"
                                   (selectedTabChange)="setColourBy($event)"/>
             </div>
-            @if (!display.walkPopulationWalksManager()) {
+            @if (!embedded && !display.walkPopulationWalksManager()) {
               <div class="form-check control-toggle">
                 <input id="calendar-walks-only" type="checkbox" class="form-check-input" [ngModel]="walksOnly"
                        [ngModelOptions]="{standalone: true}" (ngModelChange)="setWalksOnly($event)">
@@ -174,11 +181,14 @@ const LEADER_GRADE_PALETTE: string[] = [
           }
         </div>
       </div>
-    </app-walk-programme-page>
+    </ng-template>
   `
 })
-export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
+export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy, OnChanges {
 
+  @Input() embedded = false;
+  @Input() readOnly = false;
+  @Input() displayedWalks: DisplayedWalk[] | null = null;
   @Input() selectMode = false;
   @Input() includeCommitteeEvents = false;
   @Output() dateSelected = new EventEmitter<number>();
@@ -246,6 +256,12 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
     }));
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes.displayedWalks && this.notify) {
+      void this.reload();
+    }
+  }
+
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
@@ -290,7 +306,7 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
     const start = this.rangeStart();
     const end = this.rangeEnd();
     try {
-      const events = await this.walkProgrammeService.eventsInRange({
+      const events = this.displayedWalks ? this.displayedWalks.map(displayed => displayed.walk) : await this.walkProgrammeService.eventsInRange({
         dateFrom: start.valueOf(),
         dateTo: end.endOf("day").valueOf(),
         walksOnly: this.walksOnly || this.display.walkPopulationWalksManager()
@@ -299,7 +315,7 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
       const toValue = end.endOf("day").valueOf();
       const committeeFiles = await this.committeeFilesInRange(fromValue, toValue);
       if (requestId === this.reloadRequestId) {
-        this.buildDays(start.valueOf(), end.valueOf(), events, committeeFiles);
+        this.buildDays(start.valueOf(), end.valueOf(), events.filter(event => !this.display.walkHiddenFromPublic(event)), committeeFiles);
       }
     } catch (error) {
       this.logger.error("reload:error", error);
@@ -496,7 +512,7 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
   }
 
   dragEnabled(): boolean {
-    return this.display.walkPopulationLocal()
+    return !this.readOnly && this.display.walkPopulationLocal()
       && this.memberLoginService.allowWalkAdminEdits()
       && !!this.walksConfigService.walksConfig()?.allowCalendarDragToReschedule;
   }
@@ -505,7 +521,7 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy {
     const entry: CalendarEntry = event.item.data;
     const targetDay: CalendarDay = event.container.data;
     const movedToAnotherDay = event.previousContainer !== event.container;
-    if (movedToAnotherDay && !entry.isGroupEvent) {
+    if (this.dragEnabled() && movedToAnotherDay && !entry.isGroupEvent && !entry.isCommitteeEvent) {
       await this.reschedule(entry, targetDay.value);
     }
   }
