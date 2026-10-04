@@ -1,3 +1,5 @@
+import { routesWithWalkReferences } from "./os-maps-route-walks";
+import { removeOsMapsRouteFromApp } from "./os-maps-route-listing-store";
 import { routeContributorFrom } from "../auth/request-member";
 import { Request, Response } from "express";
 import { isArray, isString } from "es-toolkit/compat";
@@ -23,7 +25,7 @@ debugLog.enabled = true;
 export async function listOsMapsRoutes(_req: Request, res: Response): Promise<void> {
   try {
     const listing = await latestOsMapsRouteListing();
-    res.json(listing);
+    res.json({...listing, routes: await routesWithWalkReferences(listing.routes)});
   } catch (error) {
     debugLog("list failed:", (error as Error).message);
     res.status(500).json({error: (error as Error).message});
@@ -43,9 +45,13 @@ export async function listImportedOsMapsRoutes(_req: Request, res: Response): Pr
 export async function publicImportedOsMapsRoute(req: Request, res: Response): Promise<void> {
   try {
     const routes = await listedImportedOsMapsRoutes();
-    const route = routes.find(item => item.id === req.params.routeId);
+    const key = req.params.routeId;
+    const asNumber = /^\d+$/.test(key) ? Number(key) : null;
+    const route = asNumber !== null
+      ? routes.find(item => item.number === asNumber) || routes.find(item => item.id === key)
+      : routes.find(item => item.id === key);
     if (!route) {
-      res.status(404).json({error: "That imported OS Maps route was not found"});
+      res.status(404).json({error: "That imported route was not found"});
     } else {
       res.json(route);
     }
@@ -97,6 +103,7 @@ export async function osMapsImportedRoute(req: Request, res: Response): Promise<
     } else {
       res.json({
         id: req.params.routeId,
+        number: imported?.number || listed?.number || null,
         title: listed?.title || imported?.url || req.params.routeId,
         url: listed?.url || imported?.url || "",
         createdAt: listed?.createdAt || "",
@@ -191,6 +198,31 @@ export async function cancelOsMapsExport(_req: Request, res: Response): Promise<
     res.json({cancelled: workerOutcome.cancelled || !!abandoned, jobId: abandoned?.jobId || latest?.jobId});
   } catch (error) {
     debugLog("cancel export failed:", (error as Error).message);
+    res.status(500).json({error: (error as Error).message});
+  }
+}
+
+export async function deleteOsMapsRoute(req: Request, res: Response): Promise<void> {
+  try {
+    const listing = await latestOsMapsRouteListing();
+    const importedRoutes = await listedImportedOsMapsRoutes();
+    const route = listing.routes.find(item => item.id === req.params.routeId)
+      || importedRoutes.find(item => item.id === req.params.routeId);
+    if (!route) {
+      res.status(404).json({error: "That route was not found"});
+    } else {
+      const [referencedRoute] = await routesWithWalkReferences([route]);
+      if (!route.gpxFile?.awsFileName) {
+        res.status(409).json({error: "This route has not been imported, so there is nothing to delete"});
+      } else if (referencedRoute.walks.length > 0) {
+        res.status(409).json({error: "This route cannot be deleted because it is linked to a walk", walks: referencedRoute.walks});
+      } else {
+        await removeOsMapsRouteFromApp(route.id);
+        res.json({deleted: true});
+      }
+    }
+  } catch (error) {
+    debugLog("delete route failed:", (error as Error).message);
     res.status(500).json({error: (error as Error).message});
   }
 }

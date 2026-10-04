@@ -25,9 +25,7 @@ function pointFrom(element: Element): RouteFollowPoint | null {
   if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
     return null;
   } else {
-    const parent = element.parentNode as Element;
-    const breakBefore = parent?.nodeName === "trkseg" && elementsNamed(parent, "trkpt")[0] === element;
-    return {latitude, longitude, breakBefore};
+    return {latitude, longitude};
   }
 }
 
@@ -42,8 +40,19 @@ function distanceMetres(from: RouteFollowPoint, to: RouteFollowPoint): number {
 }
 
 function trackPointsFrom(doc: Document): RouteFollowPoint[] {
+  const seenSegments = new Set<Element>();
   const trackPoints = elementsNamed(doc, "trkpt")
-    .map(pointFrom)
+    .map(element => {
+      const point = pointFrom(element);
+      const segment = element.parentNode as Element;
+      if (point && segment?.localName === "trkseg") {
+        const breakBefore = !seenSegments.has(segment);
+        seenSegments.add(segment);
+        return {...point, breakBefore};
+      } else {
+        return point;
+      }
+    })
     .filter((point): point is RouteFollowPoint => !!point);
   if (trackPoints.length > 0) {
     return trackPoints;

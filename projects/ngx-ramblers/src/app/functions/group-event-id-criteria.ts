@@ -12,3 +12,13 @@ export function groupEventIdsCriteria(eventIds: string[]): any {
     ]
   } : null;
 }
+
+export function walkLeaderIdsCriteria(identifiers: string[]): object {
+  const leaderIds = identifiers.filter(Boolean);
+  return {
+    $or: [
+      {[EventField.CONTACT_DETAILS_MEMBER_ID]: {$in: leaderIds}},
+      {[GroupEventField.WALK_LEADER_ID]: {$in: leaderIds}}
+    ]
+  };
+}

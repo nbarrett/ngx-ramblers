@@ -1063,7 +1063,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     const slug = this.display.walkSlug(this.displayedWalk?.walk);
     if (slug) {
       this.display.rememberFollowReturnUrl();
-      void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.FOLLOW], {
+      void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.ROUTE], {
         queryParams: {[StoredValue.WALK_ID]: slug}
       });
     }

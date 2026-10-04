@@ -279,7 +279,8 @@ function imageFrom(raw: unknown,
 
 function meaningfulTerms(value: string): string[] {
   const ignored = ["about", "after", "again", "also", "been", "being", "better", "changes", "feature", "features", "from", "have", "improved", "into", "more", "other", "their", "there", "these", "this", "through", "using", "website", "with", "your"];
-  return uniq((value.toLowerCase().match(/[a-z0-9]+/g) ?? [])
+  const terms: string[] = value.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  return uniq(terms
     .filter(term => term.length >= 4 && !ignored.includes(term))
     .map(term => term.endsWith("ies")
       ? `${term.slice(0, -3)}y`

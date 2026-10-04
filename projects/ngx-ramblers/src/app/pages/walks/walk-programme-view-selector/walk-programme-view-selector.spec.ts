@@ -48,10 +48,10 @@ describe("WalkProgrammeViewSelector", () => {
     expect(selector.tabs.map(tab => tab.label)).toEqual(["My Walks", "Overview", "Calendar", "Map"]);
   });
 
-  it("shows Export then Admin when the member is a walk admin", () => {
+  it("shows Export, Routes then Admin when the member is a walk admin", () => {
     memberLoginService.allowWalkAdminEdits.mockReturnValue(true);
     const selector = TestBed.createComponent(WalkProgrammeViewSelector).componentInstance;
-    expect(selector.tabs.map(tab => tab.label)).toEqual(["My Walks", "Overview", "Calendar", "Map", "Export", "Admin"]);
+    expect(selector.tabs.map(tab => tab.label)).toEqual(["My Walks", "Overview", "Calendar", "Map", "Export", "Routes", "Admin"]);
   });
 
   it("navigates to the walks admin hub when Admin is selected", async () => {
@@ -73,5 +73,12 @@ describe("WalkProgrammeViewSelector", () => {
     const selector = TestBed.createComponent(WalkProgrammeViewSelector).componentInstance;
     await selector.openView(WalksAdminSegment.EXPORT);
     expect(router.navigate).toHaveBeenCalledWith(["/go-walking/admin/export"], {queryParamsHandling: "preserve"});
+  });
+
+  it("navigates to the routes page when Routes is selected", async () => {
+    memberLoginService.allowWalkAdminEdits.mockReturnValue(true);
+    const selector = TestBed.createComponent(WalkProgrammeViewSelector).componentInstance;
+    await selector.openView(WalksAdminSegment.ROUTES);
+    expect(router.navigate).toHaveBeenCalledWith(["/go-walking/admin/routes"], {queryParamsHandling: "preserve"});
   });
 });

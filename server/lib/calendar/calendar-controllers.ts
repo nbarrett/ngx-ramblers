@@ -1,4 +1,7 @@
 import debug from "debug";
+import { member } from "../mongo/models/member";
+import { walkLeaderIdsCriteria } from "../../../projects/ngx-ramblers/src/app/functions/group-event-id-criteria";
+import { isMongoId } from "../../../projects/ngx-ramblers/src/app/services/mongo-utils";
 import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import { createErrorDebugLog } from "../shared/error-debug-log";
@@ -7,7 +10,7 @@ import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { EventType, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { WalkStatus } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { RamblersEventType, WalkStatus } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { ContentDisposition } from "../../../projects/ngx-ramblers/src/app/models/server-models";
 import { icalDocument, meetingIcalDocument } from "./ical";
 import { publicImageBaseUrl } from "../social/public-base-url";
@@ -40,9 +43,9 @@ const CALENDAR_EVENT_SELECT = [
   GroupEventField.DATE_UPDATED
 ].join(" ");
 
-function calendarNameFor(config: SystemConfig): string {
+function calendarNameFor(config: SystemConfig, personal = false): string {
   const siteName = config?.group?.shortName || config?.group?.longName || "Ramblers";
-  return `${siteName} walks and events`;
+  return personal ? `${siteName} walks I lead` : `${siteName} walks and events`;
 }
 
 function sendCalendar(res: Response, document: string, fileName: string, disposition: ContentDisposition = ContentDisposition.ATTACHMENT): void {
@@ -131,23 +134,35 @@ export async function eventsCalendarFeed(req: Request, res: Response): Promise<v
   try {
     const config: SystemConfig = await systemConfig();
     const baseUrl = publicImageBaseUrl(req, config);
-    const events = await extendedGroupEvent
-      .find({
-        [GroupEventField.START_DATE]: {
-          $gte: dateTimeNow().startOf("day").toISO(),
-          $lte: dateTimeNow().plus({months: FEED_MONTHS_AHEAD}).toISO()
-        },
-        [GroupEventField.STATUS]: {$nin: FEED_EXCLUDED_STATUSES}
-      })
-      .select(CALENDAR_EVENT_SELECT)
-      .sort({[GroupEventField.START_DATE]: 1})
-      .limit(MAXIMUM_FEED_EVENTS)
-      .lean().exec() as ExtendedGroupEvent[];
-    debugLog("calendar feed returning", events.length, "events");
-    if (events.length === MAXIMUM_FEED_EVENTS) {
-      debugLog("calendar feed truncated at", MAXIMUM_FEED_EVENTS, "events");
+    const memberId = req.params.memberId;
+    const subscriber = memberId && isMongoId(memberId)
+      ? await member.findById(memberId).select("contactId").lean().exec()
+      : null;
+    if (memberId && !subscriber) {
+      res.status(404).json({message: "Calendar subscription not found"});
+    } else {
+      const leaderCriteria = subscriber
+        ? {...walkLeaderIdsCriteria([memberId, subscriber.contactId]), [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK}
+        : {};
+      const events = await extendedGroupEvent
+        .find({
+          ...leaderCriteria,
+          [GroupEventField.START_DATE]: {
+            $gte: dateTimeNow().startOf("day").toISO(),
+            $lte: dateTimeNow().plus({months: FEED_MONTHS_AHEAD}).toISO()
+          },
+          [GroupEventField.STATUS]: {$nin: FEED_EXCLUDED_STATUSES}
+        })
+        .select(CALENDAR_EVENT_SELECT)
+        .sort({[GroupEventField.START_DATE]: 1})
+        .limit(MAXIMUM_FEED_EVENTS)
+        .lean().exec() as ExtendedGroupEvent[];
+      debugLog("calendar feed returning", events.length, "events");
+      if (events.length === MAXIMUM_FEED_EVENTS) {
+        debugLog("calendar feed truncated at", MAXIMUM_FEED_EVENTS, "events");
+      }
+      sendCalendar(res, icalDocument(events, config, baseUrl, calendarNameFor(config, !!subscriber)), subscriber ? "my-walks.ics" : "walks-and-events.ics", ContentDisposition.INLINE);
     }
-    sendCalendar(res, icalDocument(events, config, baseUrl, calendarNameFor(config)), "walks-and-events.ics", ContentDisposition.INLINE);
   } catch (error) {
     errorDebugLog("eventsCalendarFeed failed, error:", error);
     res.status(500).json({message: "Calendar generation failed"});

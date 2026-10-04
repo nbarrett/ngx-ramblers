@@ -22,6 +22,10 @@ export class OsMapsExportService {
     return firstValueFrom(this.http.get<OsMapsRouteListing>(`${this.baseUrl}/routes`));
   }
 
+  deleteRoute(routeId: string): Promise<{deleted: boolean}> {
+    return firstValueFrom(this.http.delete<{deleted: boolean}>(`${this.baseUrl}/routes/${encodeURIComponent(routeId)}`));
+  }
+
   importedRoutes(): Promise<OsMapsListedRoute[]> {
     return firstValueFrom(this.http.get<OsMapsListedRoute[]>(`${this.baseUrl}/imported-routes`));
   }

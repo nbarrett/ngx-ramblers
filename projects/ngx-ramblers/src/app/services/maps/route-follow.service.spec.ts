@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
-import { appAppearanceFromStored, AppAppearance, followCacheKey, isLiveFollowMode, RouteFollowLocationError, RouteFollowMode, RouteFollowReturnDirection, RouteWaypointKind } from "../../models/route-follow.model";
+import { appAppearanceFromStored, AppAppearance, followCacheKey, followRouteCommands, followRouteNumberFromParam, isLiveFollowMode, RouteFollowLocationError, RouteFollowMode, RouteFollowReturnDirection, RouteWaypointKind } from "../../models/route-follow.model";
 import { GeoDistanceService } from "./geo-distance.service";
 import { RouteFollowService } from "./route-follow.service";
 
@@ -20,6 +20,22 @@ describe("followCacheKey", () => {
     expect(followCacheKey({walkId: "abc"})).toBe("walk:abc");
     expect(followCacheKey({path: "walks/foo", routeId: "r1"})).toBe("page:walks/foo:r1");
     expect(followCacheKey({osMapsRouteId: "29532353"})).toBe("os-maps:29532353");
+  });
+});
+
+describe("followRouteCommands", () => {
+  it("builds a path with an optional title slug", () => {
+    expect(followRouteCommands(1, "Des Ryarsh 2")).toEqual(["/", "app", "route", "1", "des-ryarsh-2"]);
+    expect(followRouteCommands(12, "")).toEqual(["/", "app", "route", "12"]);
+  });
+});
+
+describe("followRouteNumberFromParam", () => {
+  it("reads a positive route number and ignores decorative slugs elsewhere", () => {
+    expect(followRouteNumberFromParam("1")).toBe(1);
+    expect(followRouteNumberFromParam("34094800")).toBe(34094800);
+    expect(followRouteNumberFromParam("0")).toBeNull();
+    expect(followRouteNumberFromParam("des-ryarsh-2")).toBeNull();
   });
 });
 

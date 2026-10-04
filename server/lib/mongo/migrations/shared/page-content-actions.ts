@@ -163,6 +163,58 @@ export async function ensureActionButton(db: Db, path: string, column: ActionBut
   return true;
 }
 
+export async function replaceActionButtonByHref(
+  db: Db,
+  path: string,
+  oldHref: string,
+  column: ActionButtonColumn,
+  log: (message: string) => void = () => {}
+): Promise<boolean> {
+  const collection = db.collection(PAGE_CONTENT_COLLECTION);
+  await deduplicateActionButtonsByHref(db, path, log);
+  const target = await collection.findOne({ path }, { sort: { _id: 1 } });
+  if (!target) {
+    log(`No page content found for path "${path}"`);
+    return false;
+  }
+  const oldTarget = normaliseHref(oldHref);
+  const newTarget = normaliseHref(column.href);
+  const progress = {replaced: false, removedDuplicate: false};
+  const rows = (target.rows || []).map((row: any) => {
+    if (row?.type !== PageContentType.ACTION_BUTTONS) {
+      return row;
+    }
+    const nextColumns = (row.columns || []).reduce((columns: any[], existing: any) => {
+      const href = normaliseHref(existing?.href);
+      if (href === oldTarget) {
+        progress.replaced = true;
+        log(`Replacing action button "${existing?.title}" (${oldHref}) with "${column.title}" (${column.href}) on "${path}"`);
+        return [...columns, {...existing, ...column}];
+      } else if (href === newTarget && progress.replaced) {
+        progress.removedDuplicate = true;
+        log(`Removing duplicate action button for "${column.href}" on "${path}"`);
+        return columns;
+      } else if (href === newTarget) {
+        progress.replaced = true;
+        const iconColourMatches = column.iconColour ? existing?.iconColour === column.iconColour : true;
+        if (existing?.title === column.title && existing?.icon === column.icon && existing?.contentText === column.contentText && existing?.accessLevel === column.accessLevel && iconColourMatches) {
+          return [...columns, existing];
+        }
+        log(`Updating action button "${existing?.title}" to "${column.title}" for href "${column.href}" on "${path}"`);
+        return [...columns, {...existing, ...column}];
+      } else {
+        return [...columns, existing];
+      }
+    }, []);
+    return {...row, columns: nextColumns};
+  });
+  if (!progress.replaced) {
+    return false;
+  }
+  await collection.updateOne({ _id: target._id }, { $set: { rows } });
+  return true;
+}
+
 export async function syncActionButtonDetailsByHref(db: Db, path: string, columns: ActionButtonColumn[], log: (message: string) => void = () => {}): Promise<number> {
   const collection = db.collection(PAGE_CONTENT_COLLECTION);
   const target = await collection.findOne({ path }, { sort: { _id: 1 } });

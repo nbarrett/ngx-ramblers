@@ -94,11 +94,11 @@ export class ContainerComponent implements OnInit, OnDestroy {
 
   protected showFloatingNavigation(): boolean {
     const path = this.router.url.split("?")[0];
-    return this.appShell.installed() && path !== "/" && path !== "/home" && !path.startsWith("/app/follow");
+    return this.appShell.installed() && path !== "/" && path !== "/home" && !path.startsWith("/app/route");
   }
 
   protected showFloatingShare(): boolean {
-    return this.appShell.installed() && !this.router.url.split("?")[0].startsWith("/app/follow");
+    return this.appShell.installed() && !this.router.url.split("?")[0].startsWith("/app/route");
   }
 
   protected floatingBackAvailable(): boolean {

@@ -17,7 +17,7 @@ describe("standalone recording launch", () => {
     const component = view();
     component.recordStandaloneRoute();
     const navigation = vi.mocked(component["router"].navigate).mock.calls[0];
-    expect(navigation[0]).toEqual(["/app/follow"]);
+    expect(navigation[0]).toEqual(["/app/route"]);
     expect(navigation[1].queryParams[StoredValue.RECORD_ROUTE]).toMatch(/^[a-zA-Z0-9-]{8,80}$/);
     expect(navigation[1].queryParams[StoredValue.WALK_ID]).toBeFalsy();
     expect(component["followService"].requestCompassPermission).toHaveBeenCalledOnce();
@@ -27,7 +27,7 @@ describe("standalone recording launch", () => {
     const component = view();
     component["activeSession"] = {recordingId: "fictional-id", mode: RouteFollowMode.PAUSED} as RouteFollowSession;
     component.recordStandaloneRoute();
-    expect(component["router"].navigate).toHaveBeenCalledWith(["/app/follow"], {queryParams: {[StoredValue.RECORD_ROUTE]: "fictional-id"}});
+    expect(component["router"].navigate).toHaveBeenCalledWith(["/app/route"], {queryParams: {[StoredValue.RECORD_ROUTE]: "fictional-id"}});
   });
 
   it("waits for sign-in before launching a recording", () => {

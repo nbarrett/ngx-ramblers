@@ -114,7 +114,7 @@ export class AppShellService {
     const appRoot = "/" + AppPath.ROOT;
     if (path === appRoot || path === appRoot + "/") {
       return true;
-    } else if (path === appRoot + "/" + AppPath.FOLLOW || path.startsWith(appRoot + "/" + AppPath.FOLLOW + "/")) {
+    } else if (path === appRoot + "/" + AppPath.ROUTE || path.startsWith(appRoot + "/" + AppPath.ROUTE + "/")) {
       return true;
     } else {
       return false;

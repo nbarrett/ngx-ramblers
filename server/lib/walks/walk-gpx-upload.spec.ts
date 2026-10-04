@@ -26,13 +26,13 @@ function request(recordingId: string, filePath = "unused"): Request {
 describe("standalone recording import", () => {
   it("returns the existing route when retrying a completed recording", async () => {
     const gpxFile = {awsFileName: "saved.gpx", title: "Hillside trail"};
-    const lookup = sandbox.stub(routeStore, "osMapsImportedRouteById").resolves({routeId: "recording-fictional-id", importedAt: 1, url: "Hillside trail", gpxFile});
+    const lookup = sandbox.stub(routeStore, "osMapsImportedRouteById").resolves({routeId: "recording-fictional-id", number: 3, importedAt: 1, url: "Hillside trail", gpxFile});
     const upload = sandbox.stub(gpxPersist, "persistGpxContent");
     const res = response();
     await importWalkGpx(request("fictional-id"), res);
     expect(lookup.calledOnceWithExactly("recording-fictional-id")).toBe(true);
     expect(upload.called).toBe(false);
-    expect((res.json as sinon.SinonStub).firstCall.args[0]).toEqual({gpxFile, routeId: "recording-fictional-id"});
+    expect((res.json as sinon.SinonStub).firstCall.args[0]).toEqual({gpxFile, routeId: "recording-fictional-id", number: 3});
   });
 
   it("rejects an invalid recording identifier before reading or storing a file", async () => {
@@ -52,7 +52,7 @@ describe("standalone recording import", () => {
     try {
       sandbox.stub(routeStore, "osMapsImportedRouteById").resolves(null);
       const upload = sandbox.stub(gpxPersist, "persistGpxContent").resolves({rootFolder: "gpx-routes", originalFileName: "recording.gpx", awsFileName: "saved.gpx", title: "Hillside trail"});
-      const store = sandbox.stub(routeStore, "saveFileImportedGpx").resolves({routeId: "recording-fictional-id", importedAt: 1, url: "Hillside trail"});
+      const store = sandbox.stub(routeStore, "saveFileImportedGpx").resolves({routeId: "recording-fictional-id", number: 4, importedAt: 1, url: "Hillside trail"});
       const res = response();
       await importWalkGpx(request("fictional-id", filePath), res);
       expect(upload.firstCall.args[2]).toBe("Hillside trail");

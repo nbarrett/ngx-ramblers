@@ -12,8 +12,16 @@ export enum OsMapsRouteListFilter {
   NOT_IMPORTED = "not-imported"
 }
 
+export interface RouteWalkReference {
+  id: string;
+  slug: string;
+  title: string;
+  startDateTime: string;
+}
+
 export interface OsMapsListedRoute {
   id: string;
+  number?: number | null;
   title: string;
   url: string;
   createdAt: string;
@@ -27,6 +35,7 @@ export interface OsMapsListedRoute {
   routeOpacity?: number | null;
   walkedAt?: number | null;
   walkedByName?: string | null;
+  walks?: RouteWalkReference[];
 }
 
 export interface OsMapsRouteListing {
@@ -161,12 +170,23 @@ export function osMapsRouteIdFromUrl(url: string): string | null {
   }
 }
 
-export function osMapsRouteVisible(route: OsMapsListedRoute, search: string, filter: OsMapsRouteListFilter): boolean {
+export function osMapsRouteUserNames(route: OsMapsListedRoute): string[] {
+  return [route.walkedByName, route.gpxFile?.walkedByName, route.gpxFile?.createdByName]
+    .map(name => (name || "").trim())
+    .filter((name, index, names) => name.length > 0
+      && name.toLowerCase() !== "unknown user"
+      && names.indexOf(name) === index);
+}
+
+export function osMapsRouteVisible(route: OsMapsListedRoute, search: string, filter: OsMapsRouteListFilter, user = ""): boolean {
   const needle = (search || "").trim().toLowerCase();
   const haystack = `${route.title || ""} ${route.url || ""}`.toLowerCase();
   const matchesSearch = needle.length === 0 || haystack.includes(needle);
+  const userNeedle = (user || "").trim().toLowerCase();
+  const matchesUser = userNeedle.length === 0
+    || osMapsRouteUserNames(route).some(name => name.toLowerCase() === userNeedle);
   const imported = !!route.importedAt;
-  if (!matchesSearch) {
+  if (!matchesSearch || !matchesUser) {
     return false;
   } else if (filter === OsMapsRouteListFilter.IMPORTED) {
     return imported;

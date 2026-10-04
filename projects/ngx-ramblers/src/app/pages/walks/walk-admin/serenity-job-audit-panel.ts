@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faChartSimple, faCircleExclamation, faList } from "@fortawesome/free-solid-svg-icons";
 import { isArray } from "es-toolkit/compat";
 import { Subscription } from "rxjs";
 import { sortBy } from "../../../functions/arrays";
@@ -45,9 +46,10 @@ const SESSION_HISTORY_MONTHS = 6;
                                        (selectedChange)="onSessionChange($event)"/>
         </div>
       }
-      <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
-        <strong aria-live="polite">{{ summaryMessage() }}</strong>
-        <button type="button" class="btn btn-quiet text-nowrap" [attr.aria-expanded]="showDetails" (click)="toggleDetails()">
+      <div class="serenity-job-summary d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <strong class="serenity-job-summary-message min-w-0 text-break" aria-live="polite">{{ summaryMessage() }}</strong>
+        <button type="button" class="btn btn-quiet text-nowrap serenity-job-summary-toggle" [attr.aria-expanded]="showDetails" (click)="toggleDetails()">
+          <fa-icon [icon]="showDetails ? faChartSimple : faList" class="me-2"/>
           {{ showDetails ? "Show summary" : "Show details" }}
         </button>
       </div>
@@ -60,7 +62,13 @@ const SESSION_HISTORY_MONTHS = 6;
           </div>
         </div>
         @if (progress.failed > 0) {
-          <p class="text-danger">{{ progress.failed }} {{ progress.failed === 1 ? "route" : "routes" }} could not be converted. Show details to see why.</p>
+          <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+            <fa-icon [icon]="faCircleExclamation"/>
+            <div>
+              <strong>{{ progress.failed }} {{ progress.failed === 1 ? "route" : "routes" }} could not be converted.</strong>
+              <div>Show details to see why.</div>
+            </div>
+          </div>
         }
       }
       @if (showDetails && latestAudit) {
@@ -100,7 +108,16 @@ const SESSION_HISTORY_MONTHS = 6;
         </app-sortable-table>
       }
     </div>
-  `
+  `,
+  styles: [`
+    .serenity-job-summary
+      @media (max-width: 575.98px)
+        flex-direction: column
+        align-items: stretch
+
+        .serenity-job-summary-toggle
+          width: 100%
+  `]
 })
 export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDestroy {
   private webSocketClientService = inject(WebSocketClientService);
@@ -129,6 +146,9 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   @Input() jobRunning = false;
   @Input() exportResult: OsMapsExportJobResult | null = null;
   @Output() finished = new EventEmitter<string>();
+  faChartSimple = faChartSimple;
+  faList = faList;
+  faCircleExclamation = faCircleExclamation;
   showDetails = false;
   private exportProgress: OsMapsExportProgress | null = null;
   private finishedFileName: string | null = null;

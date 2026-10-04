@@ -674,7 +674,7 @@ export class WalkDisplayService {
 
   private isFollowPath(url: string): boolean {
     const path = (url || "").split("?")[0];
-    const follow = "/" + AppPath.ROOT + "/" + AppPath.FOLLOW;
+    const follow = "/" + AppPath.ROOT + "/" + AppPath.ROUTE;
     return path === follow || path.startsWith(follow + "/");
   }
 

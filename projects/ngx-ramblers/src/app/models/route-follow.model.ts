@@ -1,12 +1,14 @@
 import { RouteAudit } from "./audit";
 import * as L from "leaflet";
+import { toSlug } from "../functions/strings";
 import { ExtendedGroupEvent } from "./group-event.model";
 import { Difficulty, LocationDetails, Metadata } from "./ramblers-walks-manager";
 import { Feature } from "./walk-feature.model";
 import { PageContentColumn, PageContentRow } from "./content-text.model";
 export enum AppPath {
   ROOT = "app",
-  FOLLOW = "follow"
+  ROUTE = "route",
+  LEGACY_FOLLOW = "follow"
 }
 
 export const APP_NEARBY_MILES = 25;
@@ -259,6 +261,7 @@ export interface RouteFollowSession {
   walkId: string | null;
   path: string | null;
   routeId: string | null;
+  routeNumber?: number | null;
   ramblersSlug: string | null;
   osMapsRouteId: string | null;
   mode: RouteFollowMode;
@@ -555,6 +558,7 @@ export interface RouteFollowPayload extends RouteAudit {
   path: string | null;
   walkId: string | null;
   routeId: string | null;
+  routeNumber?: number | null;
   ramblersSlug: string | null;
   osMapsRouteId: string | null;
   provider: string;
@@ -579,6 +583,7 @@ export interface RouteFollowSummary extends RouteAudit {
   path: string | null;
   walkId: string | null;
   routeId: string | null;
+  routeNumber?: number | null;
   ramblersSlug: string | null;
   osMapsRouteId: string | null;
   distanceMiles: number | null;
@@ -626,6 +631,39 @@ export function followCacheKey(parts: {
     return `page:${parts.path}:${parts.routeId || ""}`;
   } else {
     return null;
+  }
+}
+
+export function followRouteCommands(routeNumber: number, title?: string | null): string[] {
+  const slug = toSlug(title || "");
+  if (slug) {
+    return ["/", AppPath.ROOT, AppPath.ROUTE, String(routeNumber), slug];
+  } else {
+    return ["/", AppPath.ROOT, AppPath.ROUTE, String(routeNumber)];
+  }
+}
+
+export function followRouteNumberFromParam(value: string | null | undefined): number | null {
+  const trimmed = (value || "").trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return null;
+  } else {
+    const routeNumber = Number(trimmed);
+    if (routeNumber > 0) {
+      return routeNumber;
+    } else {
+      return null;
+    }
+  }
+}
+
+export function followRouteIdFromQuery(value: string | null | undefined): string | null {
+  const trimmed = (value || "").trim();
+  if (!trimmed) {
+    return null;
+  } else {
+    const id = trimmed.split("/")[0]?.trim();
+    return id || null;
   }
 }
 

@@ -95,8 +95,10 @@ export function snapToRoute(points: RouteFollowPoint[], cumulative: number[], po
   if (points.length < 2) {
     return null;
   } else {
-    return points.slice(1).reduce((best: RouteFollowSnap, end, offset) => {
-      const projected = projectOnSegment(position, points[offset], end);
+    const snap = points.slice(1).reduce((best: RouteFollowSnap, end, offset) => {
+      const projected = end.breakBefore
+        ? {point: end, distanceMetres: Number.POSITIVE_INFINITY, alongMetres: 0}
+        : projectOnSegment(position, points[offset], end);
       return projected.distanceMetres < best.distanceMetres ? {
         point: projected.point,
         index: offset,
@@ -104,6 +106,7 @@ export function snapToRoute(points: RouteFollowPoint[], cumulative: number[], po
         progressMetres: cumulative[offset] + projected.alongMetres
       } : best;
     }, {point: points[0], index: 0, distanceMetres: Number.POSITIVE_INFINITY, progressMetres: 0});
+    return Number.isFinite(snap.distanceMetres) ? snap : null;
   }
 }
 
