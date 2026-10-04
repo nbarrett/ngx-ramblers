@@ -1,3 +1,4 @@
+import { RouteNearbyService } from "../../services/maps/route-nearby.service";
 import { VersionCheckService } from "../../services/version-check.service";
 import { uniqBy } from "es-toolkit/compat";
 import { RouteContributor } from "../../models/audit";
@@ -11,13 +12,12 @@ import { DecimalPipe, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription, take } from "rxjs";
-import { faArrowLeft, faCalendarDay, faCircle, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faShareNodes, faSliders, faStar, faSun, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faCalendarDay, faCircle, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faShareNodes, faSliders, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { PageContentType } from "../../models/content-text.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import {
-  APP_NEARBY_GPS_TRUST_MILES,
   APP_NEARBY_MILES,
   APP_NEARBY_MILES_MAX,
   AppAppearance,
@@ -59,7 +59,6 @@ import { MediaQueryService } from "../../services/committee/media-query.service"
 import { OsMapsExportService } from "../../services/maps/os-maps-export.service";
 import { OsMapsListedRoute } from "../../models/os-maps-export.model";
 import { CurrentLocationService } from "../../services/maps/current-location.service";
-import { GeoDistanceService } from "../../services/maps/geo-distance.service";
 import { DistanceRangeSlider } from "../../components/distance-range-slider/distance-range-slider";
 import { DistanceRange, DistanceUnit } from "../../models/search.model";
 import { KM_PER_MILE } from "../../models/walk.model";
@@ -301,18 +300,31 @@ import { AuthService } from "../../auth/auth.service";
               </div>
               </a>
               <div class="app-home-route-actions">
-                <button class="btn btn-icon app-home-favourite" type="button"
-                        [attr.aria-label]="isFavourite(route) ? 'Remove from favourites' : 'Add to favourites'"
-                        [attr.aria-pressed]="isFavourite(route)" tooltip="Favourite"
+                <button class="btn btn-quiet app-home-action app-home-favourite" type="button"
+                        [attr.aria-pressed]="isFavourite(route)"
                         (click)="toggleFavourite(route)">
                   <fa-icon [icon]="faStar"/>
+                  Favourite
                 </button>
-                <button class="btn btn-quiet btn-icon" type="button"
-                        [attr.aria-label]="isWebsiteMap(route) ? 'Hide' : 'Remove'"
-                        [tooltip]="isWebsiteMap(route) ? 'Hide' : 'Remove'"
-                        (click)="removeSavedRoute(route)">
-                  <fa-icon [icon]="faEyeSlash"/>
-                </button>
+                @if (isWebsiteMap(route)) {
+                  <button class="btn btn-quiet app-home-action" type="button"
+                          (click)="removeSavedRoute(route)">
+                    <fa-icon [icon]="faEyeSlash"/>
+                    Hide
+                  </button>
+                } @else if (confirmingRemoveKey === routeKey(route)) {
+                  <button class="btn btn-danger app-home-action" type="button"
+                          (click)="confirmRemoveSavedRoute(route)">
+                    <fa-icon [icon]="faTrash"/>
+                    Confirm
+                  </button>
+                } @else {
+                  <button class="btn btn-quiet app-home-action" type="button"
+                          (click)="beginRemoveSavedRoute(route)">
+                    <fa-icon [icon]="faTrash"/>
+                    Delete
+                  </button>
+                }
               </div>
             </div>
           }
@@ -434,7 +446,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   private ramblersLibrary = inject(RamblersLibraryRouteService);
   private osMapsExport = inject(OsMapsExportService);
   private currentLocation = inject(CurrentLocationService);
-  private geoDistance = inject(GeoDistanceService);
+  private nearby = inject(RouteNearbyService);
   private followCache = inject(RouteFollowCacheService);
   private listCache = inject(AppHomeListCacheService);
   private router = inject(Router);
@@ -474,6 +486,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected locationError: string | null = null;
   protected favouriteKeys: string[] = [];
   protected hiddenKeys: string[] = [];
+  protected confirmingRemoveKey: string | null = null;
   protected websiteMapKeys: string[] = [];
   protected importedOsMapsByKey: Record<string, OsMapsListedRoute> = {};
   protected previewPoints: Record<string, RouteFollowPoint[]> = {};
@@ -505,6 +518,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected readonly faSliders = faSliders;
   protected readonly faStar = faStar;
   protected readonly faSun = faSun;
+  protected readonly faTrash = faTrash;
   protected readonly faXmark = faXmark;
   protected readonly AppPath = AppPath;
   protected readonly AppInstallPlatform = AppInstallPlatform;
@@ -756,16 +770,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   }
 
   milesAwayLabel(route: RouteFollowSummary): string | null {
-    const miles = this.milesAway(route);
-    if (miles === null) {
-      return null;
-    } else if (miles < 0.1) {
-      return "Here";
-    } else if (miles < 1) {
-      return "Under a mile away";
-    } else {
-      return miles.toFixed(1) + " miles away";
-    }
+    return this.nearby.label(this.milesAway(route));
   }
 
   private async refreshLocation(): Promise<void> {
@@ -780,39 +785,11 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   }
 
   private hereForNearby(gps: {latitude: number; longitude: number}): {latitude: number; longitude: number} {
-    const centre = this.mapsCentre();
-    const nearest = this.nearestMapMiles(gps);
-    if (centre && (nearest === null || nearest > APP_NEARBY_GPS_TRUST_MILES)) {
-      return centre;
-    } else {
-      return gps;
-    }
-  }
-
-  private nearestMapMiles(from: {latitude: number; longitude: number}): number | null {
-    const distances = this.routes
-      .map(route => {
-        const start = this.startPoint(route);
-        return start ? this.geoDistance.calculateDistanceMiles(from, start) : null;
-      })
-      .filter((miles): miles is number => miles !== null);
-    if (distances.length === 0) {
-      return null;
-    } else {
-      return Math.min(...distances);
-    }
+    return this.nearby.trustedOrigin(gps, this.routes.map(route => this.startPoint(route)).filter(point => !!point));
   }
 
   private mapsCentre(): {latitude: number; longitude: number} | null {
-    const points = this.routes.map(route => this.startPoint(route)).filter((point): point is {latitude: number; longitude: number} => !!point);
-    if (points.length === 0) {
-      return null;
-    } else {
-      return {
-        latitude: points.reduce((sum, point) => sum + point.latitude, 0) / points.length,
-        longitude: points.reduce((sum, point) => sum + point.longitude, 0) / points.length
-      };
-    }
+    return this.nearby.centre(this.routes.map(route => this.startPoint(route)).filter(point => !!point));
   }
 
   private isNearby(route: RouteFollowSummary): boolean {
@@ -825,7 +802,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     if (!this.here || !start) {
       return null;
     } else {
-      return this.geoDistance.calculateDistanceMiles(this.here, start);
+      return this.nearby.milesAway(this.here, start);
     }
   }
 
@@ -864,6 +841,14 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     }
   }
 
+  beginRemoveSavedRoute(route: RouteFollowSummary): void {
+    this.confirmingRemoveKey = this.routeKey(route);
+  }
+
+  confirmRemoveSavedRoute(route: RouteFollowSummary): void {
+    void this.removeSavedRoute(route);
+  }
+
   async removeSavedRoute(route: RouteFollowSummary): Promise<void> {
     const key = this.routeKey(route);
     try {
@@ -881,6 +866,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
         this.favouriteKeys = this.favouriteKeys.filter(item => item !== key);
         this.uiActions.saveValueFor(StoredValue.APP_FAVOURITE_ROUTES, this.favouriteKeys);
       }
+      this.confirmingRemoveKey = null;
     } catch (error) {
       this.logger.error("removeSavedRoute failed", error);
     }

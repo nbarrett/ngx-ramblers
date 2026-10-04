@@ -1,4 +1,5 @@
-import { Injectable } from "@angular/core";
+import { MemberLoginService } from "../member/member-login.service";
+import { inject, Injectable } from "@angular/core";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { OsMapsListedRoute } from "../../models/os-maps-export.model";
 import { RouteFollowOfflineStatus, RouteFollowPoint, RouteFollowSummary } from "../../models/route-follow.model";
@@ -17,10 +18,12 @@ export interface AppHomeListSnapshot {
   providedIn: "root"
 })
 export class AppHomeListCacheService {
+  private memberLogin = inject(MemberLoginService);
+  private memoryMemberId: string | null = null;
   private memory: AppHomeListSnapshot | null = null;
 
   snapshot(): AppHomeListSnapshot | null {
-    if (this.memory) {
+    if (this.memory && this.memoryMemberId === (this.memberLogin.loggedInMember()?.memberId || null)) {
       return this.memory;
     } else {
       return this.readStored();
@@ -28,9 +31,11 @@ export class AppHomeListCacheService {
   }
 
   save(snapshot: AppHomeListSnapshot): void {
+    this.memoryMemberId = this.memberLogin.loggedInMember()?.memberId || null;
     this.memory = snapshot;
     try {
       const stored = {
+        memberId: this.memoryMemberId,
         routes: snapshot.routes,
         walks: snapshot.walks,
         websiteMapKeys: snapshot.websiteMapKeys,
@@ -49,14 +54,14 @@ export class AppHomeListCacheService {
         return null;
       } else {
         const parsed = JSON.parse(raw);
-        return {
+        return (parsed.memberId || null) === (this.memberLogin.loggedInMember()?.memberId || null) ? {
           routes: parsed?.routes || [],
           walks: parsed?.walks || [],
           websiteMapKeys: parsed?.websiteMapKeys || [],
           importedOsMapsByKey: parsed?.importedOsMapsByKey || {},
           previewPoints: {},
           offlineByKey: {}
-        };
+        } : null;
       }
     } catch {
       return null;

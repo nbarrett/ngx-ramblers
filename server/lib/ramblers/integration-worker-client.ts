@@ -28,7 +28,7 @@ export async function submitRamblersUploadJobToWorker(job: RamblersUploadJob, cr
   const awsRegion = envConfig.value(Environment.AWS_REGION);
   const awsAccessKeyId = envConfig.value(Environment.AWS_ACCESS_KEY_ID);
   const awsSecretAccessKey = envConfig.value(Environment.AWS_SECRET_ACCESS_KEY);
-  const reportUploadAvailable = !!(awsBucket && awsRegion && awsAccessKeyId && awsSecretAccessKey);
+  const reportUploadAvailable = !job.data.osMapsPersonalAccount && !!(awsBucket && awsRegion && awsAccessKeyId && awsSecretAccessKey);
 
   const reportKeyPrefix = `ramblers-upload-reports/${job.data.fileName.replace(/\.csv$/, "")}`;
 

@@ -1,3 +1,4 @@
+import { OsMapsImportContext } from "./os-maps-export.model";
 import { RouteAudit } from "./audit";
 import * as L from "leaflet";
 import { toSlug } from "../functions/strings";
@@ -550,7 +551,8 @@ export interface RouteFollowProgress {
   currentElevationMetres: number | null;
 }
 
-export interface RouteFollowPayload extends RouteAudit {
+export interface RouteFollowPayload extends RouteAudit, OsMapsImportContext {
+  canEdit?: boolean;
   recordingId?: string | null;
   description?: string | null;
   source: RouteFollowSource;
@@ -575,7 +577,8 @@ export interface RouteFollowPayload extends RouteAudit {
   via?: number[];
 }
 
-export interface RouteFollowSummary extends RouteAudit {
+export interface RouteFollowSummary extends RouteAudit, OsMapsImportContext {
+  canEdit?: boolean;
   recordingId?: string | null;
   description?: string | null;
   source: RouteFollowSource;

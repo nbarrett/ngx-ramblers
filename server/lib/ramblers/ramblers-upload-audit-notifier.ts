@@ -83,7 +83,9 @@ export async function sendAudit<T>(ws: WebSocket, props: AuditRamblersUploadPara
     if (props.messageType === MessageType.COMPLETE) {
       await recordRamblersUploadOutcome(session.jobId, props.status).catch(error => debugLog("recording upload outcome failed:", error.message));
     }
-    broadcast(props.messageType, response);
+    if (!session.personalJob) {
+      broadcast(props.messageType, response);
+    }
     if (props.messageType === MessageType.COMPLETE) {
       try {
         ws.close();
@@ -115,7 +117,9 @@ export async function recordLifecycleEvent(jobId: string, message: string): Prom
     status: Status.SUCCESS,
     message
   }, debugLog);
-  broadcast(MessageType.PROGRESS, { audits: [audit] });
+  if (!session.personalJob) {
+    broadcast(MessageType.PROGRESS, { audits: [audit] });
+  }
 }
 
 export async function recordReportLocation(jobId: string, bucket: string, keyPrefix: string): Promise<void> {
@@ -138,7 +142,9 @@ export async function recordReportLocation(jobId: string, bucket: string, keyPre
     reportKeyPrefix: keyPrefix,
     reportBucket: bucket
   }, debugLog);
-  broadcast(MessageType.PROGRESS, { audits: [reportAudit] });
+  if (!session.personalJob) {
+    broadcast(MessageType.PROGRESS, { audits: [reportAudit] });
+  }
 }
 
 export function reportErrorAndClose(error, ws: WebSocket) {

@@ -1,3 +1,4 @@
+import { routeVisibleToMember } from "../../functions/route-access";
 import { generateUid } from "../../functions/numbers";
 import { MobileAppAccessService } from "../../services/maps/mobile-app-access.service";
 import { MobileAppAction } from "../../models/walks-config.model";
@@ -2462,7 +2463,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         return null;
       } else {
         const stored = this.uiActions.initialObjectValueFor<RouteFollowSession>(StoredValue.FOLLOW_SESSION, null);
-        return stored && isLiveFollowMode(stored.mode) ? stored : null;
+        const visible = !stored?.payload || routeVisibleToMember(stored.payload, this.memberLogin.loggedInMember());
+        return visible && stored && isLiveFollowMode(stored.mode) ? stored : null;
       }
     } catch (error) {
       this.logger.warn("saved route session unavailable", error);
@@ -2609,7 +2611,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         this.payload = loaded;
         this.canEditRoute = loaded.source === RouteFollowSource.RECORDING
           ? this.mobileAccess.allowed(MobileAppAction.RECORD)
-          : this.routeIsEditable(loaded) && this.mobileAccess.allowed(MobileAppAction.EDIT);
+          : loaded.source === RouteFollowSource.OS_MAPS ? !!loaded.canEdit : this.routeIsEditable(loaded) && this.mobileAccess.allowed(MobileAppAction.EDIT);
         this.loginPrompt = !this.canEditRoute && loaded.source !== RouteFollowSource.RAMBLERS_LIBRARY && !this.memberLogin.memberLoggedIn();
         this.styleRoute = this.styleFromPayload(loaded);
         this.rememberSavedStyle(loaded);
@@ -2685,7 +2687,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     } else if (payload.source === RouteFollowSource.PAGE) {
       return this.memberLogin.allowContentEdits();
     } else if (payload.source === RouteFollowSource.OS_MAPS) {
-      return this.mobileAccess.allowed(MobileAppAction.EDIT);
+      return !!payload.canEdit;
     } else {
       return false;
     }

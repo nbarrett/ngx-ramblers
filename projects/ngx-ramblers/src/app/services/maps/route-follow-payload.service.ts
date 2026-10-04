@@ -181,6 +181,9 @@ export class RouteFollowPayloadService {
     } else {
       return {
         source: RouteFollowSource.OS_MAPS,
+        canEdit: route.canEdit,
+        visibility: route.visibility,
+        ownerMemberId: route.ownerMemberId,
         title: route.title || "OS Maps route",
         description: route.gpxFile.description || null,
         createdDate: route.gpxFile.createdDate, createdBy: route.gpxFile.createdBy, createdByName: route.gpxFile.createdByName,
@@ -246,6 +249,9 @@ export class RouteFollowPayloadService {
       const parsed = await this.loadGpx(route.gpxFile);
       return {
         source: RouteFollowSource.OS_MAPS,
+        canEdit: route.canEdit,
+        visibility: route.visibility,
+        ownerMemberId: route.ownerMemberId,
         title: route.title || "OS Maps route",
         description: route.gpxFile.description || null,
         createdDate: route.gpxFile.createdDate, createdBy: route.gpxFile.createdBy, createdByName: route.gpxFile.createdByName,

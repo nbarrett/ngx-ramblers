@@ -15,6 +15,7 @@ export const WALKS_ADMIN_SEGMENT = "admin";
 export const WALKS_LEADER_SEGMENT = "my-walks";
 export const WALKS_ADD_WALK_SEGMENT = "add-walk";
 export const WALKS_HOW_TO_DOCUMENTATION_URL = "https://www.ngx-ramblers.org.uk/how-to/committee/walks";
+export const ROUTES_HOW_TO_IMPORT_URL = "https://www.ngx-ramblers.org.uk/how-to/committee/routes/import-from-os-maps";
 
 export function walksAreaOrDefault(area: string): string {
   return area?.trim() || DEFAULT_WALKS_AREA;
