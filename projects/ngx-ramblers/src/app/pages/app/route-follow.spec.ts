@@ -108,6 +108,7 @@ describe("route follow failed recording upload", () => {
     view["followService"] = {
       recordingSession: () => true,
       trackPoints: () => points,
+      flushRecording: async () => true,
       pause: () => view["progress"] = {...view["progress"], mode: RouteFollowMode.PAUSED}
     } as unknown as typeof view["followService"];
     view["routeSave"] = {save: vi.fn().mockRejectedValue(new Error("Network unavailable")), saveStandalone: vi.fn().mockRejectedValue(new Error("Network unavailable"))} as unknown as typeof view["routeSave"];

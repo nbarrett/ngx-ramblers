@@ -21,6 +21,7 @@ import {
 } from "../../common/maps/map-projection.constants";
 import { Proj4LeafletApi } from "../../models/proj4leaflet.model";
 import { installLeafletMapGestures } from "./map-gestures";
+import { nativeApiUrl } from "../../functions/native-walking";
 
 installLeafletMapGestures();
 
@@ -250,7 +251,7 @@ export class MapTilesService {
   }
 
   private osProxyUrl(layer: string): string {
-    return `/api/os-maps/tiles/${layer}/{z}/{x}/{y}.png`;
+    return nativeApiUrl(`/api/os-maps/tiles/${layer}/{z}/{x}/{y}.png`);
   }
 
   private osmUrl(): string {

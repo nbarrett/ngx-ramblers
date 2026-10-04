@@ -3,6 +3,7 @@ import { LoggerTestingModule } from "ngx-logger/testing";
 import { appAppearanceFromStored, AppAppearance, followCacheKey, followRouteCommands, followRouteNumberFromParam, isLiveFollowMode, RouteFollowLocationError, RouteFollowMode, RouteFollowReturnDirection, RouteWaypointKind } from "../../models/route-follow.model";
 import { GeoDistanceService } from "./geo-distance.service";
 import { RouteFollowService } from "./route-follow.service";
+import { NativeRouteError, NativeRoutePosition } from "../../models/native-route.model";
 
 describe("appAppearanceFromStored", () => {
   it("reads a stored appearance and falls back to match phone", () => {
@@ -111,6 +112,43 @@ describe("RouteFollowService", () => {
     expect(service.trackPoints()).toHaveLength(2);
     expect(service.trackPoints()[1].breakBefore).toBe(true);
     expect(service.totalMetres()).toBe(0);
+  });
+
+  it("uses native GPS and includes all background fixes without introducing a gap on return", () => {
+    const receive = {position: null as ((position: NativeRoutePosition) => void) | null};
+    const native = service["nativeRecorder"];
+    vi.spyOn(native, "nativePlatform").mockReturnValue(true);
+    vi.spyOn(native, "supported").mockReturnValue(true);
+    const start = vi.spyOn(native, "start").mockImplementation((sessionId, reset, after, callback) => receive.position = callback);
+    const resume = vi.spyOn(native, "resume").mockImplementation(() => null);
+    const stop = vi.spyOn(native, "stop").mockImplementation(() => null);
+    service.loadRoute([], [], "fictional-recording");
+    stop.mockClear();
+    service.startRecording(true);
+    [1000, 6000, 11000, 16000, 21000, 26000, 31000, 36000, 41000, 46000, 51000, 56000, 61000].forEach(timestamp => receive.position({
+      latitude: 51, longitude: timestamp / 35000000, timestamp, accuracy: 5, altitude: 12, heading: 90
+    }));
+    service.resumeWatchIfLive();
+    expect(start).toHaveBeenCalledWith("fictional-recording", true, 0, expect.any(Function), expect.any(Function));
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(resume).toHaveBeenCalledTimes(1);
+    expect(stop).not.toHaveBeenCalled();
+    expect(navigator.geolocation.watchPosition).not.toHaveBeenCalled();
+    expect(service.trackPoints()).toHaveLength(13);
+    expect(service.trackPoints().some(point => point.breakBefore)).toBe(false);
+    expect(service.totalMetres()).toBeGreaterThan(40);
+  });
+
+  it("keeps native tracking active during a temporary GPS error and stops after permission is removed", () => {
+    const native = service["nativeRecorder"];
+    vi.spyOn(native, "supported").mockReturnValue(true);
+    const stop = vi.spyOn(native, "stop").mockImplementation(() => null);
+    service["onNativeFailure"]({code: NativeRouteError.UNAVAILABLE, message: "Waiting for GPS"});
+    expect(stop).not.toHaveBeenCalled();
+    expect(service.progress().locationError).toBe(RouteFollowLocationError.UNAVAILABLE);
+    service["onNativeFailure"]({code: NativeRouteError.DENIED, message: "Location permission removed"});
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(service.progress().locationError).toBe(RouteFollowLocationError.DENIED);
   });
 
   it("does not append an impossible jump or a stale fix", () => {

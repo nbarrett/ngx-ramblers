@@ -24,6 +24,7 @@ import { FALLBACK_MEDIA } from "../models/walk.model";
 import { isMeetupUrl as isMeetupUrlFn } from "../functions/walks/ramblers-event.mapper";
 import { apexHostFromUrl, hostFromUrl, stagingHostForSiteHref } from "../functions/hosts";
 import { stripTrailingSlash } from "../functions/strings";
+import { nativeWalkingSite } from "../functions/native-walking";
 
 @Injectable({
   providedIn: "root"
@@ -184,7 +185,8 @@ export class UrlService {
 
   absoluteUrl(): string {
     this.logger.debug("absUrl: document.location.href", this.document.location.href);
-    return this.document.location.href;
+    const site = nativeWalkingSite();
+    return site ? site + this.document.location.pathname + this.document.location.search + this.document.location.hash : this.document.location.href;
   }
 
   baseUrl(): string {

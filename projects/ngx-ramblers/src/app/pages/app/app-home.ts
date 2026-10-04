@@ -67,6 +67,7 @@ import { MemberLoginService } from "../../services/member/member-login.service";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { LoginModalComponent } from "../login/login-modal/login-modal.component";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
+import { nativeApiUrl } from "../../functions/native-walking";
 import { AuthService } from "../../auth/auth.service";
 
 @Component({
@@ -451,7 +452,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected importingGpx = false;
   protected importError: string | null = null;
   protected gpxUploader = new FileUploader({
-    url: "/api/database/walks/gpx/import",
+    url: nativeApiUrl("/api/database/walks/gpx/import"),
     itemAlias: "file",
     disableMultipart: false,
     autoUpload: true,

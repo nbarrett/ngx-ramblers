@@ -30,12 +30,17 @@ import { GeoDistanceService } from "./geo-distance.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { returnDirectionFrom } from "./map-gestures";
 import { cumulativeDistances, projectOnSegment, snapToRoute } from "../../functions/route-geometry";
+import { NativeRouteRecorderService } from "./native-route-recorder.service";
+import { NativeRouteError, NativeRouteFailure, NativeRoutePosition } from "../../models/native-route.model";
+import { generateUid } from "../../functions/numbers";
 
 @Injectable({
   providedIn: "root"
 })
 export class RouteFollowService {
   private geoDistance = inject(GeoDistanceService);
+  private nativeRecorder = inject(NativeRouteRecorderService);
+  private sessionId: string | null = null;
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowService", NgxLoggerLevel.ERROR);
   private track: RouteFollowPoint[] = [];
   private cumulativeMetres: number[] = [];
@@ -55,8 +60,9 @@ export class RouteFollowService {
   private progressSubject = new BehaviorSubject<RouteFollowProgress>(this.state);
   readonly progress$ = this.progressSubject.asObservable();
 
-  loadRoute(points: RouteFollowPoint[], waypoints: RouteFollowWaypoint[]): void {
+  loadRoute(points: RouteFollowPoint[], waypoints: RouteFollowWaypoint[], sessionId: string | null = null): void {
     this.stopAll();
+    this.sessionId = sessionId;
     this.recordingGap = false;
     this.recordingCandidate = null;
     this.track = points || [];
@@ -151,13 +157,13 @@ export class RouteFollowService {
       this.track = [];
       this.cumulativeMetres = [];
     }
-    if (!navigator.geolocation) {
+    if (!this.locationSupported()) {
       this.logger.error("startRecording: geolocation is not available");
       this.applyLocationError(RouteFollowLocationError.UNSUPPORTED);
     } else {
       this.applyMode(RouteFollowMode.RECORDING);
       void this.startCompass();
-      this.startWatch();
+      this.startWatch(replace);
     }
   }
 
@@ -166,7 +172,7 @@ export class RouteFollowService {
     this.visitedWaypointIds = new Set(visitedWaypointIds || []);
     this.track = points || [];
     this.cumulativeMetres = this.buildCumulative(this.track);
-    if (!navigator.geolocation) {
+    if (!this.locationSupported()) {
       this.logger.error("restoreRecording: geolocation is not available");
       this.applyLocationError(RouteFollowLocationError.UNSUPPORTED);
     } else {
@@ -178,7 +184,9 @@ export class RouteFollowService {
 
   resumeWatchIfLive(): void {
     if (this.state.mode === RouteFollowMode.FOLLOWING || this.state.mode === RouteFollowMode.RECORDING) {
-      if (navigator.geolocation) {
+      if (this.nativeRecorder.supported()) {
+        this.nativeRecorder.resume();
+      } else if (this.locationSupported()) {
         this.startWatch();
       }
     }
@@ -188,13 +196,50 @@ export class RouteFollowService {
     return this.state.mode !== RouteFollowMode.IDLE;
   }
 
-  private startWatch(): void {
-    this.clearWatch();
-    this.watchId = navigator.geolocation.watchPosition(
-      position => this.onPosition(position),
-      error => this.onPositionError(error),
-      this.watchOptions
-    );
+  flushRecording(): Promise<boolean> {
+    return this.nativeRecorder.supported() ? this.nativeRecorder.flush() : Promise.resolve(true);
+  }
+
+  backgroundRecordingSupported(): boolean {
+    return this.nativeRecorder.supported();
+  }
+
+  private locationSupported(): boolean {
+    return this.nativeRecorder.nativePlatform() ? this.nativeRecorder.supported() : !!navigator.geolocation;
+  }
+
+  private startWatch(reset = false): void {
+    if (this.nativeRecorder.supported()) {
+      this.sessionId = this.sessionId || generateUid();
+      this.nativeRecorder.start(this.sessionId, reset, reset ? 0 : this.track.at(-1)?.recordedAt || 0,
+        position => this.onNativePosition(position),
+        failure => this.onNativeFailure(failure));
+    } else {
+      this.clearWatch();
+      this.watchId = navigator.geolocation.watchPosition(
+        position => this.onPosition(position),
+        error => this.onPositionError(error),
+        this.watchOptions
+      );
+    }
+  }
+
+  private onNativePosition(position: NativeRoutePosition): void {
+    this.onPosition({timestamp: position.timestamp, coords: {
+      latitude: position.latitude, longitude: position.longitude, accuracy: position.accuracy,
+      altitude: position.altitude, heading: position.heading, altitudeAccuracy: null, speed: null
+    }} as GeolocationPosition);
+  }
+
+  private onNativeFailure(failure: NativeRouteFailure): void {
+    this.logger.error("Native location recording:", failure.message);
+    if (failure.code === NativeRouteError.DENIED) {
+      this.applyLocationError(RouteFollowLocationError.DENIED);
+    } else {
+      this.recordingGap = this.recordingGap || this.state.mode === RouteFollowMode.RECORDING;
+      this.state = {...this.state, locationError: RouteFollowLocationError.UNAVAILABLE};
+      this.progressSubject.next(this.state);
+    }
   }
 
   simplifiedTrack(spacingMetres: number, maxPoints: number): RouteFollowPoint[] {
@@ -339,7 +384,7 @@ export class RouteFollowService {
   }
 
   private beginLocationWatch(): void {
-    if (!navigator.geolocation) {
+    if (!this.locationSupported()) {
       this.logger.error("startFollowing: geolocation is not available");
       this.applyLocationError(RouteFollowLocationError.UNSUPPORTED);
     } else {
@@ -810,6 +855,7 @@ export class RouteFollowService {
   }
 
   private clearWatch(): void {
+    this.nativeRecorder.stop();
     if (this.watchId !== null) {
       navigator.geolocation.clearWatch(this.watchId);
       this.watchId = null;

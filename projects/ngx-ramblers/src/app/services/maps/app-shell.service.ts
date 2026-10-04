@@ -1,4 +1,5 @@
 import { DOCUMENT } from "@angular/common";
+import { Capacitor } from "@capacitor/core";
 import { inject, Injectable } from "@angular/core";
 import { NavigationEnd, NavigationStart, Router } from "@angular/router";
 import { BehaviorSubject } from "rxjs";
@@ -63,7 +64,7 @@ export class AppShellService {
   }
 
   private registerFollowWorker(): void {
-    if (environment.production && this.document.defaultView && "serviceWorker" in navigator) {
+    if (environment.production && !Capacitor.isNativePlatform() && this.document.defaultView && "serviceWorker" in navigator) {
       void this.registerAndCacheFollowShell();
     }
   }
@@ -141,7 +142,7 @@ export class AppShellService {
     const view = this.document.defaultView;
     const standalone = view?.matchMedia?.("(display-mode: standalone)")?.matches;
     const iosStandalone = (view?.navigator as Navigator & {standalone?: boolean})?.standalone;
-    return !!(standalone || iosStandalone);
+    return Capacitor.isNativePlatform() || !!(standalone || iosStandalone);
   }
 
   canPromptInstall(): boolean {

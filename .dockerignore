@@ -6,6 +6,7 @@
 non-vcs/
 .git/
 .claude/
+mobile/
 node_modules/
 server/node_modules/
 cli-output/

@@ -1,4 +1,5 @@
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
+import { NativeApiInterceptor } from "../../auth/native-api.interceptor";
 import { ApplicationRef, DoBootstrap, ErrorHandler, inject, NgModule, provideAppInitializer } from "@angular/core";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
 import mermaid from "mermaid";
@@ -162,6 +163,7 @@ import { ViewAsService } from "../../services/member/view-as.service";
     ValueOrDefaultPipe,
     {provide: ErrorHandler, useClass: ChunkErrorHandler},
     {provide: RouteReuseStrategy, useClass: CustomReuseStrategy},
+    {provide: HTTP_INTERCEPTORS, useClass: NativeApiInterceptor, multi: true},
     {provide: HTTP_INTERCEPTORS, useClass: RequestDedupInterceptor, multi: true},
     {provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true},
     {provide: GALLERY_CONFIG, useValue: {imageSize: ImageFit.COVER} as GalleryConfig},

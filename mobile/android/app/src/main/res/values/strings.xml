@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Ramblers</string>
+    <string name="title_activity_main">Ramblers</string>
+    <string name="package_name">org.ngxramblers.walking</string>
+    <string name="custom_url_scheme">org.ngxramblers.walking</string>
+</resources>
