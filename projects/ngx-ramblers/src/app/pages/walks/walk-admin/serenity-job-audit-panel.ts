@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, inject, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from "@angular/core";
+import { ChangeDetectorRef, Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { isArray } from "es-toolkit/compat";
@@ -9,6 +9,7 @@ import { isRamblersAuditNoise } from "../../../models/ramblers-audit-noise";
 import { AuditType, FileUploadSummary, RamblersUploadAudit, Status } from "../../../models/ramblers-upload-audit.model";
 import { SerenityFeature } from "../../../models/serenity-feature.model";
 import { isUploadFinishedMessage } from "../../../models/integration-worker.model";
+import { OsMapsExportJobResult, OsMapsExportJobStatus, OsMapsExportProgress, osMapsExportProgressFromMessage } from "../../../models/os-maps-export.model";
 import { SortDirection } from "../../../models/sort.model";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -44,43 +45,60 @@ const SESSION_HISTORY_MONTHS = 6;
                                        (selectedChange)="onSessionChange($event)"/>
         </div>
       }
-      @if (starting) {
-        <p class="mb-2"><app-status-icon noLabel [status]="Status.ACTIVE"/><span class="ms-2">Starting the job…</span></p>
+      <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+        <strong aria-live="polite">{{ summaryMessage() }}</strong>
+        <button type="button" class="btn btn-quiet text-nowrap" [attr.aria-expanded]="showDetails" (click)="toggleDetails()">
+          {{ showDetails ? "Show summary" : "Show details" }}
+        </button>
+      </div>
+      @if (summaryProgress(); as progress) {
+        <div class="progress mb-3" style="height: 24px;">
+          <div class="progress-bar bg-success" role="progressbar" [style.width.%]="progressPercent()"
+               [attr.aria-valuenow]="progressPercent()" aria-valuemin="0" aria-valuemax="100"
+               [attr.aria-label]="summaryMessage()">
+            {{ progressPercent() }}%
+          </div>
+        </div>
+        @if (progress.failed > 0) {
+          <p class="text-danger">{{ progress.failed }} {{ progress.failed === 1 ? "route" : "routes" }} could not be converted. Show details to see why.</p>
+        }
       }
-      @if (latestAudit) {
+      @if (showDetails && latestAudit) {
         <p class="mb-2">
           <app-status-icon noLabel [status]="latestAudit.status"/>
           <strong class="ms-2">{{ latestAudit.message }}</strong>
         </p>
       }
-      @if (reportAudit) {
+      @if (showDetails && reportAudit) {
         <div class="mb-2">
           <app-serenity-report-button [audit]="reportAudit"/>
         </div>
       }
-      <app-sortable-table
-        [columns]="columns"
-        [rows]="audits"
-        [defaultSortKey]="sortKey"
-        [defaultSortDirection]="sortDirection"
-        [trackBy]="trackAudit"
-        (sortChange)="onSortChange($event)"
-        emptyMessage="Waiting for the job to start…">
-        <ng-template appSortableTableCell="status" let-row>
-          <app-status-icon noLabel [status]="displayStatus(row)"/>
-        </ng-template>
-        <ng-template appSortableTableCell="auditTime" let-row>
-          {{ row.auditTime | displayTimeWithSeconds }}
-        </ng-template>
-        <ng-template appSortableTableCell="durationMs" let-row>
-          {{ timing(row) }}
-        </ng-template>
-        <ng-template appSortableTableCell="message" let-row>
-          {{ row.message }}@if (row.errorResponse) {
-            <div>: {{ row.errorResponse | valueOrDefault }}</div>
-          }
-        </ng-template>
-      </app-sortable-table>
+      @if (showDetails) {
+        <app-sortable-table
+          [columns]="columns"
+          [rows]="audits"
+          [defaultSortKey]="sortKey"
+          [defaultSortDirection]="sortDirection"
+          [trackBy]="trackAudit"
+          (sortChange)="onSortChange($event)"
+          emptyMessage="Waiting for the job to start…">
+          <ng-template appSortableTableCell="status" let-row>
+            <app-status-icon noLabel [status]="displayStatus(row)"/>
+          </ng-template>
+          <ng-template appSortableTableCell="auditTime" let-row>
+            {{ row.auditTime | displayTimeWithSeconds }}
+          </ng-template>
+          <ng-template appSortableTableCell="durationMs" let-row>
+            {{ timing(row) }}
+          </ng-template>
+          <ng-template appSortableTableCell="message" let-row>
+            {{ row.message }}@if (row.errorResponse) {
+              <div>: {{ row.errorResponse | valueOrDefault }}</div>
+            }
+          </ng-template>
+        </app-sortable-table>
+      }
     </div>
   `
 })
@@ -109,6 +127,11 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   @Input() feature: SerenityFeature | null = null;
   @Input() starting = false;
   @Input() jobRunning = false;
+  @Input() exportResult: OsMapsExportJobResult | null = null;
+  @Output() finished = new EventEmitter<string>();
+  showDetails = false;
+  private exportProgress: OsMapsExportProgress | null = null;
+  private finishedFileName: string | null = null;
   protected readonly Status = Status;
   sessions: FileUploadSummary[] = [];
   selectedSession: FileUploadSummary | null = null;
@@ -122,11 +145,13 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
     this.subscriptions.push(this.webSocketClientService.receiveMessages<RamblersUploadAuditProgressResponse>(MessageType.COMPLETE).subscribe(progress => {
       this.appendAudits(progress?.audits || []);
       void this.refreshFromApi();
-      this.stopRefreshLoop();
+      this.stopRefreshLoopWhenFinished();
     }));
     this.startRefreshLoop();
     this.subscriptions.push(this.activatedRoute.queryParamMap.subscribe(params => {
       this.applySortFromUrl(params.get(StoredValue.AUDIT_SORT), params.get(StoredValue.AUDIT_SORT_ORDER));
+      this.showDetails = params.get(StoredValue.EXPANDED) === "true";
+      this.changeDetector.markForCheck();
     }));
     void this.refreshFromApi();
     void this.loadSessions();
@@ -168,6 +193,43 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
     this.audits = [];
     this.latestAudit = null;
     this.reportAudit = null;
+    this.exportProgress = null;
+    this.finishedFileName = null;
+  }
+
+  toggleDetails(): void {
+    this.showDetails = !this.showDetails;
+    this.uiActions.updateQueryParameters({[StoredValue.EXPANDED]: this.showDetails ? "true" : null});
+    this.changeDetector.markForCheck();
+  }
+
+  summaryProgress(): OsMapsExportProgress | null {
+    const result = this.exportResult?.fileName === this.activeFileName() ? this.exportResult : null;
+    if (result && result.status !== OsMapsExportJobStatus.QUEUED) {
+      const converted = result.gpxFiles.length;
+      const total = result.routeUrls?.length || this.exportProgress?.total || converted;
+      return {converted, total, failed: Math.max(0, total - converted)};
+    } else {
+      return this.exportProgress || (result?.routeUrls?.length ? {converted: 0, failed: 0, total: result.routeUrls.length} : null);
+    }
+  }
+
+  progressPercent(): number {
+    const progress = this.summaryProgress();
+    return progress?.total ? Math.round(progress.converted * 100 / progress.total) : 0;
+  }
+
+  summaryMessage(): string {
+    const progress = this.summaryProgress();
+    if (progress) {
+      return `${progress.converted} of ${progress.total} routes converted`;
+    } else if (this.starting) {
+      return "Starting the job…";
+    } else if (this.jobFinished()) {
+      return this.selectedSession?.status === Status.ERROR ? "The job could not finish. Show details to see why." : "Job finished";
+    } else {
+      return this.feature === SerenityFeature.OS_MAPS_LIST ? "Loading routes from OS Maps…" : "Waiting for conversion progress…";
+    }
   }
 
   private activeFileName(): string {
@@ -316,9 +378,10 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
   }
 
   private appendAudits(incoming: RamblersUploadAudit[]): void {
-    const matching = this.fileName
-      ? incoming.filter(audit => !audit.fileName || audit.fileName === this.fileName)
-      : incoming;
+    const fileName = this.activeFileName();
+    const matching = fileName
+      ? incoming.filter(audit => audit.fileName === fileName)
+      : incoming.filter(audit => this.feature && audit.feature === this.feature);
     if (matching.length > 0) {
       this.applyAudits(this.audits.concat(matching));
     }
@@ -355,6 +418,14 @@ export class SerenityJobAuditPanelComponent implements OnInit, OnChanges, OnDest
     this.audits = this.withDurations(this.audits);
     this.latestAudit = this.audits[0] || null;
     this.reportAudit = this.audits.find(audit => !!audit.reportKeyPrefix) || this.reportAudit;
+    const progress = this.audits.map(audit => osMapsExportProgressFromMessage(audit.message)).find(item => !!item);
+    if (progress) {
+      this.exportProgress = progress;
+    }
+    if (this.jobFinished() && this.activeFileName() && this.finishedFileName !== this.activeFileName()) {
+      this.finishedFileName = this.activeFileName();
+      this.finished.emit(this.finishedFileName);
+    }
     this.changeDetector.detectChanges();
   }
 }

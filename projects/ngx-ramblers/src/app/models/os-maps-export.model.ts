@@ -93,6 +93,22 @@ export interface OsMapsExportJobResult {
   completedAt?: number | null;
 }
 
+export interface OsMapsExportProgress {
+  converted: number;
+  failed: number;
+  total: number;
+}
+
+export function osMapsExportProgressMessage(progress: OsMapsExportProgress): string {
+  return `OS Maps conversion: ${progress.converted} of ${progress.total} routes converted; ${progress.failed} failed`;
+}
+
+export function osMapsExportProgressFromMessage(message: string): OsMapsExportProgress | null {
+  const match = /OS Maps conversion: (\d+) of (\d+) routes converted; (\d+) failed/.exec(message || "");
+  const progress = match ? {converted: Number(match[1]), total: Number(match[2]), failed: Number(match[3])} : null;
+  return progress && progress.converted + progress.failed <= progress.total ? progress : null;
+}
+
 export const OS_MAPS_EXPORT_BUTTON_SELECTOR = "#export_gpx_button_id";
 export const OS_MAPS_CONFIRM_EXPORT_SELECTOR = "button.export-button";
 export const OS_MAPS_INTERRUPTION_SELECTOR = "button[aria-label='Close popup']";

@@ -90,6 +90,13 @@ describe("OS Maps export job reconnection", () => {
     await vi.advanceTimersByTimeAsync(OS_MAPS_EXPORT_POLL_INTERVAL_MS);
     expect(state.page.busy()).toBe(true);
     expect(state.page.converting).toBe(true);
+    expect(state.page.jobStatusUnavailable).toBe(true);
+    expect(state.page.errorMessage).toContain("Retrying automatically");
+    service.latestExportResult.mockResolvedValue({...queued, status: OsMapsExportJobStatus.COMPLETED});
+    await vi.advanceTimersByTimeAsync(OS_MAPS_EXPORT_POLL_INTERVAL_MS);
+    expect(state.page.busy()).toBe(false);
+    expect(state.page.jobStatusUnavailable).toBe(false);
+    expect(state.page.errorMessage).toBe("");
   });
 
   it("shows reload progress and keeps export polling from replacing it", async () => {

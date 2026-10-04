@@ -21,12 +21,12 @@ export class StartOsMapsGpxDownload extends Task {
   }
 
   async performAs(actor: PerformsActivities): Promise<void> {
-    await actor.attemptsTo(ArmOsMapsGpxDownloadListener.now());
     await this.clickUntilDownloadStarts(actor, 1, EXPORT_CLICK_ATTEMPTS);
   }
 
   private async clickUntilDownloadStarts(actor: PerformsActivities, attemptNumber: number, attemptsRemaining: number): Promise<void> {
     await actor.attemptsTo(
+      ArmOsMapsGpxDownloadListener.now(),
       ClickOsMapsExportButton.attempt(attemptNumber),
       WaitForOsMapsExportOutcome.attempt(attemptNumber)
     );
@@ -37,6 +37,8 @@ export class StartOsMapsGpxDownload extends Task {
     } else if (OUTCOMES_WORTH_ANOTHER_CLICK.includes(outcome) && attemptsRemaining > 1) {
       await actor.attemptsTo(DismissOsMapsOverlays.now());
       await this.clickUntilDownloadStarts(actor, attemptNumber + 1, attemptsRemaining - 1);
+    } else if (outcome !== OsMapsExportClickOutcome.DOWNLOAD_STARTED) {
+      throw new Error(`OS Maps did not offer a GPX download or export confirmation after ${EXPORT_CLICK_ATTEMPTS} attempts to click Export GPX`);
     }
   }
 

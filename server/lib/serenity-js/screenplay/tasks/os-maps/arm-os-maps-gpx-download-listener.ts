@@ -2,8 +2,13 @@ import { Interaction, UsesAbilities } from "@serenity-js/core/lib/screenplay";
 import { BrowseTheWeb } from "@serenity-js/web";
 import type { PlaywrightPage } from "@serenity-js/playwright";
 import type { Download, Page as NativePage } from "playwright-core";
+import debug from "debug";
+import { envConfig } from "../../../../env-config/env-config";
 import { OS_MAPS_DOWNLOAD_TIMEOUT } from "../../../config/serenity-timeouts";
 import { rememberPendingOsMapsDownload } from "./os-maps-download-store";
+
+const debugLog = debug(envConfig.logNamespace("arm-os-maps-gpx-download-listener"));
+debugLog.enabled = true;
 
 export class ArmOsMapsGpxDownloadListener extends Interaction {
 
@@ -19,7 +24,7 @@ export class ArmOsMapsGpxDownloadListener extends Interaction {
     const currentPage = await BrowseTheWeb.as(actor).currentPage() as unknown as PlaywrightPage;
     const native: NativePage = await currentPage.nativePage();
     const downloadPromise = native.waitForEvent("download", {timeout: OS_MAPS_DOWNLOAD_TIMEOUT.inMilliseconds()}) as Promise<Download>;
-    downloadPromise.catch(() => null);
+    void downloadPromise.catch(error => debugLog("GPX download listener ended:", error.message));
     rememberPendingOsMapsDownload(downloadPromise);
   }
 
