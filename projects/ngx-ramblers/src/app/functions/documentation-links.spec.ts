@@ -1,5 +1,6 @@
+import { ENVIRONMENT_SUBDOMAIN_BASE } from "../models/environment-setup.model";
 import { firstLinkHref } from "./strings";
-import { documentationFeaturePath, documentationFeatureUrl, documentationLinkPath, documentationLinkTitle, documentationLinkUrl, documentationSiteOrigin } from "./documentation-links";
+import { documentationFeaturePath, documentationFeatureUrl, documentationLinkPath, documentationLinkTitle, documentationLinkUrl, documentationSiteOrigin, documentationWebsitePickerEnabled } from "./documentation-links";
 
 describe("documentation links", () => {
   it("preserves queries and fragments on the chosen website", () => {
@@ -33,6 +34,22 @@ describe("documentation feature paths", () => {
       .toBe("https://group.example.org.uk/walks/my-walks");
     expect(documentationLinkTitle("Hillside Walkers"))
       .toBe("Opens on Hillside Walkers. Click the gear above to change this.");
+  });
+});
+
+describe("documentation website picker host", () => {
+  it("is available on the documentation website and on localhost when platform admin is on", () => {
+    expect(documentationWebsitePickerEnabled(ENVIRONMENT_SUBDOMAIN_BASE, false)).toBe(true);
+    expect(documentationWebsitePickerEnabled(`www.${ENVIRONMENT_SUBDOMAIN_BASE}`, false)).toBe(true);
+    expect(documentationWebsitePickerEnabled("localhost", true)).toBe(true);
+    expect(documentationWebsitePickerEnabled("127.0.0.1", true)).toBe(true);
+  });
+
+  it("is hidden on group websites and on localhost when platform admin is off", () => {
+    expect(documentationWebsitePickerEnabled("group.example.org.uk", true)).toBe(false);
+    expect(documentationWebsitePickerEnabled(`hillside.${ENVIRONMENT_SUBDOMAIN_BASE}`, true)).toBe(false);
+    expect(documentationWebsitePickerEnabled("localhost", false)).toBe(false);
+    expect(documentationWebsitePickerEnabled("127.0.0.1", false)).toBe(false);
   });
 });
 

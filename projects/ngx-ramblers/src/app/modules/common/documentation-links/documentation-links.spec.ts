@@ -10,6 +10,7 @@ import { DocumentationLinksComponent } from "./documentation-links";
 import { DocumentationLinksService } from "../../../services/documentation-links.service";
 import { documentationFeaturePath, documentationFeatureUrl } from "../../../functions/documentation-links";
 import { LoggerFactory } from "../../../services/logger-factory.service";
+import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { HumanisePipe } from "../../../pipes/humanise.pipe";
 import { DocumentationSite } from "../../../models/documentation-links.model";
 
@@ -27,8 +28,9 @@ const sites: DocumentationSite[] = [
   {name: "park", label: "Park Walkers", url: "https://park.example.org.uk"}
 ];
 
-function setup(selected: string | null = null, sharedSite: string | null = null) {
+function setup(selected: string | null = null, sharedSite: string | null = null, platformAdminEnabled = true) {
   const selection = new BehaviorSubject<string | null>(selected);
+  const platformAdmin = new BehaviorSubject(platformAdminEnabled);
   const links = {
     selection,
     sites: vi.fn().mockResolvedValue(sites),
@@ -41,6 +43,7 @@ function setup(selected: string | null = null, sharedSite: string | null = null)
     providers: [provideRouter([]), HumanisePipe,
       {provide: ActivatedRoute, useValue: {queryParamMap: new BehaviorSubject(convertToParamMap(sharedSite ? {[StoredValue.DOCUMENTATION_SITE]: sharedSite} : {}))}},
       {provide: DocumentationLinksService, useValue: links},
+      {provide: MemberResourcesReferenceDataService, useValue: {platformAdminOn: () => platformAdmin.value, platformAdminEnabledChanges: () => platformAdmin}},
       {provide: LoggerFactory, useValue: {createLogger: () => ({error: vi.fn()})}}]
   });
   const fixture = TestBed.createComponent(DocumentationHost);
@@ -49,6 +52,20 @@ function setup(selected: string | null = null, sharedSite: string | null = null)
 }
 
 describe("documentation website links", () => {
+  it("hides the website picker when this is not the documentation website", async () => {
+    const {fixture, links} = setup(null, null, false);
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelectorAll("div[markdown] a")).toHaveLength(3);
+    });
+    const component = fixture.debugElement.children[0].componentInstance as DocumentationLinksComponent;
+    expect(component.pickerEnabled).toBe(false);
+    expect(fixture.nativeElement.querySelector("button")).toBeNull();
+    expect(links.sites).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector("a").getAttribute("href")).toBe("/admin/inbox");
+    fixture.destroy();
+  });
+
   it("leaves documentation navigation unchanged until a website is chosen", async () => {
     const {fixture} = setup();
     const component = fixture.debugElement.children[0].componentInstance as DocumentationLinksComponent;
