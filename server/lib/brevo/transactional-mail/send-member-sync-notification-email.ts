@@ -3,7 +3,8 @@ import { envConfig } from "../../env-config/env-config";
 import * as config from "../../mongo/controllers/config";
 import * as transforms from "../../mongo/controllers/transforms";
 import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
-import { EmailAddress, EmailTemplateName, NotificationConfig, SendPurpose, SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { EmailTemplateName, NotificationConfig, SendPurpose, SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import {emailAddressForRole} from "./send-member-bulk-load-digest-email";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 
@@ -51,11 +52,6 @@ function bannerImageSource(banners: BannerConfig[], bannerId: string, groupHref:
     return `${groupHref}/api/aws/s3/${selectedBanner.fileNameData.rootFolder}/${selectedBanner.fileNameData.awsFileName}`;
   }
   return "";
-}
-
-function emailAddressForRole(roles: CommitteeMember[], role: string): EmailAddress | null {
-  const committeeMember = roles.find(member => member?.type === role) || roles.find(member => !!member?.email);
-  return committeeMember?.email ? {name: committeeMember.fullName, email: committeeMember.email} : null;
 }
 
 function buildSubject(notifConfig: NotificationConfig, params: any): string {

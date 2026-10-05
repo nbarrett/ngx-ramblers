@@ -23,6 +23,7 @@ import { contactUsParentSegment } from "../contacts/unsubscribe-token";
 import { fetchBrevoAccount } from "../account/account";
 import { publicCampaignAttachmentUrl } from "./campaign-attachment";
 import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
+import {separateReplyToAddress} from "../../../../projects/ngx-ramblers/src/app/functions/email-addresses";
 
 const messageType = "brevo:send-email-campaign";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -111,7 +112,10 @@ export async function createCampaign(req: Request, res: Response): Promise<void>
     createEmailCampaign.mirrorActive = createCampaignRequest.mirrorActive;
     createEmailCampaign.params = createCampaignRequest.params as unknown as Record<string, unknown>;
     createEmailCampaign.recipients = createCampaignRequest.recipients;
-    createEmailCampaign.replyTo = createCampaignRequest.replyTo;
+    const replyTo = separateReplyToAddress({email: createCampaignRequest.replyTo, name: ""}, createCampaignRequest.sender);
+    if (replyTo) {
+      createEmailCampaign.replyTo = replyTo.email;
+    }
     createEmailCampaign.subject = createCampaignRequest.subject;
     const tagsSupported = await campaignTagsSupported(brevoConfig.apiKey).catch(() => true);
     if (!tagsSupported && createCampaignRequest.tag) {

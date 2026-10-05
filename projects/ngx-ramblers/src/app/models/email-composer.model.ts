@@ -504,6 +504,13 @@ export interface RecipientFieldConfig {
   hint: string;
 }
 
+export interface ResolvedSenderAddresses {
+  sender: EmailAddress;
+  replyTo: EmailAddress | null;
+  bcc: EmailAddress[];
+  senderRoleType: string | null;
+}
+
 export interface BatchTransactionalSendRequest {
   notificationConfigId?: string;
   bannerId: string | null;

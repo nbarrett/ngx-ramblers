@@ -2653,7 +2653,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   protected composerRoleDefaultsHelp(): string {
     if (this.session.state.notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.CURRENT_USER) {
-      return "Reply-To starts blank so replies go to the From address unless you set one. Click Select All As Me to apply your committee roles to sign-off.";
+      return "Sender and sign-off start from your committee role. Reply-To starts blank so replies go to the From address unless you set one.";
     } else if (this.session.state.notificationConfig?.composerRoleDefaults === ComposerRoleDefaults.SELECT_AT_SEND) {
       return "Choose the sender from any mapped committee member, then choose Reply-To and sign-off roles for this email.";
     } else {
@@ -4325,9 +4325,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         listIds: [this.session.state.selectedListId!],
         ...(exclusionListId !== null ? {exclusionListIds: [exclusionListId]} : {})
       },
-      replyTo: this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.replyToRole, "email")
-        || this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.senderRole, "email")
-        || "",
+      replyTo: this.session.state.notificationConfig!.replyToRole?.trim()
+        ? this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.replyToRole, "email") || ""
+        : "",
       sender: {
         email: this.sender.resolvedBrandedSenderIdentity()?.email
           || this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.senderRole, "email")

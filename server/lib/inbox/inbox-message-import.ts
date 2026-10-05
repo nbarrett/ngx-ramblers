@@ -24,7 +24,7 @@ import { pluraliseWithCount } from "../shared/string-utils";
 import { sendInboxPushToMember } from "./inbox-web-push";
 import { aliasMailboxAddresses, deliveredToFromMessage, inboxThreadSlug } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 import { applyInboundMeetingCalendarReply } from "../video-meetings/apply-meeting-calendar-reply";
-import { derivedAliasForEmail, derivedAliases } from "./inbox-aliases";
+import { derivedAliasForEmail, derivedAliases, messageRecipientEmails } from "./inbox-aliases";
 import { configuredRoleTypeSet } from "./inbox-orphaned-threads";
 import { isRecordedDeletedInbound } from "./inbox-deleted";
 import * as config from "../mongo/controllers/config";
@@ -133,11 +133,15 @@ function addressIsInternal(address: InboxAddress | null | undefined, internalEma
   return Boolean(email) && internalEmails.has(email);
 }
 
+export function isDeliveredToRole(message: InboxMessage, aliasConfig: InboxAliasConfig): boolean {
+  const roleAddresses = aliasMailboxAddresses(aliasConfig).map(normaliseEmail);
+  return messageRecipientEmails(message).some(email => roleAddresses.includes(email));
+}
+
 export function isOwnSentCopy(message: InboxMessage, internalEmails?: Set<string>, aliasConfig?: InboxAliasConfig): boolean {
   const emails = internalEmails ?? new Set<string>();
   const recipients = [...(message.to ?? []), ...(message.cc ?? [])];
-  const roleAddresses = aliasConfig ? aliasMailboxAddresses(aliasConfig).map(normaliseEmail) : [];
-  const deliveredToRole = (message.deliveryRecipients ?? []).some(address => roleAddresses.includes(normaliseEmail(address.email)));
+  const deliveredToRole = aliasConfig ? isDeliveredToRole(message, aliasConfig) : false;
   return emails.size > 0
     && !deliveredToRole
     && !isAutoReplyMessage(message)
@@ -291,14 +295,14 @@ export function resolveThreadExternalAddress(message: InboxMessage, counterparty
   return preferred?.email ? {name: preferred.name ?? null, email: preferred.email} : {name: null, email: "unknown@local"};
 }
 
-export function shouldRefreshUnreadForInbound(isJunk: boolean, messageAt: number, previousLastSeenAt: number | null | undefined): boolean {
+export function shouldRefreshUnreadForInbound(isJunk: boolean, messageAt: number, previousLastSeenAt: number | null | undefined, previousLastDirection: InboxMessageDirection | null = null): boolean {
   if (isJunk) {
     return false;
   }
   if (previousLastSeenAt == null) {
     return true;
   }
-  return messageAt > previousLastSeenAt;
+  return messageAt > previousLastSeenAt || (messageAt === previousLastSeenAt && previousLastDirection === InboxMessageDirection.OUTBOUND);
 }
 
 export function unreadAfterReclassify(folder: InboxThreadFolder | undefined, lastDirection: InboxMessageDirection, readByMemberIds: string[] | undefined): boolean {
@@ -325,7 +329,7 @@ export async function storeInboundMessage(aliasConfig: InboxAliasConfig, message
   const outboundThread = alreadyOutbound?.threadId
     ? await inboxThreadModel.findById(alreadyOutbound.threadId).lean() as InboxThread | null
     : null;
-  const sameRoleAsSent = !!outboundThread && outboundThread.roleType === aliasConfig.roleType;
+  const sameRoleAsSent = !!outboundThread && outboundThread.roleType === aliasConfig.roleType && !isDeliveredToRole(message, aliasConfig);
   const outbound = !alreadyOutbound && !skipped && folder !== InboxThreadFolder.JUNK && folder !== InboxThreadFolder.DELETED && isOwnSentCopy(message, internalEmails, aliasConfig)
     ? outboundCopyFromInbound(message, internalEmails)
     : null;
@@ -377,7 +381,7 @@ async function storeReceivedInboundMessage(aliasConfig: InboxAliasConfig, messag
     }
   }
   await backfillStatedReplyAddress(message, internalEmails);
-  const alreadyStored = await inboxMessageModel.findOne({threadId, messageId: message.messageId}).lean();
+  const alreadyStored = await inboxMessageModel.findOne({threadId, messageId: message.messageId, direction: InboxMessageDirection.INBOUND}).lean();
   const outcome: {message: InboxMessage | null} = {message: null};
   if (alreadyStored) {
     await inboxThreadModel.updateOne({_id: thread.id ?? thread["_id"]}, {
@@ -390,7 +394,7 @@ async function storeReceivedInboundMessage(aliasConfig: InboxAliasConfig, messag
       : await recordMeetingRsvpFrom(alreadyStored as unknown as InboxMessage);
   } else {
     const previousLastSeenAt = existingThread?.lastSeenAt ?? null;
-    const refreshUnread = shouldRefreshUnreadForInbound(isJunk, messageAt, previousLastSeenAt);
+    const refreshUnread = shouldRefreshUnreadForInbound(isJunk, messageAt, previousLastSeenAt, existingThread?.lastDirection ?? null);
     const persistedMessage = await inboxMessageModel.create({...message, threadId, mailboxConnectionId: aliasConfig.mailboxConnectionId});
     const threadSet: Record<string, unknown> = {};
     if (refreshUnread) {
@@ -517,22 +521,11 @@ export async function recordOutboundReply(aliasConfig: InboxAliasConfig, replyMe
 async function persistOutboundOnThread(aliasConfig: InboxAliasConfig, replyMessage: InboxMessage, originalThreadId: string): Promise<InboxMessage> {
   const existing = await inboxMessageModel.findOne({
     threadId: originalThreadId,
-    messageId: replyMessage.messageId
+    messageId: replyMessage.messageId,
+    direction: InboxMessageDirection.OUTBOUND
   }).lean() as unknown as (InboxMessage & {_id: unknown}) | null;
-  if (existing && existing.direction === InboxMessageDirection.OUTBOUND) {
+  if (existing) {
     return existing;
-  } else if (existing) {
-    const sentAt = replyMessage.sentAt ?? existing.sentAt ?? existing.receivedAt;
-    await inboxMessageModel.updateOne({_id: existing._id}, {
-      $set: {
-        direction: InboxMessageDirection.OUTBOUND,
-        to: replyMessage.to,
-        cc: replyMessage.cc,
-        sentAt,
-        receivedAt: null
-      }
-    });
-    return {...existing, direction: InboxMessageDirection.OUTBOUND, to: replyMessage.to, cc: replyMessage.cc, sentAt, receivedAt: null};
   } else {
     const created = await inboxMessageModel.create({
       ...replyMessage,

@@ -16,7 +16,6 @@ async function sendExternalGuestInviteEmail(sender: EmailAddress, toEmail: strin
     const email: Brevo.SendTransacEmailRequest = {
       subject,
       sender: {email: sender.email, name: sender.name || system?.group?.longName || "Ramblers"},
-      replyTo: {email: sender.email, name: sender.name || system?.group?.longName || "Ramblers"},
       to: [{email: toEmail, name: toName || toEmail}],
       htmlContent: html
     };

@@ -1,4 +1,11 @@
 import { ParsedMailbox, RecipientDraftOutcome, RecipientDraftOutcomeKind } from "../models/email-composer.model";
+import type {EmailAddress} from "../models/mail.model";
+
+export function separateReplyToAddress(replyTo: EmailAddress | null, sender: EmailAddress | null): EmailAddress | null {
+  const email = replyTo?.email?.trim() || "";
+  const senderEmail = sender?.email?.trim().toLowerCase() || "";
+  return email && email.toLowerCase() !== senderEmail ? {...replyTo, email} : null;
+}
 
 const MAILBOX_IN_BRACKETS = /^(.*?)<\s*([^>\s]+@[^>\s]+)\s*>\s*$/;
 const INLINE_EMAIL = /([^\s<>"',;]+@[^\s<>"',;]+)/;

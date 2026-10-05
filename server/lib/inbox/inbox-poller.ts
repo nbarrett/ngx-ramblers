@@ -30,7 +30,7 @@ import {
   removeSpamLabel
 } from "./gmail-inbox-reader";
 import { compositionSenderEmail } from "./inbox-composition-sender";
-import { backfillStatedReplyAddress, recordOutboundMessage, storeInboundMessage } from "./inbox-message-import";
+import { backfillStatedReplyAddress, isDeliveredToRole, recordOutboundMessage, storeInboundMessage } from "./inbox-message-import";
 import { sendInboxAlertToAllSubscribers } from "./inbox-web-push";
 import { AdminPath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import { dateTimeNow } from "../shared/dates";
@@ -343,7 +343,7 @@ async function pollViaHistoryDelta(connection: InboxMailboxConnection, aliases: 
   }
 }
 
-async function processGmailMessageIds(connection: InboxMailboxConnection, aliases: InboxAliasConfig[], gmailMessageIds: string[]): Promise<string[]> {
+export async function processGmailMessageIds(connection: InboxMailboxConnection, aliases: InboxAliasConfig[], gmailMessageIds: string[]): Promise<string[]> {
   const realAliases = aliases.filter(alias => !isInboxGeneralRoleType(alias.roleType));
   const generalAlias = aliases.find(alias => isInboxGeneralRoleType(alias.roleType)) ?? null;
   const identityEmailsByType = await roleIdentityEmailsByType();
@@ -365,7 +365,10 @@ async function processGmailMessageIds(connection: InboxMailboxConnection, aliase
         roleType: alias.roleType,
         messageIds: parsed.messageId
       }).lean();
-      if (existingThread) {
+      const existingInbound = existingThread
+        ? await inboxMessageModel.exists({threadId: existingThread._id.toString(), messageId: parsed.messageId, direction: InboxMessageDirection.INBOUND})
+        : null;
+      if (existingThread && (existingInbound || !isDeliveredToRole(parsed, alias))) {
         await backfillStatedReplyAddress(parsed, internalEmails);
         return existingStored;
       } else {

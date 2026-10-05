@@ -25,7 +25,8 @@ import {
   BatchSendStartResponse,
   BatchTransactionalSendRequest,
   AddresseeType,
-  ComposerExternalRecipient
+  ComposerExternalRecipient,
+  ResolvedSenderAddresses
 } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
 import { BrandingMode, PostSendActionsResult, SendPurpose, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { recordMemberEmailSends } from "../../mongo/controllers/member-email-send";
@@ -314,13 +315,6 @@ function externalRecipientName(recipient: ComposerExternalRecipient): { full: st
   return { full: trimmed, first, last };
 }
 
-interface ResolvedSenderAddresses {
-  sender: EmailAddress;
-  replyTo: EmailAddress | null;
-  bcc: EmailAddress[];
-  senderRoleType: string | null;
-}
-
 function resolveUnbrandedRole(request: BatchTransactionalSendRequest, committeeRoles: CommitteeMember[], currentMemberId: string | null): CommitteeMember | undefined {
   if (!currentMemberId) return undefined;
   const memberRoles = committeeRoles.filter(role => roleRecipientMemberIds(role).includes(currentMemberId));
@@ -336,7 +330,7 @@ function resolveUnbrandedSenderEmail(request: BatchTransactionalSendRequest, rol
   return matched ?? role.email;
 }
 
-function resolveSenderAddresses(request: BatchTransactionalSendRequest, committeeRoles: CommitteeMember[], notifConfig: NotificationConfig | null, currentMemberId: string | null): ResolvedSenderAddresses | { error: string } {
+export function resolveSenderAddresses(request: BatchTransactionalSendRequest, committeeRoles: CommitteeMember[], notifConfig: NotificationConfig | null, currentMemberId: string | null): ResolvedSenderAddresses | { error: string } {
   if (request.brandingMode === BrandingMode.UNBRANDED) {
     const role = resolveUnbrandedRole(request, committeeRoles, currentMemberId);
     if (!role?.email) {
@@ -347,7 +341,7 @@ function resolveSenderAddresses(request: BatchTransactionalSendRequest, committe
     }
   } else {
     const senderRole = request.senderRoleOverride || notifConfig!.senderRole;
-    const replyToRole = request.replyToRoleOverride || notifConfig!.replyToRole || null;
+    const replyToRole = (request.replyToRoleOverride ?? notifConfig!.replyToRole)?.trim() || null;
     const bccRoles = isArray(request.bccRolesOverride)
       ? request.bccRolesOverride
       : (notifConfig!.bccRoles?.length > 0 ? notifConfig!.bccRoles : notifConfig!.ccRoles ?? []);

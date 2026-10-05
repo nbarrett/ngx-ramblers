@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { isString } from "es-toolkit/compat";
 import { LoggerFactory } from "../../../services/logger-factory.service";
@@ -171,7 +171,7 @@ import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective
     imports: [CreateOrAmendSenderComponent, FormsModule, CommitteeRoleMultiSelectComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective]
 })
 
-export class SenderRepliesAndSignoff implements OnInit {
+export class SenderRepliesAndSignoff implements OnChanges {
 
   @Input("omitSignOff") set omitSignOffValue(omitSignOff: boolean) {
     this.omitSignOff = coerceBooleanProperty(omitSignOff);
@@ -220,7 +220,6 @@ export class SenderRepliesAndSignoff implements OnInit {
       value.replyToRole = this.normalisedReplyToRole(value.replyToRole);
     }
     this.notificationConfigInternal = value;
-    this.handleNotificationConfigChange();
   }
 
   get notificationConfig(): NotificationConfig {
@@ -245,8 +244,10 @@ export class SenderRepliesAndSignoff implements OnInit {
 
   @Input() public mailMessagingConfig: MailMessagingConfig;
 
-  async ngOnInit() {
-    this.senderRoleChanged();
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes.notificationConfig && this.notificationConfig) {
+      this.handleNotificationConfigChange();
+    }
   }
 
   senderRoleChanged() {
