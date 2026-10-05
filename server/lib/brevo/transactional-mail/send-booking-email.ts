@@ -12,7 +12,8 @@ import {
   SendSmtpEmailRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
-import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
+import {emailAddressForRole, emailAddressesForRoles} from "./send-member-bulk-load-digest-email";
 
 import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
@@ -78,7 +79,10 @@ export async function buildBookingEmailRequest(
   const bodyContent = signoffHtml ? `${renderedBody}\n${signoffHtml}` : renderedBody;
 
   const sender: EmailAddress = emailAddressForRole(committeeRoles, notifConfig.senderRole);
-  const replyTo: EmailAddress = emailAddressForRole(committeeRoles, notifConfig.replyToRole);
+  const replyTo: EmailAddress = emailAddressForRole(committeeRoles, notifConfig.replyToRole?.trim() || notifConfig.senderRole);
+  if (!sender?.email || !replyTo?.email) {
+    throw new Error("Booking notifications require valid saved Sender and Reply-To committee roles");
+  }
   const attendeeEmail = primaryAttendee.email ?? "";
   const to: EmailAddress[] = attendeeEmail
     ? [{email: attendeeEmail, name: primaryAttendee.displayName}]
@@ -138,21 +142,6 @@ export async function buildBookingEmailRequest(
 const messageType = "brevo:send-booking-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
-
-function committeeMemberForRole(roles: CommitteeMember[], role: string): CommitteeMember {
-  return roles?.find(committeeMember => committeeMember.type === role);
-}
-
-function emailAddressForRole(roles: CommitteeMember[], role: string): EmailAddress {
-  const committeeMember = committeeMemberForRole(roles, role);
-  return {name: committeeMember?.fullName, email: committeeMember?.email};
-}
-
-function emailAddressesForRoles(roles: CommitteeMember[], notificationRoles: string[]): EmailAddress[] {
-  return (notificationRoles || [])
-    .map(role => emailAddressForRole(roles, role))
-    .filter(address => !!address?.email);
-}
 
 function bannerImageSource(banners: BannerConfig[], bannerId: string, groupHref: string): string {
   const selectedBanner = banners?.find(item => item.id === bannerId);

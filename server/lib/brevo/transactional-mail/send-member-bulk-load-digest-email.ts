@@ -39,7 +39,7 @@ export function bannerImageSource(banners: BannerConfig[], bannerId: string, gro
 }
 
 export function emailAddressForRole(roles: CommitteeMember[], role: string): EmailAddress | null {
-  const committeeMember = roles.find(member => member?.type === role) || roles.find(member => !!member?.email);
+  const committeeMember = role?.trim() ? roles.find(member => member?.type === role.trim()) : null;
   return committeeMember?.email ? {name: committeeMember.fullName, email: committeeMember.email} : null;
 }
 

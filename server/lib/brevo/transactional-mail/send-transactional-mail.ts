@@ -12,6 +12,7 @@ import { buildUnsubscribeApiUrl, buildUnsubscribeUrl } from "../contacts/unsubsc
 import { member } from "../../mongo/models/member";
 import { SendTransactionalEmailResult } from "./transactional-email.model";
 import { assertSendAllowed } from "../send-permission";
+import {separateReplyToAddress} from "../../../../projects/ngx-ramblers/src/app/functions/email-addresses";
 
 const messageType = "brevo:send-transactional-mail";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -100,11 +101,12 @@ export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailR
                                                     purpose: SendPurpose = SendPurpose.TRANSACTIONAL): Promise<SendTransactionalEmailResult> {
   await assertSendAllowed(purpose, {subject: emailRequest.subject, recipientCount: emailRequest.to?.length});
   const client = await brevoClient();
+  const replyTo = separateReplyToAddress(emailRequest.replyTo, emailRequest.sender);
   const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
     subject: emailRequest.subject,
     sender: emailRequest.sender,
     to: emailRequest.to,
-    replyTo: emailRequest.replyTo
+    ...(replyTo ? {replyTo} : {})
   };
   if (emailRequest.cc?.length > 0) {
     sendSmtpEmail.cc = emailRequest.cc;

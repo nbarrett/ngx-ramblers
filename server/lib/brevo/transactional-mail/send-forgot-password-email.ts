@@ -22,7 +22,7 @@ import {
   SendPurpose,
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
-import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { ADMIN_SET_PASSWORD_PATH, SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { banner } from "../../mongo/models/banner";
@@ -32,21 +32,14 @@ import { signoffHtmlForConfig } from "./signoff-names";
 import { assertSendAllowed } from "../send-permission";
 import { ramblersAccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
 import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
+import {emailAddressForRole} from "./send-member-bulk-load-digest-email";
+import {separateReplyToAddress} from "../../../../projects/ngx-ramblers/src/app/functions/email-addresses";
 
 const messageType = "brevo:send-forgot-password-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
 
 const GENERIC_SUCCESS_MESSAGE = "Thanks! If those details match one of our members, a password reset email will be on its way shortly";
-
-function committeeMemberForRole(roles: CommitteeMember[], role: string): CommitteeMember {
-  return roles?.find(committeeMember => committeeMember.type === role);
-}
-
-function emailAddressForRole(roles: CommitteeMember[], role: string): EmailAddress {
-  const committeeMember = committeeMemberForRole(roles, role);
-  return { name: committeeMember?.fullName, email: committeeMember?.email };
-}
 
 function bannerImageSource(banners: BannerConfig[], bannerId: string, groupHref: string): string {
   const selectedBanner = banners?.find(item => item.id === bannerId);
@@ -195,7 +188,10 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
   const committeeRoles = committeeCfg?.roles || [];
 
   const sender: EmailAddress = emailAddressForRole(committeeRoles, notifConfig.senderRole);
-  const replyTo: EmailAddress = emailAddressForRole(committeeRoles, notifConfig.replyToRole);
+  const replyTo: EmailAddress = emailAddressForRole(committeeRoles, notifConfig.replyToRole?.trim() || notifConfig.senderRole);
+  if (!sender?.email || !replyTo?.email) {
+    throw new Error("Forgotten Password requires valid saved Sender and Reply-To committee roles");
+  }
   const to: EmailAddress[] = [{ email: updatedMember.email, name: `${updatedMember.firstName} ${updatedMember.lastName}` }];
   debugLog("sender:", JSON.stringify(sender), "replyTo:", JSON.stringify(replyTo), "to:", JSON.stringify(to));
 
@@ -251,12 +247,13 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
 
   await assertSendAllowed(SendPurpose.PASSWORD_RESET, {subject, recipientCount: to.length});
   const client = await brevoClient();
+  const separateReplyTo = separateReplyToAddress(emailRequest.replyTo, emailRequest.sender);
 
   const sendSmtpEmail: Brevo.SendTransacEmailRequest = {
     subject: emailRequest.subject,
     sender: emailRequest.sender,
     to: emailRequest.to,
-    replyTo: emailRequest.replyTo,
+    ...(separateReplyTo ? {replyTo: separateReplyTo} : {}),
     params: emailRequest.params,
     htmlContent: renderLocalBrandedTemplate(EmailTemplateName.FORGOT_PASSWORD, params)
   };
@@ -285,4 +282,3 @@ function buildSubject(notifConfig: NotificationConfig, params: any): string {
 function resolveParameter(paramPath: string, params: any): string {
   return paramPath.split(".").reduce((obj, key) => obj?.[key], params) as string;
 }
-

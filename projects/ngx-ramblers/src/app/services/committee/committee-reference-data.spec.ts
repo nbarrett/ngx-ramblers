@@ -71,6 +71,15 @@ const mockData: CommitteeConfig = {
 
 describe("CommitteeReferenceData", () => {
 
+  it("does not select a committee member for an empty role", () => {
+    const service = CommitteeReferenceData.create(mockData, null);
+    ["", " ", null].forEach(role => {
+      expect(service.committeeMemberForRole(role)).toBeFalsy();
+      expect(service.contactUsField(role, "email")).toBeFalsy();
+      expect(service.committeeMembersForRole(role || "")).toEqual([]);
+    });
+  });
+
   it("should return members for role", () => {
     const service: CommitteeReferenceData = CommitteeReferenceData.create(mockData, null);
     expect(service.committeeMembersForRole("secretary")).toEqual([EXPECTED_NIC]);

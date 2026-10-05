@@ -99,7 +99,7 @@ export class CommitteeReferenceData {
   }
 
   private roleMatch(member: CommitteeMember, role: string) {
-    return kebabCase(member?.type)?.toLowerCase().includes(kebabCase(role));
+    return !!role?.trim() && kebabCase(member?.type)?.toLowerCase().includes(kebabCase(role));
   }
 
   contactUsField(role: BuiltInRole | string, field: string): string {
