@@ -1,5 +1,7 @@
 import { DOCUMENTATION_SITE_PLACEHOLDER } from "../models/documentation-links.model";
+import { ENVIRONMENT_SUBDOMAIN_BASE } from "../models/environment-setup.model";
 import { isApplicationContentPath, isDocumentationContentPath } from "./application-content-paths";
+import { apexHost } from "./hosts";
 
 export function documentationSiteOrigin(value: string): string | null {
   try {
@@ -79,4 +81,15 @@ export function documentationFeatureUrl(value: string, siteUrl: string, origins:
 
 export function documentationLinkTitle(label: string): string {
   return `Opens on ${label}. Click the gear above to change this.`;
+}
+
+export function documentationWebsitePickerEnabled(host: string, platformAdminEnabled: boolean): boolean {
+  const normalised = apexHost(host).toLowerCase();
+  if (normalised === ENVIRONMENT_SUBDOMAIN_BASE) {
+    return true;
+  } else if (normalised === "localhost" || normalised === "127.0.0.1") {
+    return platformAdminEnabled;
+  } else {
+    return false;
+  }
 }
