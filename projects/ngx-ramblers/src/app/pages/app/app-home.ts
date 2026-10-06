@@ -1010,18 +1010,13 @@ export class AppHomeComponent implements OnInit, OnDestroy {
       this.loading = true;
     }
     try {
-      const cached = await this.followCache.summaries();
-      const previews = await Promise.all(cached.map(async route => {
-        const key = followCacheKey(route);
-        const payload = key ? await this.followCache.payload(key) : null;
-        return {key, points: payload?.points || []};
-      }));
-      this.previewPoints = previews.reduce((acc, preview) => preview.key ? {...acc, [preview.key]: preview.points} : acc, {} as Record<string, RouteFollowPoint[]>);
-      this.routes = [...cached, ...this.ramblersLibrary.recentSummaries()].filter((route, index, list) => {
+      const cached = await this.followCache.homeList();
+      this.previewPoints = cached.previewPoints;
+      this.routes = [...cached.routes, ...this.ramblersLibrary.recentSummaries()].filter((route, index, list) => {
         const key = followCacheKey(route);
         return list.findIndex(item => followCacheKey(item) === key) === index;
       });
-      this.offlineByKey = await this.followCache.statusByKey();
+      this.offlineByKey = cached.offlineByKey;
     } catch (error) {
       this.logger.warn("cached walks unavailable", error);
     }
@@ -1074,6 +1069,11 @@ export class AppHomeComponent implements OnInit, OnDestroy {
           const key = followCacheKey(route);
           return list.findIndex(item => followCacheKey(item) === key) === index;
         });
+        this.previewPoints = this.routes.reduce((acc, route) => {
+          const key = followCacheKey(route);
+          const sketch = route.previewPoints || [];
+          return key && sketch.length >= 2 && !acc[key] ? {...acc, [key]: sketch} : acc;
+        }, this.previewPoints);
         this.logger.info("load: routes", this.routes.length, "walks", this.walks.length);
         this.persistListSnapshot();
       } catch (error) {

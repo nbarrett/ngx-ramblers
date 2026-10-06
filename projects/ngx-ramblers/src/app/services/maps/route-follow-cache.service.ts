@@ -5,11 +5,15 @@ import { isArray, isEqual } from "es-toolkit/compat";
 import {
   CachedFollowRoute,
   followCacheKey,
+  ROUTE_PREVIEW_MAX_POINTS,
+  ROUTE_PREVIEW_SPACING_METRES,
   RouteFollowOfflineStatus,
   RouteFollowPayload,
+  RouteFollowPoint,
   RouteFollowSource,
   RouteFollowSummary
 } from "../../models/route-follow.model";
+import { simplifiedRoutePoints } from "../../functions/route-geometry";
 import { DateUtilsService } from "../date-utils.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -119,8 +123,37 @@ export class RouteFollowCacheService {
   }
 
   async summaries(): Promise<RouteFollowSummary[]> {
+    const listed = await this.homeList();
+    return listed.routes;
+  }
+
+  async homeList(): Promise<{
+    routes: RouteFollowSummary[];
+    previewPoints: Record<string, RouteFollowPoint[]>;
+    offlineByKey: Record<string, RouteFollowOfflineStatus>;
+  }> {
     const records = await this.allRoutesOrNone();
-    return records.map(record => ({
+    return records.reduce((acc, record) => {
+      const summary = this.summaryFrom(record);
+      const key = followCacheKey(summary);
+      return {
+        routes: [...acc.routes, summary],
+        previewPoints: key && summary.previewPoints && summary.previewPoints.length >= 2
+          ? {...acc.previewPoints, [key]: summary.previewPoints}
+          : acc.previewPoints,
+        offlineByKey: key
+          ? {...acc.offlineByKey, [key]: record.tilesReady ? RouteFollowOfflineStatus.AVAILABLE : RouteFollowOfflineStatus.SAVING}
+          : acc.offlineByKey
+      };
+    }, {
+      routes: [] as RouteFollowSummary[],
+      previewPoints: {} as Record<string, RouteFollowPoint[]>,
+      offlineByKey: {} as Record<string, RouteFollowOfflineStatus>
+    });
+  }
+
+  private summaryFrom(record: CachedFollowRoute): RouteFollowSummary {
+    return {
       source: record.payload.source,
       visibility: record.payload.visibility,
       ownerMemberId: record.payload.ownerMemberId,
@@ -137,8 +170,11 @@ export class RouteFollowCacheService {
       distanceMiles: record.payload.guide?.distance_miles || record.payload.totalMetres / 1609.34 || null,
       startDescription: record.payload.guide?.start_location?.description || record.payload.guide?.start_location?.postcode || null,
       startLatitude: record.payload.guide?.start_location?.latitude ?? record.payload.points?.[0]?.latitude ?? null,
-      startLongitude: record.payload.guide?.start_location?.longitude ?? record.payload.points?.[0]?.longitude ?? null
-    }));
+      startLongitude: record.payload.guide?.start_location?.longitude ?? record.payload.points?.[0]?.longitude ?? null,
+      previewPoints: record.payload.points?.length >= 2
+        ? simplifiedRoutePoints(record.payload.points, ROUTE_PREVIEW_SPACING_METRES, ROUTE_PREVIEW_MAX_POINTS)
+        : null
+    };
   }
 
   async statusByKey(): Promise<Record<string, RouteFollowOfflineStatus>> {

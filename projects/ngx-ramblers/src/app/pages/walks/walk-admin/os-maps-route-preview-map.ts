@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, inject, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, inject, Input, NgZone, OnChanges, OnDestroy, SimpleChanges, ViewChild } from "@angular/core";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
@@ -15,7 +15,15 @@ import { MapTilesService } from "../../../services/maps/map-tiles.service";
 import { MapZoomService } from "../../../services/maps/map-zoom.service";
 import { MapProvider, OUTDOOR_OS_STYLE } from "../../../models/map.model";
 import { OsMapsListedRoute } from "../../../models/os-maps-export.model";
-import { RouteFollowPoint } from "../../../models/route-follow.model";
+import {
+  ROUTE_PREVIEW_MAX_POINTS,
+  ROUTE_PREVIEW_SPACING_METRES,
+  RouteFollowPoint
+} from "../../../models/route-follow.model";
+import { simplifiedRoutePoints } from "../../../functions/route-geometry";
+
+const previewLineByUrl = new Map<string, L.LatLngExpression[]>();
+const PREVIEW_VIEW_MARGIN = "240px 0px";
 
 @Component({
   selector: "app-os-maps-route-preview-map",
@@ -108,6 +116,7 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
   private mapTiles = inject(MapTilesService);
   private mapZoom = inject(MapZoomService);
   private dateUtils = inject(DateUtilsService);
+  private zone = inject(NgZone);
   @ViewChild("mapContainer", {static: true}) mapContainerRef!: ElementRef<HTMLDivElement>;
   @Input() route: OsMapsListedRoute | null = null;
   @Input() points: RouteFollowPoint[] = [];
@@ -123,19 +132,17 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
   private mapRef: L.Map | null = null;
   private latLngs: L.LatLngExpression[] = [];
   private loadedRouteKey: string | null = null;
+  private inView = false;
   private readonly osStyle = OUTDOOR_OS_STYLE;
   private readonly fitPaddingPercent = 0.18;
   private resizeObserver: ResizeObserver | null = null;
+  private visibilityObserver: IntersectionObserver | null = null;
   private refitWait: ReturnType<typeof setTimeout> | null = null;
+  private loadGeneration = {value: 0};
 
   ngOnChanges(changes: SimpleChanges): void {
-    const key = this.routeKey();
-    if (changes.points && !this.route) {
-      this.latLngs = this.points.map(point => [point.latitude, point.longitude]);
-      this.hasLine = this.latLngs.length >= 2;
-      this.drawIfReady();
-    } else if (changes.route && key !== this.loadedRouteKey) {
-      void this.loadRoute();
+    if ((changes.points || changes.route) && this.inView) {
+      this.applyGeometry();
     } else if ((changes.fill || changes.compact) && this.mapRef) {
       this.refitRoute();
     }
@@ -145,30 +152,30 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
     return this.route ? `${this.route.id}:${this.route.gpxFile?.awsFileName || ""}` : null;
   }
 
+  private geometryKey(): string {
+    const first = this.points[0];
+    const last = this.points[this.points.length - 1];
+    return [
+      this.routeKey() || "",
+      String(this.points.length),
+      first ? `${first.latitude},${first.longitude}` : "",
+      last ? `${last.latitude},${last.longitude}` : ""
+    ].join(":");
+  }
+
   importedLabel(): string {
     return this.route?.importedAt ? this.dateUtils.displayDate(this.route.importedAt) : "";
   }
 
   ngAfterViewInit(): void {
-    const element = this.mapContainerRef.nativeElement as HTMLDivElement & {_leaflet_id?: number};
-    if (element._leaflet_id) {
-      element._leaflet_id = undefined;
-    }
-    this.mapRef = L.map(element, this.mapOptions());
-    this.resizeObserver = new ResizeObserver(() => this.refitRoute());
-    this.resizeObserver.observe(element);
-    this.drawIfReady();
+    this.observeVisibility();
   }
 
   ngOnDestroy(): void {
-    if (this.refitWait) {
-      clearTimeout(this.refitWait);
-      this.refitWait = null;
-    }
-    this.resizeObserver?.disconnect();
-    this.resizeObserver = null;
-    this.mapRef?.remove();
-    this.mapRef = null;
+    this.loadGeneration.value += 1;
+    this.visibilityObserver?.disconnect();
+    this.visibilityObserver = null;
+    this.tearDownMap();
   }
 
   private mapProvider(): MapProvider {
@@ -192,23 +199,112 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
     };
   }
 
+  private observeVisibility(): void {
+    const element = this.mapContainerRef.nativeElement;
+    if ("IntersectionObserver" in window) {
+      this.visibilityObserver = new IntersectionObserver(entries => {
+        const visible = entries.some(entry => entry.isIntersecting);
+        this.zone.run(() => this.setInView(visible));
+      }, {rootMargin: PREVIEW_VIEW_MARGIN, threshold: 0.01});
+      this.visibilityObserver.observe(element);
+    } else {
+      this.setInView(true);
+    }
+  }
+
+  private setInView(visible: boolean): void {
+    this.inView = visible;
+    if (visible) {
+      this.applyGeometry();
+    } else {
+      this.tearDownMap();
+    }
+  }
+
+  private applyGeometry(): void {
+    const key = this.geometryKey();
+    const stored = this.route?.gpxFile?.previewPoints || [];
+    const source = this.points.length >= 2 ? this.points : stored;
+    if (key === this.loadedRouteKey) {
+      if (this.latLngs.length >= 2) {
+        this.ensureMap();
+        this.drawIfReady();
+      }
+    } else if (source.length >= 2) {
+      this.loadedRouteKey = key;
+      this.latLngs = simplifiedRoutePoints(source, ROUTE_PREVIEW_SPACING_METRES, ROUTE_PREVIEW_MAX_POINTS)
+        .map(point => [point.latitude, point.longitude]);
+      this.hasLine = this.latLngs.length >= 2;
+      this.ensureMap();
+      this.drawIfReady();
+    } else if (this.route?.gpxFile?.awsFileName) {
+      void this.loadRoute();
+    } else {
+      this.loadedRouteKey = key;
+      this.hasLine = false;
+      this.latLngs = [];
+    }
+  }
+
+  private ensureMap(): void {
+    if (!this.mapRef) {
+      const element = this.mapContainerRef.nativeElement as HTMLDivElement & {_leaflet_id?: number};
+      if (element._leaflet_id) {
+        element._leaflet_id = undefined;
+      }
+      this.mapRef = L.map(element, this.mapOptions());
+      this.resizeObserver = new ResizeObserver(() => this.refitRoute());
+      this.resizeObserver.observe(element);
+    }
+  }
+
+  private tearDownMap(): void {
+    if (this.refitWait) {
+      clearTimeout(this.refitWait);
+      this.refitWait = null;
+    }
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    this.mapRef?.remove();
+    this.mapRef = null;
+  }
+
   private async loadRoute(): Promise<void> {
-    this.loadedRouteKey = this.routeKey();
-    this.hasLine = false;
-    this.latLngs = [];
+    const key = this.geometryKey();
     const url = this.route?.gpxFile ? this.routeFollowPayload.gpxDownloadUrl(this.route.gpxFile) : null;
-    if (url) {
+    const cached = url ? previewLineByUrl.get(url) : null;
+    this.loadedRouteKey = key;
+    if (cached && cached.length >= 2) {
+      this.latLngs = cached;
+      this.hasLine = true;
+      this.ensureMap();
+      this.drawIfReady();
+    } else if (url) {
+      const generation = this.loadGeneration.value + 1;
+      this.loadGeneration.value = generation;
+      this.hasLine = false;
+      this.latLngs = [];
       try {
         const gpxContent = await firstValueFrom(this.http.get(url, {responseType: "text"}));
-        const parsed = this.gpxParser.parseGpxFile(gpxContent);
-        const track = parsed.tracks[0];
-        if (track && track.points.length >= 2) {
-          this.latLngs = this.gpxParser.toLeafletLatLngs(track);
-          this.hasLine = true;
-          this.drawIfReady();
+        if (this.loadGeneration.value === generation && this.loadedRouteKey === key) {
+          const parsed = this.gpxParser.parseGpxFile(gpxContent);
+          const track = parsed.tracks[0];
+          if (track && track.points.length >= 2) {
+            this.latLngs = simplifiedRoutePoints(track.points, ROUTE_PREVIEW_SPACING_METRES, ROUTE_PREVIEW_MAX_POINTS)
+              .map(point => [point.latitude, point.longitude]);
+            previewLineByUrl.set(url, this.latLngs);
+            this.hasLine = true;
+            if (this.inView) {
+              this.ensureMap();
+              this.drawIfReady();
+            }
+          }
         }
       } catch (error) {
         this.logger.error("loadRoute failed for route:", this.route?.id, error);
+        if (this.loadedRouteKey === key) {
+          this.loadedRouteKey = null;
+        }
       }
     }
   }

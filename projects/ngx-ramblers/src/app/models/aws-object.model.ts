@@ -21,6 +21,7 @@ export interface FileNameData extends RouteAudit {
   description?: string;
   startLat?: number;
   startLng?: number;
+  previewPoints?: {latitude: number; longitude: number}[];
   distanceMetres?: number;
   walkedAt?: number;
   walkedByMemberId?: string;
@@ -50,6 +51,7 @@ export interface ServerFileNameData extends RouteAudit {
   description?: string;
   startLat?: number;
   startLng?: number;
+  previewPoints?: {latitude: number; longitude: number}[];
   distanceMetres?: number;
   walkedAt?: number;
   walkedByMemberId?: string;

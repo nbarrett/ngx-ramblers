@@ -1,4 +1,4 @@
-import { cumulativeDistances, metresBetween, pointAlongRoute, projectOnSegment, snapToRoute } from "./route-geometry";
+import { cumulativeDistances, metresBetween, pointAlongRoute, projectOnSegment, simplifiedRoutePoints, snapToRoute } from "./route-geometry";
 
 const line = [0, 0.01, 0.02].map(offset => ({latitude: 51 + offset, longitude: 1}));
 
@@ -39,6 +39,18 @@ describe("route geometry", () => {
     expect(snap.progressMetres).toBeLessThanOrEqual(cumulative.at(-1));
     expect(snap.point).toEqual(segments[1]);
     expect(snapToRoute([segments[0], segments[2]], [0, 0], segments[1])).toBeNull();
+  });
+
+  it("keeps a short sketch of a long line for list previews", () => {
+    const dense = Array.from({length: 400}, (_, index) => ({
+      latitude: 51.2 + (index % 20 === 10 ? 0.02 : 0),
+      longitude: 1 + index * 0.0002
+    }));
+    const sketch = simplifiedRoutePoints(dense, 80, 40);
+    expect(sketch.length).toBeLessThanOrEqual(40);
+    expect(sketch.length).toBeGreaterThan(2);
+    expect(sketch[0]).toEqual(dense[0]);
+    expect(sketch[sketch.length - 1]).toEqual(dense[dense.length - 1]);
   });
 
   it("snaps a dragged position to the nearest place on the whole route", () => {

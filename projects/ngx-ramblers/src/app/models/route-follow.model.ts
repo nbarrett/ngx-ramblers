@@ -47,6 +47,8 @@ export const ROUTE_GUIDE_MIN_WIDTH = 260;
 export const ROUTE_GUIDE_MAP_MIN_WIDTH = 320;
 export const ROUTE_FIT_PADDING = 32;
 export const ROUTE_TRACK_MAX_METRES = 60;
+export const ROUTE_PREVIEW_MAX_POINTS = 80;
+export const ROUTE_PREVIEW_SPACING_METRES = 40;
 export const ROUTE_ALTERNATIVE_TRACK_COLOURS = ["#2a8a8a", "#5a45c6", "#4a8c3f", "#c2571d"];
 export const ROUTE_ALTERNATIVE_TRACK_DASH = "10 10";
 export const ROUTE_ALTERNATIVE_TRACK_OPACITY = 0.7;
@@ -593,6 +595,7 @@ export interface RouteFollowSummary extends RouteAudit, OsMapsImportContext {
   startDescription: string | null;
   startLatitude: number | null;
   startLongitude: number | null;
+  previewPoints?: RouteFollowPoint[] | null;
   walkedAt?: number | null;
   walkedByName?: string | null;
 }

@@ -34,6 +34,9 @@ describe("exported-gpx-parser", () => {
     expect(summary.totalDistanceKm).toBeLessThan(4);
     expect(summary.startLat).toEqual(51.22);
     expect(summary.startLng).toEqual(1.15);
+    expect(summary.previewPoints?.length).toEqual(2);
+    expect(summary.previewPoints?.[0]).toEqual({latitude: 51.22, longitude: 1.15});
+    expect(summary.previewPoints?.[1]).toEqual({latitude: 51.24, longitude: 1.17});
     expect(gpxMatchesRoute(summary, 2.8, 1, 3, 3)).toEqual(true);
   });
 

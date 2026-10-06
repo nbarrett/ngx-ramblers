@@ -114,3 +114,37 @@ export function routeSegments(points: RouteFollowPoint[]): RouteFollowPoint[][] 
   const starts = points.map((point, index) => index === 0 || point.breakBefore ? index : -1).filter(index => index >= 0);
   return starts.map((start, index) => points.slice(start, starts[index + 1] ?? points.length));
 }
+
+export function thinnedRoutePoints(points: RouteFollowPoint[], toleranceMetres: number): RouteFollowPoint[] {
+  if (points.length <= 2) {
+    return points.slice();
+  } else {
+    const start = points[0];
+    const end = points[points.length - 1];
+    const farthest = points.reduce((best, point, index) => {
+      if (index === 0 || index === points.length - 1) {
+        return best;
+      } else {
+        const distance = projectOnSegment(point, start, end).distanceMetres;
+        return distance > best.distance ? {index, distance} : best;
+      }
+    }, {index: 0, distance: 0});
+    if (farthest.distance > toleranceMetres) {
+      const left = thinnedRoutePoints(points.slice(0, farthest.index + 1), toleranceMetres);
+      const right = thinnedRoutePoints(points.slice(farthest.index), toleranceMetres);
+      return [...left.slice(0, -1), ...right];
+    } else {
+      return [start, end];
+    }
+  }
+}
+
+export function simplifiedRoutePoints(points: RouteFollowPoint[], spacingMetres: number, maxPoints: number): RouteFollowPoint[] {
+  const kept = thinnedRoutePoints(points, spacingMetres);
+  if (kept.length <= maxPoints) {
+    return kept;
+  } else {
+    const step = (kept.length - 1) / (maxPoints - 1);
+    return Array.from({length: maxPoints}, (_, index) => kept[Math.round(index * step)]);
+  }
+}

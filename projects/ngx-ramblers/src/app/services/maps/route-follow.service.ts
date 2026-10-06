@@ -29,7 +29,7 @@ import {
 import { GeoDistanceService } from "./geo-distance.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { returnDirectionFrom } from "./map-gestures";
-import { cumulativeDistances, projectOnSegment, snapToRoute } from "../../functions/route-geometry";
+import { cumulativeDistances, projectOnSegment, simplifiedRoutePoints, snapToRoute, thinnedRoutePoints } from "../../functions/route-geometry";
 import { NativeRouteRecorderService } from "./native-route-recorder.service";
 import { NativeRouteError, NativeRouteFailure, NativeRoutePosition } from "../../models/native-route.model";
 import { generateUid } from "../../functions/numbers";
@@ -243,37 +243,11 @@ export class RouteFollowService {
   }
 
   simplifiedTrack(spacingMetres: number, maxPoints: number): RouteFollowPoint[] {
-    const kept = this.thinnedPoints(this.track, spacingMetres);
-    if (kept.length <= maxPoints) {
-      return kept;
-    } else {
-      const step = (kept.length - 1) / (maxPoints - 1);
-      return Array.from({length: maxPoints}, (_, index) => kept[Math.round(index * step)]);
-    }
+    return simplifiedRoutePoints(this.track, spacingMetres, maxPoints);
   }
 
   thinnedPoints(points: RouteFollowPoint[], toleranceMetres: number): RouteFollowPoint[] {
-    if (points.length <= 2) {
-      return points.slice();
-    } else {
-      const start = points[0];
-      const end = points[points.length - 1];
-      const farthest = points.reduce((best, point, index) => {
-        if (index === 0 || index === points.length - 1) {
-          return best;
-        } else {
-          const distance = this.projectOnSegment(point, start, end).distanceMetres;
-          return distance > best.distance ? {index, distance} : best;
-        }
-      }, {index: 0, distance: 0});
-      if (farthest.distance > toleranceMetres) {
-        const left = this.thinnedPoints(points.slice(0, farthest.index + 1), toleranceMetres);
-        const right = this.thinnedPoints(points.slice(farthest.index), toleranceMetres);
-        return [...left.slice(0, -1), ...right];
-      } else {
-        return [start, end];
-      }
-    }
+    return thinnedRoutePoints(points, toleranceMetres);
   }
 
   thinningSpacingMetres(detail: number): number {

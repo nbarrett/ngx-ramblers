@@ -92,6 +92,7 @@ export interface ExportedGpxSummary {
   totalDistanceKm: number;
   startLat: number;
   startLng: number;
+  previewPoints?: {latitude: number; longitude: number}[];
   walkedAt?: number | null;
 }
 

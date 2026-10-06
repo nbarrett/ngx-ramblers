@@ -39,7 +39,8 @@ export class AppHomeListCacheService {
         routes: snapshot.routes,
         walks: snapshot.walks,
         websiteMapKeys: snapshot.websiteMapKeys,
-        importedOsMapsByKey: snapshot.importedOsMapsByKey
+        importedOsMapsByKey: snapshot.importedOsMapsByKey,
+        previewPoints: snapshot.previewPoints
       };
       window.sessionStorage.setItem(StoredValue.APP_HOME_LIST_CACHE, JSON.stringify(stored));
     } catch {
@@ -59,7 +60,7 @@ export class AppHomeListCacheService {
           walks: parsed?.walks || [],
           websiteMapKeys: parsed?.websiteMapKeys || [],
           importedOsMapsByKey: parsed?.importedOsMapsByKey || {},
-          previewPoints: {},
+          previewPoints: parsed?.previewPoints || {},
           offlineByKey: {}
         } : null;
       }
