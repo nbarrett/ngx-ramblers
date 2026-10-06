@@ -79,12 +79,18 @@ export class RouteFollowPayloadService {
   }
 
   summariesFromPages(pages: PageContent[]): RouteFollowSummary[] {
-    return (pages || []).map(page => {
-      const row = this.firstFollowableRow(this.mapRows(page));
-      const route = this.preferredRoute(row?.map, null);
-      const title = row?.routeGuide?.title || route?.name || this.titleFromPath(page.path);
-      return row && route ? {
-        ...route?.gpxFile,
+    return (pages || []).map(page => this.summaryFromPage(page)).filter((item): item is RouteFollowSummary => !!item);
+  }
+
+  summaryFromPage(page: PageContent): RouteFollowSummary | null {
+    const row = this.firstFollowableRow(this.mapRows(page));
+    const route = this.preferredRoute(row?.map, null);
+    if (!row || !route) {
+      return null;
+    } else {
+      const title = row.routeGuide?.title || route.name || this.titleFromPath(page.path);
+      return {
+        ...route.gpxFile,
         source: RouteFollowSource.PAGE,
         title,
         path: page.path || null,
@@ -95,9 +101,10 @@ export class RouteFollowPayloadService {
         distanceMiles: row.routeGuide?.distance_miles ?? null,
         startDescription: row.routeGuide?.start_location?.description || row.routeGuide?.start_location?.postcode || null,
         startLatitude: this.startLatitude(route.gpxFile, row.routeGuide?.start_location),
-        startLongitude: this.startLongitude(route.gpxFile, row.routeGuide?.start_location)
-      } : null;
-    }).filter((item): item is RouteFollowSummary => !!item);
+        startLongitude: this.startLongitude(route.gpxFile, row.routeGuide?.start_location),
+        previewPoints: route.gpxFile?.previewPoints || null
+      };
+    }
   }
 
   summaryFromWalk(walk: ExtendedGroupEvent): RouteFollowSummary | null {
@@ -117,6 +124,7 @@ export class RouteFollowPayloadService {
         startDescription: walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode || null,
         startLatitude: this.startLatitude(walk.fields?.gpxFile, walk.groupEvent?.start_location),
         startLongitude: this.startLongitude(walk.fields?.gpxFile, walk.groupEvent?.start_location),
+        previewPoints: walk.fields?.gpxFile?.previewPoints || null,
         walkedAt: walk.fields?.gpxFile?.walkedAt || null,
         walkedByName: walk.fields?.gpxFile?.walkedByName || null
       };
@@ -198,6 +206,7 @@ export class RouteFollowPayloadService {
         startDescription: null,
         startLatitude: this.startLatitude(route.gpxFile),
         startLongitude: this.startLongitude(route.gpxFile),
+        previewPoints: route.gpxFile?.previewPoints || null,
         walkedAt: route.walkedAt || route.gpxFile?.walkedAt || null,
         walkedByName: route.walkedByName || route.gpxFile?.walkedByName || null
       };

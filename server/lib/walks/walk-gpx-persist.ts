@@ -27,6 +27,7 @@ export async function persistGpxContent(
     const summary = parseExportedGpx(content, safeName);
     fileNameData.startLat = summary.startLat;
     fileNameData.startLng = summary.startLng;
+    fileNameData.previewPoints = summary.previewPoints;
     fileNameData.distanceMetres = summary.totalDistanceMetres;
     if (summary.walkedAt) {
       fileNameData.walkedAt = summary.walkedAt;

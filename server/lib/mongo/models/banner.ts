@@ -10,6 +10,7 @@ export const fileNameData = new mongoose.Schema({
     title: {type: String},
     startLat: {type: Number},
     startLng: {type: Number},
+    previewPoints: [{latitude: {type: Number}, longitude: {type: Number}, _id: false}],
     distanceMetres: {type: Number},
     walkedAt: {type: Number},
     walkedByMemberId: {type: String},

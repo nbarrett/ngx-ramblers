@@ -1,4 +1,5 @@
-import { RouteFollowPoint } from "../../../projects/ngx-ramblers/src/app/models/route-follow.model";
+import { ROUTE_PREVIEW_MAX_POINTS, ROUTE_PREVIEW_SPACING_METRES, RouteFollowPoint } from "../../../projects/ngx-ramblers/src/app/models/route-follow.model";
+import { simplifiedRoutePoints } from "../../../projects/ngx-ramblers/src/app/functions/route-geometry";
 import { DOMParser } from "@xmldom/xmldom";
 import { ExportedGpxSummary } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { dateTimeFromIso } from "../shared/dates";
@@ -109,6 +110,8 @@ function parseNonEmptyGpx(content: string, fileName: string): ExportedGpxSummary
       totalDistanceKm: metres / 1000,
       startLat: firstPoint ? firstPoint.latitude : 0,
       startLng: firstPoint ? firstPoint.longitude : 0,
+      previewPoints: simplifiedRoutePoints(trackPoints, ROUTE_PREVIEW_SPACING_METRES, ROUTE_PREVIEW_MAX_POINTS)
+        .map(point => ({latitude: point.latitude, longitude: point.longitude})),
       walkedAt: firstTimeMillis(doc)
     };
   }
