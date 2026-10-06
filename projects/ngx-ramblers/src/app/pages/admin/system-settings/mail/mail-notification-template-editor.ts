@@ -187,6 +187,9 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                   <fa-icon [icon]="faTriangleExclamation" class="me-2"/>
                   <div>
                     <strong>{{ cachedIssues.length }} issue{{ cachedIssues.length > 1 ? "s" : "" }} found</strong>
+                    @if (canFixListedIssues()) {
+                      <span> - <a style="cursor: pointer" (click)="fixAllInvalidSettings()">Fix all</a></span>
+                    }
                     @for (issue of cachedIssues; track issue) {
                       @if (issue === missingEmailContentIssue) {
                         <div><small>
@@ -593,6 +596,7 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
   public cachedConfigLabels: Map<NotificationConfig, string> = new Map();
   public isWorkflowConfig = false;
   @ViewChild("emailBodyEditor") private emailBodyEditor: EmailBodyEditorComponent;
+  @ViewChild(SenderRepliesAndSignoff) private senderReplies: SenderRepliesAndSignoff;
   protected readonly emailContentAnchor = EmailContentAnchor;
   protected readonly emailContentSource = EmailContentSource;
   protected readonly missingEmailContentIssue = MISSING_EMAIL_CONTENT_ISSUE;
@@ -926,8 +930,36 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
       }
       target.signOffRoles?.filter(role => !committeeMembers.some(member => member.type === role))
         .forEach(role => issues.push(`Sign-off role "${role}" not found in committee roles`));
+      target.bccRoles?.filter(role => !committeeMembers.some(member => member.type === role))
+        .forEach(role => issues.push(`BCC role "${role}" not found in committee roles`));
+      target.ccRoles?.filter(role => !committeeMembers.some(member => member.type === role))
+        .forEach(role => issues.push(`CC role "${role}" not found in committee roles`));
     }
     return issues;
+  }
+
+  canFixListedIssues(): boolean {
+    const config = this.notificationConfig;
+    const committeeMembers = this.mailMessagingConfig?.committeeReferenceData?.committeeMembers() ?? [];
+    const known = (role: string) => !!role && committeeMembers.some(member => member.type === role);
+    const bannerMissing = !!config && !config.bannerId && (this.mailMessagingConfig?.banners?.length ?? 0) > 0;
+    const senderMissing = !!config && !known(config.senderRole) && committeeMembers.length > 0;
+    const replyMissing = !!config?.replyToRole && !known(config.replyToRole);
+    const signOffMissing = !!config && (!config.signOffRoles?.length && committeeMembers.length > 0 || !!config.signOffRoles?.some(role => !known(role)));
+    const copiesMissing = !!config && (!!config.bccRoles?.some(role => !known(role)) || !!config.ccRoles?.some(role => !known(role)));
+    return bannerMissing || senderMissing || replyMissing || signOffMissing || copiesMissing;
+  }
+
+  fixAllInvalidSettings(): void {
+    const config = this.notificationConfig;
+    if (config) {
+      const banners = this.mailMessagingConfig?.banners ?? [];
+      if (!config.bannerId && banners.length > 0) {
+        config.bannerId = banners[0].id;
+      }
+      this.senderReplies?.fixAllInvalidRoles();
+      this.refreshCachedState();
+    }
   }
 
   configLabel(config: NotificationConfig): string {

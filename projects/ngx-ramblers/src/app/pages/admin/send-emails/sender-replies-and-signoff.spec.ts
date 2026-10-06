@@ -54,3 +54,56 @@ describe("current-user sender and sign-off defaults", () => {
     expect(instance.signOffRolesOverride).toEqual(["chair"]);
   });
 });
+
+describe("fix all invalid email roles", () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [LoggerTestingModule],
+      providers: [{provide: MemberLoginService, useValue: {loggedInMember: () => null}}]
+    });
+  });
+
+  function instance(): SenderRepliesAndSignoff {
+    const component = TestBed.runInInjectionContext(() => new SenderRepliesAndSignoff());
+    const committee = {
+      roles: [
+        {type: "support-nick-barrett", description: "Support", fullName: "Nick Barrett", email: "support-nick-barrett@pvramblers.org.uk", roleType: RoleType.COMMITTEE_MEMBER},
+        {type: "webmaster", description: "Webmaster", fullName: "Tom Gamble", email: "webmaster@pvramblers.org.uk", roleType: RoleType.COMMITTEE_MEMBER}
+      ],
+      fileTypes: [],
+      expenses: null
+    } as CommitteeConfig;
+    component.mailMessagingConfig = {committeeReferenceData: CommitteeReferenceData.create(committee, null)} as unknown as MailMessagingConfig;
+    component.notificationConfig = {
+      senderRole: "support",
+      replyToRole: "support",
+      signOffRoles: ["support", "webmaster"],
+      bccRoles: ["support", "webmaster"],
+      ccRoles: ["retired"]
+    } as NotificationConfig;
+    return component;
+  }
+
+  it("repairs every stored role that is no longer on the committee", () => {
+    const component = instance();
+    expect(component.hasFixableRoleSettings()).toBe(true);
+    component.fixAllInvalidRoles();
+    expect(component.notificationConfig.senderRole).toBe("support-nick-barrett");
+    expect(component.notificationConfig.replyToRole).toBe("");
+    expect(component.notificationConfig.signOffRoles).toEqual(["support-nick-barrett", "webmaster"]);
+    expect(component.notificationConfig.bccRoles).toEqual(["webmaster"]);
+    expect(component.notificationConfig.ccRoles).toEqual([]);
+    expect(component.hasFixableRoleSettings()).toBe(false);
+  });
+
+  it("selects the sender when no sign-off role is saved", () => {
+    const component = instance();
+    component.notificationConfig.signOffRoles = [];
+    component.notificationConfig.replyToRole = "";
+    component.notificationConfig.bccRoles = [];
+    component.notificationConfig.ccRoles = [];
+    component.fixAllInvalidRoles();
+    expect(component.notificationConfig.senderRole).toBe("support-nick-barrett");
+    expect(component.notificationConfig.signOffRoles).toEqual(["support-nick-barrett"]);
+  });
+});
