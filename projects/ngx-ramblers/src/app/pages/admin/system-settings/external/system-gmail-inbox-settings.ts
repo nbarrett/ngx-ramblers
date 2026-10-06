@@ -28,7 +28,7 @@ import {
   NonSensitiveCloudflareConfig
 } from "../../../../models/cloudflare-email-routing.model";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
-import { ALERT_ERROR, ALERT_SUCCESS, AlertTarget } from "../../../../models/alert-target.model";
+import { AlertTarget } from "../../../../models/alert-target.model";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
@@ -138,33 +138,13 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
               </alert>
             } @else if (ownsZoneConfirmed()) {
               <p class="text-muted small mb-2">
-                With direct delivery there's nothing to connect here. To finish setting it up:
+                With Direct to inbox selected, committee mail is delivered by the zone catch-all through the shared inbox router. Individual Cloudflare address rules are not needed.
               </p>
               <ol class="text-muted small">
-                <li>Make sure Cloudflare Email Routing and the MX records are in place for your domain, and that your committee addresses exist as routing rules.</li>
-                <li>Click below to point this site's committee addresses at the inbox.</li>
+                <li>Make sure Cloudflare Email Routing and the MX records are in place for your domain.</li>
+                <li>On Committee Settings &rarr; Email routing, set the catch-all to <strong>Shared inbox router</strong> (Deliver unmatched mail to this site's inbox).</li>
                 <li>Replies then appear in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a> for whoever holds each role.</li>
               </ol>
-              <button type="button" class="btn btn-primary btn-sm" [disabled]="directDeliverySaving" (click)="enableDirectDelivery()">
-                @if (directDeliverySaving) {
-                  <fa-icon [icon]="faSpinner" [spin]="true" class="me-2"/>
-                }
-                Route this site's committee mail into the inbox
-              </button>
-              @if (directDeliveryMessage) {
-                <alert type="success" class="d-block mt-3 mb-0">
-                  <fa-icon [icon]="ALERT_SUCCESS.icon"></fa-icon>
-                  <strong class="ms-2">Direct delivery active</strong>
-                  <span class="ms-2">{{ directDeliveryMessage }}</span>
-                </alert>
-              }
-              @if (directDeliveryError) {
-                <alert type="danger" class="d-block mt-3 mb-0">
-                  <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
-                  <strong class="ms-2">Direct delivery not enabled</strong>
-                  <span class="ms-2">{{ directDeliveryError }}</span>
-                </alert>
-              }
             } @else {
               <alert type="warning" class="d-block mb-0">
                 <fa-icon [icon]="faTriangleExclamation"/>
@@ -474,8 +454,6 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   public inboxSettingsTabs: InboxSettingsTab[] = [InboxSettingsTab.SETTINGS, InboxSettingsTab.VISIBILITY];
   public selectedInboxTab: InboxSettingsTab = InboxSettingsTab.SETTINGS;
   protected readonly InputSize = InputSize;
-  protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
-  protected readonly ALERT_ERROR = ALERT_ERROR;
   protected readonly faGear = faGear;
   protected readonly faUserPlus = faUserPlus;
   protected readonly faList = faList;
@@ -491,9 +469,6 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected readonly GoogleCloudProvisioningStepStatus = GoogleCloudProvisioningStepStatus;
 
   protected stepperActiveIndex = 0;
-  protected directDeliverySaving = false;
-  protected directDeliveryMessage: string | null = null;
-  protected directDeliveryError: string | null = null;
   protected topicNameInput = "ngx-inbox-events";
   protected projectOverride = "";
   protected clearConfirmPending = false;
@@ -753,8 +728,6 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
       return;
     }
     this.systemConfigInternal.inbox = inboxSettingsForProvider(this.systemConfigInternal.inbox ?? null, provider);
-    this.directDeliveryMessage = null;
-    this.directDeliveryError = null;
     try {
       await this.systemConfigService.saveConfig(this.systemConfigInternal);
     } catch (error) {
@@ -779,26 +752,6 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
       await this.systemConfigService.saveConfig(this.systemConfigInternal);
     } catch (error) {
       this.errorMessage = (error as Error)?.message || "Could not save the inbox privacy setting - try again.";
-    }
-  }
-
-  async enableDirectDelivery(): Promise<void> {
-    this.directDeliverySaving = true;
-    this.directDeliveryMessage = null;
-    this.directDeliveryError = null;
-    try {
-      const result = await this.cloudflareEmailRoutingService.routeToInbox();
-      if (result.routed?.length) {
-        this.directDeliveryMessage = `Mail for ${result.routed.length} address${result.routed.length === 1 ? "" : "es"} (${result.routed.join(", ")}) now arrives in this inbox.`;
-      } else if (result.catchAllRouted) {
-        this.directDeliveryMessage = `The shared catch-all now routes unmatched @${this.cloudflareConfig?.baseDomain} mail, including committee addresses without individual Cloudflare rules, into this inbox.`;
-      } else {
-        this.directDeliveryError = "No committee addresses were found for this site's domain yet. Add the committee role addresses in Cloudflare Email Routing first, then try again.";
-      }
-    } catch (error) {
-      this.directDeliveryError = (error as Error)?.message || "Could not enable direct delivery. Check that Cloudflare Email Routing and the MX records are set up for your domain.";
-    } finally {
-      this.directDeliverySaving = false;
     }
   }
 

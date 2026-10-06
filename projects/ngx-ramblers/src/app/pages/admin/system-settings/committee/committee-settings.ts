@@ -43,11 +43,15 @@ import {
   DestinationAddress,
   DestinationVerificationStatus,
   EmailForwardStatus,
+  AddressRuleKind,
+  addressRuleKind,
   EmailRoutingActionType,
   EmailRoutingMatcherField,
   EmailRoutingMatcherType,
   DomainRoutingRuleSummary,
   EmailRoutingRule,
+  emailRoutingRuleAddress,
+  isLiteralDomainAddressRule,
   EmailWorkerScript,
   OrphanedWorkerRow,
   NonSensitiveCloudflareConfig,
@@ -249,8 +253,8 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                           ({{ committeeMembersWithoutRole.length }})
                         }
                       </button>
-                      <button class="btn btn-quiet btn-sm d-inline-flex align-items-center gap-2" [disabled]="!!editingRoleDraft || !catchAllRule?.enabled || clearForwardsPending || clearForwardsConfirmPending || !domainForwardRules().length"
-                              (click)="requestClearAllForwards()" tooltip="Delete every per-role Cloudflare forwarding rule for this domain so all role emails route via the single catch-all">
+                      <button class="btn btn-quiet btn-sm d-inline-flex align-items-center gap-2" [disabled]="!!editingRoleDraft || !cloudflareZoneId || clearForwardsPending || clearForwardsConfirmPending"
+                              (click)="requestClearAllForwards()" tooltip="Delete every per-address Cloudflare rule for this domain. The catch-all is left.">
                         <fa-icon [icon]="faTrash"/>Clear all forwards
                       </button>
                     </div>
@@ -259,29 +263,16 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                     <div class="alert alert-warning">
                       <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
                       <strong class="ms-2">Clear all forwards for {{ baseDomain }}?</strong>
-                      <div class="mt-2">
-                        This deletes
-                        <strong>{{ stringUtils.pluraliseWithCount(domainForwardRules().length, "live Cloudflare forwarding rule") }}</strong>
-                        for <strong>{{ baseDomain }}</strong> and sets every role to use the catch-all
-                        @if (catchAllDestination()) {
-                          (<strong>{{ catchAllDestination() }}</strong>)} so all role mail routes there instead.
-                        Forwarding rules for any other domain or subdomain are left untouched. This cannot be undone.
-                      </div>
-                      <ul class="mt-2 mb-0">
-                        @for (rule of domainRuleSummaries(); track rule.address) {
-                          <li><strong>{{ rule.address }}</strong> - {{ rule.actionLabel }}
-                            @if (rule.roleLabel) {
-                              ({{ rule.roleLabel }})
-                            } @else {
-                              (no committee role uses this address)
-                            }
-                          </li>
-                        }
-                      </ul>
+                      <div class="mt-2">{{ clearForwardsKindLabel() }}</div>
                       <div class="d-flex gap-2 mt-2">
-                        <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-2" [disabled]="clearForwardsPending || !domainForwardRules().length"
+                        <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-2" [disabled]="clearForwardsPending"
                                 (click)="clearAllForwards()">
-                          <fa-icon [icon]="faTrash"/>Delete {{ stringUtils.pluraliseWithCount(domainForwardRules().length, "forward") }}
+                          @if (clearForwardsPending) {
+                            <fa-icon [icon]="faSpinner" animation="spin"/>
+                          } @else {
+                            <fa-icon [icon]="faTrash"/>
+                          }
+                          Delete
                         </button>
                         <button type="button" class="btn btn-sm btn-quiet d-inline-flex align-items-center gap-2" [disabled]="clearForwardsPending"
                                 (click)="cancelClearAllForwards()">
@@ -346,30 +337,8 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                       </div>
                     </div>
                   }
-                  @if (domainRuleSummaries().length) {
-                    <div class="alert alert-warning d-flex align-items-start mb-3">
-                      <fa-icon [icon]="ALERT_ERROR.icon" class="mt-1"></fa-icon>
-                      <div class="ms-2">
-                        <strong>Address rules still on Cloudflare</strong>
-                        <div class="mt-2">
-                          These are live rules for individual addresses on {{ baseDomain }}. They are separate from the catch-all,
-                          and they stay in place while a role is open, so the role list does not have to be on screen to see them.
-                          Clear all forwards deletes this list.
-                        </div>
-                        <ul class="mt-2 mb-0">
-                          @for (rule of domainRuleSummaries(); track rule.address) {
-                            <li>
-                              <strong>{{ rule.address }}</strong> - {{ rule.actionLabel }}
-                              @if (rule.roleLabel) {
-                                <span class="text-muted"> · {{ rule.roleLabel }}</span>
-                              } @else {
-                                <span> · no committee role uses this address</span>
-                              }
-                            </li>
-                          }
-                        </ul>
-                      </div>
-                    </div>
+                  @if (domainForwardRules().length) {
+                    <p class="text-muted small mb-3">{{ clearForwardsKindLabel() }} on Cloudflare</p>
                   }
                   @if (committeeMembersLoaded && !editingRoleDraft && committeeMembersWithoutRole.length && !committeeRolesAlertDismissed) {
                     <div class="alert alert-warning committee-roles-alert">
@@ -1554,8 +1523,17 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   clearForwardsConfirmPending = false;
   clearForwardsPending = false;
 
-  requestClearAllForwards(): void {
-    this.clearForwardsConfirmPending = true;
+  async requestClearAllForwards(): Promise<void> {
+    this.clearForwardsPending = true;
+    try {
+      this.cloudflareEmailRoutingService.invalidateCache();
+      await this.cloudflareEmailRoutingService.queryRules();
+    } catch (error) {
+      this.notify.error(error);
+    } finally {
+      this.clearForwardsPending = false;
+      this.clearForwardsConfirmPending = true;
+    }
   }
 
   cancelClearAllForwards(): void {
@@ -1563,35 +1541,66 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   domainForwardRules(): EmailRoutingRule[] {
-    const domain = (this.baseDomain || "").toLowerCase();
-    if (!domain) {
-      return [];
-    }
-    return (this.emailRoutingRules || []).filter(rule => rule.matchers?.some(matcher =>
-      matcher.type === EmailRoutingMatcherType.LITERAL
-      && matcher.field === EmailRoutingMatcherField.TO
-      && !!matcher.value
-      && matcher.value.split("@")[1]?.toLowerCase() === domain));
+    return (this.emailRoutingRules || []).filter(rule => isLiteralDomainAddressRule(rule, this.baseDomain));
   }
 
   domainRuleSummaries(): DomainRoutingRuleSummary[] {
     return this.domainForwardRules().map(rule => {
-      const address = rule.matchers?.find(matcher =>
-        matcher.type === EmailRoutingMatcherType.LITERAL && matcher.field === EmailRoutingMatcherField.TO && !!matcher.value
-      )?.value || rule.name;
+      const address = emailRoutingRuleAddress(rule) || rule.name;
       const role = this.roleForRoutingAddress(address);
       const forwardAction = rule.actions?.find(action => action.type === EmailRoutingActionType.FORWARD);
       const workerAction = rule.actions?.find(action => action.type === EmailRoutingActionType.WORKER);
       const roleRecipients = (role?.forwardEmailRecipients || []).filter(addressValue => !!addressValue);
       const forwardDestinations = forwardAction?.value || [];
-      const actionLabel = workerAction
-        ? (roleRecipients.length ? `Re-sends to ${roleRecipients.join(", ")}` : `Worker ${workerAction.value?.[0] || "script"}`)
-        : (forwardDestinations.length ? `Forwards to ${forwardDestinations.join(", ")}` : "Drops the message");
+      const kind = addressRuleKind(rule);
+      const actionLabel = kind === AddressRuleKind.INBOX_ROUTER
+        ? "Inbox router (this site's Admin Inbox)"
+        : workerAction
+          ? (roleRecipients.length ? `Re-sends to ${roleRecipients.join(", ")}` : `Worker ${workerAction.value?.[0] || "script"}`)
+          : (forwardDestinations.length ? `Forwards to ${forwardDestinations.join(", ")}` : "Drops the message");
       const roleLabel = role
         ? `${role.description || role.type}${role.fullName ? "" : ", no member name on the role"}`
         : null;
-      return {address, actionLabel, roleLabel};
+      return {address, actionLabel, roleLabel, kind};
     });
+  }
+
+  mailboxForwardSummaries(): DomainRoutingRuleSummary[] {
+    return this.domainRuleSummaries().filter(rule => rule.kind === AddressRuleKind.MAILBOX_FORWARD);
+  }
+
+  inboxRouterSummaries(): DomainRoutingRuleSummary[] {
+    return this.domainRuleSummaries().filter(rule => rule.kind === AddressRuleKind.INBOX_ROUTER);
+  }
+
+  otherAddressRuleSummaries(): DomainRoutingRuleSummary[] {
+    return this.domainRuleSummaries().filter(rule =>
+      rule.kind === AddressRuleKind.WORKER || rule.kind === AddressRuleKind.DROP);
+  }
+
+  clearForwardsKindLabel(): string {
+    const mailbox = this.mailboxForwardSummaries().length;
+    const inbox = this.inboxRouterSummaries().length;
+    const other = this.otherAddressRuleSummaries().length;
+    const parts: string[] = [];
+    if (mailbox) {
+      parts.push(this.stringUtils.pluraliseWithCount(mailbox, "mailbox forward"));
+    }
+    if (inbox) {
+      parts.push(this.stringUtils.pluraliseWithCount(inbox, "inbox-router rule"));
+    }
+    if (other) {
+      parts.push(this.stringUtils.pluraliseWithCount(other, "other address rule"));
+    }
+    if (parts.length === 0) {
+      return "Mailbox forwards and inbox-router rules";
+    } else if (parts.length === 1) {
+      return parts[0];
+    } else if (parts.length === 2) {
+      return `${parts[0]} and ${parts[1]}`;
+    } else {
+      return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+    }
   }
 
   private roleForRoutingAddress(address: string): CommitteeMember | null {
@@ -1606,26 +1615,22 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   async clearAllForwards(): Promise<void> {
-    const rulesToDelete = this.domainForwardRules();
-    this.clearForwardsConfirmPending = false;
     this.clearForwardsPending = true;
     try {
-      for (const rule of rulesToDelete) {
-        if (rule.id) {
-          await this.cloudflareEmailRoutingService.deleteRule(rule.id);
-        }
-      }
+      const result = await this.cloudflareEmailRoutingService.clearAddressRules();
       (this.committeeConfig?.roles ?? []).forEach(role => {
         if (!role.vacant) {
           role.forwardEmailTarget = ForwardEmailTarget.CATCHALL;
           role.forwardEmailCustom = null;
         }
       });
-      await this.cloudflareEmailRoutingService.queryRules();
       await this.save();
+      this.clearForwardsConfirmPending = false;
       this.notify.success({
-        title: "Forwards cleared",
-        message: `Deleted ${this.stringUtils.pluraliseWithCount(rulesToDelete.length, "Cloudflare forwarding rule")} for ${this.baseDomain}. All role mail now routes via the catch-all.`
+        title: "Address rules cleared",
+        message: result.deleted.length
+          ? `Deleted ${this.stringUtils.pluraliseWithCount(result.deleted.length, "address rule")} for ${this.baseDomain}.`
+          : `No per-address rules on Cloudflare for ${this.baseDomain}.`
       });
     } catch (error) {
       this.notify.error(error);

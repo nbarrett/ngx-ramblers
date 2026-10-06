@@ -4,6 +4,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { BehaviorSubject } from "rxjs";
 import { ApiResponse } from "../../models/api-response.model";
 import {
+  ClearAddressRulesResponse,
   CreateOrUpdateEmailRouteRequest,
   CreateOrUpdateWorkerRequest,
   DestinationAddress,
@@ -14,7 +15,6 @@ import {
   EmailWorkerScript,
   MxRecordStatus,
   NonSensitiveCloudflareConfig,
-  RouteToInboxResponse,
   UpdateCatchAllRequest,
   WorkerInvocationSummary,
   WorkerLogsRequest,
@@ -62,6 +62,13 @@ export class CloudflareEmailRoutingService {
     return this.rulesSubject.value;
   }
 
+  async clearAddressRules(): Promise<ClearAddressRulesResponse> {
+    const response = (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/rules/clear-address-rules`, {}))).response;
+    this.invalidateCache();
+    await this.queryRules();
+    return response;
+  }
+
   async queryCatchAllRule(): Promise<EmailRoutingRule> {
     if (!this.catchAllLoaded) {
       try {
@@ -87,12 +94,6 @@ export class CloudflareEmailRoutingService {
 
   async redeployRouterWorker(): Promise<{ scriptName: string }> {
     const response = (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/rules/catch-all/router/redeploy`, {}))).response;
-    this.invalidateCache();
-    return response;
-  }
-
-  async routeToInbox(): Promise<RouteToInboxResponse> {
-    const response = (await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/route-to-inbox`, {}))).response;
     this.invalidateCache();
     return response;
   }

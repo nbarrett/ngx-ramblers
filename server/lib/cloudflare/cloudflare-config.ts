@@ -8,6 +8,7 @@ import { decryptCloudflareConfig } from "./cloudflare-crypto";
 import { systemConfig } from "../config/system-config";
 import * as config from "../mongo/controllers/config";
 import { apexHostFromUrl } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
+import { zoneForHostname } from "./cloudflare-dns";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare-config"));
 debugLog.enabled = true;
@@ -45,6 +46,23 @@ export async function configuredCloudflare(): Promise<CloudflareConfig> {
   throw new Error("No Cloudflare configuration found in env var or database");
 }
 
+export async function configuredCloudflareForCurrentSite(): Promise<CloudflareConfig> {
+  const cloudflareConfig = await configuredCloudflare();
+  const primaryHost = await primaryHostFromSystemConfig();
+  const host = (primaryHost || cloudflareConfig.baseDomain || "").replace(/^www\./, "").trim().toLowerCase();
+  if (!host) {
+    return cloudflareConfig;
+  } else {
+    const zone = await zoneForHostname(cloudflareConfig.apiToken, host);
+    if (!zone?.id || zone.id === cloudflareConfig.zoneId) {
+      return cloudflareConfig;
+    } else {
+      debugLog("Using site zone %s (%s) instead of configured zone %s", zone.name, zone.id, cloudflareConfig.zoneId);
+      return {...cloudflareConfig, zoneId: zone.id, baseDomain: zone.name || cloudflareConfig.baseDomain};
+    }
+  }
+}
+
 async function primaryHostFromSystemConfig(): Promise<string | null> {
   try {
     const sysConfig = await systemConfig();
@@ -61,7 +79,7 @@ async function primaryHostFromSystemConfig(): Promise<string | null> {
 
 export async function nonSensitiveCloudflareConfig(): Promise<NonSensitiveCloudflareConfig> {
   try {
-    const cloudflareConfig = await configuredCloudflare();
+    const cloudflareConfig = await configuredCloudflareForCurrentSite();
     const primaryHost = await primaryHostFromSystemConfig();
     const baseDomain = primaryHost || cloudflareConfig.baseDomain || "";
     return {
