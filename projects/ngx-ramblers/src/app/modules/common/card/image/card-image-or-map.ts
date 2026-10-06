@@ -1,4 +1,5 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
+import { NgStyle } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -15,6 +16,7 @@ import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { isEqual } from "es-toolkit/compat";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { VisibilityObserverDirective } from "../../../../notifications/common/visibility-observer.directive";
+import { focalPointImageStyles } from "../../../../functions/image-cropper-styles";
 
 @Component({
   selector: "app-card-image-or-map",
@@ -106,6 +108,7 @@ import { VisibilityObserverDirective } from "../../../../notifications/common/vi
                alt="{{basicMedia?.alt}}"
                loading="lazy"
                [height]="this.imageConfig.height"
+               [ngStyle]="imageStyles()"
                class="card-img-top"/>
         </a>
       } @else {
@@ -114,12 +117,13 @@ import { VisibilityObserverDirective } from "../../../../notifications/common/vi
              alt="{{basicMedia?.alt}}"
              loading="lazy"
              [height]="this.imageConfig.height"
+             [ngStyle]="imageStyles()"
              class="card-img-top"/>
       }
     }
   `,
   styleUrls: ["./card-image.sass"],
-  imports: [FontAwesomeModule, MapEditComponent, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, VisibilityObserverDirective]
+  imports: [FontAwesomeModule, MapEditComponent, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, VisibilityObserverDirective, NgStyle]
 })
 export class CardImageOrMap implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CardImageOrMap", NgxLoggerLevel.ERROR);
@@ -167,6 +171,10 @@ export class CardImageOrMap implements OnInit {
       this.basicMedia = this.mediaQueryService.imageSourceWithFallback(this.displayedWalk.walk);
       this.logger.info("updateBasicMedia: updated basicMedia for walk", this.displayedWalk.walk.id, "to", this.basicMedia);
     }
+  }
+
+  imageStyles(): Record<string, string> {
+    return focalPointImageStyles(this.displayedWalk?.walk?.groupEvent?.media?.[0]?.focalPoint);
   }
 
   imageError(event: ErrorEvent) {

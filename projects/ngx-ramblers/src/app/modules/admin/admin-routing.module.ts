@@ -330,7 +330,7 @@ const rp = adminRelativePath;
       path: rp(AdminPath.MAILING_PREFERENCES),
       loadComponent: () => import("../../pages/mailing-preferences/mailing-preferences-modal.component")
         .then(m => m.MailingPreferencesModalComponent),
-      canActivate: [SystemHealthyGuard, AdminAuthGuard]
+      canActivate: [SystemHealthyGuard, LoggedInGuard]
     },
     {
       path: rp(AdminPath.MAILCHIMP_SETTINGS),

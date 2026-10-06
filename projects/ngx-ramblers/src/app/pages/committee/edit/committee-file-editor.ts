@@ -28,6 +28,7 @@ import { LabelledFieldComponent } from "../../../modules/common/labelled-field-r
 import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tiptap-markdown-editor";
 import { StickyControlsDirective } from "../../../modules/common/tiptap-editor/sticky-controls.directive";
 import { CommitteeDocumentView } from "../document/committee-document-view";
+import { committeeFileForSave } from "../../../functions/committee-file-save";
 
 @Component({
   selector: "app-committee-file-editor",
@@ -283,6 +284,8 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
       this.existingTitle = value;
       if (this.committeeFile.fileNameData) {
         this.committeeFile.fileNameData.title = value;
+      } else if (value) {
+        this.committeeFile.fileNameData = {title: value};
       }
     }
   }
@@ -327,7 +330,7 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
 
   save() {
     this.notify.setBusy();
-    this.committeeFileService.createOrUpdate(this.fileToSave())
+    this.committeeFileService.createOrUpdate(committeeFileForSave(this.kind, this.committeeFile, this.existingTitle ?? this.fileTitle))
       .then(savedFile => {
         this.notify.clearBusy();
         this.saved.emit(savedFile);
@@ -339,20 +342,6 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
         });
         this.notify.clearBusy();
       });
-  }
-
-  private fileToSave(): CommitteeFile {
-    if (this.kind === CommitteeFileKind.COMPOSED && this.composedContentPresent()) {
-      return {...this.committeeFile, fileNameData: null};
-    } else if (this.kind === CommitteeFileKind.ATTACHMENT && this.committeeFile.fileNameData) {
-      return {...this.committeeFile, document: null};
-    } else {
-      return {...this.committeeFile, document: this.composedContentPresent() ? this.committeeFile.document : null};
-    }
-  }
-
-  private composedContentPresent(): boolean {
-    return !!(this.committeeFile?.document?.title || this.committeeFile?.document?.markdown);
   }
 
   showAlertMessage(): boolean {

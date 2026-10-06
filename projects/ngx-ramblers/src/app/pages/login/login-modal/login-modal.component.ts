@@ -9,7 +9,6 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { RouterHistoryService } from "../../../services/router-history.service";
 import { UrlService } from "../../../services/url.service";
-import { MailingPreferencesModalComponent } from "../../mailing-preferences/mailing-preferences-modal.component";
 import { ForgotPasswordModalComponent } from "../forgot-password-modal/forgot-password-modal.component";
 import { ResetPasswordModalComponent } from "../reset-password-modal/reset-password-modal.component";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -119,14 +118,7 @@ export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
       } else if (loginResponse.memberLoggedIn) {
         this.continueAfterAuth();
         if (!this.memberLoginService.loggedInMember().profileSettingsConfirmed) {
-          this.modalService.show(MailingPreferencesModalComponent, {
-            class: "modal-xl",
-            animated: false,
-            show: true,
-            initialState: {
-              memberId: this.memberLoginService.loggedInMember().memberId
-            }
-          });
+          this.urlService.navigateTo(["admin", "mailing-preferences"]);
         }
       } else if (loginResponse.showResetPassword) {
         this.modalService.show(ResetPasswordModalComponent, {

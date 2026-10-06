@@ -1,5 +1,5 @@
 import { AfterViewInit, Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
-import { BsModalRef, BsModalService } from "ngx-bootstrap/modal";
+import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AuthService } from "../../../auth/auth.service";
@@ -8,7 +8,6 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { UrlService } from "../../../services/url.service";
-import { MailingPreferencesModalComponent } from "../../mailing-preferences/mailing-preferences-modal.component";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { Organisation } from "../../../models/system.model";
 import { NgClass } from "@angular/common";
@@ -95,7 +94,6 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy, AfterView
   @ViewChild("newPasswordInputRef") newPasswordInputRef?: ElementRef<HTMLInputElement>;
   private logger: Logger = inject(LoggerFactory).createLogger("ResetPasswordModalComponent", NgxLoggerLevel.ERROR);
   bsModalRef = inject(BsModalRef);
-  private modalService = inject(BsModalService);
   private authService = inject(AuthService);
   private systemConfigService = inject(SystemConfigService);
   private memberLoginService = inject(MemberLoginService);
@@ -185,14 +183,7 @@ export class ResetPasswordModalComponent implements OnInit, OnDestroy, AfterView
         if (response?.memberLoggedIn) {
           this.continueAfterAuth();
           if (!this.memberLoginService.loggedInMember().profileSettingsConfirmed) {
-            this.modalService.show(MailingPreferencesModalComponent, {
-              class: "modal-xl",
-              animated: false,
-              show: true,
-              initialState: {
-                memberId: this.memberLoginService.loggedInMember().memberId
-              }
-            });
+            this.urlService.navigateTo(["admin", "mailing-preferences"]);
           }
         } else if (response?.showResetPassword) {
           this.notify.showContactUs(true);

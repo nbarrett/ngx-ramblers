@@ -5,6 +5,8 @@ import { AlertTarget } from "../../models/alert-target.model";
 import { Member } from "../../models/member.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { MemberService } from "../../services/member/member.service";
+import { MemberLoginService } from "../../services/member/member-login.service";
+import { ViewAsService } from "../../services/member/view-as.service";
 import { AlertInstance, NotifierService } from "../../services/notifier.service";
 import { ProfileConfirmationService } from "../../services/profile-confirmation.service";
 import { RouterHistoryService } from "../../services/router-history.service";
@@ -29,13 +31,15 @@ import { ContactUsComponent } from "../../committee/contact-us/contact-us";
 export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MailingPreferencesModalComponent", NgxLoggerLevel.ERROR);
   private memberService = inject(MemberService);
+  private memberLoginService = inject(MemberLoginService);
+  private viewAsService = inject(ViewAsService);
   private systemConfigService = inject(SystemConfigService);
   private profileConfirmationService = inject(ProfileConfirmationService);
   private notifierService = inject(NotifierService);
   private routerHistoryService = inject(RouterHistoryService);
   protected mailMessagingService = inject(MailMessagingService);
   private mailListUpdaterService = inject(MailListUpdaterService);
-  protected bsModalRef = inject(BsModalRef);
+  protected bsModalRef = inject(BsModalRef, {optional: true});
   public mailMessagingConfig: MailMessagingConfig;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -59,15 +63,31 @@ export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
         this.logger.info("retrieved MailMessagingConfig event:", mailMessagingConfig?.mailConfig);
       }));
 
+    this.resolveAndLoadMember();
+  }
+
+  private resolveAndLoadMember() {
     if (this.memberId) {
-      this.memberService.getById(this.memberId)
-        .then(member => {
-          this.logger.debug("memberId ->", this.memberId, "member ->", member);
-          this.member = member;
-        });
+      this.loadMember(this.memberId);
     } else {
-      this.notify.error({title: "Error retrieving member preferences", message: "No member found"});
+      this.viewAsService.hydrateFromLocation().then(() => {
+        const memberId = this.memberLoginService.loggedInMember()?.memberId;
+        if (memberId) {
+          this.memberId = memberId;
+          this.loadMember(memberId);
+        } else {
+          this.notify.error({title: "Error retrieving member preferences", message: "No member found"});
+        }
+      });
     }
+  }
+
+  private loadMember(memberId: string) {
+    this.memberService.getById(memberId)
+      .then(member => {
+        this.logger.debug("memberId ->", memberId, "member ->", member);
+        this.member = member;
+      });
   }
 
   ngOnDestroy(): void {
@@ -84,15 +104,20 @@ export class MailingPreferencesModalComponent implements OnInit, OnDestroy {
   }
 
   save() {
-    this.profileConfirmationService.confirmProfile(this.member);
-    this.memberService.update(this.member)
-      .then(() => this.close())
-      .catch((error) => this.saveOrUpdateUnsuccessful(error));
+    if (this.member && !this.notifyTarget.busy) {
+      this.notify.setBusy();
+      this.profileConfirmationService.confirmProfile(this.member);
+      this.memberService.update(this.member)
+        .then(() => this.close())
+        .catch((error) => this.saveOrUpdateUnsuccessful(error));
+    }
   }
 
   close() {
     this.routerHistoryService.navigateBackToLastMainPage();
-    this.bsModalRef.hide();
+    if (this.bsModalRef) {
+      this.bsModalRef.hide();
+    }
   }
 
 

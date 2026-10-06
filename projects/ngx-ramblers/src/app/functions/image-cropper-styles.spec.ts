@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cropperFrameAspectRatio, cropperWrapperStyles, isUsefulCropperPosition } from "./image-cropper-styles";
+import { cropperFrameAspectRatio, cropperWrapperStyles, focalPointImageStyles, isUsefulCropperPosition } from "./image-cropper-styles";
 
 describe("isUsefulCropperPosition", () => {
   it("rejects null / undefined / zero-area crops", () => {
@@ -45,6 +45,29 @@ describe("cropperFrameAspectRatio", () => {
 
   it("falls back to the full image when the crop is not useful", () => {
     expect(cropperFrameAspectRatio({x1: 0, y1: 0, x2: 25, y2: 25} as any, 1600, 900)).toBe("1600 / 900");
+  });
+});
+
+describe("focalPointImageStyles", () => {
+  it("returns empty styles when there is no focal point", () => {
+    expect(focalPointImageStyles(null)).toEqual({});
+    expect(focalPointImageStyles(undefined)).toEqual({});
+  });
+
+  it("applies object-position including a zero y value", () => {
+    expect(focalPointImageStyles({x: 56.7, y: 0, zoom: 1})).toEqual({
+      "object-fit": "cover",
+      "object-position": "56.7% 0%"
+    });
+  });
+
+  it("applies zoom from the focal point origin", () => {
+    expect(focalPointImageStyles({x: 20, y: 80, zoom: 1.4})).toEqual({
+      "object-fit": "cover",
+      "object-position": "20% 80%",
+      "transform": "scale(1.4)",
+      "transform-origin": "20% 80%"
+    });
   });
 });
 

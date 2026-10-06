@@ -55,7 +55,7 @@ import { FormSaveActions } from "../../../models/form-save-actions.model";
                     <app-email-subscriptions-mailchimp [member]="member"/>
                   }
                   @if (systemConfig?.mailDefaults?.mailProvider === MailProvider.BREVO) {
-                    @for (subscription of mailMessagingService.memberSubscribableSubscriptions(member.mail.subscriptions); track subscription.id) {
+                    @for (subscription of mailMessagingService.memberSubscribableSubscriptions(member); track subscription.id) {
                       <div>
                         <app-mail-subscription-setting [member]="member" [subscription]="subscription"/>
                       </div>
