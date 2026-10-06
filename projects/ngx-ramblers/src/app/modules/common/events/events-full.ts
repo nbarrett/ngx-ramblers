@@ -91,18 +91,18 @@ import { environment } from "../../../../environments/environment";
                       <fa-icon [icon]="faCheck" class="ms-auto ps-3"/>
                     }
                   </a></li>
-                  @if (!eventsData.eventTypes?.length || eventsData.eventTypes.includes(RamblersEventType.GROUP_WALK)) {
+                  @if (showCalendarView()) {
                     <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.CALENDAR)" class="dropdown-item d-flex align-items-center">
                       <fa-icon [icon]="faCalendarDays" class="me-2"/>Calendar View
                       @if (walkListView === WalkListView.CALENDAR) { <fa-icon [icon]="faCheck" class="ms-auto ps-3"/> }
                     </a></li>
                   }
-                  @if (display.memberCanAddWalk(eventsData)) {
-                    <li class="dropdown-divider"></li>
-                    <li role="menuitem"><a role="button" (click)="display.addMemberLedWalk()" class="dropdown-item d-flex align-items-center">
-                      <fa-icon [icon]="faCalendarPlus" class="me-2"/>{{ display.memberWalkButtonLabel() }}
-                    </a></li>
-                  }
+                  <li class="dropdown-divider" [class.d-none]="!display.memberCanCreateWalk()"></li>
+                  <li role="menuitem" [class.d-none]="!display.memberCanCreateWalk()">
+                    <a role="button" (click)="display.addMemberLedWalk()" class="dropdown-item d-flex align-items-center">
+                      <fa-icon [icon]="faCalendarPlus" class="me-2"/>{{ addWalkMenuLabel() }}
+                    </a>
+                  </li>
                 </ul>
               </div>
               @if (showDiagnostics && !production && memberLoginService.allowWalkAdminEdits()) {
@@ -182,7 +182,23 @@ export class EventsFull implements OnInit, OnDestroy {
   protected readonly faCalendarDays = faCalendarDays;
   protected readonly faCheck = faCheck;
   protected readonly WalkListView = WalkListView;
+  protected readonly RamblersEventType = RamblersEventType;
   protected readonly production = environment.production;
+
+  showCalendarView(): boolean {
+    const types = this.eventsData?.eventTypes;
+    return !types?.length || types.includes(RamblersEventType.GROUP_WALK);
+  }
+
+  addWalkMenuLabel(): string {
+    const regularWalkDay = this.walksConfig?.regularWalkDay ?? 0;
+    const dayName = this.dateUtils.dayNameFor(regularWalkDay);
+    if (dayName) {
+      return `Add non-${dayName} walk`;
+    } else {
+      return "Add walk";
+    }
+  }
 
   public eventsData: EventsData;
   private appliedEventsDataKey: string = null;
