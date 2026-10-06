@@ -1,7 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
-import { shareReplay } from "rxjs/operators";
 import { NamedEvent, NamedEventType } from "../../models/broadcast.model";
 import { ConfigKey } from "../../models/config.model";
 import { BroadcastService } from "../broadcast-service";
@@ -62,7 +61,7 @@ export class WalksConfigService {
   }
 
   public events(): Observable<WalksConfig> {
-    return this.subject.pipe(shareReplay());
+    return this.subject.asObservable();
   }
 
   private normalise(config: WalksConfig): WalksConfig {

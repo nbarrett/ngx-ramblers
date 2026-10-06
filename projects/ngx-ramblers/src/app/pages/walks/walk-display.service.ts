@@ -24,7 +24,7 @@ import {
   WalkViewMode
 } from "../../models/walk.model";
 import { LinksService } from "../../services/links.service";
-import { enumValueForKey, enumValues } from "../../functions/enums";
+import { enumForKey, enumValueForKey, enumValues } from "../../functions/enums";
 import { GoogleMapsService } from "../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
@@ -50,6 +50,7 @@ import { BuiltInRole } from "../../models/committee.model";
 import { MediaQueryService } from "../../services/committee/media-query.service";
 import { EventSource, ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { AccessLevel } from "../../models/member-resource.model";
+import { eventAccessPermitted } from "../../functions/event-access-level";
 import { AppPath } from "../../models/route-follow.model";
 import { DEFAULT_WALKS_AREA } from "../../models/walks-route-paths.model";
 import { FeaturesService } from "../../services/features.service";
@@ -349,9 +350,9 @@ export class WalkDisplayService {
   }
 
   memberCanCreateWalk(): boolean {
-    return this.memberLoginService.memberLoggedIn()
-      && this.walkPopulationLocal()
-      && this.memberMeetsWalkCreationAccess();
+    const population = this.group?.walkPopulation;
+    const localOrUnknown = !population || population === EventPopulation.LOCAL;
+    return localOrUnknown && this.memberMeetsWalkCreationAccess();
   }
 
   memberCanAddWalk(eventsData?: EventsData): boolean {
@@ -359,14 +360,25 @@ export class WalkDisplayService {
   }
 
   private memberMeetsWalkCreationAccess(): boolean {
-    const accessLevel = this.walksConfigService.walksConfig()?.walkCreationAccessLevel ?? AccessLevel.HIDDEN;
-    return !!this.memberResourcesReferenceData.accessLevelFor(accessLevel)?.filter();
+    const configured = this.walksConfigService.walksConfig()?.walkCreationAccessLevel;
+    const accessLevel = (enumForKey(AccessLevel, configured as string) || configured || AccessLevel.HIDDEN) as AccessLevel;
+    return eventAccessPermitted(accessLevel, {
+      loggedIn: this.memberLoginService.memberLoggedIn(),
+      committee: this.memberLoginService.allowCommittee(),
+      memberAdmin: this.memberLoginService.allowMemberAdminEdits(),
+      eventAdmin: this.memberLoginService.allowWalkAdminEdits(),
+      eventLeader: this.memberLoginService.allowWalkAdminEdits()
+    });
   }
 
   memberWalkButtonLabel(): string {
     const regularWalkDay = this.walksConfigService.walksConfig()?.regularWalkDay ?? DEFAULT_REGULAR_WALK_DAY;
     const dayName = this.dateUtils.dayNameFor(regularWalkDay);
-    return dayName ? `Add non-${dayName} walk` : "Add walk";
+    if (dayName) {
+      return `Add non-${dayName} walk`;
+    } else {
+      return "Add walk";
+    }
   }
 
   newMemberLedWalk(): ExtendedGroupEvent {
