@@ -1,5 +1,5 @@
 import { isNumber, isUndefined } from "es-toolkit/compat";
-import { CropperDebugOffsets, ImageCropperPosition } from "../models/image-cropper.model";
+import { CropperDebugOffsets, FocalPoint, ImageCropperPosition } from "../models/image-cropper.model";
 
 const cropperDimension = (endValue: number, startValue: number): number | null => {
   if (!isNumber(endValue) || !isNumber(startValue)) {
@@ -123,4 +123,21 @@ export const cropperTransformStyles = (position: ImageCropperPosition): any => {
     "transform-origin": "0 0",
     "transform": `scale(${scale}) translate(${translateX}%, ${translateY}%)`
   };
+};
+
+export const focalPointImageStyles = (focalPoint: FocalPoint | null | undefined, imageFit = "cover"): Record<string, string> => {
+  if (focalPoint) {
+    const zoom = focalPoint.zoom ?? 1;
+    const styles: Record<string, string> = {
+      "object-fit": imageFit,
+      "object-position": `${focalPoint.x}% ${focalPoint.y}%`
+    };
+    if (zoom !== 1) {
+      styles["transform"] = `scale(${zoom})`;
+      styles["transform-origin"] = `${focalPoint.x}% ${focalPoint.y}%`;
+    }
+    return styles;
+  } else {
+    return {};
+  }
 };

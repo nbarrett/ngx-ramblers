@@ -3,6 +3,7 @@ import { ADMIN_SET_PASSWORD_PATH } from "../../models/system.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { toPairs, isNumber, isString } from "es-toolkit/compat";
 import { booleanOf, stripTrailingSlash } from "../../functions/strings";
+import { subscribableMailSubscriptions } from "../../functions/mail-subscriptions";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MailConfigService } from "./mail-config.service";
 import { Member } from "../../models/member.model";
@@ -653,8 +654,8 @@ export class MailMessagingService {
     });
   }
 
-  public memberSubscribableSubscriptions(subscriptions: MailSubscription[]): MailSubscription[] {
-    return this.subscriptionsFor(subscriptions, (item: ListSetting) => item.memberSubscribable);
+  public memberSubscribableSubscriptions(member: Member): MailSubscription[] {
+    return subscribableMailSubscriptions(member, this.mailMessagingConfig?.mailConfig?.listSettings);
   }
 
   public subscribed(listSetting: ListSetting, member: Member): boolean {
@@ -663,18 +664,6 @@ export class MailMessagingService {
     }
     return listSetting?.autoSubscribeNewMembers && (listSetting?.requiresMemberEmailMarketingConsent ? member?.emailMarketingConsent : true) && !!(member.email);
   }
-
-  private subscriptionsFor(subscriptions: MailSubscription[], predicate: (item: ListSetting) => boolean) {
-    this.logger.info("subscriptionsFor:subscriptions ->", subscriptions, "listSettings ->", this.mailMessagingConfig?.mailConfig?.listSettings);
-    const filtered: MailSubscription[] = this.mailMessagingConfig?.mailConfig?.listSettings
-      ?.filter(predicate).map(listSetting => subscriptions.find(subscription => subscription.id === listSetting.id) || {
-        id: listSetting.id,
-        subscribed: false
-      });
-    this.logger.info("subscriptionsFor:subscriptions ->", subscriptions, "filtered ->", filtered);
-    return filtered;
-  }
-
 
   private syncMailConfigListsWithBrevo() {
     this.mailMessagingConfig.mailConfig.listSettings = this.mailMessagingConfig.mailConfig.listSettings.filter(item => this.mailMessagingConfig.brevo.lists.lists.map(list => list.id).includes(item.id));

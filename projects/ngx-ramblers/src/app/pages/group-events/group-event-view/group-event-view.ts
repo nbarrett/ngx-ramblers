@@ -1,5 +1,6 @@
 import { WalkDisplayService } from "../../walks/walk-display.service";
 import { Component, inject, Input, OnInit, ViewChild } from "@angular/core";
+import { NgStyle } from "@angular/common";
 import { faFile, faHouse, faImages, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -12,6 +13,7 @@ import { GroupEventDisplayService } from "../group-event-display.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { eventAccessPermitted } from "../../../functions/event-access-level";
+import { focalPointImageStyles } from "../../../functions/image-cropper-styles";
 import { memberLeadsWalk } from "../../../functions/walks/walk-leader-fields";
 import { PageService } from "../../../services/page.service";
 import { MarkdownComponent } from "ngx-markdown";
@@ -46,7 +48,7 @@ import { StoredValue } from "../../../models/ui-actions";
   template: `
     <app-event-social-publish-modal #socialPublish/>
     <div class="card mb-3">
-      <div class="wrapper w-100 position-relative">
+      <div class="wrapper w-100 position-relative overflow-hidden">
         @if (eventAlbumPath) {
           <app-walk-album-panel class="event-album-hero"
                                 [presentation]="AlbumPanelPresentation.HERO"
@@ -57,6 +59,7 @@ import { StoredValue } from "../../../models/ui-actions";
         } @else {
           <img class="h-100 w-100 position-absolute" (error)="imageError($event)" (load)="imageLoad($event)"
                role="presentation" src="{{image.url}}"
+               [ngStyle]="heroImageStyles()"
                alt="{{image.alt}}"/>
         }
       </div>
@@ -230,7 +233,7 @@ import { StoredValue } from "../../../models/ui-actions";
       </div>
     </div>`,
   styleUrls: ["group-event-view.sass"],
-  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent, AddToCalendarLinkComponent, WalkAlbumPanelComponent]
+  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent, AddToCalendarLinkComponent, WalkAlbumPanelComponent, NgStyle]
 })
 export class GroupEventView implements OnInit {
 
@@ -306,6 +309,10 @@ export class GroupEventView implements OnInit {
       title: "Single event showing",
       message: " - "
     });
+  }
+
+  heroImageStyles(): Record<string, string> {
+    return focalPointImageStyles(this.groupEvent?.groupEvent?.media?.[0]?.focalPoint);
   }
 
   imageError(event: ErrorEvent) {

@@ -1,4 +1,5 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Subscription } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
@@ -29,7 +30,7 @@ import { FormsModule } from "@angular/forms";
     }`,
     imports: [FormsModule]
 })
-export class MailSubscriptionSettingComponent implements OnInit {
+export class MailSubscriptionSettingComponent implements OnInit, OnDestroy {
 
   public mailConfig: MailConfig;
   @Input() public subscription: MailSubscription;
@@ -42,12 +43,17 @@ export class MailSubscriptionSettingComponent implements OnInit {
   loggerFactory: LoggerFactory = inject(LoggerFactory);
   private logger = this.loggerFactory.createLogger("MailSubscriptionSettingComponent", NgxLoggerLevel.ERROR);
   protected mailMessagingConfig: MailMessagingConfig;
+  private subscriptions: Subscription[] = [];
 
-  async ngOnInit() {
-    this.mailMessagingService.events().subscribe(mailMessagingConfig => {
+  ngOnInit() {
+    this.subscriptions.push(this.mailMessagingService.events().subscribe(mailMessagingConfig => {
       this.mailMessagingConfig = mailMessagingConfig;
       this.logger.info("ngOnInit:mail subscription:", this.subscription, "list name:", this.listNameFor(this.subscription));
-    });
+    }));
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   listNameFor(subscription: MailSubscription) {

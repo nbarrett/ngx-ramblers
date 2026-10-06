@@ -18,7 +18,7 @@ import { DescribedDimensions } from "../../../../models/aws-object.model";
 import { FileUtilsService } from "../../../../file-utils.service";
 import { isUndefined } from "es-toolkit/compat";
 import { CropperDebugOffsets, ImageCropperPosition } from "../../../../models/image-cropper.model";
-import { cropperImageStyles, cropperWrapperStyles, isUsefulCropperPosition } from "../../../../functions/image-cropper-styles";
+import { cropperImageStyles, cropperWrapperStyles, focalPointImageStyles as imageFocalPointStyles, isUsefulCropperPosition } from "../../../../functions/image-cropper-styles";
 import { FocalPoint } from "../../../../models/image-cropper.model";
 
 const FIXED_CARD_IMAGE_HEIGHT = 200;
@@ -266,16 +266,18 @@ export class CardImageComponent implements OnInit {
       styles["object-fit"] = this.imageFit;
     }
     if (this.focalPoint) {
-      styles["object-fit"] = this.imageFit;
-      styles["object-position"] = `${this.focalPoint.x}% ${this.focalPoint.y}%`;
+      return {...styles, ...imageFocalPointStyles(this.focalPoint, this.imageFit)};
     } else if (this.objectPositionY !== null) {
       const clampedObjectPosition = Math.max(0, Math.min(100, this.objectPositionY));
       styles["object-fit"] = this.imageFit;
       styles["object-position"] = `50% ${clampedObjectPosition}%`;
+      return styles;
     } else if (this.fixedHeight || this.constrainedHeight) {
       styles["object-fit"] = this.imageFit;
+      return styles;
+    } else {
+      return styles;
     }
-    return styles;
   }
 
   hasFocalPoint(): boolean {
@@ -301,18 +303,11 @@ export class CardImageComponent implements OnInit {
   }
 
   focalPointImageStyles(): any {
-    const zoom = this.focalPoint?.zoom ?? 1;
-    const styles: any = {
+    return {
       width: "100%",
       height: "100%",
-      "object-fit": this.imageFit,
-      "object-position": `${this.focalPoint.x}% ${this.focalPoint.y}%`
+      ...imageFocalPointStyles(this.focalPoint, this.imageFit)
     };
-    if (zoom !== 1) {
-      styles["transform"] = `scale(${zoom})`;
-      styles["transform-origin"] = `${this.focalPoint.x}% ${this.focalPoint.y}%`;
-    }
-    return styles;
   }
 
   cropperWrapperStyles(): any {
