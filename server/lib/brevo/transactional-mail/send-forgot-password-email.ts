@@ -123,14 +123,10 @@ export async function sendForgotPasswordEmail(req: Request, res: Response): Prom
       return;
     }
 
-    const updatedMember: Member = await generatePasswordResetId(foundMember);
-    debugLog("generated passwordResetId:", updatedMember.passwordResetId, "for member:", updatedMember.firstName, updatedMember.lastName);
-
-    await sendEmailViaBrevo(req, updatedMember, res);
+    await sendEmailViaBrevo(req, foundMember, res);
   } catch (error) {
     debugLog("unexpected error in sendForgotPasswordEmail:", error);
-    const response: ForgotPasswordEmailResponse = { message: GENERIC_SUCCESS_MESSAGE };
-    res.status(200).json(response);
+    handleError(req, res, messageType, debugLog, error);
   }
 }
 
@@ -146,7 +142,7 @@ async function generatePasswordResetId(foundMember: any): Promise<Member> {
   return transforms.toObjectWithId(savedDocument);
 }
 
-async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Response): Promise<void> {
+async function sendEmailViaBrevo(req: Request, foundMember: any, res: Response): Promise<void> {
   const brevoConfig: MailConfig = await configuredBrevo();
   debugLog("brevoConfig loaded - apiKey present:", !!brevoConfig?.apiKey, "forgotPasswordNotificationConfigId:", brevoConfig?.forgotPasswordNotificationConfigId);
   const systemConfigDoc = await config.queryKey(ConfigKey.SYSTEM);
@@ -160,10 +156,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
   const forgotPasswordNotificationConfigId = brevoConfig?.forgotPasswordNotificationConfigId;
 
   if (!forgotPasswordNotificationConfigId) {
-    debugLog("no forgotPasswordNotificationConfigId configured in brevoConfig - cannot send email");
-    const response: ForgotPasswordEmailResponse = { message: GENERIC_SUCCESS_MESSAGE };
-    res.status(200).json(response);
-    return;
+    throw new Error("Forgotten Password has no email configuration selected");
   }
 
   const notifConfig: NotificationConfig = await notificationConfig.findById(forgotPasswordNotificationConfigId)
@@ -171,10 +164,7 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
     .then(doc => doc ? transforms.toObjectWithId(doc) : null);
 
   if (!notifConfig) {
-    debugLog("notification config not found for id:", forgotPasswordNotificationConfigId);
-    const response: ForgotPasswordEmailResponse = { message: GENERIC_SUCCESS_MESSAGE };
-    res.status(200).json(response);
-    return;
+    throw new Error(`Forgotten Password email configuration ${forgotPasswordNotificationConfigId} was not found`);
   }
 
   debugLog("notificationConfig loaded - templateName:", notifConfig.templateName, "senderRole:", notifConfig.senderRole, "replyToRole:", notifConfig.replyToRole, "subject:", JSON.stringify(notifConfig.subject));
@@ -192,6 +182,8 @@ async function sendEmailViaBrevo(req: Request, updatedMember: Member, res: Respo
   if (!sender?.email || !replyTo?.email) {
     throw new Error("Forgotten Password requires valid saved Sender and Reply-To committee roles");
   }
+  const updatedMember: Member = await generatePasswordResetId(foundMember);
+  debugLog("generated passwordResetId:", updatedMember.passwordResetId, "for member:", updatedMember.firstName, updatedMember.lastName);
   const to: EmailAddress[] = [{ email: updatedMember.email, name: `${updatedMember.firstName} ${updatedMember.lastName}` }];
   debugLog("sender:", JSON.stringify(sender), "replyTo:", JSON.stringify(replyTo), "to:", JSON.stringify(to));
 

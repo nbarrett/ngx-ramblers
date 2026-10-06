@@ -7,7 +7,6 @@ import { ForgotPasswordIdentificationMethod } from "../../../models/mail.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { RouterHistoryService } from "../../../services/router-history.service";
-import { StringUtilsService } from "../../../services/string-utils.service";
 import { MailService } from "../../../services/mail/mail.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { FormsModule } from "@angular/forms";
@@ -118,7 +117,6 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
   private notifierService = inject(NotifierService);
   private systemConfigService = inject(SystemConfigService);
   private routerHistoryService = inject(RouterHistoryService);
-  private stringUtils = inject(StringUtilsService);
   bsModalRef = inject(BsModalRef);
   public groupShortName: string;
   private notify: AlertInstance;
@@ -175,10 +173,11 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
       } catch (errorResponse) {
         this.logger.error("sendForgotPasswordRequest error:", errorResponse);
         this.notify.showContactUs(true);
+        const detail = errorResponse?.error?.error?.message || errorResponse?.error?.message;
         this.notify.error({
           continue: true,
           title: "Your request could not be processed",
-          message: (errorResponse.message || errorResponse) + (errorResponse.error ? (". Error was: " + this.stringUtils.stringify(errorResponse.error)) : "")
+          message: detail || errorResponse?.message || "The password reset email could not be sent"
         });
       } finally {
         this.submitInProgress = false;
