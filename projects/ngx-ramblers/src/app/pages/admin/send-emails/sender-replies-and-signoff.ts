@@ -324,6 +324,47 @@ export class SenderRepliesAndSignoff implements OnChanges {
     }
   }
 
+  hasFixableRoleSettings(): boolean {
+    const config = this.notificationConfig;
+    const signOff = this.signOffRolesSource() ?? [];
+    return !!config && (
+      !config.senderRole || !this.roleExists(config.senderRole)
+      || (!!config.replyToRole && !this.roleExists(config.replyToRole))
+      || (!this.omitSignOff && (this.invalidSignOffRoles().length > 0 || signOff.length === 0))
+      || (!this.omitBcc && this.missingRoles(config.bccRoles).length > 0)
+      || this.missingRoles(config.ccRoles).length > 0
+    );
+  }
+
+  fixAllInvalidRoles(): void {
+    const config = this.notificationConfig;
+    if (config && this.hasFixableRoleSettings()) {
+    if (!config.senderRole || !this.roleExists(config.senderRole)) {
+      config.senderRole = this.bestRoleMatch(config.senderRole);
+      this.senderRoleChanged();
+    }
+    if (config.replyToRole && !this.roleExists(config.replyToRole)) {
+      config.replyToRole = "";
+    }
+    if (!this.omitSignOff) {
+      const source = this.signOffRolesSource() ?? [];
+      if (source.length === 0) {
+        const fallback = this.roleExists(config.senderRole) ? config.senderRole : this.bestRoleMatch("");
+        this.assignSignOffRoles(fallback ? [fallback] : []);
+      } else if (this.invalidSignOffRoles().length > 0) {
+        this.replaceInvalidSignOffRoles();
+      }
+    }
+    if (!this.omitBcc && this.missingRoles(config.bccRoles).length > 0) {
+      config.bccRoles = this.keptRoles(config.bccRoles);
+    }
+    if (this.missingRoles(config.ccRoles).length > 0) {
+      config.ccRoles = this.keptRoles(config.ccRoles);
+    }
+    this.rolesChanged.emit();
+    }
+  }
+
   private bestRoleMatch(badRole: string): string {
     const committeeMembers = this.mailMessagingConfig?.committeeReferenceData?.committeeMembers() ?? [];
     const needle = (badRole || "").toLowerCase().trim();
@@ -345,19 +386,36 @@ export class SenderRepliesAndSignoff implements OnChanges {
   }
 
   removeInvalidSignOffRoles(): void {
+    if (this.signOffRolesSource()) {
+      this.replaceInvalidSignOffRoles();
+      this.rolesChanged.emit();
+    }
+  }
+
+  private replaceInvalidSignOffRoles(): void {
     const source = this.signOffRolesSource();
-    if (!source) return;
+    if (source) {
     const replaced = source
       .map(role => this.roleExists(role) ? role : this.bestRoleMatch(role))
       .filter(role => !!role);
     const seen = new Set<string>();
     const deduped = replaced.filter(role => {
-      if (seen.has(role)) return false;
-      seen.add(role);
-      return true;
+      const keep = !seen.has(role);
+      if (keep) {
+        seen.add(role);
+      }
+      return keep;
     });
     this.assignSignOffRoles(this.overrideMode() ? this.stripVacantRoles(deduped) : deduped);
-    this.rolesChanged.emit();
+    }
+  }
+
+  private missingRoles(roles: string[] | null | undefined): string[] {
+    return (roles ?? []).filter(role => !this.roleExists(role));
+  }
+
+  private keptRoles(roles: string[] | null | undefined): string[] {
+    return (roles ?? []).filter(role => this.roleExists(role));
   }
 
   private handleNotificationConfigChange() {
