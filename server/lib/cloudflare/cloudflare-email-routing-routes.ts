@@ -11,7 +11,7 @@ router.get("/rules", authConfig.authenticate(), asyncRoute(messageType, controll
 router.get("/rules/catch-all", authConfig.authenticate(), asyncRoute(messageType, controller.getCatchAllRule));
 router.put("/rules/catch-all", authConfig.authenticate(), asyncRoute(messageType, controller.putCatchAllRule));
 router.post("/rules/catch-all/router/redeploy", authConfig.authenticate(), asyncRoute(messageType, controller.postCatchAllRouterRedeploy));
-router.post("/route-to-inbox", authConfig.authenticate(), asyncRoute(messageType, controller.postRouteToInbox));
+router.post("/rules/clear-address-rules", authConfig.authenticate(), asyncRoute(messageType, controller.postClearAddressRules));
 router.post("/rules", authConfig.authenticate(), asyncRoute(messageType, controller.postRule));
 router.put("/rules/:ruleId", authConfig.authenticate(), asyncRoute(messageType, controller.putRule));
 router.delete("/rules/:ruleId", authConfig.authenticate(), asyncRoute(messageType, controller.deleteRule));

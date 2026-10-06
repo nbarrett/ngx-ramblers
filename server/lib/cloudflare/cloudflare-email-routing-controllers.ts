@@ -3,7 +3,7 @@ import { createErrorDebugLog } from "../shared/error-debug-log";
 import { Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
-import { configuredCloudflare, nonSensitiveCloudflareConfig } from "./cloudflare-config";
+import { configuredCloudflare, configuredCloudflareForCurrentSite, nonSensitiveCloudflareConfig } from "./cloudflare-config";
 import {
   catchAllRule,
   createEmailRoutingRule,
@@ -57,13 +57,14 @@ import {
   EmailRoutingMatcherType,
   EmailRoutingMatcherField,
   EmailRoutingActionType,
-  sharedInboxRouterRuleActive,
+  emailRoutingRuleAddress,
+  emailRoutingRuleIdentifier,
+  isLiteralDomainAddressRule,
   UpdateCatchAllRequest,
   WorkerLogsRequest
 } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
 import { configuredEnvironments } from "../environments/environments-config";
-import { allRoleEmailAddresses } from "../inbox/inbox-aliases";
-import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { pluraliseWithCount } from "../shared/string-utils";
 
 const messageType = "cloudflare:email-routing";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -231,10 +232,6 @@ async function assertCatchAllOwnedByThisSite(cloudflareConfig: CloudflareConfig,
   }
 }
 
-function literalMatcherValue(rule: { matchers?: { type: EmailRoutingMatcherType; field?: EmailRoutingMatcherField; value?: string }[] }): string | undefined {
-  return rule.matchers?.find(m => m.type === EmailRoutingMatcherType.LITERAL)?.value;
-}
-
 export async function getConfig(req: Request, res: Response): Promise<void> {
   const config = await nonSensitiveCloudflareConfig();
   const host = (config.baseDomain || "").replace(/^www\./, "").trim().toLowerCase();
@@ -253,13 +250,13 @@ export async function getConfig(req: Request, res: Response): Promise<void> {
 }
 
 export async function getRules(req: Request, res: Response): Promise<void> {
-  const cloudflareConfig = await configuredCloudflare();
+  const cloudflareConfig = await configuredCloudflareForCurrentSite();
   const rules = await listEmailRoutingRules(cloudflareConfig);
   res.json({request: {messageType}, response: rules});
 }
 
 export async function getCatchAllRule(req: Request, res: Response): Promise<void> {
-  const cloudflareConfig = await configuredCloudflare();
+  const cloudflareConfig = await configuredCloudflareForCurrentSite();
   const rule = await catchAllRule(cloudflareConfig);
   res.json({request: {messageType}, response: rule});
 }
@@ -309,45 +306,56 @@ export async function postCatchAllRouterRedeploy(req: Request, res: Response): P
   res.json({request: {messageType}, response: {scriptName}});
 }
 
-export async function postRouteToInbox(req: Request, res: Response): Promise<void> {
-  const cloudflareConfig = await configuredCloudflare();
+export async function postClearAddressRules(req: Request, res: Response): Promise<void> {
+  const cloudflareConfig = await configuredCloudflareForCurrentSite();
   const nsConfig = await nonSensitiveCloudflareConfig();
   const baseDomain = (nsConfig.baseDomain || "").trim().toLowerCase();
   if (!baseDomain) {
     throw new HttpError(400, "Cloudflare baseDomain not available for this site.");
   }
-  const scriptName = await ensureRouterWorker(cloudflareConfig);
-  const [rules, catchAll] = await Promise.all([
-    listEmailRoutingRules(cloudflareConfig),
-    catchAllRule(cloudflareConfig)
-  ]);
-  const siteRules = rules.filter(rule => Boolean(rule.id) && rule.matchers?.some(m =>
-    m.type === EmailRoutingMatcherType.LITERAL
-    && m.field === EmailRoutingMatcherField.TO
-    && (m.value || "").trim().toLowerCase().endsWith(`@${baseDomain}`)));
-  await Promise.all(siteRules.map(rule => updateEmailRoutingRule(cloudflareConfig, rule.id, {
-    name: `Inbox ${literalMatcherValue(rule) || ""}`.slice(0, 100),
-    enabled: true,
+  const rules = await listEmailRoutingRules(cloudflareConfig);
+  debugLog("Clear address rules: siteDomain=%s configDomain=%s zoneId=%s listed=%d",
+    baseDomain, cloudflareConfig.baseDomain || "", cloudflareConfig.zoneId, rules.length);
+  const toDelete = rules.filter(rule => isLiteralDomainAddressRule(rule, baseDomain));
+  const skipped = rules.filter(rule => !isLiteralDomainAddressRule(rule, baseDomain)).map(rule => ({
+    id: rule.id || rule.tag,
+    name: rule.name,
+    address: emailRoutingRuleAddress(rule),
     matchers: rule.matchers,
-    actions: [{type: EmailRoutingActionType.WORKER, value: [scriptName]}]
-  })));
-  const existingRuleAddresses = new Set(siteRules.map(rule => normaliseEmail(literalMatcherValue(rule) || "")).filter(Boolean));
-  const roleAddressesOnDomain = (await allRoleEmailAddresses()).filter(address => address.endsWith(`@${baseDomain}`));
-  const missingAddresses = roleAddressesOnDomain.filter(address => !existingRuleAddresses.has(address));
-  const createdRules = await Promise.all(missingAddresses.map(address => createEmailRoutingRule(cloudflareConfig, {
-    name: `Inbox ${address}`.slice(0, 100),
-    enabled: true,
-    matchers: [{type: EmailRoutingMatcherType.LITERAL, field: EmailRoutingMatcherField.TO, value: address}],
-    actions: [{type: EmailRoutingActionType.WORKER, value: [scriptName]}]
-  })));
-  const routed = siteRules.map(literalMatcherValue).filter(Boolean).concat(createdRules.map(literalMatcherValue).filter(Boolean));
-  const catchAllRouted = sharedInboxRouterRuleActive(catchAll);
-  debugLog("Routed %d address(es) for %s to the inbox router: %o; shared catch-all active: %s", routed.length, baseDomain, routed, catchAllRouted);
-  res.json({request: {messageType}, response: {scriptName, routed, catchAllRouted}});
+    actions: rule.actions,
+    source: rule.source
+  }));
+  debugLog("Clear address rules: matching %d, skipped %o", toDelete.length, skipped);
+  const outcome = await toDelete.reduce(async (previous, rule) => {
+    const acc = await previous;
+    const identifier = emailRoutingRuleIdentifier(rule);
+    const address = emailRoutingRuleAddress(rule) || identifier || "unknown";
+    if (!identifier) {
+      return {...acc, failures: [...acc.failures, `${address}: missing Cloudflare rule id`]};
+    } else {
+      try {
+        await deleteEmailRoutingRule(cloudflareConfig, identifier);
+        return {...acc, deleted: [...acc.deleted, address]};
+      } catch (error) {
+        return {...acc, failures: [...acc.failures, `${address}: ${(error as Error).message}`]};
+      }
+    }
+  }, Promise.resolve({deleted: [] as string[], failures: [] as string[]}));
+  const remaining = (await listEmailRoutingRules(cloudflareConfig))
+    .filter(rule => isLiteralDomainAddressRule(rule, baseDomain))
+    .map(rule => emailRoutingRuleAddress(rule) || emailRoutingRuleIdentifier(rule) || "unknown");
+  if (outcome.failures.length || remaining.length) {
+    const failureText = outcome.failures.length ? ` Failed: ${outcome.failures.join("; ")}.` : "";
+    const remainingText = remaining.length ? ` Still on Cloudflare: ${remaining.join(", ")}.` : "";
+    throw new HttpError(502, `Could not delete all address rules for ${baseDomain}.${failureText}${remainingText}`);
+  } else {
+    debugLog("Deleted %s for %s", pluraliseWithCount(outcome.deleted.length, "address rule"), baseDomain);
+    res.json({request: {messageType}, response: {deleted: outcome.deleted, remaining}});
+  }
 }
 
 export async function postRule(req: Request, res: Response): Promise<void> {
-  const cloudflareConfig = await configuredCloudflare();
+  const cloudflareConfig = await configuredCloudflareForCurrentSite();
   const request: CreateOrUpdateEmailRouteRequest = req.body;
   await ensureForwardDestinationVerified(cloudflareConfig, request.destinationEmail);
   const rule = await createEmailRoutingRule(cloudflareConfig, {
@@ -360,7 +368,7 @@ export async function postRule(req: Request, res: Response): Promise<void> {
 }
 
 export async function putRule(req: Request, res: Response): Promise<void> {
-  const cloudflareConfig = await configuredCloudflare();
+  const cloudflareConfig = await configuredCloudflareForCurrentSite();
   const request: CreateOrUpdateEmailRouteRequest = req.body;
   await ensureForwardDestinationVerified(cloudflareConfig, request.destinationEmail);
   const rule = await updateEmailRoutingRule(cloudflareConfig, req.params.ruleId, {
@@ -373,7 +381,7 @@ export async function putRule(req: Request, res: Response): Promise<void> {
 }
 
 export async function deleteRule(req: Request, res: Response): Promise<void> {
-  const cloudflareConfig = await configuredCloudflare();
+  const cloudflareConfig = await configuredCloudflareForCurrentSite();
   await deleteEmailRoutingRule(cloudflareConfig, req.params.ruleId);
   res.json({request: {messageType}, response: {deleted: true}});
 }

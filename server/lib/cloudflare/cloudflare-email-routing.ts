@@ -3,6 +3,7 @@ import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/
 import { EmailRoutingRule } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
 import { cloudflareApi, CloudflareResponse } from "./cloudflare.model";
 import { envConfig } from "../env-config/env-config";
+import { pluraliseWithCount } from "../shared/string-utils";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:email-routing"));
 debugLog.enabled = true;
@@ -81,23 +82,54 @@ export async function enableEmailRouting(cloudflareConfig: CloudflareConfig, zon
   }
 }
 
+interface CloudflarePaginatedRulesResponse {
+  success: boolean;
+  errors?: {code?: number; message?: string}[];
+  result?: EmailRoutingRule[];
+  result_info?: {
+    page: number;
+    per_page: number;
+    total_count: number;
+    total_pages: number;
+  };
+}
+
 export async function listEmailRoutingRules(cloudflareConfig: CloudflareConfig): Promise<EmailRoutingRule[]> {
-  const url = baseUrl(cloudflareConfig.zoneId);
+  const perPage = 50;
   debugLog("Listing email routing rules for zone:", cloudflareConfig.zoneId);
 
-  const response = await fetch(url, {
-    headers: headers(cloudflareConfig.apiToken)
-  });
+  const collectPage = async (page: number, acc: EmailRoutingRule[]): Promise<EmailRoutingRule[]> => {
+    const url = `${baseUrl(cloudflareConfig.zoneId)}?page=${page}&per_page=${perPage}`;
+    const response = await fetch(url, {
+      headers: headers(cloudflareConfig.apiToken)
+    });
+    const data: CloudflarePaginatedRulesResponse = await response.json();
+    if (!data.success) {
+      throw new Error(`Failed to list email routing rules: ${cloudflareErrorMessage(data)}`);
+    } else {
+      const pageResults = data.result || [];
+      debugLog("Email routing rules page %d: %s, result_info %o", page, pluraliseWithCount(pageResults.length, "result"), data.result_info || null);
+      const newAcc = [...acc, ...pageResults];
+      const hasMore = data.result_info ? page < data.result_info.total_pages : pageResults.length === perPage;
+      if (hasMore) {
+        return collectPage(page + 1, newAcc);
+      } else {
+        return newAcc;
+      }
+    }
+  };
 
-  const data: CloudflareResponse<EmailRoutingRule[]> = await response.json();
-
-  if (!data.success) {
-    const errorMsg = data.errors.map(e => e.message).join(", ");
-    throw new Error(`Failed to list email routing rules: ${errorMsg}`);
-  }
-
-  debugLog("Found %d email routing rules", data.result.length);
-  return data.result;
+  const allRules = await collectPage(1, []);
+  debugLog("Found %d email routing rules for zone %s: %o", allRules.length, cloudflareConfig.zoneId, allRules.map(rule => ({
+    id: rule.id,
+    tag: rule.tag,
+    name: rule.name,
+    enabled: rule.enabled,
+    source: rule.source,
+    matchers: rule.matchers,
+    actions: rule.actions
+  })));
+  return allRules;
 }
 
 export async function createEmailRoutingRule(cloudflareConfig: CloudflareConfig, rule: EmailRoutingRule): Promise<EmailRoutingRule> {
@@ -190,13 +222,27 @@ export async function deleteEmailRoutingRule(cloudflareConfig: CloudflareConfig,
     method: "DELETE",
     headers: headers(cloudflareConfig.apiToken)
   });
-
-  const data: CloudflareResponse<{ id: string }> = await response.json();
-
-  if (!data.success) {
-    const errorMsg = data.errors.map(e => e.message).join(", ");
-    throw new Error(`Failed to delete email routing rule: ${errorMsg}`);
+  const raw = await response.text();
+  if (!raw) {
+    if (response.ok) {
+      debugLog("Email routing rule deleted");
+    } else {
+      throw new Error(`Failed to delete email routing rule: HTTP ${response.status}`);
+    }
+  } else {
+    try {
+      const data: CloudflareResponse<{id: string}> = JSON.parse(raw);
+      if (!response.ok || !data.success) {
+        throw new Error(`Failed to delete email routing rule: ${cloudflareErrorMessage(data) || `HTTP ${response.status}`}`);
+      } else {
+        debugLog("Email routing rule deleted");
+      }
+    } catch (parseError) {
+      if (parseError instanceof SyntaxError) {
+        throw new Error(`Failed to delete email routing rule: HTTP ${response.status}`);
+      } else {
+        throw parseError;
+      }
+    }
   }
-
-  debugLog("Email routing rule deleted");
 }

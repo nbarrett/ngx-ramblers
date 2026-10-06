@@ -1,5 +1,6 @@
 import { InboxSettingsConfig } from "./system.model";
 import { InboxCatchAllMode, InboxReaderProvider } from "./inbox.model";
+import { apexHost } from "../functions/hosts";
 
 export enum EmailRoutingMatcherType {
   LITERAL = "literal",
@@ -43,6 +44,11 @@ export interface EmailRoutingAction {
   value: string[];
 }
 
+export enum EmailRoutingRuleSource {
+  API = "api",
+  WRANGLER = "wrangler"
+}
+
 export interface EmailRoutingRule {
   id?: string;
   tag?: string;
@@ -51,12 +57,71 @@ export interface EmailRoutingRule {
   matchers: EmailRoutingMatcher[];
   actions: EmailRoutingAction[];
   priority?: number;
+  source?: EmailRoutingRuleSource;
 }
+
+export enum AddressRuleKind {
+  MAILBOX_FORWARD = "mailbox-forward",
+  INBOX_ROUTER = "inbox-router",
+  WORKER = "worker",
+  DROP = "drop"
+}
+
+export const SHARED_INBOX_ROUTER_WORKER_NAME = "email-inbox-router";
 
 export interface DomainRoutingRuleSummary {
   address: string;
   actionLabel: string;
   roleLabel: string | null;
+  kind: AddressRuleKind;
+}
+
+export interface ClearAddressRulesResponse {
+  deleted: string[];
+  remaining: string[];
+}
+
+export function emailRoutingRuleIdentifier(rule: EmailRoutingRule): string | null {
+  const identifier = (rule.id || rule.tag || "").trim();
+  if (identifier) {
+    return identifier;
+  } else {
+    return null;
+  }
+}
+
+export function emailRoutingRuleAddress(rule: EmailRoutingRule): string | null {
+  const matcher = rule.matchers?.find(item => {
+    const value = (item.value || "").trim();
+    const isLiteral = !item.type || item.type === EmailRoutingMatcherType.LITERAL;
+    return isLiteral && value.includes("@");
+  });
+  if (matcher?.value) {
+    return matcher.value.trim();
+  } else {
+    return null;
+  }
+}
+
+export function isLiteralDomainAddressRule(rule: EmailRoutingRule, domain: string): boolean {
+  const address = emailRoutingRuleAddress(rule);
+  const host = apexHost((address || "").split("@")[1]).toLowerCase();
+  const site = apexHost(domain).toLowerCase();
+  return !!host && !!site && host === site;
+}
+
+export function addressRuleKind(rule: EmailRoutingRule): AddressRuleKind {
+  const workerName = rule.actions?.find(action => action.type === EmailRoutingActionType.WORKER)?.value?.[0];
+  const forwards = rule.actions?.some(action => action.type === EmailRoutingActionType.FORWARD);
+  if (workerName === SHARED_INBOX_ROUTER_WORKER_NAME) {
+    return AddressRuleKind.INBOX_ROUTER;
+  } else if (workerName) {
+    return AddressRuleKind.WORKER;
+  } else if (forwards) {
+    return AddressRuleKind.MAILBOX_FORWARD;
+  } else {
+    return AddressRuleKind.DROP;
+  }
 }
 
 export interface EmailRoutingRulesResponse {
@@ -101,18 +166,10 @@ export enum CatchAllAction {
   SHARED_ROUTER = "shared-router"
 }
 
-export const SHARED_INBOX_ROUTER_WORKER_NAME = "email-inbox-router";
-
 export interface UpdateCatchAllRequest {
   action: CatchAllAction;
   destinations?: string[];
   forwardingMode?: EmailForwardingMode;
-}
-
-export interface RouteToInboxResponse {
-  scriptName: string;
-  routed: string[];
-  catchAllRouted: boolean;
 }
 
 export interface CatchAllRulePlan {
