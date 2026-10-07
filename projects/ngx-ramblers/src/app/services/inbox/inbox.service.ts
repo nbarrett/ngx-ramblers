@@ -26,6 +26,10 @@ import {
   InboxThreadRemapRequest,
   InboxThreadRemapResponse,
   InboxThreadUpdateResult,
+  InboxFolderDeleteContents,
+  InboxThreadMoveRequest,
+  InboxUserFolderView,
+  InboxUserFoldersResponse,
   OrphanedInboxThreadsResponse
 } from "../../models/inbox.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -147,13 +151,41 @@ export class InboxService {
     return (response.response as { importedCount: number }).importedCount;
   }
 
-  async listThreads(roleType: string | null = null, scope: InboxViewScope | null = null, unreadOnly: boolean = false, limit: number | null = null, folder: InboxThreadFolder | null = null, offset: number | null = null, search: string | null = null): Promise<InboxThreadListResponse> {
+  async listFolders(): Promise<InboxUserFoldersResponse> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/folders`));
+    return response.response as InboxUserFoldersResponse;
+  }
+
+  async createFolder(name: string): Promise<InboxUserFolderView> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/folders`, {name}));
+    return response.response as InboxUserFolderView;
+  }
+
+  async renameFolder(folderId: string, name: string): Promise<InboxUserFolderView> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.put<ApiResponse>(`${this.BASE_URL}/folders/${encodeURIComponent(folderId)}`, {name}));
+    return response.response as InboxUserFolderView;
+  }
+
+  async deleteFolder(folderId: string, contents: InboxFolderDeleteContents): Promise<void> {
+    await this.commonDataService.responseFrom(this.logger, this.http.delete<ApiResponse>(`${this.BASE_URL}/folders/${encodeURIComponent(folderId)}?contents=${encodeURIComponent(contents)}`));
+  }
+
+  async moveThreadsToFolder(threadIds: string[], userFolderId: string | null): Promise<InboxThreadUpdateResult> {
+    const body: InboxThreadMoveRequest = {threadIds, userFolderId};
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/threads/move`, body));
+    return response.response as InboxThreadUpdateResult;
+  }
+
+  async listThreads(roleType: string | null = null, scope: InboxViewScope | null = null, unreadOnly: boolean = false, limit: number | null = null, folder: InboxThreadFolder | null = null, offset: number | null = null, search: string | null = null, userFolderId: string | null = null): Promise<InboxThreadListResponse> {
     const params: string[] = [];
     if (search?.trim()) {
       params.push(`search=${encodeURIComponent(search.trim())}`);
     }
     if (folder) {
       params.push(`folder=${encodeURIComponent(folder)}`);
+    }
+    if (userFolderId) {
+      params.push(`userFolderId=${encodeURIComponent(userFolderId)}`);
     }
     if (roleType) {
       params.push(`roleType=${encodeURIComponent(roleType)}`);

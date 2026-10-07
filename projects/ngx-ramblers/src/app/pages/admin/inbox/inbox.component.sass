@@ -203,6 +203,144 @@
   padding-left: 2.1rem
   font-size: 0.9rem
 
+.inbox-nav-folder-row
+  display: flex
+  flex-wrap: nowrap
+  align-items: center
+  min-width: 0
+  gap: 0.25rem
+
+.inbox-nav-folder-row.active
+  background-color: rgba($ramblers-colour-mintcake, 0.28)
+  border-radius: 0.375rem
+
+.inbox-nav-folder-row .inbox-nav-node
+  flex: 1 1 0
+  width: auto
+  min-width: 0
+  overflow: hidden
+
+.inbox-nav-folder-row.active .inbox-nav-node.active
+  background-color: transparent
+
+.inbox-nav-folder-delete
+  flex: 0 0 auto
+  border: none
+  background: transparent
+  color: $ramblers-colour-granite
+  padding: 0.25rem 0.4rem
+  border-radius: 0.375rem
+  line-height: 1
+  font-size: 0.85rem
+
+.inbox-nav-folder-delete:hover
+  background-color: $ramblers-colour-grey
+  color: $ramblers-colour-black
+
+.inbox-nav-folder-delete.pending
+  background-color: rgba($ramblers-colour-sunrise, 0.45)
+  color: $ramblers-colour-black
+
+.inbox-nav-folder-row-confirming
+  overflow: hidden
+
+.inbox-nav-folder-confirm-name
+  display: flex
+  align-items: center
+  min-width: 0
+  flex: 1 1 0
+  overflow: hidden
+  padding: 0.4rem 0.35rem 0.4rem 0
+
+.inbox-nav-folder-confirm
+  display: flex
+  align-items: center
+  gap: 0.45rem
+  flex: 0 0 auto
+  margin-left: auto
+  padding: 0 0.35rem 0 0.15rem
+
+.inbox-nav-folder-confirm-keep,
+.inbox-nav-folder-confirm-delete,
+.inbox-nav-folder-confirm-cancel
+  display: inline-flex
+  align-items: center
+  gap: 0.2rem
+  flex: 0 0 auto
+  border: none
+  background: none
+  padding: 0
+  font-size: 0.72rem
+  font-weight: 600
+  line-height: 1
+  white-space: nowrap
+
+.inbox-nav-folder-confirm-keep fa-icon,
+.inbox-nav-folder-confirm-delete fa-icon,
+.inbox-nav-folder-confirm-cancel fa-icon
+  font-size: 0.7rem
+  color: inherit
+
+.inbox-nav-folder-confirm-cancel
+  color: $ramblers-colour-granite
+  padding: 0.15rem
+
+.inbox-nav-folder-confirm-cancel:hover
+  color: $ramblers-colour-black
+
+.inbox-nav-folder-confirm-keep
+  color: $ramblers-colour-granite
+
+.inbox-nav-folder-confirm-keep:hover
+  color: $ramblers-colour-black
+  text-decoration: underline
+
+.inbox-nav-folder-confirm-delete
+  color: $ramblers-colour-sunrise
+
+.inbox-nav-folder-confirm-delete:hover
+  color: $ramblers-colour-black
+  text-decoration: underline
+
+.inbox-nav-rename-folder
+  display: flex
+  align-items: center
+  gap: 0.35rem
+  min-width: 0
+  flex: 1 1 auto
+  width: auto
+
+.inbox-nav-rename-folder input
+  min-width: 0
+  flex: 1 1 auto
+
+.inbox-nav-new-folder
+  display: flex
+  align-items: center
+  gap: 0.35rem
+  padding: 0.25rem 0.6rem 0.25rem 2.1rem
+
+.inbox-nav-folder-add
+  flex: 0 0 auto
+  border: none
+  background-color: $ramblers-colour-sunrise
+  color: $ramblers-colour-black
+  padding: 0.25rem 0.45rem
+  border-radius: 0.375rem
+  line-height: 1
+  font-size: 0.95rem
+
+.inbox-nav-folder-add:hover:not(:disabled)
+  filter: brightness(0.95)
+
+.inbox-nav-folder-add:disabled
+  opacity: 0.55
+
+.inbox-nav-drop-target
+  outline: 2px solid $ramblers-colour-mintcake
+  outline-offset: -2px
+  background-color: rgba($ramblers-colour-mintcake, 0.18)
+
 .inbox-nav-roots
   display: flex
   flex-direction: column
@@ -267,9 +405,26 @@
   touch-action: pan-y
   user-select: none
 
-.inbox-list-drag-selecting
+.inbox-thread-row.inbox-thread-draggable
+  cursor: grab
+
+.inbox-list-range-selecting
   cursor: default
   user-select: none
+
+.inbox-list-range-selecting .inbox-thread-row
+  -webkit-user-drag: none
+
+.inbox-drag-ghost
+  position: fixed
+  z-index: 10000
+  padding: 0.35rem 0.7rem
+  border-radius: 0.375rem
+  background: $ramblers-colour-mintcake
+  color: $ramblers-colour-black
+  font-size: 0.85rem
+  font-weight: 600
+  pointer-events: none
 
 .inbox-thread-row:nth-child(even)
   background-color: var(--bs-tertiary-bg)
@@ -333,6 +488,35 @@
 
 .min-w-0
   min-width: 0
+
+.inbox-search-input-wrapper
+  position: relative
+  display: flex
+  flex: 1 1 auto
+  width: 1%
+  min-width: 0
+
+.inbox-search-input-wrapper .form-control
+  width: 100%
+  padding-right: 2rem
+
+.inbox-search-clear
+  position: absolute
+  top: 0
+  right: 0
+  height: 100%
+  width: 2rem
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  padding: 0
+  border: none
+  background: transparent
+  color: rgba($ramblers-colour-granite, .55)
+  cursor: pointer
+
+.inbox-search-clear:hover
+  color: $ramblers-colour-granite
 
 .inbox-list-toolbar
   position: relative
@@ -502,6 +686,10 @@
   column-gap: 0.5rem
   padding: 0.15rem 0.75rem
 
+.inbox-list-compact.inbox-list-has-location .inbox-thread-row,
+.inbox-list-compact.inbox-list-has-location .inbox-column-head
+  grid-template-columns: 1.25rem minmax(0, var(--inbox-from, 1.1fr)) minmax(0, var(--inbox-to, 1.4fr)) minmax(0, var(--inbox-location, 1.2fr)) minmax(0, var(--inbox-subject, 2fr)) minmax(0, var(--inbox-date, 1.5fr))
+
 .inbox-column-tracks
   min-width: 0
 
@@ -553,10 +741,18 @@
 
 .inbox-list-compact .inbox-thread-from,
 .inbox-list-compact .inbox-thread-recipient,
+.inbox-list-compact .inbox-thread-location,
 .inbox-list-compact .inbox-thread-subject
   overflow: hidden
   text-overflow: ellipsis
   white-space: nowrap
+
+.inbox-thread-location
+  color: var(--bs-secondary-color)
+  font-size: 0.85em
+
+.inbox-thread-row:not(.inbox-column-tracks) .inbox-thread-location
+  max-width: 11rem
 
 .inbox-list-compact .inbox-thread-time
   white-space: nowrap

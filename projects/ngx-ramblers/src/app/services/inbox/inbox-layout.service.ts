@@ -31,7 +31,7 @@ export class InboxLayoutService implements OnDestroy {
     private static readonly GROUPING_KEY = "inbox-grouping-mode";
     private static readonly DENSITY_KEY = "inbox-list-density";
     public compactList = false;
-    public columnShare = { from: 1.1, to: 1.4, subject: 2, date: 1.5 };
+    public columnShare = { from: 1.1, to: 1.4, location: 1.2, subject: 2, date: 1.5 };
     public groupingMode: InboxGroupingMode = InboxGroupingMode.CONVERSATIONS;
     public mobileNavOpen = false;
     public navCollapsed = false;
@@ -220,8 +220,20 @@ export class InboxLayoutService implements OnDestroy {
                 next.to = rightPx * scale;
             }
             else if (edge === InboxColumnResizeEdge.TO) {
-                const scale = (startShare.to + startShare.subject) / pairWidth;
-                next.to = leftPx * scale;
+                if (right?.classList.contains("inbox-column-location")) {
+                    const scale = (startShare.to + startShare.location) / pairWidth;
+                    next.to = leftPx * scale;
+                    next.location = rightPx * scale;
+                }
+                else {
+                    const scale = (startShare.to + startShare.subject) / pairWidth;
+                    next.to = leftPx * scale;
+                    next.subject = rightPx * scale;
+                }
+            }
+            else if (edge === InboxColumnResizeEdge.LOCATION) {
+                const scale = (startShare.location + startShare.subject) / pairWidth;
+                next.location = leftPx * scale;
                 next.subject = rightPx * scale;
             }
             else {

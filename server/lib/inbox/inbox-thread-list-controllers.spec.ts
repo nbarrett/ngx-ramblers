@@ -7,7 +7,7 @@ import * as imports from "./inbox-message-import";
 import {inboxThread} from "../mongo/models/inbox-thread";
 import {inboxMessage} from "../mongo/models/inbox-message";
 import {listInboxThreads, readInboxUnreadCounts} from "./inbox-thread-list-controllers";
-import {InboxMessageDirection, InboxThreadFolder} from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import {InboxMessageDirection, InboxThreadFolder, InboxUserFolderQuery} from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 
 describe("inbox read controllers", () => {
   const sandbox = sinon.createSandbox();
@@ -46,5 +46,38 @@ describe("inbox read controllers", () => {
     expect(response.json.firstCall.args[0].response.total).toBe(2);
     expect(repair.called).toBe(false);
     expect(update.called).toBe(false);
+  });
+
+  it("lists the inbox without conversations that are filed in a user folder", async () => {
+    sandbox.stub(access, "permittedInboxRoleTypes").resolves(["general"]);
+    sandbox.stub(access, "assignedInboxRoleTypesForMember").resolves(["general"]);
+    sandbox.stub(counts, "conversationCount").resolves(0);
+    const find = sandbox.stub(inboxThread, "find").returns({sort: () => ({skip: () => ({limit: () => ({lean: async () => []})})})} as any);
+    sandbox.stub(inboxMessage, "aggregate").resolves([]);
+    const response = {json: sandbox.spy(), status: sandbox.stub().returnsThis()};
+    await listInboxThreads({query: {}, user: {memberId: "member-1"}} as any, response as any);
+    expect(find.firstCall.args[0].userFolderId).toBe(null);
+  });
+
+  it("lists a user folder by id", async () => {
+    sandbox.stub(access, "permittedInboxRoleTypes").resolves(["general"]);
+    sandbox.stub(access, "assignedInboxRoleTypesForMember").resolves(["general"]);
+    sandbox.stub(counts, "conversationCount").resolves(0);
+    const find = sandbox.stub(inboxThread, "find").returns({sort: () => ({skip: () => ({limit: () => ({lean: async () => []})})})} as any);
+    sandbox.stub(inboxMessage, "aggregate").resolves([]);
+    const response = {json: sandbox.spy(), status: sandbox.stub().returnsThis()};
+    await listInboxThreads({query: {userFolderId: "folder-1"}, user: {memberId: "member-1"}} as any, response as any);
+    expect(find.firstCall.args[0].userFolderId).toBe("folder-1");
+  });
+
+  it("lists conversations from every user folder", async () => {
+    sandbox.stub(access, "permittedInboxRoleTypes").resolves(["general"]);
+    sandbox.stub(access, "assignedInboxRoleTypesForMember").resolves(["general"]);
+    sandbox.stub(counts, "conversationCount").resolves(0);
+    const find = sandbox.stub(inboxThread, "find").returns({sort: () => ({skip: () => ({limit: () => ({lean: async () => []})})})} as any);
+    sandbox.stub(inboxMessage, "aggregate").resolves([]);
+    const response = {json: sandbox.spy(), status: sandbox.stub().returnsThis()};
+    await listInboxThreads({query: {userFolderId: InboxUserFolderQuery.ALL}, user: {memberId: "member-1"}} as any, response as any);
+    expect(find.firstCall.args[0].userFolderId).toEqual({$ne: null});
   });
 });

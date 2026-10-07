@@ -3467,9 +3467,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   private navigateToInbox(): void {
     const maximised = this.route.snapshot.queryParamMap.get(StoredValue.MAXIMISE) === "true";
+    const thread = this.route.snapshot.queryParamMap.get(StoredValue.THREAD);
     this.router.navigate(["/" + AdminPath.INBOX], {
       queryParams: {
-        ...(this.session.inboxReplyContext?.threadId ? {[StoredValue.THREAD]: this.session.inboxReplyContext.threadId} : {}),
+        ...(thread ? {[StoredValue.THREAD]: thread} : {}),
         ...(maximised ? {[StoredValue.MAXIMISE]: "true"} : {})
       },
       replaceUrl: true

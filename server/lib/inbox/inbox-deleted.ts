@@ -1,3 +1,4 @@
+import { inboxThreadId } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 import { InboxDeletedIdentity, InboxMessage, InboxThread, InboxThreadFolder, INBOX_DELETED_RETENTION_DAYS } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { inboxDeletedIdentity as inboxDeletedIdentityModel } from "../mongo/models/inbox-deleted-identity";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
@@ -22,7 +23,7 @@ export async function recordThreadDeletion(thread: InboxThread, messages: InboxM
   } satisfies Omit<InboxDeletedIdentity, "id">);
   await inboxThreadModel.updateOne(
     {_id: resolvedThreadId, tenantSlug: thread.tenantSlug},
-    {$set: {folder: InboxThreadFolder.DELETED, deletedAt: now}}
+    {$set: {folder: InboxThreadFolder.DELETED, deletedAt: now}, $unset: {userFolderId: 1}}
   );
 }
 
@@ -38,10 +39,19 @@ export async function isRecordedDeletedInbound(tenantSlug: string, message: Inbo
   return Boolean(found);
 }
 
+export async function moveUserFolderThreadsToDeleted(userFolderId: string, tenantSlug: string = defaultTenantSlug()): Promise<void> {
+  const threads = await inboxThreadModel.find({tenantSlug, userFolderId}).lean() as InboxThread[];
+  await Promise.all(threads.map(async thread => {
+    const threadId = inboxThreadId(thread);
+    const messages = await inboxMessageModel.find({threadId}).lean() as InboxMessage[];
+    await recordThreadDeletion(thread, messages, threadId);
+  }));
+}
+
 export async function restoreDeletedThread(threadId: string, tenantSlug: string = defaultTenantSlug()): Promise<void> {
   await inboxThreadModel.updateOne(
     {_id: threadId, tenantSlug, folder: InboxThreadFolder.DELETED},
-    {$set: {folder: InboxThreadFolder.INBOX, unread: true, readByMemberIds: []}, $unset: {deletedAt: 1}}
+    {$set: {folder: InboxThreadFolder.INBOX, unread: true, readByMemberIds: []}, $unset: {deletedAt: 1, userFolderId: 1}}
   );
   await inboxDeletedIdentityModel.deleteMany({tenantSlug, threadId});
 }

@@ -74,6 +74,7 @@ describe("inbox-unread-counts", () => {
       const filter = unreadConversationFilter(["secretary", "chair"], "me");
       expect(filter.roleType).toEqual({$in: ["secretary", "chair"]});
       expect(filter.folder).toEqual({$nin: foldersExcludedFromInboxList()});
+      expect(filter.userFolderId).toBe(null);
       expect(filter.$or).toEqual([
         {lastDirection: InboxMessageDirection.OUTBOUND, unread: true},
         {lastDirection: {$ne: InboxMessageDirection.OUTBOUND}, readByMemberIds: {$ne: "me"}}

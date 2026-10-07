@@ -45,6 +45,7 @@ export function unreadConversationFilter(roleTypes: string[] | string, memberId:
     tenantSlug: defaultTenantSlug(),
     roleType: isArray(roleTypes) ? {$in: roleTypes} : roleTypes,
     folder: {$nin: foldersExcludedFromInboxList()},
+    userFolderId: null,
     ...unreadConditionForMember(memberId)
   };
 }
