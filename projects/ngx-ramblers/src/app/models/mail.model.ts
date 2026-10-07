@@ -67,13 +67,45 @@ export interface TemplateOverride {
 
 export type TemplateOverrides = Record<string, TemplateOverride>;
 
+export enum NewsletterIntroPurpose {
+  UPCOMING_EVENTS = "upcoming-events",
+  WALK_LEADER_REQUEST = "walk-leader-request"
+}
+
+export interface NewsletterIntroPurposeOption {
+  key: NewsletterIntroPurpose;
+  label: string;
+  hint: string;
+}
+
+export const NEWSLETTER_INTRO_PURPOSE_OPTIONS: NewsletterIntroPurposeOption[] = [
+  {
+    key: NewsletterIntroPurpose.UPCOMING_EVENTS,
+    label: "Up and coming events",
+    hint: "Covers what is on, and mentions walks whose details have changed since the last newsletter. Only events with their details filled in are included"
+  },
+  {
+    key: NewsletterIntroPurpose.WALK_LEADER_REQUEST,
+    label: "Request for walk leaders",
+    hint: "Lists the empty slots in the period that still need someone to lead them"
+  }
+];
+
+export const DEFAULT_NEWSLETTER_INTRO_PURPOSE = NewsletterIntroPurpose.UPCOMING_EVENTS;
+
 export interface ComposerDrafting {
   offerDraftedIntro: boolean;
   onlyApprovedWalks: boolean;
+  introPurpose?: NewsletterIntroPurpose;
+  walkChangeFields?: string[];
 }
 
 export function defaultComposerDrafting(): ComposerDrafting {
-  return {offerDraftedIntro: false, onlyApprovedWalks: true};
+  return {
+    offerDraftedIntro: false,
+    onlyApprovedWalks: true,
+    introPurpose: DEFAULT_NEWSLETTER_INTRO_PURPOSE
+  };
 }
 
 export enum ComposerRoleDefaults {

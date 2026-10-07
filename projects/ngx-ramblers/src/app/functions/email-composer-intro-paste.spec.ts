@@ -3,6 +3,7 @@ import {
   placeForwardedIntroMarkdown,
   planTitledIntroPaste,
   shouldRunIntroSmartPaste,
+  subjectNeedsPersonalising,
   subjectStillDefault,
   subjectTextFromPaste
 } from "./email-composer-intro-paste";
@@ -138,6 +139,25 @@ describe("email-composer-intro-paste", () => {
       const generated = ["What's new in NGX: 20 July to 20 August 2026"];
       expect(subjectStillDefault(generated[0], "Newsletter", generated)).toBe(true);
       expect(subjectStillDefault("Committee news", "Newsletter", generated)).toBe(false);
+    });
+  });
+
+  describe("subjectNeedsPersonalising", () => {
+    it("does not block continue when the subject is the prepared newsletter heading", () => {
+      expect(subjectNeedsPersonalising(
+        "Walks and socials for the next quarter",
+        "Walks and socials for the next quarter",
+        true,
+        ["Walks and socials for the next quarter"]
+      )).toBe(false);
+    });
+
+    it("still asks for an edit when the subject is the email type's placeholder", () => {
+      expect(subjectNeedsPersonalising("Walks and socials for the next quarter", "Walks and socials for the next quarter", true)).toBe(true);
+    });
+
+    it("does not ask when the email type is not a placeholder subject", () => {
+      expect(subjectNeedsPersonalising("Walks and socials for the next quarter", "Walks and socials for the next quarter", false)).toBe(false);
     });
   });
 

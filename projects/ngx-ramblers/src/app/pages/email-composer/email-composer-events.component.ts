@@ -66,7 +66,7 @@ import {EmailComposerDraftingComponent} from "./email-composer-drafting.componen
                    [checked]="session.newsletterMode()"
                    (change)="drafting.onNewsletterModeToggled($any($event.target).checked)">
             <label class="form-check-label" for="newsletter-mode">
-              <strong>Newsletter</strong> — carry on from where the last newsletter finished. Newsletters are normally created on the Sender &amp; Template step; tick this to turn an email you have already started into one.
+              <strong>Newsletter</strong> — carry on from where the last newsletter finished. Newsletters are normally created on Compose; tick this to turn an email you have already started into one.
             </label>
           </div>
         </div>

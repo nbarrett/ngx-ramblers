@@ -8,16 +8,21 @@ import { ImageConfig, ImageSource, LINK_CONFIG, LinkSource, LinkWithSource, Risk
 import { Venue } from "../../models/event-venue.model";
 import { RouteFollowWaypoint, RouteWaypointKind } from "../../models/route-follow.model";
 import { WALK_NOTIFICATION_FIELDS } from "../../models/walk-notification-fields";
-import { WalkNotificationValueFormat as Format } from "../../models/walk-notification-field.model";
+import { WalkNotificationLocationFormat, WalkNotificationValueFormat as Format } from "../../models/walk-notification-field.model";
 import { DateUtilsService } from "../date-utils.service";
 import { DistanceValidationService } from "../walks/distance-validation.service";
+import { WalksConfigService } from "../system/walks-config.service";
+import { formatGridReference } from "../../functions/grid-reference";
+import { withoutPoliceForceAreas } from "../../functions/location-description";
+import { DEFAULT_GRID_REFERENCE_DIGITS } from "../../models/walks-config.model";
 
 @Injectable({providedIn: "root"})
 export class WalkNotificationValueService {
   private dateUtils = inject(DateUtilsService);
   private distanceValidation = inject(DistanceValidationService);
+  private walksConfigService = inject(WalksConfigService);
 
-  public format(fieldName: string, value: any): string {
+  public format(fieldName: string, value: any, locationFormat: WalkNotificationLocationFormat | null = null): string {
     const format = WALK_NOTIFICATION_FIELDS[fieldName]?.format;
     if (this.empty(value)) {
       return "(not set)";
@@ -40,7 +45,7 @@ export class WalkNotificationValueService {
       case Format.LINKS:
         return this.links(value);
       case Format.LOCATION:
-        return this.location(value);
+        return this.location(value, locationFormat);
       case Format.MEDIA:
         return this.media(value);
       case Format.MEETUP:
@@ -136,14 +141,25 @@ export class WalkNotificationValueService {
     return this.list(summaries, "No related links");
   }
 
-  private location(value: LocationDetails): string {
-    const gridReference = value?.grid_reference_10 || value?.grid_reference_8 || value?.grid_reference_6;
+  private location(value: LocationDetails, locationFormat: WalkNotificationLocationFormat | null): string {
+    const includeDescription = locationFormat ? locationFormat.description : true;
+    const includePostcode = locationFormat ? locationFormat.postcode : true;
+    const includeGridReference = locationFormat ? locationFormat.gridReference : true;
+    const includeWhat3Words = !locationFormat;
+    const description = includeDescription && value?.description ? withoutPoliceForceAreas(value.description) : null;
+    const gridReference = includeGridReference ? this.formattedGridReference(value) : "";
     return compact([
-      value?.description,
-      value?.postcode,
+      description,
+      includePostcode ? value?.postcode : null,
       gridReference ? `grid reference ${gridReference}` : null,
-      value?.w3w ? `what3words ${value.w3w}` : null
+      includeWhat3Words && value?.w3w ? `what3words ${value.w3w}` : null
     ]).join(", ") || "(not set)";
+  }
+
+  private formattedGridReference(value: LocationDetails): string {
+    const raw = value?.grid_reference_10 || value?.grid_reference_8 || value?.grid_reference_6 || "";
+    const config = this.walksConfigService.walksConfig();
+    return raw ? formatGridReference(raw, config?.walkDetailsGridReferenceDigits ?? DEFAULT_GRID_REFERENCE_DIGITS, config?.walkDetailsGridReferenceSpaced !== false) : "";
   }
 
   private media(value: Media[]): string {

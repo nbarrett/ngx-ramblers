@@ -1,26 +1,48 @@
 import {
   DEFAULT_NEWSLETTER_INTRO_PURPOSE,
   NewsletterIntroEvent,
+  NewsletterIntroFieldChange,
   NewsletterIntroPurpose,
   NewsletterIntroRequest
 } from "../../../projects/ngx-ramblers/src/app/models/ai.model";
 import { eventsForPurpose } from "../../../projects/ngx-ramblers/src/app/functions/newsletter-purpose";
+import { uniq } from "es-toolkit/compat";
+import { givenName } from "../../../projects/ngx-ramblers/src/app/functions/meeting-speaker-names";
+import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
+import { dateTimeInTimezone, formatDateTime } from "../shared/dates";
+import { pluralise } from "../shared/string-utils";
+import { DateTime } from "luxon";
 
 export { eventsForPurpose };
 
 export const NEWSLETTER_INTRO_SYSTEM_PROMPT = [
   "Write a short introduction for a walking group's newsletter, summarising what is coming up.",
   "Write in the first person plural as the group speaking to its members (we, our, us).",
-  "Give a high-level overview: roughly how many walks and social events there are, the spread of dates, and the range of distances or the more notable outings.",
-  "Do not list the events one by one. Their full details follow immediately underneath, so the introduction only needs to set the scene.",
-  "Two or three sentences is usually enough, and never more than four.",
+  "Set the scene from the period covered and the walks and social events in the source.",
+  "If the source says the period is short, or asks you to name each walk, name every walk with its day and, where a leader first name is listed, as that person's walk (Alex's Chilham circular on Saturday 2 August). Do not collapse a handful of walks into a weekday pattern such as Sunday morning walks.",
+  "If the source gives a walk pattern for a longer programme, say the day and whether walks are morning or evening once (Sunday morning walks, Wednesday evening walks) and do not list every walk. Name each social with its date.",
+  "Do not open with how many events there are.",
+  "Do not say the programme continues, and do not invent a weekly series from a single walk.",
+  "Once dates are stated, do not add that the walks are spread across the week, the fortnight or the month.",
+  "The full details follow immediately underneath, so the introduction only needs to set the scene.",
+  "If any walks have listed changes, mention those differences in the same introduction, naming the walk as the leader's walk when a first name is listed (Alex's Chilham circular, not The Chilham circular) and saying what changed from the old value to the new value.",
+  "Never write that a walk has seen some changes, has been updated, or differs from its original listing. Always say the old value and the new value.",
+  "Mention every listed change for a walk. Do not drop a listed field because another change on the same walk looks more important.",
+  "Give distances in miles only. Do not mention kilometres.",
+  "When a listed change is a finish or start time on the same day, say the times only (2:30 pm to 2:45 pm). Do not repeat the date, and do not mention seconds.",
+  "Write listed changes as a person would say them. Do not copy the Changes line word for word.",
+  "Do not mention a change unless it is listed, and do not mention walks with no listed changes when talking about differences.",
+  "If several walks have changed, a short markdown bullet list of those changes is fine after the overview.",
+  "Two or three sentences is usually enough for the overview, and never more than four before any change list.",
+  "The last sentence must be the Closing sentence supplied in the source, word for word.",
   "Use only the facts supplied. Do not invent walks, places, distances, dates, weather, people or anything else that is not in the source.",
+  "If you mention a fact from the source, include it in full. Never cut a word or sentence short, and never use an ellipsis.",
   "If some events are marked as new since the last newsletter, mention in passing that there are new additions, without listing them.",
   "Where the sender has given guidance, follow it for emphasis and tone, but still invent nothing that is not in the source.",
-  "Write in British English, in the plain warm prose a volunteer would write.",
+  "Open with a light, human line in the voice of a volunteer writing to members, then get on with the facts. For a short period that line should still name the week or the walks, not a generic look at the programme. Dry humour is fine when it comes from something in the source. Do not strain for jokes, do not be chirpy, and do not call the walks enjoyable, wonderful, exciting or similar.",
   "Do not use em dashes and do not use exclamation marks.",
-  "Do not greet the reader and do not sign off, because both are added separately.",
-  "Return the introduction only, as plain markdown paragraphs, with no heading and no bullet points."
+  "Do not greet the reader (no Hello, Hi everyone, or Dear members) and do not sign off, because both are added separately.",
+  "Return the introduction only, as markdown, with no heading."
 ].join(" ");
 
 export const WALK_LEADER_REQUEST_SYSTEM_PROMPT = [
@@ -46,25 +68,144 @@ export function systemPromptFor(purpose: NewsletterIntroPurpose | undefined): st
 }
 
 export const MAX_EVENTS_IN_PROMPT = 60;
-export const MAX_DESCRIPTION_CHARS = 200;
-export const MAX_GUIDANCE_CHARS = 500;
+export const NEWSLETTER_INTRO_MAX_TOKENS = 4096;
 
-export function truncateDescription(description: string | undefined, maxChars: number = MAX_DESCRIPTION_CHARS): string | null {
+export function collapsedDescription(description: string | undefined): string | null {
   const trimmed = (description ?? "").replace(/\s+/g, " ").trim();
-  const truncated = trimmed.length <= maxChars ? trimmed : `${trimmed.slice(0, maxChars).trimEnd()}…`;
-  return trimmed ? truncated : null;
+  return trimmed ? trimmed : null;
+}
+
+export function leaderFirstName(name: string | undefined): string | null {
+  const first = givenName(name || "");
+  return first.length > 1 ? first : null;
+}
+
+export function eventNamedForLeader(event: NewsletterIntroEvent): string {
+  const leader = event.awaitingDetails ? null : leaderFirstName(event.leaderName);
+  return leader ? `${leader}'s ${event.title}` : event.title;
+}
+
+export function walkPatternSummary(events: NewsletterIntroEvent[]): string | null {
+  const walks = (events ?? []).filter(event => (event.eventType || "").toLowerCase().includes("walk"));
+  const slots = uniq(walks.map(event => [event.weekday, event.timeOfDay].filter(Boolean).join(" ")).filter(Boolean));
+  return slots.length ? slots.map(slot => `${slot} walks`).join("; ") : null;
+}
+
+const SHORT_PERIOD_DAYS = 8;
+const NAME_EACH_WALK_LIMIT = 6;
+
+function parsePeriodDate(value: string): DateTime | null {
+  const trimmed = (value || "").trim();
+  const withoutWeekday = trimmed.replace(/^[A-Za-z]+,?\s+/, "");
+  const parsed = [trimmed, withoutWeekday]
+    .flatMap(candidate => [
+      dateTimeInTimezone(candidate, UIDateFormat.DISPLAY_DATE),
+      dateTimeInTimezone(candidate, UIDateFormat.DISPLAY_DATE_NO_COMMA),
+      dateTimeInTimezone(candidate, UIDateFormat.DISPLAY_DATE_NO_DAY)
+    ])
+    .find(date => date.isValid);
+  return parsed ?? null;
+}
+
+export function periodSpanDays(periodDescription: string | undefined): number | null {
+  const parts = (periodDescription || "").split(/\s+to\s+/i);
+  if (parts.length !== 2) {
+    return null;
+  } else {
+    const from = parsePeriodDate(parts[0]);
+    const to = parsePeriodDate(parts[1]);
+    if (!from || !to) {
+      return null;
+    } else {
+      const days = Math.round(to.diff(from, "days").days);
+      return days >= 0 ? days + 1 : null;
+    }
+  }
+}
+
+export function introShouldNameEachWalk(events: NewsletterIntroEvent[], periodDescription?: string): boolean {
+  const span = periodSpanDays(periodDescription);
+  if (span !== null && span <= SHORT_PERIOD_DAYS) {
+    return true;
+  } else if (/\b(this|next|one)\s+week\b/i.test(periodDescription || "")) {
+    return true;
+  } else {
+    const count = (events ?? []).length;
+    return count > 0 && count <= NAME_EACH_WALK_LIMIT;
+  }
+}
+
+export function socialEventsSummary(events: NewsletterIntroEvent[]): string | null {
+  const socials = (events ?? []).filter(event => (event.eventType || "").toLowerCase().includes("social"));
+  return socials.length
+    ? socials.map(event => event.dateDescription ? `${event.title} on ${event.dateDescription}` : event.title).join("; ")
+    : null;
+}
+
+export function milesOnlyDistance(value: string | undefined): string | null {
+  const trimmed = (value ?? "").replace(/\s*\/\s*\d+(?:\.\d+)?\s*k(?:m|ilometres?)\b/gi, "").trim();
+  return trimmed ? trimmed : null;
+}
+
+function parseDisplayDateAndTime(value: string): DateTime | null {
+  const normalised = (value ?? "").replace(/\bam\b/gi, "AM").replace(/\bpm\b/gi, "PM").trim();
+  const parsed = dateTimeInTimezone(normalised, UIDateFormat.DISPLAY_DATE_AND_TIME);
+  return parsed.isValid ? parsed : null;
+}
+
+function timeOnlyChangeLabel(label: string): string {
+  return /end/i.test(label) ? "Finish time"
+    : /start/i.test(label) ? "Start time"
+    : /meeting/i.test(label) ? "Meeting time"
+    : label;
+}
+
+export function describeListedChange(change: NewsletterIntroFieldChange): string {
+  const fromDate = parseDisplayDateAndTime(change.from);
+  const toDate = parseDisplayDateAndTime(change.to);
+  if (fromDate && toDate) {
+    const sameDay = fromDate.hasSame(toDate, "day");
+    const fromText = formatDateTime(fromDate, sameDay ? UIDateFormat.DISPLAY_TIME : UIDateFormat.DISPLAY_DATE_AT_TIME);
+    const toText = formatDateTime(toDate, sameDay ? UIDateFormat.DISPLAY_TIME : UIDateFormat.DISPLAY_DATE_AT_TIME);
+    const label = sameDay ? timeOnlyChangeLabel(change.label) : change.label;
+    return `${label}: ${fromText} to ${toText}`;
+  } else {
+    return `${change.label}: ${milesOnlyDistance(change.from) ?? change.from} to ${milesOnlyDistance(change.to) ?? change.to}`;
+  }
+}
+
+function introChanges(event: NewsletterIntroEvent): NewsletterIntroFieldChange[] {
+  return (event.changes ?? []).filter(change => !/kilometre/i.test(change.label) && !/distance_km/i.test(change.field));
 }
 
 export function describeEvent(event: NewsletterIntroEvent): string {
   const parts = [
     event.dateDescription,
-    event.title,
-    event.distance,
+    event.timeOfDay,
+    eventNamedForLeader(event),
+    milesOnlyDistance(event.distance),
     event.location ? `from ${event.location}` : null,
+    event.cancelled ? "(cancelled)" : null,
     event.newSinceLastNewsletter ? "(new since the last newsletter)" : null
   ].filter(Boolean);
-  const description = truncateDescription(event.description);
-  return description ? `- ${parts.join(", ")}. ${description}` : `- ${parts.join(", ")}`;
+  const description = collapsedDescription(event.description);
+  const line = description ? `- ${parts.join(", ")}. ${description}` : `- ${parts.join(", ")}`;
+  const changeSummary = introChanges(event).map(describeListedChange).join("; ");
+  return changeSummary ? `${line}. Changes: ${changeSummary}` : line;
+}
+
+export function closingDetailsPhrase(events: NewsletterIntroEvent[]): string | null {
+  const listed = events ?? [];
+  const types = listed.map(event => (event.eventType || "").toLowerCase());
+  const walkCount = types.filter(type => type.includes("walk")).length;
+  const socialCount = types.filter(type => type.includes("social")).length;
+  const otherCount = listed.length - walkCount - socialCount;
+  const parts = [
+    walkCount > 0 ? `the ${pluralise(walkCount, "walk")}` : null,
+    socialCount > 0 ? `the ${pluralise(socialCount, "social event")}` : null,
+    otherCount > 0 ? `the ${pluralise(otherCount, "event")}` : null
+  ].filter(Boolean);
+  return listed.length ? parts.join(" and ") : null;
 }
 
 export function eventsByType(events: NewsletterIntroEvent[]): Map<string, NewsletterIntroEvent[]> {
@@ -79,15 +220,29 @@ export function buildNewsletterIntroInput(request: NewsletterIntroRequest): stri
   const allEvents = eventsForPurpose(request?.events, purpose);
   const events = allEvents.slice(0, MAX_EVENTS_IN_PROMPT);
   const newCount = events.filter(event => event.newSinceLastNewsletter).length;
-  const guidance = truncateDescription(request?.guidance, MAX_GUIDANCE_CHARS);
+  const changedCount = events.filter(event => (event.changes?.length ?? 0) > 0).length;
+  const detailsPhrase = purpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST ? null : closingDetailsPhrase(events);
+  const nameEachWalk = purpose !== NewsletterIntroPurpose.WALK_LEADER_REQUEST && introShouldNameEachWalk(events, request?.periodDescription);
+  const walkPattern = purpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST || nameEachWalk ? null : walkPatternSummary(events);
+  const socials = purpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST ? null : socialEventsSummary(events);
+  const guidance = collapsedDescription(request?.guidance);
   const heading = [
     request?.groupName ? `Group: ${request.groupName}` : null,
     request?.periodDescription ? `Period covered: ${request.periodDescription}` : null,
+    nameEachWalk
+      ? "Style: a short period. Name each walk with its day and, where listed, the leader's first name. Do not collapse them into a weekday pattern."
+      : null,
+    walkPattern ? `Walk pattern: ${walkPattern}` : null,
+    socials ? `Social events: ${socials}` : null,
     guidance ? `Guidance from the sender: ${guidance}` : null,
     purpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST
       ? `Empty slots still needing a leader: ${allEvents.length}`
       : `Total events: ${allEvents.length}`,
     newCount > 0 ? `New since the last newsletter: ${newCount}` : null,
+    purpose !== NewsletterIntroPurpose.WALK_LEADER_REQUEST && changedCount > 0
+      ? `Walks with recent changes: ${changedCount}`
+      : null,
+    detailsPhrase ? `Closing sentence: See below for full details of ${detailsPhrase}.` : null,
     allEvents.length > events.length ? `Only the first ${events.length} are listed below.` : null
   ].filter(Boolean).join("\n");
   const sections = Array.from(eventsByType(events).entries())

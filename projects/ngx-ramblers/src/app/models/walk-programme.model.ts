@@ -192,6 +192,45 @@ export function hasRamblersPublicationIdentity(extendedGroupEvent: ExtendedGroup
   return !!ramblersId && hasRamblersUrl;
 }
 
+export const MEMBER_FACING_PROGRAMME_STATUSES: ProgrammeOverviewStatus[] = [
+  ProgrammeOverviewStatus.APPROVED,
+  ProgrammeOverviewStatus.PUBLISHED,
+  ProgrammeOverviewStatus.CANCELLED
+];
+
+export const EMPTY_SLOT_PROGRAMME_STATUSES: ProgrammeOverviewStatus[] = [
+  ProgrammeOverviewStatus.AWAITING_LEADER,
+  ProgrammeOverviewStatus.AWAITING_WALK_DETAILS
+];
+
+export function walkIsMemberFacing(
+  status: ProgrammeOverviewStatus | undefined,
+  isWalk: boolean,
+  deleted = false
+): boolean {
+  return !isWalk ? true
+    : deleted ? false
+    : MEMBER_FACING_PROGRAMME_STATUSES.includes(status);
+}
+
+export function walkIsEmptySlot(status: ProgrammeOverviewStatus | undefined, title?: string): boolean {
+  return EMPTY_SLOT_PROGRAMME_STATUSES.includes(status) || /^awaiting\b/i.test((title ?? "").trim());
+}
+
+export function walkNeedsLeader(
+  status: ProgrammeOverviewStatus | undefined,
+  contactName?: string,
+  title?: string,
+  isWalk = true
+): boolean {
+  const name = (contactName ?? "").trim();
+  const namedLeader = !!name && !/^contact via ramblers$/i.test(name);
+  return !isWalk ? false
+    : status === ProgrammeOverviewStatus.AWAITING_LEADER ? true
+    : namedLeader ? false
+    : walkIsEmptySlot(status, title);
+}
+
 export function displayedWalkProgrammeStatus(extendedGroupEvent: ExtendedGroupEvent, derivedEventStatus: string): ProgrammeOverviewStatus {
   const ramblersStatus = (extendedGroupEvent?.groupEvent?.status || "").toLowerCase();
   const walksManagerSourced = extendedGroupEvent?.source === EventSource.WALKS_MANAGER;

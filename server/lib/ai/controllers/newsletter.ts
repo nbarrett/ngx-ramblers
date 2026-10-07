@@ -10,7 +10,7 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/ai.model";
 import { aiConfigFromEnvironment } from "../ai-config";
 import { generate } from "../ai-generation";
-import { buildNewsletterIntroInput, systemPromptFor } from "../newsletter-intro";
+import { buildNewsletterIntroInput, NEWSLETTER_INTRO_MAX_TOKENS, systemPromptFor } from "../newsletter-intro";
 import { buildNewsletterPlanInput, NEWSLETTER_PLAN_SYSTEM_PROMPT, parseNewsletterPlan } from "../newsletter-plan";
 
 const debug = debugLib(envConfig.logNamespace("ai:newsletter"));
@@ -31,7 +31,7 @@ export async function draftNewsletterIntro(req: Request, res: Response): Promise
     res.status(503).json({request: {}, error: "AI is not enabled in this environment"});
   } else {
     try {
-      const output = await generate(ai, systemPromptFor(request.purpose), buildNewsletterIntroInput(request));
+      const output = await generate(ai, systemPromptFor(request.purpose), buildNewsletterIntroInput(request), NEWSLETTER_INTRO_MAX_TOKENS);
       res.json({request: {}, response: {output}});
     } catch (error) {
       debug("newsletter-intro error:", error);

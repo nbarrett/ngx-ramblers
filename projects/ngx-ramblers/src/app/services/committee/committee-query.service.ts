@@ -29,7 +29,9 @@ import { DateValue } from "../../models/date.model";
 import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { DistanceValidationService } from "../walks/distance-validation.service";
 import { StringUtilsService } from "../string-utils.service";
-import { GroupEventField } from "../../models/walk.model";
+import { EventType, GroupEventField } from "../../models/walk.model";
+import { displayedWalkProgrammeStatus } from "../../models/walk-programme.model";
+import { GroupEventService } from "../walks-and-events/group-event.service";
 import { SystemConfigService } from "../system/system-config.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { validEmail } from "../../functions/strings";
@@ -47,6 +49,7 @@ export class CommitteeQueryService {
   private memberService = inject(MemberService);
   private stringUtilsService = inject(StringUtilsService);
   private extendedGroupEventQueryService = inject(ExtendedGroupEventQueryService);
+  private groupEventService = inject(GroupEventService);
   private committeeFileService = inject(CommitteeFileService);
   private committeeDisplayService = inject(CommitteeDisplayService);
   private walksAndEventsService = inject(WalksAndEventsService);
@@ -99,7 +102,9 @@ export class CommitteeQueryService {
       promises.push(
         this.walksAndEventsService.all(eventQueryParameters)
           .then((extendedGroupEvents: ExtendedGroupEvent[]) => this.extendedGroupEventQueryService.activeEvents(extendedGroupEvents))
-          .then((extendedGroupEvents: ExtendedGroupEvent[]) => extendedGroupEvents?.forEach(event => events.push({
+          .then((extendedGroupEvents: ExtendedGroupEvent[]) => extendedGroupEvents?.forEach(event => {
+            const derivedEventStatus = this.groupEventService.statusFor(event);
+            events.push({
             id: event.id || event?.groupEvent?.id,
             ramblersEventType: event?.groupEvent?.item_type || RamblersEventType.GROUP_WALK,
             slug: eventSlug(event),
@@ -118,8 +123,11 @@ export class CommitteeQueryService {
             contactHref: this.contactHref(event.fields?.contactDetails?.email),
             image: this.mediaQueryService.imageUrlFrom(event.groupEvent),
             media: event.groupEvent?.media ?? [],
-            selectedMediaIndex: 0
-          }))));
+            selectedMediaIndex: 0,
+            programmeStatus: displayedWalkProgrammeStatus(event, derivedEventStatus),
+            deleted: derivedEventStatus === EventType.DELETED
+          });
+          })));
     }
     if (groupEventsFilter.includeCommitteeEvents) {
       const textBasedCriteria = groupEventsFilter.search?.length > 0 ? {"fileNameData.title": regex} : null;

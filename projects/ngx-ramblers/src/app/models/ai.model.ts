@@ -1,6 +1,19 @@
 import { Subject, Subscription } from "rxjs";
 import { ApiResponse } from "./api-response.model";
 import { ReleaseNoteUpdateCategory, ReleaseNoteUpdateCoverage } from "./email-composer.model";
+import {
+  DEFAULT_NEWSLETTER_INTRO_PURPOSE,
+  NewsletterIntroPurpose,
+  NewsletterIntroPurposeOption,
+  NEWSLETTER_INTRO_PURPOSE_OPTIONS
+} from "./mail.model";
+
+export {
+  DEFAULT_NEWSLETTER_INTRO_PURPOSE,
+  NewsletterIntroPurpose,
+  NewsletterIntroPurposeOption,
+  NEWSLETTER_INTRO_PURPOSE_OPTIONS
+};
 
 export interface TextGenerationRequest {
   systemPrompt: string;
@@ -87,41 +100,34 @@ export interface TextRewriteApiResponse extends ApiResponse {
   response?: TextRewriteResponse;
 }
 
-export enum NewsletterIntroPurpose {
-  UPCOMING_EVENTS = "upcoming-events",
-  WALK_LEADER_REQUEST = "walk-leader-request"
+export enum WalkTimeOfDay {
+  MORNING = "morning",
+  AFTERNOON = "afternoon",
+  EVENING = "evening"
 }
 
-export interface NewsletterIntroPurposeOption {
-  key: NewsletterIntroPurpose;
+export interface NewsletterIntroFieldChange {
+  field: string;
   label: string;
-  hint: string;
+  from: string;
+  to: string;
 }
-
-export const NEWSLETTER_INTRO_PURPOSE_OPTIONS: NewsletterIntroPurposeOption[] = [
-  {
-    key: NewsletterIntroPurpose.UPCOMING_EVENTS,
-    label: "Up and coming events",
-    hint: "Covers what is on. Only events with their details filled in are included"
-  },
-  {
-    key: NewsletterIntroPurpose.WALK_LEADER_REQUEST,
-    label: "Request for walk leaders",
-    hint: "Lists the empty slots in the period that still need someone to lead them"
-  }
-];
-
-export const DEFAULT_NEWSLETTER_INTRO_PURPOSE = NewsletterIntroPurpose.UPCOMING_EVENTS;
 
 export interface NewsletterIntroEvent {
   title: string;
   eventType: string;
   dateDescription: string;
+  weekday?: string;
+  timeOfDay?: WalkTimeOfDay;
   distance?: string;
   location?: string;
   description?: string;
+  leaderName?: string;
   newSinceLastNewsletter?: boolean;
   awaitingDetails?: boolean;
+  approvedForMembers?: boolean;
+  cancelled?: boolean;
+  changes?: NewsletterIntroFieldChange[];
 }
 
 export interface NewsletterIntroRequest {

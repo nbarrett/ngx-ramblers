@@ -5,6 +5,7 @@ import {
   cadenceDays,
   markEventsNewSinceLastNewsletter,
   newEventCount,
+  newsletterSubjectFromSelection,
   newsletterWindowFrom
 } from "./newsletter-window";
 
@@ -47,6 +48,7 @@ describe("newsletter-window", () => {
       expect(cadenceDays(NewsletterCadence.FORTNIGHTLY)).toBe(14);
       expect(cadenceDays(NewsletterCadence.MONTHLY)).toBe(30);
       expect(cadenceDays(NewsletterCadence.QUARTERLY)).toBe(91);
+      expect(cadenceDays(NewsletterCadence.PROGRAMME)).toBeNull();
     });
 
     it("has no span for custom dates", () => {
@@ -93,6 +95,13 @@ describe("newsletter-window", () => {
 
       expect(window.fromMillis).toBe(1000);
       expect(window.toMillis).toBe(2000);
+    });
+
+    it("covers from today to the end of the programme lookahead for all future walks", () => {
+      const window = newsletterWindowFrom(null, NewsletterCadence.PROGRAMME, today.toMillis());
+      expect(window.continuesPreviousWindow).toBe(false);
+      expect(DateTime.fromMillis(window.fromMillis).toISODate()).toBe("2026-07-31");
+      expect(DateTime.fromMillis(window.toMillis).year).toBe(2029);
     });
 
     it("falls back to a month of dates when custom is chosen with nothing set yet", () => {
@@ -149,6 +158,28 @@ describe("newsletter-window", () => {
 
     it("counts nothing when there are no events", () => {
       expect(newEventCount([])).toBe(0);
+    });
+  });
+
+  describe("newsletterSubjectFromSelection", () => {
+    it("names walks and socials for the chosen period", () => {
+      expect(newsletterSubjectFromSelection(true, true, NewsletterCadence.FORTNIGHTLY, "7 October to 21 October 2026"))
+        .toEqual("Walks and socials for the next fortnight");
+    });
+
+    it("names walks only when there are no socials", () => {
+      expect(newsletterSubjectFromSelection(true, false, NewsletterCadence.MONTHLY, undefined))
+        .toEqual("Walks for the next month");
+    });
+
+    it("uses the date range when the period is custom", () => {
+      expect(newsletterSubjectFromSelection(true, false, NewsletterCadence.CUSTOM, "1 August to 31 August 2026"))
+        .toEqual("Walks, 1 August to 31 August 2026");
+    });
+
+    it("falls back when nothing is selected yet", () => {
+      expect(newsletterSubjectFromSelection(false, false, NewsletterCadence.WEEKLY, undefined))
+        .toEqual("What's coming up for the next week");
     });
   });
 });

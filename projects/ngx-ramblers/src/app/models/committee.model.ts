@@ -8,6 +8,7 @@ import { NotificationConfig } from "./mail.model";
 import { Link } from "./page.model";
 import { Media } from "./ramblers-walks-manager";
 import { VideoMeetingInviteRecipient, VideoMeetingRsvp } from "./video-meeting.model";
+import { ProgrammeOverviewStatus } from "./walk-programme.model";
 
 export interface GroupEventType {
   eventType: string;
@@ -152,6 +153,8 @@ export interface GroupEventSummary extends Identifiable {
   contactEmail: string;
   contactHref?: string;
   newSinceLastNewsletter?: boolean;
+  programmeStatus?: ProgrammeOverviewStatus;
+  deleted?: boolean;
 }
 
 interface NotificationImage {
