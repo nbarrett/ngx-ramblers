@@ -81,6 +81,7 @@ export enum NewsletterCadence {
   FORTNIGHTLY = "fortnightly",
   MONTHLY = "monthly",
   QUARTERLY = "quarterly",
+  PROGRAMME = "programme",
   CUSTOM = "custom"
 }
 
@@ -96,6 +97,7 @@ export const NEWSLETTER_CADENCE_OPTIONS: NewsletterCadenceOption[] = [
   { key: NewsletterCadence.FORTNIGHTLY, label: "Fortnightly", periodLabel: "the next fortnight", days: 14 },
   { key: NewsletterCadence.MONTHLY, label: "Monthly", periodLabel: "the next month", days: 30 },
   { key: NewsletterCadence.QUARTERLY, label: "Quarterly", periodLabel: "the next quarter", days: 91 },
+  { key: NewsletterCadence.PROGRAMME, label: "Whole programme", periodLabel: "all future walks on the programme", days: null },
   { key: NewsletterCadence.CUSTOM, label: "Custom dates", periodLabel: "dates I choose", days: null }
 ];
 
@@ -858,7 +860,6 @@ export interface EmailComposerRecipientEntry {
 }
 
 export enum EmailComposerDraftingMode {
-  START = "start",
   INTRO = "intro",
   EVENT_SETTINGS = "event-settings"
 }

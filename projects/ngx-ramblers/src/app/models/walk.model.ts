@@ -655,3 +655,9 @@ export const EVENT_SLUG_SELECT: Record<string, number> = {
   [EventEventField.EVENT_TYPE]: 1,
   [EventEventField.DATE]: 1
 };
+
+export const WALK_CHANGE_INTRO_SELECT: Record<string, number> = {
+  groupEvent: 1,
+  fields: 1,
+  events: 1
+};

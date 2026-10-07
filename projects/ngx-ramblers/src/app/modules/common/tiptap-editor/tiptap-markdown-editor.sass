@@ -151,12 +151,14 @@
   background-color: #f8f9fa
 
 .tiptap-toolbar.tiptap-toolbar-sticky
+  position: -webkit-sticky
   position: sticky
   top: var(--tiptap-toolbar-offset, 0)
   z-index: 20
   background-color: #f8f9fa
 
 .tiptap-sticky-region-active
+  position: -webkit-sticky
   position: sticky
   top: var(--tiptap-toolbar-offset, 0)
   z-index: 20
@@ -446,6 +448,8 @@
 .tiptap-content .ProseMirror
   min-height: 2.5rem
   outline: none
+  -webkit-user-select: text
+  user-select: text
 
 .tiptap-content.email-width .ProseMirror
   min-height: 160px

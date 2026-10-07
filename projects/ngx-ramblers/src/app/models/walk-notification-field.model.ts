@@ -23,5 +23,17 @@ export enum WalkNotificationValueFormat {
 export interface WalkNotificationFieldDescriptor {
   label: string;
   notify: boolean;
+  intro: boolean;
   format: WalkNotificationValueFormat;
+}
+
+export enum WalkChangeIntroField {
+  GRID_REFERENCE = "walk-change-grid-reference",
+  POSTCODE = "walk-change-postcode"
+}
+
+export interface WalkNotificationLocationFormat {
+  description: boolean;
+  gridReference: boolean;
+  postcode: boolean;
 }

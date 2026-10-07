@@ -109,6 +109,22 @@ export function subjectStillDefault(existingSubject: string, defaultConfigSubjec
   return !existing || automaticSubjects.includes(existing);
 }
 
+export function subjectNeedsPersonalising(
+  existingSubject: string,
+  templateSubject: string,
+  placeholder: boolean,
+  preparedSubjects: string[] = []
+): boolean {
+  if (!placeholder) {
+    return false;
+  } else {
+    const current = (existingSubject ?? "").trim();
+    return preparedSubjects.some(subject => (subject ?? "").trim() === current)
+      ? false
+      : subjectStillDefault(existingSubject, templateSubject);
+  }
+}
+
 export function planTitledIntroPaste(
   pasteText: string,
   titled: { title: string; body: string },

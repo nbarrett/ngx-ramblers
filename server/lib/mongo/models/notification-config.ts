@@ -35,7 +35,9 @@ const notificationConfigSchema = new mongoose.Schema({
   omitEventsStep: {type: Boolean},
   composerDrafting: {
     offerDraftedIntro: {type: Boolean},
-    onlyApprovedWalks: {type: Boolean}
+    onlyApprovedWalks: {type: Boolean},
+    introPurpose: {type: String},
+    walkChangeFields: [{type: String}]
   },
   createdAt: {type: Number},
   createdBy: {type: String},

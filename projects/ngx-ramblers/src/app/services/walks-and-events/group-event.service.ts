@@ -15,8 +15,10 @@ import { inject, Injectable } from "@angular/core";
 import { sortBy } from "../../functions/arrays";
 import { normaliseWalkEventSnapshot, walkEventDataSnapshot } from "../../functions/walks/walk-event-snapshot";
 import { WALK_NOTIFICATION_FIELDS } from "../../models/walk-notification-fields";
+import { WalkNotificationLocationFormat } from "../../models/walk-notification-field.model";
 import { WalkNotificationValueService } from "./walk-notification-value.service";
 import { changedFieldValues, mapFieldChangeValues } from "../../functions/field-change";
+import { walkChangeFieldIsSelected, walkChangeLocationFormat } from "../../functions/walk-change-intro";
 import { normalisedWalkLeaderName, walkLeaderNamesMatch } from "../../functions/walks/joint-walk-leaders";
 
 @Injectable({
@@ -172,8 +174,21 @@ export class GroupEventService {
     return this.describedChangedItems(recipientFacingChanges);
   }
 
-  public describedChangedItems(changedItems: ChangedItem[]): DescribedChangedItem[] {
-    const describedChanges = changedItems.flatMap(changedItem => this.describedChangedItemFor(changedItem));
+  public highlightedChangesSince(walk: ExtendedGroupEvent, sinceMillis: number, fields: string[]): NotificationChangedItem[] {
+    const eventsLatestFirst = this.eventsLatestFirst(walk);
+    const hasRecentEvent = eventsLatestFirst.some(event => event.date > sinceMillis);
+    const previousEvent = eventsLatestFirst.find(event => event.date <= sinceMillis);
+    if (!hasRecentEvent || !previousEvent || !fields?.length) {
+      return [];
+    } else {
+      const changedItems = this.changedItemsBetween(walkEventDataSnapshot(walk), normaliseWalkEventSnapshot(previousEvent.data))
+        .filter(item => walkChangeFieldIsSelected(item.field, fields));
+      return this.describedChangedItems(changedItems, walkChangeLocationFormat(fields));
+    }
+  }
+
+  public describedChangedItems(changedItems: ChangedItem[], locationFormat: WalkNotificationLocationFormat | null = null): DescribedChangedItem[] {
+    const describedChanges = changedItems.flatMap(changedItem => this.describedChangedItemFor(changedItem, locationFormat));
     return changedFieldValues(describedChanges, change => change.from === change.to);
   }
 
@@ -208,12 +223,12 @@ export class GroupEventService {
     return changedFieldValues(candidates, change => this.valuesEqual(change.from, change.to));
   }
 
-  private describedChangedItemFor(changedItem: ChangedItem): DescribedChangedItem[] {
+  private describedChangedItemFor(changedItem: ChangedItem, locationFormat: WalkNotificationLocationFormat | null): DescribedChangedItem[] {
     const descriptor = WALK_NOTIFICATION_FIELDS[changedItem.field];
     if (!descriptor) {
       return [];
     } else {
-      const formatted = mapFieldChangeValues(changedItem, value => this.notificationValue.format(changedItem.field, value));
+      const formatted = mapFieldChangeValues(changedItem, value => this.notificationValue.format(changedItem.field, value, locationFormat));
       return [{...formatted, label: descriptor.label}];
     }
   }

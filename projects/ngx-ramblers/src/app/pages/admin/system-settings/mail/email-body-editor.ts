@@ -4,8 +4,6 @@ import { faRotateLeft, faTriangleExclamation } from "@fortawesome/free-solid-svg
 import { keys, startCase } from "es-toolkit/compat";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import {
-  ComposerDrafting,
-  defaultComposerDrafting,
   EMAIL_COMPOSER_BODY_PLACEHOLDER,
   EMAIL_TEMPLATES,
   EmailContentAnchor,
@@ -19,6 +17,7 @@ import {
   TemplateOverrideType,
   UnusedTemplateImage
 } from "../../../../models/mail.model";
+import { ComposerDraftingDefaultsComponent } from "./composer-drafting-defaults";
 import { MemberMergeFieldHint } from "../../../../models/email-composer.model";
 import { registerExampleValues, registerLinkDestinations } from "../../../../functions/merge-fields";
 import { TiptapMarkdownEditor } from "../../../../modules/common/tiptap-editor/tiptap-markdown-editor";
@@ -39,7 +38,7 @@ function pageLabel(path: string): string {
 
 @Component({
   selector: "app-email-body-editor",
-  imports: [FontAwesomeModule, TiptapMarkdownEditor, SectionToggle, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective],
+  imports: [FontAwesomeModule, TiptapMarkdownEditor, SectionToggle, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, ComposerDraftingDefaultsComponent],
   template: `
     <div class="col-sm-12 mt-2" [id]="emailContentAnchor.SECTION">
       <div class="row thumbnail-heading-frame">
@@ -60,26 +59,7 @@ function pageLabel(path: string): string {
                 Composer. There is nothing to edit here - the body is just a placeholder that the composer fills in.</small>
             </div>
             <div class="col-sm-12 mb-2">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="offer-drafted-intro"
-                       [checked]="drafting().offerDraftedIntro"
-                       (change)="setOfferDraftedIntro($any($event.target).checked)">
-                <label class="form-check-label" for="offer-drafted-intro">
-                  <strong>Offer a drafted intro</strong> — the composer offers to write the opening paragraph from the
-                  events being sent, as an editable draft
-                </label>
-              </div>
-              @if (drafting().offerDraftedIntro) {
-                <div class="form-check ms-4 mt-2">
-                  <input class="form-check-input" type="checkbox" id="only-approved-walks"
-                         [checked]="drafting().onlyApprovedWalks"
-                         (change)="setOnlyApprovedWalks($any($event.target).checked)">
-                  <label class="form-check-label" for="only-approved-walks">
-                    Only include walks that have been approved, so the draft does not mention walks still awaiting
-                    their details
-                  </label>
-                </div>
-              }
+              <app-composer-drafting-defaults [notificationConfig]="notificationConfig"/>
             </div>
           } @else {
             <div class="col-sm-12 mb-2 d-flex justify-content-between align-items-start gap-2">
@@ -280,18 +260,6 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
 
   isComposerDriven(): boolean {
     return (this.notificationConfig?.body || "").trim() === EMAIL_COMPOSER_BODY_PLACEHOLDER;
-  }
-
-  protected drafting(): ComposerDrafting {
-    return this.notificationConfig?.composerDrafting ?? defaultComposerDrafting();
-  }
-
-  protected setOfferDraftedIntro(offerDraftedIntro: boolean): void {
-    this.notificationConfig.composerDrafting = {...this.drafting(), offerDraftedIntro};
-  }
-
-  protected setOnlyApprovedWalks(onlyApprovedWalks: boolean): void {
-    this.notificationConfig.composerDrafting = {...this.drafting(), onlyApprovedWalks};
   }
 
   setContentSource(value: string): void {

@@ -1,5 +1,5 @@
 import { LinkSource } from "./walk.model";
-import { displayedWalkProgrammeStatus, ProgrammeOverviewStatus } from "./walk-programme.model";
+import { displayedWalkProgrammeStatus, ProgrammeOverviewStatus, walkIsMemberFacing, walkNeedsLeader } from "./walk-programme.model";
 
 describe("displayedWalkProgrammeStatus", () => {
   it("treats a Ramblers id and group walk URL as published without a publication event", () => {
@@ -48,5 +48,33 @@ describe("displayedWalkProgrammeStatus", () => {
     } as any, ProgrammeOverviewStatus.APPROVED);
 
     expect(status).toBe(ProgrammeOverviewStatus.CANCELLED);
+  });
+});
+
+describe("walkIsMemberFacing", () => {
+  it("includes approved, published and cancelled walks", () => {
+    expect(walkIsMemberFacing(ProgrammeOverviewStatus.APPROVED, true)).toBe(true);
+    expect(walkIsMemberFacing(ProgrammeOverviewStatus.PUBLISHED, true)).toBe(true);
+    expect(walkIsMemberFacing(ProgrammeOverviewStatus.CANCELLED, true)).toBe(true);
+  });
+
+  it("excludes empty slots, drafts and deleted walks", () => {
+    expect(walkIsMemberFacing(ProgrammeOverviewStatus.AWAITING_LEADER, true)).toBe(false);
+    expect(walkIsMemberFacing(ProgrammeOverviewStatus.AWAITING_WALK_DETAILS, true)).toBe(false);
+    expect(walkIsMemberFacing(ProgrammeOverviewStatus.APPROVED, true, true)).toBe(false);
+  });
+
+  it("keeps social events", () => {
+    expect(walkIsMemberFacing(undefined, false)).toBe(true);
+  });
+});
+
+describe("walkNeedsLeader", () => {
+  it("includes a walk still awaiting a leader", () => {
+    expect(walkNeedsLeader(ProgrammeOverviewStatus.AWAITING_LEADER, null, "Sunday walk")).toBe(true);
+  });
+
+  it("excludes a walk that already has a named leader", () => {
+    expect(walkNeedsLeader(ProgrammeOverviewStatus.AWAITING_WALK_DETAILS, "Alex Reed", "Awaiting group-walk details")).toBe(false);
   });
 });

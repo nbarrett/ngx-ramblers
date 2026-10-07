@@ -8,6 +8,7 @@ import { AuditDeltaChangedItemsPipePipe } from "../../pipes/audit-delta-changed-
 import { StringUtilsService } from "../string-utils.service";
 import { GroupEventService } from "./group-event.service";
 import { DateUtilsService } from "../date-utils.service";
+import { WalkChangeIntroField } from "../../models/walk-notification-field.model";
 import { EventField, EventType, GroupEventField, LinkSource } from "../../models/walk.model";
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
 import { WalksConfigService } from "../system/walks-config.service";
@@ -23,7 +24,7 @@ const memberLoginServiceStub = {
 };
 
 const walksConfigServiceStub = {
-    walksConfig: () => ({ milesPerHour: 2.13 }),
+    walksConfig: () => ({ milesPerHour: 2.13, walkDetailsGridReferenceDigits: 8, walkDetailsGridReferenceSpaced: true }),
     events: () => ({
         pipe: () => ({
             subscribe: () => {
@@ -90,6 +91,103 @@ describe("GroupEventService", () => {
 
     it("configures a recipient-facing descriptor for every audited field", () => {
         expect(AUDITED_FIELDS.filter(fieldName => !WALK_NOTIFICATION_FIELDS[fieldName])).toEqual([]);
+    });
+
+    it("marks every notification field for or against walk-change intros", () => {
+        expect(AUDITED_FIELDS.filter(fieldName => typeof WALK_NOTIFICATION_FIELDS[fieldName]?.intro !== "boolean")).toEqual([]);
+    });
+
+    it("highlights recent selected walk changes and ignores fields that were not chosen", () => {
+        const service = TestBed.inject(GroupEventService);
+        const previousWalk = walkWithContact("leader");
+        previousWalk.groupEvent.distance_miles = 7;
+        previousWalk.groupEvent.start_location.description = "Fordwich";
+        previousWalk.fields.riskAssessment = [{
+            memberId: "member-id",
+            confirmed: true,
+            confirmationDate: 1,
+            riskAssessmentSection: "Road",
+            riskAssessmentKey: "road"
+        }];
+        const currentWalk = walkWithContact("leader");
+        currentWalk.groupEvent.distance_miles = 8;
+        currentWalk.groupEvent.start_location.description = "Chilham";
+        currentWalk.fields.riskAssessment = [{
+            memberId: "member-id",
+            confirmed: false,
+            confirmationDate: 1,
+            riskAssessmentSection: "Road",
+            riskAssessmentKey: "road"
+        }];
+        const previousEvent = walkEventFromFullDeepCopy(previousWalk);
+        previousEvent.date = 1000;
+        const recentEvent = walkEventFromFullDeepCopy(currentWalk);
+        recentEvent.date = 3000;
+        currentWalk.events = [previousEvent, recentEvent];
+        const changes = service.highlightedChangesSince(currentWalk, 2000, [
+            GroupEventField.DISTANCE_MILES,
+            GroupEventField.START_LOCATION
+        ]);
+        expect(changes.map(change => change.field).sort()).toEqual([
+            GroupEventField.DISTANCE_MILES,
+            GroupEventField.START_LOCATION
+        ].sort());
+        expect(changes.find(change => change.field === EventField.RISK_ASSESSMENT)).toBeUndefined();
+    });
+
+    it("returns no highlighted changes when nothing has been updated since the cutoff", () => {
+        const service = TestBed.inject(GroupEventService);
+        const previousWalk = walkWithContact("leader");
+        previousWalk.groupEvent.distance_miles = 7;
+        const currentWalk = walkWithContact("leader");
+        currentWalk.groupEvent.distance_miles = 8;
+        const previousEvent = walkEventFromFullDeepCopy(previousWalk);
+        previousEvent.date = 1000;
+        const laterEvent = walkEventFromFullDeepCopy(currentWalk);
+        laterEvent.date = 1500;
+        currentWalk.events = [previousEvent, laterEvent];
+        expect(service.highlightedChangesSince(currentWalk, 2000, [GroupEventField.DISTANCE_MILES])).toEqual([]);
+    });
+
+    it("strips police force areas from a highlighted starting location", () => {
+        const service = TestBed.inject(GroupEventService);
+        const previousWalk = walkWithContact("leader");
+        previousWalk.groupEvent.start_location.description = "Fordwich";
+        const currentWalk = walkWithContact("leader");
+        currentWalk.groupEvent.start_location.description = "Bromley, Metropolitan Police";
+        const previousEvent = walkEventFromFullDeepCopy(previousWalk);
+        previousEvent.date = 1000;
+        const recentEvent = walkEventFromFullDeepCopy(currentWalk);
+        recentEvent.date = 3000;
+        currentWalk.events = [previousEvent, recentEvent];
+        const location = service.highlightedChangesSince(currentWalk, 2000, [GroupEventField.START_LOCATION])
+            .find(change => change.field === GroupEventField.START_LOCATION);
+        expect(location?.to).toEqual("Bromley");
+        expect(location?.to).not.toContain("Metropolitan Police");
+    });
+
+    it("mentions a grid reference in a highlighted location only when that extra is chosen", () => {
+        const service = TestBed.inject(GroupEventService);
+        const previousWalk = walkWithContact("leader");
+        previousWalk.groupEvent.start_location.description = "Fordwich";
+        previousWalk.groupEvent.start_location.grid_reference_10 = "TR0800017000";
+        const currentWalk = walkWithContact("leader");
+        currentWalk.groupEvent.start_location.description = "Chilham";
+        currentWalk.groupEvent.start_location.grid_reference_10 = "TR0862317039";
+        const previousEvent = walkEventFromFullDeepCopy(previousWalk);
+        previousEvent.date = 1000;
+        const recentEvent = walkEventFromFullDeepCopy(currentWalk);
+        recentEvent.date = 3000;
+        currentWalk.events = [previousEvent, recentEvent];
+        const withoutGrid = service.highlightedChangesSince(currentWalk, 2000, [GroupEventField.START_LOCATION])
+            .find(change => change.field === GroupEventField.START_LOCATION);
+        expect(withoutGrid?.to).toEqual("Chilham");
+        const withGrid = service.highlightedChangesSince(currentWalk, 2000, [
+            GroupEventField.START_LOCATION,
+            WalkChangeIntroField.GRID_REFERENCE
+        ]).find(change => change.field === GroupEventField.START_LOCATION);
+        expect(withGrid?.to).toContain("grid reference TR 0862 1703");
+        expect(withGrid?.to).not.toContain("TR0862317039");
     });
 
   it("summarises changed contact details as one recipient-facing field", () => {

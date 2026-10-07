@@ -514,13 +514,18 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
 export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   @Input() set value(markdown: string) {
-    this.syncValue(markdown);
+    const incoming = markdown ?? "";
+    if (this.lastBoundValue === null || incoming !== this.lastBoundValue) {
+      this.syncValue(incoming);
+    }
   }
 
   private appliedMarkdown: string | null = null;
+  private lastBoundValue: string | null = null;
 
   public syncValue(markdown: string): void {
     const incoming = markdown ?? "";
+    this.lastBoundValue = incoming;
     if (this.sourceMode) {
       this.sourceMarkdown = incoming;
     } else if (this.editor) {
@@ -536,8 +541,8 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         }
         this.clearEditorHistory();
         this.queueMermaidPreviewRefresh();
-        if (canonical !== incoming) {
-          this.valueChange.emit(canonical);
+        if (canonical !== incoming && !this.editor.isFocused) {
+          this.emitMarkdown(canonical);
         }
       }
     } else {
@@ -911,7 +916,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       const contentChanged = !transaction || transaction.docChanged;
       if (contentChanged) {
         const markdown = this.currentMarkdown();
-        this.valueChange.emit(markdown);
+        this.emitMarkdown(markdown);
         this.refreshEmojiSuggestions();
       }
       this.refreshHistoryState();
@@ -1065,8 +1070,11 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   private handleDocumentPointerDown(event: PointerEvent): void {
     const target = event.target as Node | null;
+    const composing = !!this.editor?.view?.composing;
     const shouldExit = this.toolbarExpanded
       && this.editable
+      && !this.editor?.isFocused
+      && !composing
       && !!target
       && !this.host.nativeElement.contains(target)
       && !this.isExternalOverlayTarget(target);
@@ -1744,7 +1752,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       const joinerAfter = after && !after.startsWith("\n") ? "\n\n" : "";
       const combined = `${before}${joinerBefore}${markdown}${joinerAfter}${after}`;
       this.editor.commands.setContent(combined, {contentType: "markdown", emitUpdate: true});
-      this.valueChange.emit(this.currentMarkdown());
+      this.emitMarkdown(this.currentMarkdown());
     }
   }
 
@@ -1840,7 +1848,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       this.editor?.commands.setContent(this.sourceMarkdown ?? "", {contentType: "markdown", emitUpdate: false});
       this.sourceMode = false;
       this.queueMermaidPreviewRefresh();
-      this.valueChange.emit(this.currentMarkdown());
+      this.emitMarkdown(this.currentMarkdown());
     } else {
       this.closeLinkBar();
       this.contactBarOpen = false;
@@ -1853,8 +1861,14 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   onSourceMarkdownChange(markdown: string): void {
     this.sourceMarkdown = markdown ?? "";
-    this.valueChange.emit(this.sourceMarkdown);
+    this.emitMarkdown(this.sourceMarkdown);
     this.autosizeSourceEditor();
+  }
+
+  private emitMarkdown(markdown: string): void {
+    this.appliedMarkdown = markdown;
+    this.lastBoundValue = markdown;
+    this.valueChange.emit(markdown);
   }
 
   private autosizeSourceEditor(): void {

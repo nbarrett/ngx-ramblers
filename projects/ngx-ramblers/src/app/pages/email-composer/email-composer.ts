@@ -227,6 +227,7 @@ import {
   placeForwardedIntroMarkdown,
   planTitledIntroPaste,
   shouldRunIntroSmartPaste,
+  subjectNeedsPersonalising,
   subjectStillDefault,
   subjectTextFromPaste
 } from "../../functions/email-composer-intro-paste";
@@ -637,7 +638,11 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             }
             @if (stepperActiveTab === EmailComposerStepKey.TEMPLATE || stepperActiveTab === EmailComposerStepKey.COMPOSE) {
               @if (newsletterMode()) {
-                <app-alert-message [title]="drafting.newsletterWindowTitle()" [messageKey]="drafting.newsletterWindowDescription()">
+                <app-alert-message [title]="drafting.newsletterWindowTitle()"
+                                   [messageKey]="drafting.newsletterWindowDescription()"
+                                   [actionLabel]="drafting.previousNewsletterExists() ? 'Ignore last newsletter' : ''"
+                                   [actionIcon]="faArrowRotateLeft"
+                                   (action)="drafting.ignorePreviousNewsletter()">
                   {{ drafting.newsletterWindowDescription() }} The period, the events and the drafted intro can all be changed.
                 </app-alert-message>
               } @else if (releaseNoteUpdateMode() && !drafting.creatingReleaseNoteUpdate) {
@@ -915,9 +920,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               [notificationConfig]="state.notificationConfig"
               [notificationConfigListing]="state.notificationConfigListing"
               [showBranding]="true"/>
-            @if (drafting.draftingOffered() || session.platformAdminEnabled || newsletterMode() || releaseNoteUpdateMode()) {
-              <ng-container *ngTemplateOutlet="composerStartUi"/>
-            }
           </fieldset>
         }
         @if (state.notificationConfig && state.brandingMode !== BrandingMode.UNBRANDED) {
@@ -972,13 +974,10 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       </div>
     </ng-template>
 
-    <ng-template #composerStartUi>
-      <app-email-composer-drafting [mode]="EmailComposerDraftingMode.START"
-                                  [templateValid]="templateStepValid()" [validationMessage]="templateStepValidationMessage()"/>
-    </ng-template>
-
     <ng-template #composeStep>
-      <div class="email-composer-section">
+      <div class="email-composer-section" [class.email-composer-section-busy]="drafting.creatingReleaseNoteUpdate || drafting.creatingNewsletter"
+           [attr.inert]="drafting.creatingReleaseNoteUpdate || drafting.creatingNewsletter ? '' : null"
+           [attr.aria-busy]="drafting.creatingReleaseNoteUpdate || drafting.creatingNewsletter">
         <fieldset class="email-composer-fieldset">
           <legend>Subject</legend>
           <div>
@@ -1960,6 +1959,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     const newsletterPeriod = this.session.state.compositionKind === EmailCompositionKind.NEWSLETTER ? this.drafting.newsletterPeriodDescription() : null;
     const releaseNotePeriod = this.session.state.compositionKind === EmailCompositionKind.RELEASE_NOTE_UPDATE ? this.updateSettings.releaseNoteUpdatePeriodDescription(this.session.state, this.session.currentDraftId) : null;
     return [
+      this.session.state.compositionKind === EmailCompositionKind.NEWSLETTER ? this.drafting.newsletterSubject() : null,
+      this.drafting.lastAppliedNewsletterSubject,
       newsletterPeriod ? `What's coming up: ${newsletterPeriod}` : null,
       releaseNotePeriod ? releaseNoteUpdateSubject(templateSubject, templateSubject, releaseNotePeriod) : null
     ].filter((subject): subject is string => !!subject);
@@ -4129,11 +4130,15 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   protected subjectUnchangedFromDefault(): boolean {
     const subjectConfig = this.session.state.notificationConfig?.subject;
-    if (!subjectConfig?.placeholder) {
-      return false;
-    } else {
-      return subjectStillDefault(this.session.state.subject ?? "", subjectConfig.text ?? "", this.automaticGeneratedSubjects());
-    }
+    const newsletterSubject = this.session.state.compositionKind === EmailCompositionKind.NEWSLETTER
+      ? this.drafting.newsletterSubject()
+      : null;
+    return subjectNeedsPersonalising(
+      this.session.state.subject ?? "",
+      subjectConfig?.text ?? "",
+      !!subjectConfig?.placeholder,
+      [newsletterSubject, this.drafting.lastAppliedNewsletterSubject].filter((subject): subject is string => !!subject)
+    );
   }
 
   protected hasSendBlockers(): boolean {
