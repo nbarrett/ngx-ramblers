@@ -10,6 +10,7 @@ import { AlertTarget } from "../../../models/alert-target.model";
 import { DateValue } from "../../../models/date.model";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { HEAD_OFFICE_SUPPORTER_FIELDS, Member, MemberTerm, MemberUpdateAudit } from "../../../models/member.model";
+import { SalesforceConfig } from "../../../models/salesforce.model";
 import { MailProvider, SystemConfig } from "../../../models/system.model";
 import { EditMode, StoredValue } from "../../../models/ui-actions";
 import { FullNamePipe } from "../../../pipes/full-name.pipe";
@@ -29,6 +30,7 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { ProfileConfirmationService } from "../../../services/profile-confirmation.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { ClipboardService } from "../../../services/clipboard.service";
+import { SalesforceConfigService } from "../../../services/salesforce/salesforce-config.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import {
@@ -75,6 +77,7 @@ import { PhotoVideoOptOutComponent } from "../profile/photo-video-opt-out";
 export class MemberAdminModalComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberAdminModalComponent", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
+  private salesforceConfigService = inject(SalesforceConfigService);
   private notifierService = inject(NotifierService);
   private memberUpdateAuditService = inject(MemberUpdateAuditService);
   private memberAuthAuditService = inject(MemberAuthAuditService);
@@ -99,6 +102,7 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
   protected activeTabKey: MemberAdminModalTab = MemberAdminModalTab.CONTACT;
   protected readonly MemberAdminModalTab = MemberAdminModalTab;
   public systemConfig: SystemConfig;
+  public salesforceConfig: SalesforceConfig;
   public mailMessagingConfig: MailMessagingConfig;
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
@@ -153,6 +157,12 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
         this.systemConfig = systemConfig;
         this.logger.info("received SystemConfig event:", systemConfig);
       }));
+    this.subscriptions.push(this.salesforceConfigService.events()
+      .subscribe((salesforceConfig: SalesforceConfig) => {
+        this.salesforceConfig = salesforceConfig;
+        this.logger.info("received SalesforceConfig event:", salesforceConfig?.enabled);
+      }));
+    void this.salesforceConfigService.refresh();
     this.subscriptions.push(this.mailMessagingService.events()
       .subscribe((mailMessagingConfig: MailMessagingConfig) => {
         this.mailMessagingConfig = mailMessagingConfig;
@@ -444,5 +454,13 @@ export class MemberAdminModalComponent implements OnInit, OnDestroy {
 
   hasHeadOfficeSupporterData(): boolean {
     return HEAD_OFFICE_SUPPORTER_FIELDS.some(field => this.member?.[field] !== undefined && this.member?.[field] !== null);
+  }
+
+  ramblersTeamEmailsEnabled(): boolean {
+    return this.salesforceConfig?.enabled === true;
+  }
+
+  allowSendingPermissionEdits(): boolean {
+    return this.allowEdits && !this.ramblersTeamEmailsEnabled();
   }
 }

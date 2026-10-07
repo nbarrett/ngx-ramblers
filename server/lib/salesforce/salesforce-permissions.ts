@@ -1,4 +1,4 @@
-import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import { HEAD_OFFICE_SENDING_PERMISSION_FIELDS, Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { member } from "../mongo/models/member";
 import { configuredSalesforce } from "./salesforce-config";
 
@@ -14,6 +14,15 @@ function missingAudiencePermission(sender: Member, recipients: Member[]): string
     return "Ramblers has not granted permission to email Wellbeing Walkers";
   }
   return null;
+}
+
+export function applyHeadOfficeSendingPermissionBounds(member: Member, prior: Member | undefined, teamEmailsEnabled: boolean): Member {
+  if (teamEmailsEnabled) {
+    HEAD_OFFICE_SENDING_PERMISSION_FIELDS.forEach(field => {
+      member[field] = prior?.[field] === true;
+    });
+  }
+  return member;
 }
 
 export function protectedEmailPermissionError(sender: Member | null, recipients: Member[]): string | null {

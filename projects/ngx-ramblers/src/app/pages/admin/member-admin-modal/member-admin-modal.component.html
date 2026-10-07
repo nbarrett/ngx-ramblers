@@ -185,119 +185,164 @@
         </tab>
         <tab [active]="tabActive(MemberAdminModalTab.PRIVILEGES)" (selectTab)="selectTab(MemberAdminModalTab.PRIVILEGES)" heading="Privileges">
           <div class="img-thumbnail thumbnail-admin-edit">
-            <div class="row">
+            <div class="row thumbnail-heading-frame">
+              <div class="thumbnail-heading">Website privileges</div>
               <div class="col-sm-12">
                 <p>Please select the <b>privileges</b> that should be assigned to
                 {{member |
                     fullNameWithAlias
                   }} using the checkboxes below:</p>
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="form-check">
+                      <input name="groupMember" [disabled]="!allowEdits" [(ngModel)]="member.groupMember"
+                             type="checkbox" class="form-check-input"
+                             id="is-approved-group-member">
+                      <label class="form-check-label"
+                             for="is-approved-group-member">Approved Group Member
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.socialMember"
+                             type="checkbox" class="form-check-input"
+                             id="is-approved-social-member">
+                      <label name="socialMember" class="form-check-label"
+                             for="is-approved-social-member">Approved Social Member
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.revoked"
+                             type="checkbox" class="form-check-input"
+                             id="is-revoked-member">
+                      <label name="revoked" class="form-check-label"
+                             for="is-revoked-member">Revoked Member
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.contentAdmin"
+                             type="checkbox" class="form-check-input"
+                             id="is-content-admin">
+                      <label name="contentAdmin" class="form-check-label"
+                             for="is-content-admin">Content Admin
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.walkAdmin"
+                             type="checkbox" class="form-check-input" id="is-walk-admin">
+                      <label name="walkAdmin" class="form-check-label"
+                             for="is-walk-admin">Walk Admin
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.volunteerAdmin"
+                             type="checkbox" class="form-check-input" id="is-volunteer-admin">
+                      <label name="volunteerAdmin" class="form-check-label"
+                             for="is-volunteer-admin">Volunteer Admin
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits"
+                             [(ngModel)]="member.walkChangeNotifications" type="checkbox"
+                             class="form-check-input"
+                             id="receives-walk-change-notifications">
+                      <label class="form-check-label"
+                             for="receives-walk-change-notifications">Walk Change Notifications
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.socialAdmin"
+                             type="checkbox" class="form-check-input" id="is-social-admin">
+                      <label class="form-check-label"
+                             for="is-social-admin">Social Admin
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.memberAdmin"
+                             type="checkbox" class="form-check-input" id="is-member-admin">
+                      <label class="form-check-label"
+                             for="is-member-admin">Member Admin
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.financeAdmin"
+                             type="checkbox" class="form-check-input" id="is-finance-admin">
+                      <label class="form-check-label"
+                             for="is-finance-admin">Finance Admin
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.treasuryAdmin"
+                             type="checkbox" class="form-check-input" id="is-treasury-admin">
+                      <label class="form-check-label"
+                             for="is-treasury-admin">Treasury Admin
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.fileAdmin"
+                             type="checkbox" class="form-check-input" id="is-file-admin">
+                      <label class="form-check-label"
+                             for="is-file-admin">File Admin
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.committee"
+                             type="checkbox" class="form-check-input" id="is-committee-member">
+                      <label class="form-check-label"
+                             for="is-committee-member">Committee Member
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="row thumbnail-heading-frame">
+              <div class="thumbnail-heading">Ramblers Team Emails</div>
+              <div class="col-sm-12">
+                @if (ramblersTeamEmailsEnabled()) {
+                  <div class="alert alert-warning small mb-2">
+                    <fa-icon [icon]="faTriangleExclamation" class="me-2"></fa-icon>
+                    <strong>Head office decides these permissions.</strong>
+                    Ramblers Team Emails is on for this website, so these permissions are refreshed on each supporter sync and cannot be raised here.
+                  </div>
+                } @else {
+                  <p>Until Ramblers Team Emails is switched on for this website, you can set these sending and viewing permissions here. They are stored on the member record. They do not yet control live mail.</p>
+                }
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="form-check">
+                      <input name="canEmailMembers" [disabled]="!allowSendingPermissionEdits()" [(ngModel)]="member.canEmailMembers"
+                             type="checkbox" class="form-check-input" id="can-email-members">
+                      <label class="form-check-label" for="can-email-members">Can Email Members
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input name="canEmailVolunteers" [disabled]="!allowSendingPermissionEdits()" [(ngModel)]="member.canEmailVolunteers"
+                             type="checkbox" class="form-check-input" id="can-email-volunteers">
+                      <label class="form-check-label" for="can-email-volunteers">Can Email Volunteers
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <div class="form-check">
+                      <input name="canEmailWellbeingWalkers" [disabled]="!allowSendingPermissionEdits()" [(ngModel)]="member.canEmailWellbeingWalkers"
+                             type="checkbox" class="form-check-input" id="can-email-wellbeing-walkers">
+                      <label class="form-check-label" for="can-email-wellbeing-walkers">Can Email Wellbeing Walkers
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input name="canViewMemberData" [disabled]="!allowSendingPermissionEdits()" [(ngModel)]="member.canViewMemberData"
+                             type="checkbox" class="form-check-input" id="can-view-member-data">
+                      <label class="form-check-label" for="can-view-member-data">Can View Member Data
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="row">
-            <div class="col-sm-6">
-              <div class="form-check">
-                <input name="groupMember" [disabled]="!allowEdits" [(ngModel)]="member.groupMember"
-                       type="checkbox" class="form-check-input"
-                       id="is-approved-group-member">
-                <label class="form-check-label"
-                       for="is-approved-group-member">Approved Group Member
-                </label>
-              </div>
-              <div class="form-check">
-                <input [disabled]="!allowEdits" [(ngModel)]="member.socialMember"
-                       type="checkbox" class="form-check-input"
-                       id="is-approved-social-member">
-                <label name="socialMember" class="form-check-label"
-                       for="is-approved-social-member">Approved Social Member
-                </label>
-              </div>
-              <div class="form-check">
-                <input [disabled]="!allowEdits" [(ngModel)]="member.revoked"
-                       type="checkbox" class="form-check-input"
-                       id="is-revoked-member">
-                <label name="revoked" class="form-check-label"
-                       for="is-revoked-member">Revoked Member
-                </label>
-              </div>
-            </div>
-            <div class="col-sm-6">
-              <div class="form-check">
-                <input [disabled]="!allowEdits" [(ngModel)]="member.contentAdmin"
-                       type="checkbox" class="form-check-input"
-                       id="is-content-admin">
-                <label name="contentAdmin" class="form-check-label"
-                       for="is-content-admin">Content Admin
-                </label>
-              </div>
-              <div class="form-check">
-                <input [disabled]="!allowEdits" [(ngModel)]="member.walkAdmin"
-                       type="checkbox" class="form-check-input" id="is-walk-admin">
-                <label name="walkAdmin" class="form-check-label"
-                       for="is-walk-admin">Walk Admin
-                </label>
-              </div>
-              <div class="form-check">
-                <input [disabled]="!allowEdits" [(ngModel)]="member.volunteerAdmin"
-                       type="checkbox" class="form-check-input" id="is-volunteer-admin">
-                <label name="volunteerAdmin" class="form-check-label"
-                       for="is-volunteer-admin">Volunteer Admin
-                </label>
-              </div>
-              <div class="form-check">
-                <input [disabled]="!allowEdits"
-                       [(ngModel)]="member.walkChangeNotifications" type="checkbox"
-                       class="form-check-input"
-                       id="receives-walk-change-notifications">
-                <label class="form-check-label"
-                       for="receives-walk-change-notifications">Walk Change Notifications
-                </label>
-              </div>
-              <div class="form-check">
-                <input [disabled]="!allowEdits" [(ngModel)]="member.socialAdmin"
-                       type="checkbox" class="form-check-input" id="is-social-admin">
-                <label class="form-check-label"
-                       for="is-social-admin">Social Admin
-                </label>
-              </div>
-              <div class="form-check">
-                <input [disabled]="!allowEdits" [(ngModel)]="member.memberAdmin"
-                       type="checkbox" class="form-check-input" id="is-member-admin">
-                <label class="form-check-label"
-                       for="is-member-admin">Member Admin
-                </label>
-              </div>
-              <div class="form-check">
-                <input [disabled]="!allowEdits" [(ngModel)]="member.financeAdmin"
-                       type="checkbox" class="form-check-input" id="is-finance-admin">
-                <label class="form-check-label"
-                       for="is-finance-admin">Finance Admin
-                </label>
-              </div>
-              <div class="form-check">
-                <input [disabled]="!allowEdits" [(ngModel)]="member.treasuryAdmin"
-                       type="checkbox" class="form-check-input" id="is-treasury-admin">
-                <label class="form-check-label"
-                       for="is-treasury-admin">Treasury Admin
-                </label>
-              </div>
-              <div class="form-check">
-                <input [disabled]="!allowEdits" [(ngModel)]="member.fileAdmin"
-                       type="checkbox" class="form-check-input" id="is-file-admin">
-                <label class="form-check-label"
-                       for="is-file-admin">File Admin
-                </label>
-              </div>
-              <div class="form-check">
-                <input [disabled]="!allowEdits" [(ngModel)]="member.committee"
-                       type="checkbox" class="form-check-input" id="is-committee-member">
-                <label class="form-check-label"
-                       for="is-committee-member">Committee Member
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-      </tab>
+        </tab>
       <tab [active]="tabActive(MemberAdminModalTab.RAMBLERS_MEMBERSHIP)" (selectTab)="selectTab(MemberAdminModalTab.RAMBLERS_MEMBERSHIP)" heading="Ramblers Membership">
         <div class="img-thumbnail thumbnail-admin-edit">
           <div class="row thumbnail-heading-frame">
@@ -458,22 +503,6 @@
                         <dl class="dl-horizontal input-sm">
                           <dt>Wellbeing Walker</dt>
                           <dd><app-switch-icon [on]="member.wellbeingWalker"/></dd>
-                        </dl>
-                        <dl class="dl-horizontal input-sm">
-                          <dt>Can Email Members</dt>
-                          <dd><app-switch-icon [on]="member.canEmailMembers"/></dd>
-                        </dl>
-                        <dl class="dl-horizontal input-sm">
-                          <dt>Can Email Volunteers</dt>
-                          <dd><app-switch-icon [on]="member.canEmailVolunteers"/></dd>
-                        </dl>
-                        <dl class="dl-horizontal input-sm">
-                          <dt>Can Email Wellbeing Walkers</dt>
-                          <dd><app-switch-icon [on]="member.canEmailWellbeingWalkers"/></dd>
-                        </dl>
-                        <dl class="dl-horizontal input-sm">
-                          <dt>Can View Member Data</dt>
-                          <dd><app-switch-icon [on]="member.canViewMemberData"/></dd>
                         </dl>
                       </div>
                       <div class="col-sm-6">

@@ -153,6 +153,13 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   photoVideoOptOutLastUpdatedBy?: string;
 }
 
+export const HEAD_OFFICE_SENDING_PERMISSION_FIELDS = [
+  "canEmailMembers",
+  "canEmailVolunteers",
+  "canEmailWellbeingWalkers",
+  "canViewMemberData",
+] as const satisfies readonly (keyof Member)[];
+
 export const HEAD_OFFICE_SUPPORTER_FIELDS: (keyof Member)[] = [
   "salesforceTeamStatus",
   "salesforceTeamRelationshipFrom",
@@ -161,10 +168,7 @@ export const HEAD_OFFICE_SUPPORTER_FIELDS: (keyof Member)[] = [
   "volunteerRoles",
   "wellbeingWalker",
   "walkLeader",
-  "canEmailMembers",
-  "canEmailVolunteers",
-  "canEmailWellbeingWalkers",
-  "canViewMemberData",
+  ...HEAD_OFFICE_SENDING_PERMISSION_FIELDS,
   "doNotEmail",
   "noWalkProgram",
   "noCampaigning",

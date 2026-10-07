@@ -13,6 +13,8 @@ import { pluraliseWithCount } from "../../shared/string-utils";
 import { auditSubscriptionChanges } from "./member-subscription-audit";
 import { auditMemberFieldChanges } from "./member-field-audit";
 import { writeBackFullOptOuts } from "../../salesforce/member-consent-writeback";
+import { configuredSalesforce } from "../../salesforce/salesforce-config";
+import { applyHeadOfficeSendingPermissionBounds } from "../../salesforce/salesforce-permissions";
 import { bulkDeleteMembersCascade } from "./member-bulk-delete";
 import { MailSubscription, MemberSubscriptionChange } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
@@ -46,6 +48,15 @@ async function priorMembersById(members: Member[]): Promise<Map<string, Member>>
 
 function subscriptionsById(priorMembers: Map<string, Member>): Map<string, MailSubscription[]> {
   return new Map(Array.from(priorMembers).map(([id, priorMember]) => [id, priorMember?.mail?.subscriptions ?? []]));
+}
+
+async function teamEmailsLocksSendingPermissions(snapshotWrite: boolean): Promise<boolean> {
+  if (snapshotWrite) {
+    return false;
+  } else {
+    const salesforceConfig = await configuredSalesforce();
+    return salesforceConfig?.enabled === true;
+  }
 }
 
 const controller = crudController.create<Member>(member);
@@ -88,8 +99,12 @@ export async function createOrUpdateAll(req: Request, res: Response) {
   try {
     const priorMembers = await priorMembersById(members);
     const priorById = subscriptionsById(priorMembers);
+    const lockSendingPermissions = await teamEmailsLocksSendingPermissions(false);
     const createOrUpdatedMembers = await Promise.all(members.map(async member => {
-      const hashedMember: Member = normaliseConsentFields(await updateHashValue(member));
+      const hashedMember: Member = applyHeadOfficeSendingPermissionBounds(
+        normaliseConsentFields(await updateHashValue(member)),
+        priorMembers.get(member.id),
+        lockSendingPermissions);
       return member.id
         ? controller.updateDocument({body: hashedMember})
         : controller.createDocument({body: hashedMember});
@@ -145,7 +160,11 @@ export async function update(req: Request, res: Response) {
   try {
     const priorMembers = await priorMembersById([updatedRequest]);
     const priorById = subscriptionsById(priorMembers);
-    const response = await controller.updateDocument({body: updatedRequest});
+    const boundedRequest = applyHeadOfficeSendingPermissionBounds(
+      updatedRequest,
+      priorMembers.get(updatedRequest.id),
+      await teamEmailsLocksSendingPermissions(!!uploadSessionIdFrom(req)));
+    const response = await controller.updateDocument({body: boundedRequest});
     await auditSubscriptionChanges([{
       memberId: response.id,
       prior: priorById.get(updatedRequest.id),
@@ -168,7 +187,11 @@ export async function update(req: Request, res: Response) {
 export async function create(req: Request, res: Response) {
   const updatedRequest: Member = normaliseConsentFields(await updateHashValue(req.body));
   try {
-    const response = await controller.createDocument({body: updatedRequest});
+    const boundedRequest = applyHeadOfficeSendingPermissionBounds(
+      updatedRequest,
+      undefined,
+      await teamEmailsLocksSendingPermissions(!!uploadSessionIdFrom(req)));
+    const response = await controller.createDocument({body: boundedRequest});
     await auditSubscriptionChanges([{
       memberId: response.id,
       prior: undefined,
