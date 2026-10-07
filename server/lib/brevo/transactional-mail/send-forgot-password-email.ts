@@ -17,12 +17,13 @@ import {
   ForgotPasswordEmailRequest,
   ForgotPasswordEmailResponse,
   ForgotPasswordIdentificationMethod,
+  ForgotPasswordNextStep,
   MailConfig,
   NotificationConfig,
   SendPurpose,
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
-import { CommitteeConfig } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { ADMIN_SET_PASSWORD_PATH, SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { banner } from "../../mongo/models/banner";
@@ -31,15 +32,34 @@ import { normalisePostcode } from "../../addresses/shared";
 import { signoffHtmlForConfig } from "./signoff-names";
 import { assertSendAllowed } from "../send-permission";
 import { ramblersAccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
-import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
+import { emailLocalPart, stripTrailingSlash, validEmail } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 import {emailAddressForRole} from "./send-member-bulk-load-digest-email";
 import {separateReplyToAddress} from "../../../../projects/ngx-ramblers/src/app/functions/email-addresses";
+import * as inboxAliases from "../../inbox/inbox-aliases";
 
 const messageType = "brevo:send-forgot-password-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
 debugLog.enabled = true;
 
 const GENERIC_SUCCESS_MESSAGE = "Thanks! If those details match one of our members, a password reset email will be on its way shortly";
+const MEMBERSHIP_DETAILS_MESSAGE = "Please enter your Ramblers membership number and home postcode so we can continue.";
+const MEMBERSHIP_DETAILS_CHECK_MESSAGE = "Please check your Ramblers membership number and home postcode.";
+const DELIVERY_EMAIL_MESSAGE = "Please enter a personal email address we can send the reset link to.";
+const INBOX_DELIVERY_EMAIL_MESSAGE = "That address is used for committee mail. Enter a personal email you can read without signing in.";
+
+function completeSuccess(): ForgotPasswordEmailResponse {
+  return {message: GENERIC_SUCCESS_MESSAGE, nextStep: ForgotPasswordNextStep.COMPLETE};
+}
+
+function membershipDetailsMatch(foundMember: Member, body: ForgotPasswordEmailRequest): boolean {
+  const membershipNumber = (body.membershipNumber || "").trim();
+  const postcode = normalisePostcode(body.postcode);
+  const memberMembershipNumber = (foundMember.membershipNumber || "").trim();
+  const memberPostcode = normalisePostcode(foundMember.postcode);
+  return Boolean(membershipNumber) && Boolean(postcode)
+    && membershipNumber === memberMembershipNumber
+    && postcode === memberPostcode;
+}
 
 function bannerImageSource(banners: BannerConfig[], bannerId: string, groupHref: string): string {
   const selectedBanner = banners?.find(item => item.id === bannerId);
@@ -49,10 +69,18 @@ function bannerImageSource(banners: BannerConfig[], bannerId: string, groupHref:
   return "";
 }
 
-function buildCriteria(body: ForgotPasswordEmailRequest): object {
+export function forgotPasswordMemberCriteria(body: ForgotPasswordEmailRequest): object {
   if (body.identificationMethod === ForgotPasswordIdentificationMethod.EMAIL_OR_USERNAME) {
-    const emailOrUsername = body.emailOrUsername?.toLowerCase().trim();
-    return { $or: [{ email: { $eq: emailOrUsername } }, { userName: { $eq: emailOrUsername } }] };
+    const identifier = (body.emailOrUsername || "").trim().toLowerCase();
+    const localPart = emailLocalPart(identifier);
+    const alsoMatchLocalPartAsUserName = identifier.includes("@") && localPart && localPart !== identifier;
+    return {
+      $or: [
+        { email: { $eq: identifier } },
+        { userName: { $eq: identifier } },
+        ...(alsoMatchLocalPartAsUserName ? [{ userName: { $eq: localPart } }] : [])
+      ]
+    };
   } else {
     const membershipNumber = body.membershipNumber?.trim();
     const postcode = normalisePostcode(body.postcode);
@@ -84,49 +112,77 @@ function validateRequest(body: ForgotPasswordEmailRequest): string {
 export async function sendForgotPasswordEmail(req: Request, res: Response): Promise<void> {
   try {
     const body: ForgotPasswordEmailRequest = req.body;
-    debugLog("received request with identificationMethod:", body.identificationMethod, "emailOrUsername:", body.emailOrUsername, "membershipNumber:", body.membershipNumber, "postcode:", body.postcode);
+    debugLog("received request with identificationMethod:", body.identificationMethod, "emailOrUsername:", body.emailOrUsername, "membershipNumber:", body.membershipNumber, "postcode:", body.postcode, "deliveryEmail:", body.deliveryEmail);
     const validationError = validateRequest(body);
 
     if (validationError) {
       debugLog("validation failed:", validationError);
       res.status(400).json({ message: validationError });
-      return;
+    } else {
+      const criteria = forgotPasswordMemberCriteria(body);
+      debugLog("looking up member with criteria:", JSON.stringify(criteria));
+
+      const foundMember = await member.findOne(criteria, {
+        groupMember: 1,
+        firstName: 1,
+        lastName: 1,
+        membershipNumber: 1,
+        postcode: 1,
+        email: 1,
+        userName: 1,
+        membershipExpiryDate: 1,
+        passwordResetId: 1,
+      });
+
+      if (!foundMember || !foundMember.email) {
+        debugLog(!foundMember ? "no member found matching criteria - returning generic success" : "member found but has no email address - returning generic success");
+        res.status(200).json(completeSuccess());
+      } else {
+        debugLog("found member:", foundMember.firstName, foundMember.lastName, "email:", foundMember.email, "userName:", foundMember.userName);
+        const committeeConfigDoc = await config.queryKey(ConfigKey.COMMITTEE);
+        const roles: CommitteeMember[] = committeeConfigDoc?.value?.roles || [];
+        const storedEmailGoesToInbox = await inboxAliases.emailGoesToInbox(foundMember.email, roles);
+        if (!storedEmailGoesToInbox) {
+          await sendEmailViaBrevo(req, foundMember, res, foundMember.email);
+        } else {
+          await continueInboxMemberReset(req, foundMember, body, roles, res);
+        }
+      }
     }
-
-    const criteria = buildCriteria(body);
-    debugLog("looking up member with criteria:", JSON.stringify(criteria));
-
-    const foundMember = await member.findOne(criteria, {
-      groupMember: 1,
-      firstName: 1,
-      lastName: 1,
-      membershipNumber: 1,
-      email: 1,
-      userName: 1,
-      membershipExpiryDate: 1,
-      passwordResetId: 1,
-    });
-
-    if (!foundMember) {
-      debugLog("no member found matching criteria - returning generic success");
-      const response: ForgotPasswordEmailResponse = { message: GENERIC_SUCCESS_MESSAGE };
-      res.status(200).json(response);
-      return;
-    }
-
-    debugLog("found member:", foundMember.firstName, foundMember.lastName, "email:", foundMember.email, "userName:", foundMember.userName);
-
-    if (!foundMember.email) {
-      debugLog("member found but has no email address - returning generic success");
-      const response: ForgotPasswordEmailResponse = { message: GENERIC_SUCCESS_MESSAGE };
-      res.status(200).json(response);
-      return;
-    }
-
-    await sendEmailViaBrevo(req, foundMember, res);
   } catch (error) {
     debugLog("unexpected error in sendForgotPasswordEmail:", error);
     handleError(req, res, messageType, debugLog, error);
+  }
+}
+
+async function continueInboxMemberReset(req: Request, foundMember: Member, body: ForgotPasswordEmailRequest, roles: CommitteeMember[], res: Response): Promise<void> {
+  const membershipProvided = Boolean((body.membershipNumber || "").trim()) && Boolean((body.postcode || "").trim());
+  const membershipConfirmed = body.identificationMethod === ForgotPasswordIdentificationMethod.MEMBERSHIP_DETAILS
+    || membershipDetailsMatch(foundMember, body);
+  if (body.identificationMethod === ForgotPasswordIdentificationMethod.EMAIL_OR_USERNAME && !membershipProvided) {
+    res.status(200).json({
+      message: MEMBERSHIP_DETAILS_MESSAGE,
+      nextStep: ForgotPasswordNextStep.MEMBERSHIP_DETAILS
+    });
+  } else if (body.identificationMethod === ForgotPasswordIdentificationMethod.EMAIL_OR_USERNAME && !membershipConfirmed) {
+    res.status(200).json({
+      message: MEMBERSHIP_DETAILS_CHECK_MESSAGE,
+      nextStep: ForgotPasswordNextStep.MEMBERSHIP_DETAILS
+    });
+  } else {
+    const deliveryEmail = (body.deliveryEmail || "").trim().toLowerCase();
+    if (!deliveryEmail) {
+      res.status(200).json({
+        message: DELIVERY_EMAIL_MESSAGE,
+        nextStep: ForgotPasswordNextStep.DELIVERY_EMAIL
+      });
+    } else if (!validEmail(deliveryEmail)) {
+      res.status(400).json({message: "Enter a valid personal email address"});
+    } else if (await inboxAliases.emailGoesToInbox(deliveryEmail, roles)) {
+      res.status(400).json({message: INBOX_DELIVERY_EMAIL_MESSAGE});
+    } else {
+      await sendEmailViaBrevo(req, foundMember, res, deliveryEmail);
+    }
   }
 }
 
@@ -142,7 +198,7 @@ async function generatePasswordResetId(foundMember: any): Promise<Member> {
   return transforms.toObjectWithId(savedDocument);
 }
 
-async function sendEmailViaBrevo(req: Request, foundMember: any, res: Response): Promise<void> {
+async function sendEmailViaBrevo(req: Request, foundMember: any, res: Response, toEmail: string): Promise<void> {
   const brevoConfig: MailConfig = await configuredBrevo();
   debugLog("brevoConfig loaded - apiKey present:", !!brevoConfig?.apiKey, "forgotPasswordNotificationConfigId:", brevoConfig?.forgotPasswordNotificationConfigId);
   const systemConfigDoc = await config.queryKey(ConfigKey.SYSTEM);
@@ -184,7 +240,7 @@ async function sendEmailViaBrevo(req: Request, foundMember: any, res: Response):
   }
   const updatedMember: Member = await generatePasswordResetId(foundMember);
   debugLog("generated passwordResetId:", updatedMember.passwordResetId, "for member:", updatedMember.firstName, updatedMember.lastName);
-  const to: EmailAddress[] = [{ email: updatedMember.email, name: `${updatedMember.firstName} ${updatedMember.lastName}` }];
+  const to: EmailAddress[] = [{ email: toEmail, name: `${updatedMember.firstName} ${updatedMember.lastName}` }];
   debugLog("sender:", JSON.stringify(sender), "replyTo:", JSON.stringify(replyTo), "to:", JSON.stringify(to));
 
   const passwordResetLink = `${groupHref}/${ADMIN_SET_PASSWORD_PATH}/${updatedMember.passwordResetId}`;
@@ -204,7 +260,7 @@ async function sendEmailViaBrevo(req: Request, foundMember: any, res: Response):
     },
     memberMergeFields: {
       FULL_NAME: memberFullName,
-      EMAIL: updatedMember.email,
+      EMAIL: toEmail,
       FNAME: updatedMember.firstName,
       LNAME: updatedMember.lastName,
       MEMBER_NUM: updatedMember.membershipNumber,
@@ -252,13 +308,13 @@ async function sendEmailViaBrevo(req: Request, foundMember: any, res: Response):
 
   debugLog("About to send forgot password email:", sendSmtpEmail);
 
-  scheduleBrevo(() => client.transactionalEmails.sendTransacEmail(sendSmtpEmail)).then((data: Brevo.SendTransacEmailResponse) => {
+  try {
+    const data: Brevo.SendTransacEmailResponse = await scheduleBrevo(() => client.transactionalEmails.sendTransacEmail(sendSmtpEmail));
     debugLog("Forgot password email sent successfully:", JSON.stringify(data));
-    const response: ForgotPasswordEmailResponse = { message: GENERIC_SUCCESS_MESSAGE };
-    res.status(200).json(response);
-  }).catch((error: any) => {
+    res.status(200).json(completeSuccess());
+  } catch (error: any) {
     handleError(req, res, messageType, debugLog, error);
-  });
+  }
 }
 
 function buildSubject(notifConfig: NotificationConfig, params: any): string {

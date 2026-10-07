@@ -1620,15 +1620,23 @@ export enum ForgotPasswordIdentificationMethod {
   MEMBERSHIP_DETAILS = "membership-details"
 }
 
+export enum ForgotPasswordNextStep {
+  COMPLETE = "complete",
+  MEMBERSHIP_DETAILS = "membership-details",
+  DELIVERY_EMAIL = "delivery-email"
+}
+
 export interface ForgotPasswordEmailRequest {
   identificationMethod: ForgotPasswordIdentificationMethod;
   emailOrUsername?: string;
   membershipNumber?: string;
   postcode?: string;
+  deliveryEmail?: string;
 }
 
 export interface ForgotPasswordEmailResponse {
   message: string;
+  nextStep?: ForgotPasswordNextStep;
 }
 
 export interface TemplateDiffRequest {

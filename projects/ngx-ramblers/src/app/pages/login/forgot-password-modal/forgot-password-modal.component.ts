@@ -3,7 +3,7 @@ import { BsModalRef } from "ngx-bootstrap/modal";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { ForgotPasswordIdentificationMethod } from "../../../models/mail.model";
+import { ForgotPasswordIdentificationMethod, ForgotPasswordNextStep } from "../../../models/mail.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { RouterHistoryService } from "../../../services/router-history.service";
@@ -36,40 +36,51 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
                   <input class="form-check-input" type="radio" name="identificationMethod" id="method-email"
                     [value]="emailOrUsernameMethod"
                     [(ngModel)]="identificationMethod"
-                    [disabled]="notifyTarget.busy || requestCompleted">
+                    [disabled]="notifyTarget.busy || requestCompleted || identityLocked()">
                   <label class="form-check-label" for="method-email">I know my email address or username</label>
                 </div>
                 <div class="form-check mb-3">
                   <input class="form-check-input" type="radio" name="identificationMethod" id="method-membership"
                     [value]="membershipDetailsMethod"
                     [(ngModel)]="identificationMethod"
-                    [disabled]="notifyTarget.busy || requestCompleted">
+                    [disabled]="notifyTarget.busy || requestCompleted || identityLocked()">
                   <label class="form-check-label" for="method-membership">I don't know my email or username</label>
                 </div>
                 @if (identificationMethod === emailOrUsernameMethod) {
                   <div class="form-group">
                     <label for="email">Email address or username</label>
-                    <input [disabled]="notifyTarget.busy || requestCompleted" [(ngModel)]="emailOrUsername"
+                    <input [disabled]="notifyTarget.busy || requestCompleted || identityLocked()" [(ngModel)]="emailOrUsername"
                       type="text"
                       (keyup.enter)="submit()"
                       class="form-control input-sm" id="email" name="email"
                       placeholder="Enter your email address or username">
                   </div>
-                } @else {
+                }
+                @if (identificationMethod === membershipDetailsMethod || nextStep === membershipDetailsStep || nextStep === deliveryEmailStep) {
                   <div class="form-group">
                     <label for="membership-number">Ramblers membership number</label>
-                    <input [disabled]="notifyTarget.busy || requestCompleted" [(ngModel)]="membershipNumber"
+                    <input [disabled]="notifyTarget.busy || requestCompleted || nextStep === deliveryEmailStep" [(ngModel)]="membershipNumber"
                       type="text"
                       class="form-control input-sm" id="membership-number" name="membershipNumber"
                       placeholder="Enter your Ramblers membership number">
                   </div>
                   <div class="form-group">
                     <label for="postcode">Home postcode</label>
-                    <input [disabled]="notifyTarget.busy || requestCompleted" [(ngModel)]="postcode"
+                    <input [disabled]="notifyTarget.busy || requestCompleted || nextStep === deliveryEmailStep" [(ngModel)]="postcode"
                       type="text"
                       (keyup.enter)="submit()"
                       class="form-control input-sm" id="postcode" name="postcode"
                       placeholder="Enter your home postcode">
+                  </div>
+                }
+                @if (nextStep === deliveryEmailStep) {
+                  <div class="form-group">
+                    <label for="delivery-email">Personal email address</label>
+                    <input [disabled]="notifyTarget.busy || requestCompleted" [(ngModel)]="deliveryEmail"
+                      type="email"
+                      (keyup.enter)="submit()"
+                      class="form-control input-sm" id="delivery-email" name="deliveryEmail"
+                      placeholder="Enter a personal email you can read without signing in">
                   </div>
                 }
                 @if (notifyTarget.showAlert) {
@@ -103,7 +114,7 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
             <input type="submit" [disabled]="notifyTarget.busy" value="Close"
               (click)="close()"
               title="Close forgotten password request"
-              class="btn btn-secondary btn-sm">
+              class="btn btn-quiet btn-sm">
         </div>
       </div>
     }
@@ -124,9 +135,13 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
   public emailOrUsername: string;
   public membershipNumber: string;
   public postcode: string;
+  public deliveryEmail: string;
   public identificationMethod: ForgotPasswordIdentificationMethod = ForgotPasswordIdentificationMethod.EMAIL_OR_USERNAME;
   public emailOrUsernameMethod = ForgotPasswordIdentificationMethod.EMAIL_OR_USERNAME;
   public membershipDetailsMethod = ForgotPasswordIdentificationMethod.MEMBERSHIP_DETAILS;
+  public membershipDetailsStep = ForgotPasswordNextStep.MEMBERSHIP_DETAILS;
+  public deliveryEmailStep = ForgotPasswordNextStep.DELIVERY_EMAIL;
+  public nextStep: ForgotPasswordNextStep | null = null;
   private subscriptions: Subscription[] = [];
   private submitInProgress = false;
   public requestCompleted = false;
@@ -144,13 +159,10 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
 
   async submit() {
     if (!this.submittable()) {
-      const requiredFields = this.identificationMethod === ForgotPasswordIdentificationMethod.EMAIL_OR_USERNAME
-        ? "your email address or username"
-        : "your membership number and postcode";
       this.notify.error({
         continue: true,
         title: "Incorrect information entered",
-        message: `Please enter ${requiredFields}`
+        message: `Please enter ${this.requiredFieldsMessage()}`
       });
     } else {
       this.notify.setBusy();
@@ -162,14 +174,23 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
           identificationMethod: this.identificationMethod,
           emailOrUsername: this.emailOrUsername,
           membershipNumber: this.membershipNumber,
-          postcode: this.postcode
+          postcode: this.postcode,
+          deliveryEmail: this.deliveryEmail
         });
         this.logger.info("sendForgotPasswordRequest response:", response);
-        this.requestCompleted = true;
-        this.notify.success({
-          title: "Request processed",
-          message: response?.message || "Thanks! If those details match one of our members, a password reset email will be on its way shortly"
-        });
+        if (response?.nextStep === ForgotPasswordNextStep.MEMBERSHIP_DETAILS || response?.nextStep === ForgotPasswordNextStep.DELIVERY_EMAIL) {
+          this.nextStep = response.nextStep;
+          this.notify.warning({
+            title: "A little more information",
+            message: response.message
+          });
+        } else {
+          this.requestCompleted = true;
+          this.notify.success({
+            title: "Request processed",
+            message: response?.message || "Thanks! If those details match one of our members, a password reset email will be on its way shortly"
+          });
+        }
       } catch (errorResponse) {
         this.logger.error("sendForgotPasswordRequest error:", errorResponse);
         this.notify.showContactUs(true);
@@ -190,14 +211,29 @@ export class ForgotPasswordModalComponent implements OnInit, OnDestroy {
     return object?.length > 0;
   }
 
+  identityLocked(): boolean {
+    return this.nextStep === ForgotPasswordNextStep.MEMBERSHIP_DETAILS || this.nextStep === ForgotPasswordNextStep.DELIVERY_EMAIL;
+  }
+
+  requiredFieldsMessage(): string {
+    if (this.nextStep === ForgotPasswordNextStep.DELIVERY_EMAIL) {
+      return "a personal email address";
+    } else if (this.nextStep === ForgotPasswordNextStep.MEMBERSHIP_DETAILS || this.identificationMethod === ForgotPasswordIdentificationMethod.MEMBERSHIP_DETAILS) {
+      return "your membership number and postcode";
+    } else {
+      return "your email address or username";
+    }
+  }
+
   submittable() {
     if (this.notifyTarget.busy || this.submitInProgress || this.requestCompleted) {
       return false;
-    }
-    if (this.identificationMethod === ForgotPasswordIdentificationMethod.EMAIL_OR_USERNAME) {
-      return this.fieldPopulated(this.emailOrUsername);
-    } else {
+    } else if (this.nextStep === ForgotPasswordNextStep.DELIVERY_EMAIL) {
+      return this.fieldPopulated(this.deliveryEmail);
+    } else if (this.nextStep === ForgotPasswordNextStep.MEMBERSHIP_DETAILS || this.identificationMethod === ForgotPasswordIdentificationMethod.MEMBERSHIP_DETAILS) {
       return this.fieldPopulated(this.membershipNumber) && this.fieldPopulated(this.postcode);
+    } else {
+      return this.fieldPopulated(this.emailOrUsername);
     }
   }
 

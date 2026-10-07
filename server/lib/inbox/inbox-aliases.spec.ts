@@ -1,13 +1,14 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { additionalEmailsFromMailboxList, CommitteeMember, ForwardEmailTarget, committeeRoleTypeFromDescription, committeeRolesByType, notifiedRecipientsForRole, reusableNotificationRecipients, roleEmailAddresses, roleMailboxExtras, roleNotificationRecipients, roleRecipientMemberIds, uniqueCommitteeRoleType, uniqueCommitteeRoleTypes } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
-import { InboxMailboxConnection, InboxMessage, InboxReaderProvider, inboxGeneralRoleTypeFor } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { InboxAliasConfig, InboxMailboxConnection, InboxMessage, InboxReaderProvider, inboxGeneralRoleTypeFor } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import {
   aliasForRoleType,
   cloudflareIngressAliasesFromMessage,
   connectionIdentifier,
   deriveAliasesFrom,
   generalAliasFor,
+  inboxRoutingAddressSet,
   messageAddressEmails,
   roleForwardingRecipients,
   roleMatchesMessageAddresses
@@ -523,6 +524,24 @@ describe("inbox-aliases", () => {
 
     it("falls back to _id", () => {
       expect(connectionIdentifier({_id: {toString: () => "xyz"}} as unknown as InboxMailboxConnection)).toEqual("xyz");
+    });
+
+  });
+
+  describe("inboxRoutingAddressSet", () => {
+
+    it("includes role addresses, connected inbox emails and alias extras", () => {
+      const addresses = inboxRoutingAddressSet(
+        [role({type: "chairman", email: "chairman@example.co.uk", fullName: "Chair Person"})],
+        ["Inbox@example.co.uk"],
+        [{roleEmail: "walks@example.co.uk", additionalEmails: ["walks.extra@example.co.uk"]}] as InboxAliasConfig[]
+      );
+      expect(addresses.has("chairman@example.co.uk")).toEqual(true);
+      expect(addresses.has("chair.person@example.co.uk")).toEqual(true);
+      expect(addresses.has("inbox@example.co.uk")).toEqual(true);
+      expect(addresses.has("walks@example.co.uk")).toEqual(true);
+      expect(addresses.has("walks.extra@example.co.uk")).toEqual(true);
+      expect(addresses.has("member@example.com")).toEqual(false);
     });
 
   });

@@ -3,7 +3,7 @@ import { createErrorDebugLog } from "../shared/error-debug-log";
 import { Brevo, BrevoClient } from "@getbrevo/brevo";
 import { AdminProfilePath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
-import { CommitteeConfig, CommitteeMember, InboxRoleRecipient, committeeRolesByType, notifiedRecipientsForRole, roleEmailAddresses, roleNotificationRecipients } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { CommitteeConfig, CommitteeMember, InboxRoleRecipient, committeeRolesByType, notifiedRecipientsForRole, roleNotificationRecipients } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { InboxMessage, InboxMessageDirection, InboxThread, InboxThreadFolder } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { brevoClient } from "../brevo/brevo-config";
@@ -13,7 +13,7 @@ import { SendPurpose } from "../../../projects/ngx-ramblers/src/app/models/mail.
 import { systemConfig } from "../config/system-config";
 import { envConfig } from "../env-config/env-config";
 import * as config from "../mongo/controllers/config";
-import { connectedInboxEmails, defaultTenantSlug, derivedAliases } from "./inbox-aliases";
+import { connectedInboxEmails, defaultTenantSlug, derivedAliases, inboxRoutingAddressSet } from "./inbox-aliases";
 import { escapeHtml, normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { member as memberModel } from "../mongo/models/member";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
@@ -121,11 +121,11 @@ async function digestMessages(messages: InboxMessage[], now: number): Promise<nu
     return map;
   }, new Map());
 
-  const inboxRoutingAddresses = new Set<string>([
-    ...(committeeConfiguration?.roles ?? []).flatMap(role => roleEmailAddresses(role)).map(normaliseEmail),
-    ...(await connectedInboxEmails(defaultTenantSlug())),
-    ...(await derivedAliases()).map(alias => alias.roleEmail).filter((email): email is string => Boolean(email)).map(normaliseEmail)
-  ]);
+  const inboxRoutingAddresses = inboxRoutingAddressSet(
+    committeeConfiguration?.roles ?? [],
+    await connectedInboxEmails(defaultTenantSlug()),
+    await derivedAliases()
+  );
   const isInboxRoutingAddress = (email: string): boolean => inboxRoutingAddresses.has(normaliseEmail(email));
 
   const junkMessages = messages.filter(message => threadById.get(message.threadId)?.folder === InboxThreadFolder.JUNK);
