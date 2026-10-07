@@ -24,6 +24,7 @@ import { closeMigrationConnection, MigrationRunner } from "../mongo/migrations/m
 import { connect as connectMongoose } from "../mongo/mongoose-client";
 import { seedAdminMenuStructure } from "../mongo/migrations/shared/seed-admin-menu";
 import { seedDefaultLogoBanner } from "../mongo/migrations/shared/seed-default-banner";
+import { seedMissingDefaultContentText } from "../mongo/migrations/shared/seed-default-content-text";
 import { BannerPictureStore } from "./banner-picture.model";
 import { values } from "es-toolkit/compat";
 import { NEW_ENVIRONMENT_MEMBER_SYNC_POLICY } from "../../../projects/ngx-ramblers/src/app/models/member-sync-policy.model";
@@ -256,6 +257,14 @@ export async function initialiseDatabase(
     reportProgress("Assigning admin to committee roles", SetupStepStatus.Completed);
 
     await runMigrations(uri, reportProgress);
+
+    reportProgress("Seeding in-app help catalog", SetupStepStatus.Running);
+    const helpSeed = await seedMissingDefaultContentText(db);
+    reportProgress(
+      "Seeding in-app help catalog",
+      SetupStepStatus.Completed,
+      `${pluraliseWithCount(helpSeed.inserted, "insert")}, ${pluraliseWithCount(helpSeed.filled, "empty record filled")}`
+    );
 
     reportProgress("Seeding admin menu structure", SetupStepStatus.Running);
     await seedAdminMenuStructure(db, message => debugLog(message));

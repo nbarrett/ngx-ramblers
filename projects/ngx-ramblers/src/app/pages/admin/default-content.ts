@@ -4,6 +4,7 @@ import {
   VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_CATEGORY,
   VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_NAME
 } from "../../models/video-meeting.model";
+import { EXPENSES_HOW_TO_DOCUMENTATION_URL } from "../../models/walks-route-paths.model";
 
 export const VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT: ContentText = {
   name: VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT_NAME,
@@ -150,6 +151,98 @@ export const GROUP_EVENT_VENUE_HELP: ContentText = {
     "On the published event page, members see the location description, the postcode (with a Google Maps link) and, if you provide one, a link to the venue website. Accurate details also help when this venue is reused on later events."
 };
 
+export const EXPENSES_DETAILED_HELP: ContentText = {
+  name: "expenses-detailed-help",
+  category: "admin",
+  text:
+    "* As an incentive for walk planning, you can claim travel costs for a recce of a walk you have not led before.\n" +
+    "* Attach a copy of receipts for all non-travel expenses, or a brief explanation if that is not possible.\n" +
+    "* Click **Add Expense Claim** below and complete the details. When the claim is correct, **Submit Claim** so the committee can process it. For the full process, see [Claiming expenses](" + EXPENSES_HOW_TO_DOCUMENTATION_URL + ")."
+};
+
+export const VENUE_SETTINGS_HELP: ContentText = {
+  name: "venue-settings-help",
+  category: "admin",
+  text:
+    "This page lists the venues stored for the walks programme.\n\n" +
+    "* **Search** filters by name, address or postcode.\n" +
+    "* **Filter by type** shows only pubs, cafes, car parks and other venue types.\n" +
+    "* **Re-detect types** infers the type from the venue name.\n" +
+    "* Click the map marker to geocode a venue from its postcode when coordinates are missing.\n\n" +
+    "When you pick a venue while editing a walk, distances are shown from the walk starting point if both have coordinates."
+};
+
+export const BOOKINGS_CONFIGURATION_HELP: ContentText = {
+  name: "bookings-configuration-help",
+  category: "admin",
+  text:
+    "* Tick **Enable booking on events** to turn bookings on for the group.\n" +
+    "* Choose **All events** so every event of the enabled types accepts bookings, or **Per event** so only events with **Bookings enabled** ticked will accept them.\n" +
+    "* Tick the event types that should accept bookings (walks, socials, or both).\n" +
+    "* **Default max capacity** is the event limit when a walk or social does not set its own (0 means set it on the event).\n" +
+    "* **Default max attendees per booking** is how many people one booking can cover.\n" +
+    "* **Default member priority days** holds spaces for members before guests can book (0 means no priority).\n" +
+    "* **Reminder days before event** sends a reminder email that many days ahead (0 means no reminders).\n" +
+    "* Tick **Email templates include their own salutation** when your templates already start with a greeting, so the layout does not add a second one."
+};
+
+export const INBOX_HELP: ContentText = {
+  name: "inbox-help",
+  category: "admin",
+  text:
+    "The Inbox reads replies sent to committee role addresses and lets you reply from the role address without leaving NGX.\n\n" +
+    "**Before it works:**\n" +
+    "1. Enter the Google OAuth client credentials in **System Settings > External Systems > Mail > Gmail Inbox API**.\n" +
+    "2. On this page, connect one or more Gmail mailboxes, map committee role addresses to them, and configure Cloudflare forwarding.\n\n" +
+    "**Day to day:**\n" +
+    "- Switch between **Show my inbox messages** and **Show all inbox messages**.\n" +
+    "- Open a conversation and select **Reply** to answer from the role address through the unbranded composer.\n\n" +
+    "Full setup notes are in the [Setting up a Gmail inbox for committee replies](https://www.ngx-ramblers.org.uk/how-to/technical-articles/2026-05-29-gmail-inbox-setup) article."
+};
+
+export const IMAGE_EDITOR_HELP: ContentText = {
+  name: "image-editor-help",
+  category: "admin",
+  text:
+    "### Add, remove, replace, crop or re-order images for carousels\n\n" +
+    "* Use this page to add, remove, replace or re-order images in scrolling carousels on the site.\n" +
+    "* Choose the 940 x 300 pixels aspect ratio for a home-page banner. Other carousels work with any photo shape.\n" +
+    "* Use the buttons below each image to **delete** or **insert** a new image, or to move an existing image up or down.\n" +
+    "* Add or change the title to the right of each image. It is shown in white over the image. Keep it below about 50 characters so it stays on one line.\n" +
+    "* Change the image date directly, or pick a recent walk or social from the dropdown below the photo.\n" +
+    "* In the popup image editor, **quit** discards the crop and **save** uploads the cropped image and links it into this carousel. Saving an existing image overwrites the file on the website.\n" +
+    "* Save each photo you add or change before you leave.\n" +
+    "* Use **save changes and exit** or **Exit without saving** under these directions.\n" +
+    "* **Sort by latest date** orders images most recent first. **Reverse sort order** starts the carousel from the other end of that sequence."
+};
+
+export const MEETUP_HELP: ContentText = {
+  name: "meetup-help",
+  category: "walks-admin",
+  text:
+    "* If the checkbox below is ticked, a Meetup event is created when the walk is saved, once the walk has reached the Approved stage. From then on, changes to this walk are also sent to Meetup.\n" +
+    "* If you no longer want a published walk to appear on Meetup, untick the checkbox and the Meetup event is deleted. RSVPs on that Meetup event are deleted with it."
+};
+
+export const OS_MAPS_HELP: ContentText = {
+  name: "os-maps-help",
+  category: "walks-admin",
+  text:
+    "* The fields below are optional and are not sent to Ramblers.\n" +
+    "* You can cross-reference the walks programme to an [OS Maps](https://explore.osmaps.com) route that a member has planned or recorded.\n" +
+    "* When the URL is filled in, a link is shown on the walk detail view. The OS Maps route needs to be publicly viewable.\n" +
+    "* An [OS Maps](https://explore.osmaps.com) route can be added after the walk if it was not planned in advance and a member recorded it on the day."
+};
+
+export const SOCIAL_EVENTS_INFORMATION: ContentText = {
+  name: "socialEventsInformation",
+  category: "admin",
+  text:
+    "Social events are listed below. Open an event for dates, meeting place and other details.\n\n" +
+    "If you would like to arrange or host a social, use Contact Us to reach the social secretary.\n\n" +
+    "Logged-in members can see extra detail on each event."
+};
+
 export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
   {
     category: "template-type",
@@ -243,7 +336,7 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
   },
   {
     name: "file-import-help-page",
-    text: "TThis page should be used to import historic events data for your group for for dates that precede the go-live of Walks Manager in 2023. The steps for using this page are to :\n" +
+    text: "This page should be used to import historic events data for your group for dates that precede the go-live of Walks Manager in 2023. The steps for using this page are to :\n" +
       "* Click the **Choose File** button to navigate to a CSV file on your local computer. Alternatively, you can drop the file into the drop zone at the bottom of this page.\n" +
       "* When the file import is complete the walks are loaded into an unsaved state and listed in a table.\n" +
       "* During the above process, the imported walks are analysed for walk leaders and an attempt is made to match each walk leader to an existing member in your member database.\n" +
@@ -399,6 +492,14 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
   },
   MEETUP_VENUE_HELP,
   GROUP_EVENT_VENUE_HELP,
+  EXPENSES_DETAILED_HELP,
+  VENUE_SETTINGS_HELP,
+  BOOKINGS_CONFIGURATION_HELP,
+  INBOX_HELP,
+  IMAGE_EDITOR_HELP,
+  MEETUP_HELP,
+  OS_MAPS_HELP,
+  SOCIAL_EVENTS_INFORMATION,
   VIDEO_MEETINGS_GUEST_INSTRUCTIONS_CONTENT,
   ...RISK_ASSESSMENT_CONTENT_ENTRIES
 ];
