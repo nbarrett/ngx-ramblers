@@ -1,5 +1,5 @@
-import { AnswersQuestions, Duration, PerformsActivities, Task, UsesAbilities, Wait } from "@serenity-js/core";
-import { isGreaterThan, isPresent, not } from "@serenity-js/assertions";
+import { AnswersQuestions, PerformsActivities, Task, UsesAbilities, Wait } from "@serenity-js/core";
+import { isGreaterThan, isPresent } from "@serenity-js/assertions";
 import { Attribute, BrowseTheWeb } from "@serenity-js/web";
 import debug from "debug";
 import { envConfig } from "../../../../../env-config/env-config";
@@ -19,9 +19,9 @@ import { ClickWhenReady } from "../../common/click-when-ready";
 import { WalkFilters } from "./select-walks";
 import { Accept } from "../common/accept-cookie-prompt";
 import { AllowNavigationAwayFromEdit } from "./allow-navigation-away-from-edit";
-import { ClickViaScript } from "./click-via-script";
 import { SaveAndContinue } from "./save-and-continue";
 import { pluraliseWithCount } from "../../../../../shared/string-utils";
+import { walkEditFormExpired } from "../../../questions/ramblers/walk-edit-form";
 
 const WIZARD_STEPS: WalkEditStep[] = [WalkEditStep.BASIC_INFORMATION, WalkEditStep.DESCRIPTION, WalkEditStep.LOCATION, WalkEditStep.GRADING];
 
@@ -65,7 +65,24 @@ async function editWalkInPlace(actor: PerformsActivities & UsesAbilities & Answe
   }
 
   await openWalkForEditing(actor, upload, walksListUrl);
+  try {
+    await applyWalkEditSteps(actor, upload, stepsToVisit, shouldPublish);
+  } catch (error) {
+    if (walkEditFormExpired(error)) {
+      debugLog(`Walks Manager cancelled a stale edit form for "${upload.title}", opening the walk again`);
+      await openWalkForEditing(actor, upload, walksListUrl);
+      await applyWalkEditSteps(actor, upload, stepsToVisit, shouldPublish);
+    } else {
+      throw error;
+    }
+  }
+}
 
+async function applyWalkEditSteps(
+  actor: PerformsActivities & UsesAbilities & AnswersQuestions,
+  upload: WalkImagesUpload,
+  stepsToVisit: WalkEditStep[],
+  shouldPublish: boolean): Promise<void> {
   await stepsToVisit.reduce(async (previousStep: Promise<void>, step: WalkEditStep, stepIndex: number) => {
     await previousStep;
     await ensureOnStep(actor, step);
@@ -74,7 +91,7 @@ async function editWalkInPlace(actor: PerformsActivities & UsesAbilities & Answe
       debugLog(`applying ${pluraliseWithCount(changes.length, "field change")} on the ${step} step`);
       await actor.attemptsTo(ApplyWalkFieldChanges.to(changes));
     }
-    if (step === WalkEditStep.DESCRIPTION && includeImages) {
+    if (step === WalkEditStep.DESCRIPTION && upload.imagesChanged) {
       debugLog(`synchronising images on the ${step} step`);
       await actor.attemptsTo(SynchroniseWalkImages.to(upload.images));
     }
@@ -104,9 +121,7 @@ async function saveAndContinue(actor: PerformsActivities & UsesAbilities & Answe
 
 async function publishEditedWalk(actor: PerformsActivities & UsesAbilities & AnswersQuestions, shouldPublish: boolean, step: WalkEditStep): Promise<void> {
   if (shouldPublish) {
-    await actor.attemptsTo(
-      ClickViaScript.on("label[for='save_publish_action']", "publishes the walk"),
-      Wait.until(WalksPageElements.saveAndContinueButton, not(isPresent())));
+    await actor.attemptsTo(SaveAndContinue.byPublishingAwayFromPath(`/walks-manager/walk/${step}/`));
   } else {
     await actor.attemptsTo(SaveAndContinue.awayFromPath(`/walks-manager/walk/${step}/`));
   }

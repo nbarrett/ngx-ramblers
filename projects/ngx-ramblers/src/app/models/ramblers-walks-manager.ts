@@ -115,6 +115,11 @@ export enum WalkEditStep {
   GRADING = "details"
 }
 
+export enum WalkEditSaveAction {
+  CONTINUE = "continue",
+  PUBLISH = "publish"
+}
+
 export const WALK_EDIT_FIELD_STEPS: Record<WalkEditField, WalkEditStep> = {
   [WalkEditField.TITLE]: WalkEditStep.BASIC_INFORMATION,
   [WalkEditField.DATE]: WalkEditStep.BASIC_INFORMATION,
