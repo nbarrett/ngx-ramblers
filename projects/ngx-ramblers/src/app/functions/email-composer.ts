@@ -437,6 +437,51 @@ export function composerContentHasPersonalisation(
   }
 }
 
+export function composerApiErrorMessage(error: unknown): string {
+  if (isString(error)) {
+    return error;
+  } else {
+    const details = error as {error?: unknown; message?: string};
+    const nested = nestedApiErrorMessage(details?.error);
+    if (nested) {
+      return nested;
+    } else if (isString(details?.message)) {
+      return details.message;
+    } else {
+      return "An unknown error occurred";
+    }
+  }
+}
+
+function nestedApiErrorMessage(value: unknown): string | null {
+  if (isString(value)) {
+    return value;
+  } else {
+    const record = value as {error?: {message?: string} | string; message?: string} | null;
+    if (!record) {
+      return null;
+    } else if (isString(record.message)) {
+      return record.message;
+    } else if (isString(record.error)) {
+      return record.error;
+    } else if (isString(record.error?.message)) {
+      return record.error.message;
+    } else {
+      return null;
+    }
+  }
+}
+
+export function batchSendJobWasLost(error: unknown): boolean {
+  const status = (error as {status?: number})?.status;
+  if (status === 404) {
+    return true;
+  } else {
+    const message = composerApiErrorMessage(error).toLowerCase();
+    return message.includes("job not found") || message.includes("no longer on the server");
+  }
+}
+
 export function composerSendsAsCampaign(
   recipientMode: RecipientMode,
   brandingMode: BrandingMode,

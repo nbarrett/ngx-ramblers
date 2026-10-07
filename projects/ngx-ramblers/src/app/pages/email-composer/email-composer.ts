@@ -27,6 +27,7 @@ import {
   BatchSendEntryStatus,
   BatchSendProgress,
   BatchSendStatus,
+  BATCH_SEND_JOB_LOST_MESSAGE,
   BatchTransactionalSendRequest,
   BRANDING_MODE_OPTIONS,
   BrandingMode,
@@ -134,6 +135,7 @@ import { PageComponent } from "../../page/page.component";
 import { Member, MemberBulkLoadDateMap } from "../../models/member.model";
 import { MemberBulkLoadAuditService } from "../../services/member/member-bulk-load-audit.service";
 import {
+  batchSendJobWasLost,
   batchSendRecipientSplit,
   buildDefaultFragmentOrder,
   composerCommitteeRecipients,
@@ -665,6 +667,19 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               @if (sendInProgress) {
                 <app-alert-message [title]="sendProgressDescription()" [icon]="faSpinner" [spinning]="true"/>
               }
+              @if (batchJobLost) {
+                <app-alert-message title="This send can no longer be tracked" [messageKey]="BATCH_SEND_JOB_LOST_MESSAGE">
+                  <div>{{ BATCH_SEND_JOB_LOST_MESSAGE }}</div>
+                  <div class="mt-2 d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-primary" (click)="saveDraftAndRestartComposerSession()">Save draft and refresh</button>
+                    <button type="button" class="btn btn-quiet" (click)="restartComposerSession()">Refresh composer</button>
+                  </div>
+                </app-alert-message>
+              } @else if (batchProgress?.status === BatchSendStatus.FAILED) {
+                <app-alert-message title="Send failed" [messageKey]="batchProgress.errorMessage || 'send-failed'">
+                  {{ batchProgress.errorMessage || "The send stopped before it finished." }}
+                </app-alert-message>
+              }
               @if (batchProgress && nextConfigAfterSend) {
                 <app-alert-message title="Next step: {{ nextConfigAfterSend.subject?.text }}"
                                    actionLabel="Continue to {{ nextConfigAfterSend.subject?.text }}"
@@ -718,7 +733,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       <div class="composer-workspace-actions d-flex gap-2 w-100 align-items-center"
            [class.is-maximised]="composerPanel.maximised">
           <div class="composer-workspace-doc-tools">
-          @if (!sendComplete()) {
+          @if (!sendComplete() || batchJobLost) {
             <button type="button" class="btn btn-quiet"
                     (click)="saveDraft()"
                     [disabled]="!hasContentToDraft()"
@@ -1262,7 +1277,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                     {{ batchProgress.skippedCount }} skipped (unsubscribed or blocked)
                   </span>
                 }
-                @if (batchSendComplete()) {
+                @if (batchProgress.status === BatchSendStatus.COMPLETED) {
                   <span class="ms-2 text-success">
                     <fa-icon [icon]="faCheckCircle"/>
                     Done
@@ -1433,11 +1448,14 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected readonly UNBRANDED_HARD_CAP_RECIPIENTS = UNBRANDED_HARD_CAP_RECIPIENTS;
   protected batchProgress: BatchSendProgress | null = null;
   protected batchSendJobId: string | null = null;
+  protected batchJobLost = false;
   protected postSendActionWarningDismissed = false;
   private subscriptions: Subscription[] = [];
   private pollSubscription: Subscription | null = null;
   private userPickedEmailType = false;
   protected readonly EmailComposerStepKey = EmailComposerStepKey;
+  protected readonly BatchSendStatus = BatchSendStatus;
+  protected readonly BATCH_SEND_JOB_LOST_MESSAGE = BATCH_SEND_JOB_LOST_MESSAGE;
   protected readonly RecipientMode = RecipientMode;
   protected readonly RecipientField = RecipientField;
   protected readonly RecipientAddressMode = RecipientAddressMode;
@@ -3594,8 +3612,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }
   }
 
-  protected async saveDraft(): Promise<void> {
-    if (!(!this.hasUnsavedChanges())) {
+  protected async saveDraft(): Promise<boolean> {
+    if (!this.hasUnsavedChanges()) {
+      return true;
+    } else {
       try {
         this.recipients.syncSelectedMembersToHeaders();
         const draft = await this.compositionsService.save(this.session.state, this.session.currentDraftId, this.composeShared);
@@ -3607,11 +3627,48 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         this.session.syncStateToUrl({[StoredValue.DRAFT_ID]: draft.id, [StoredValue.COPY_OF]: null});
         await this.refreshDrafts();
         this.session.notify.success({title: "Draft saved", message: draft.title});
+        return true;
       } catch (error) {
         this.logger.error("saveDraft failed:", error);
         this.session.notify.error({title: "Save draft failed", message: String(error)});
+        return false;
       }
     }
+  }
+
+  private markBatchJobLost(): void {
+    this.batchJobLost = true;
+    if (this.batchProgress) {
+      this.batchProgress = {
+        ...this.batchProgress,
+        status: BatchSendStatus.FAILED,
+        errorMessage: BATCH_SEND_JOB_LOST_MESSAGE
+      };
+    }
+    this.session.notify.error({
+      title: "This send can no longer be tracked",
+      message: BATCH_SEND_JOB_LOST_MESSAGE
+    });
+  }
+
+  protected async saveDraftAndRestartComposerSession(): Promise<void> {
+    const saved = await this.saveDraft();
+    if (saved) {
+      this.restartComposerSession();
+    }
+  }
+
+  protected restartComposerSession(): void {
+    const queryParams = this.route.snapshot.queryParamMap.keys.reduce((acc, key) => {
+      const value = this.route.snapshot.queryParamMap.get(key);
+      if (value) {
+        return {...acc, [key]: value};
+      } else {
+        return acc;
+      }
+    }, this.session.currentDraftId ? {[StoredValue.DRAFT_ID]: this.session.currentDraftId} : {} as Record<string, string>);
+    const url = this.router.serializeUrl(this.router.createUrlTree(["/" + AdminPath.SEND_NOTIFICATION], {queryParams}));
+    globalThis.location.assign(url);
   }
 
   protected async revertToSavedDraft(): Promise<void> {
@@ -3835,6 +3892,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       [StoredValue.COPY_OF]: null
     });
     this.batchProgress = null;
+    this.batchJobLost = false;
     this.campaignSendComplete = false;
     this.nextConfigAfterSend = null;
     this.documents.committeeFiles = new Map();
@@ -4493,6 +4551,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     };
     const start = await this.sendService.startBatch(request);
     this.batchSendJobId = start.jobId;
+    this.batchJobLost = false;
     this.batchProgress = {
       jobId: start.jobId,
       status: BatchSendStatus.RUNNING,
@@ -4518,17 +4577,42 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
             this.userHasEditedComposer = progress.status === BatchSendStatus.COMPLETED ? false : this.userHasEditedComposer;
             this.pollSubscription?.unsubscribe();
             this.pollSubscription = null;
-            this.session.notify.hide();
-            void this.recordSentToHistory(this.batchProgress?.totalRecipients);
-            this.postSendRefresh = this.refreshMembersAfterPostSendActions();
-            if (progress.status === BatchSendStatus.COMPLETED || progress.status === BatchSendStatus.COMPLETED_WITH_ERRORS) {
-              this.offerNextConfigAfterSend();
+            if (progress.status === BatchSendStatus.FAILED) {
+              this.session.notify.error({
+                title: "Send failed",
+                message: progress.errorMessage || "The send stopped before it finished."
+              });
+            } else {
+              this.session.notify.hide();
+              void this.recordSentToHistory(this.batchProgress?.totalRecipients);
+              this.postSendRefresh = this.refreshMembersAfterPostSendActions();
+              if (progress.status === BatchSendStatus.COMPLETED || progress.status === BatchSendStatus.COMPLETED_WITH_ERRORS) {
+                this.offerNextConfigAfterSend();
+              }
             }
           }
         },
         error: error => {
           this.logger.error("batch poll failed", error);
           this.sendInProgress = false;
+          this.pollSubscription?.unsubscribe();
+          this.pollSubscription = null;
+          if (batchSendJobWasLost(error)) {
+            this.markBatchJobLost();
+          } else {
+            const message = this.session.errorMessage(error) || "The send stopped and the server did not report what happened.";
+            if (this.batchProgress) {
+              this.batchProgress = {
+                ...this.batchProgress,
+                status: BatchSendStatus.FAILED,
+                errorMessage: message
+              };
+            }
+            this.session.notify.error({
+              title: "Send failed",
+              message
+            });
+          }
         }
       });
   }

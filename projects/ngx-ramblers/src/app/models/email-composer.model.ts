@@ -253,6 +253,8 @@ export enum BatchSendStatus {
   FAILED = "failed"
 }
 
+export const BATCH_SEND_JOB_LOST_MESSAGE = "This send can no longer be tracked. Refresh the composer and try again. Recipients already sent cannot be recalled.";
+
 export interface RecipientPreFilter {
   key: MemberSelection | null;
   label: string;
