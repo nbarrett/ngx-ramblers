@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, ElementRef, HostListener, inject, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Subscription } from "rxjs";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -35,6 +36,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { VideoMeetingsService } from "../../services/video-meetings/video-meetings.service";
 import { DateUtilsService } from "../../services/date-utils.service";
+import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { CommitteeFileService } from "../../services/committee/committee-file.service";
 import { ExternalRecipientService } from "../../services/external-recipient/external-recipient.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
@@ -44,7 +46,10 @@ import { ClipboardService } from "../../services/clipboard.service";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { RecipientFieldComponent } from "../../modules/common/recipient-field/recipient-field";
 import { VideoMeetingNotesComponent } from "./video-meeting-notes";
-import { ComposerExternalRecipient } from "../../models/email-composer.model";
+import { ComposerExternalRecipient, RecipientAddressMode } from "../../models/email-composer.model";
+import { CommitteeMember } from "../../models/committee.model";
+import { composerCommitteeRecipients, composerRecipientsForAddressMode, syncedRecipientAddressMode } from "../../functions/email-composer";
+import { meetingInviteCommitteeRoleSendOffered } from "../../functions/video-meeting-invite";
 import { ExternalRecipient } from "../../models/external-recipient.model";
 import {
   JitsiJoinMode,
@@ -595,8 +600,18 @@ const SPEAKER_TIMELINE_KEEP_MS = 60000;
               @if (joinLinkStatus) {
                 <p class="text-muted small mb-0">{{ joinLinkStatus }}</p>
               }
-              <app-recipient-field [to]="inviteRecipients" (toChange)="inviteRecipients = $event"
-                                   [savedRecipients]="previousRecipients" [members]="inviteMembers" [plain]="true"/>
+              <app-recipient-field [to]="inviteRecipients" (toChange)="onInviteRecipientsChange($event)"
+                                   [savedRecipients]="previousRecipients" [members]="inviteMembers"
+                                   [committeeAddresses]="committeeAddresses" [plain]="true"/>
+              @if (committeeRoleSendOffered()) {
+                <label class="recipient-save" for="meeting-send-to-role-addresses">
+                  <input class="form-check-input" type="checkbox" id="meeting-send-to-role-addresses"
+                         [checked]="recipientAddressMode === RecipientAddressMode.COMMITTEE_ROLE"
+                         (change)="onSendToCommitteeRoleAddressesChange($event)">
+                  Send to committee role addresses
+                </label>
+                <small class="text-muted">Everyone on this invite is a committee member. Leave this off to use their personal addresses. Turn it on to use each person's committee role address instead.</small>
+              }
               <button type="button" class="btn btn-primary w-100" (click)="sendInvite()">
                 <fa-icon [icon]="faPaperPlane" class="me-2"/>Send invite
               </button>
@@ -622,6 +637,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private videoMeetingsService = inject(VideoMeetingsService);
+  private committeeConfigService = inject(CommitteeConfigService);
   private committeeFileService = inject(CommitteeFileService);
   private externalRecipientService = inject(ExternalRecipientService);
   private memberLoginService = inject(MemberLoginService);
@@ -663,6 +679,9 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
   inviteRecipients: ComposerExternalRecipient[] = [];
   previousRecipients: ExternalRecipient[] = [];
   inviteMembers: Member[] = [];
+  committeeAddresses: ComposerExternalRecipient[] = [];
+  recipientAddressMode = RecipientAddressMode.PERSONAL;
+  protected readonly RecipientAddressMode = RecipientAddressMode;
   inviteStatus = "";
   joinLinkStatus = "";
   connecting = false;
@@ -739,6 +758,9 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
   private transcriptUploadTimer: number | null = null;
   private transcriptPullTimer: number | null = null;
   private keepAwakeTimer: number | null = null;
+  private committeeRoles: CommitteeMember[] = [];
+  private recipientAddressModeTouched = false;
+  private subscriptions: Subscription[] = [];
 
   protected readonly roomPhase = VideoMeetingRoomPhase;
   protected readonly minutesCollectionState = MeetingMinutesCollectionState;
@@ -852,6 +874,13 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     this.fullscreen = this.client.coarsePointer;
     window.addEventListener("pagehide", this.onPageHide);
     window.addEventListener("beforeunload", this.onBeforeUnload);
+    this.subscriptions.push(this.committeeConfigService.committeeConfigEvents().subscribe(config => {
+      this.committeeRoles = config?.roles ?? [];
+      this.committeeAddresses = composerCommitteeRecipients(this.committeeRoles);
+      if (this.inviteRecipients.length) {
+        this.syncInviteAddressMode();
+      }
+    }));
     if (guestRoute && !this.guest) {
       this.skipPrepare = true;
       this.router.navigate(["/" + AdminPath.MEETING_ROOM, this.room], {
@@ -1903,7 +1932,42 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
     (event.target as HTMLInputElement).select();
   }
 
+  committeeRoleSendOffered(): boolean {
+    return meetingInviteCommitteeRoleSendOffered(this.inviteRecipients, this.inviteMembers, this.committeeRoles);
+  }
+
+  onInviteRecipientsChange(recipients: ComposerExternalRecipient[]): void {
+    this.inviteRecipients = recipients;
+    this.syncInviteAddressMode();
+  }
+
+  onSendToCommitteeRoleAddressesChange(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.recipientAddressModeTouched = true;
+    this.recipientAddressMode = checked ? RecipientAddressMode.COMMITTEE_ROLE : RecipientAddressMode.PERSONAL;
+    this.applyInviteChipAddresses();
+  }
+
+  private syncInviteAddressMode(): void {
+    this.recipientAddressMode = syncedRecipientAddressMode({
+      committeeRoleSendOffered: this.committeeRoleSendOffered(),
+      preselectCommitteeRole: !this.recipientAddressModeTouched,
+      current: this.recipientAddressMode
+    });
+    this.applyInviteChipAddresses();
+  }
+
+  private applyInviteChipAddresses(): void {
+    this.inviteRecipients = composerRecipientsForAddressMode(
+      this.inviteRecipients,
+      this.inviteMembers,
+      this.committeeRoles,
+      this.recipientAddressMode
+    );
+  }
+
   async sendInvite(): Promise<void> {
+    this.syncInviteAddressMode();
     const guests = this.inviteRecipients.filter(recipient => recipient.email);
     if (guests.length) {
       this.inviteStatus = guests.length === 1 ? "Sending…" : `Sending ${guests.length} invites…`;
@@ -1939,6 +2003,9 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
       }
       try {
         this.inviteMembers = await this.memberService.all();
+        if (this.inviteRecipients.length) {
+          this.syncInviteAddressMode();
+        }
       } catch (error) {
         this.logger.error("failed to load members for meeting invites", error);
       }
@@ -2265,6 +2332,7 @@ export class VideoMeetingRoomComponent implements MeetingRoomLeaveCheck, OnInit,
 
   ngOnDestroy(): void {
     this.leavingOnPurpose = true;
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
     window.removeEventListener("pagehide", this.onPageHide);
     window.removeEventListener("beforeunload", this.onBeforeUnload);
     this.resolvePendingNavigation(false);

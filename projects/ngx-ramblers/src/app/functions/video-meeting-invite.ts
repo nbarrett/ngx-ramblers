@@ -1,8 +1,50 @@
+import { ComposerExternalRecipient } from "../models/email-composer.model";
+import { CommitteeMember } from "../models/committee.model";
+import { Member } from "../models/member.model";
+import { committeeAssignedEmailsForMemberId, memberHoldsCommitteeRole } from "./committee-members";
 import { GUEST_MEETING_EMAIL_PARAM, GUEST_MEETING_NAME_PARAM } from "./video-meeting-join";
-import { escapeHtml } from "./strings";
+import { escapeHtml, normaliseEmail } from "./strings";
 
 const INVITEE_NAME_MERGE_FIELD = "{{params.memberMergeFields.FULL_NAME}}";
 const INVITEE_EMAIL_MERGE_FIELD = "{{params.memberMergeFields.EMAIL}}";
+
+export function meetingInviteRecipientMember(
+  recipient: ComposerExternalRecipient,
+  members: Member[],
+  roles: CommitteeMember[]
+): Member | null {
+  const byId = recipient.memberId
+    ? (members ?? []).find(member => member.id === recipient.memberId)
+    : undefined;
+  if (byId) {
+    return byId;
+  } else {
+    const wanted = normaliseEmail(recipient.email);
+    return wanted
+      ? ((members ?? []).find(member => normaliseEmail(member.email) === wanted)
+        || (members ?? []).find(member =>
+          committeeAssignedEmailsForMemberId(roles, member.id ?? null)
+            .some(entry => normaliseEmail(entry.email) === wanted))
+        || null)
+      : null;
+  }
+}
+
+export function meetingInviteCommitteeRoleSendOffered(
+  recipients: ComposerExternalRecipient[],
+  members: Member[],
+  roles: CommitteeMember[]
+): boolean {
+  const chosen = (recipients ?? []).filter(item => !!(item.email || "").trim());
+  if (chosen.length === 0) {
+    return false;
+  } else {
+    return chosen.every(recipient => {
+      const member = meetingInviteRecipientMember(recipient, members, roles);
+      return !!member && memberHoldsCommitteeRole(member, roles);
+    });
+  }
+}
 
 export function personalisedGuestJoinUrl(joinUrl: string): string {
   const base = (joinUrl || "").trim();
