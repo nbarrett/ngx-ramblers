@@ -9,16 +9,16 @@ import { Subscription } from "rxjs";
 import { CommonModule, DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBan, faBars, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCircleCheck, faCompress, faEnvelope, faEnvelopeOpen, faExpand, faFilter, faGripLines, faIdBadge, faInbox, faLayerGroup, faListCheck, faPaperPlane, faPenToSquare, faFileLines, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faSpinner, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo, faUser, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDownWideShort, faArrowLeft, faArrowUpWideShort, faBan, faBars, faBell, faBellSlash, faChevronDown, faChevronLeft, faChevronRight, faCircleCheck, faCompress, faEnvelope, faEnvelopeOpen, faExpand, faFilter, faFolder, faGripLines, faIdBadge, faInbox, faLayerGroup, faListCheck, faPaperPlane, faPenToSquare, faFileLines, faPlus, faReply, faReplyAll, faRotateRight, faSearch, faShare, faSliders, faSpinner, faTableColumns, faTableList, faTrash, faTriangleExclamation, faUndo, faUser, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { AdminSettingsPath, AdminPath } from "../../../models/admin-route-paths.model";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
-import { isUndefined, kebabCase, uniqBy, values } from "es-toolkit/compat";
+import { isArray, isString, isUndefined, kebabCase, uniqBy, values } from "es-toolkit/compat";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
 import { InboxReplyHandoffService } from "../../../services/inbox/inbox-reply-handoff.service";
-import { addressLabel, aliasMailboxAddresses, aliasMailboxExtraCaption, aliasMailboxHeading, aliasMailboxLabel, collapseInboxSends, formatInboxAddress, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadRoleLine, inboxThreadRowFrom, inboxThreadRowPreview, inboxThreadRowTo, replyAllRecipients, validatedInboxColumnShare } from "../../../functions/inbox-thread";
+import { addressLabel, aliasMailboxAddresses, aliasMailboxExtraCaption, aliasMailboxHeading, aliasMailboxLabel, collapseInboxSends, formatInboxAddress, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadLocationLabel, inboxThreadRoleLine, inboxThreadRowFrom, inboxThreadRowPreview, inboxThreadRowTo, inboxThreadUrlSlug, inboxUserFolderIdFromView, inboxUserFolderView, isInboxUserFolderView, replyAllRecipients, validatedInboxColumnShare } from "../../../functions/inbox-thread";
 import { InboxPushSubscriptionService } from "../../../services/inbox/inbox-push-subscription.service";
 import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
@@ -41,6 +41,9 @@ import {
   InboxReaderProvider,
   InboxColumnResizeEdge,
   hiddenInboxFolders,
+  InboxFolderDeleteContents,
+  InboxUserFolderQuery,
+  InboxUserFolderView,
   isInboxGeneralRoleType
 } from "../../../models/inbox.model";
 import { BrandingMode, MailSettingsTab } from "../../../models/mail.model";
@@ -306,7 +309,12 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                     <fa-icon [icon]="inboxNodeExpanded ? faChevronDown : faChevronRight"/>
                   </button>
                   <button class="inbox-nav-node" type="button" [class.active]="inboxNodeActive"
-                          (click)="selectMailboxView(InboxViewScope.ALL_ACCESSIBLE)">
+                          [class.inbox-nav-drop-target]="dropTargetView === InboxViewScope.ALL_ACCESSIBLE"
+                          data-drop-folder="inbox"
+                          (click)="selectMailboxView(InboxViewScope.ALL_ACCESSIBLE)"
+                          (dragover)="onFolderDragOver($event, InboxViewScope.ALL_ACCESSIBLE)"
+                          (dragleave)="onFolderDragLeave($event, InboxViewScope.ALL_ACCESSIBLE)"
+                          (drop)="onFolderDrop($event, null)">
                     <fa-icon [icon]="faInbox" class="me-2"/><span class="inbox-nav-label">Inbox</span>
                     @if (unreadTotal > 0) {
                       <span class="inbox-nav-count">{{ unreadTotal }}</span>
@@ -332,6 +340,110 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                       @if (unreadForRole(alias.roleType) > 0) {
                         <span class="inbox-nav-count">{{ unreadForRole(alias.roleType) }}</span>
                       }
+                    </button>
+                  }
+                }
+              </div>
+              <div class="inbox-nav-group">
+                <div class="inbox-nav-row">
+                  <button class="inbox-nav-twisty" type="button" (click)="foldersNodeExpanded = !foldersNodeExpanded"
+                          [attr.aria-expanded]="foldersNodeExpanded" aria-label="Expand folders">
+                    <fa-icon [icon]="foldersNodeExpanded ? faChevronDown : faChevronRight"/>
+                  </button>
+                  <button class="inbox-nav-node" type="button"
+                          [class.active]="foldersNodeActive"
+                          (click)="selectAllFoldersView()"
+                          (dragover)="onFoldersParentDragOver($event)">
+                    <fa-icon [icon]="faFolder" class="me-2"/><span class="inbox-nav-label">Folders</span>
+                    @if (foldersUnreadCount > 0) {
+                      <span class="inbox-nav-count">{{ foldersUnreadCount }}</span>
+                    }
+                  </button>
+                </div>
+                @if (foldersNodeExpanded) {
+                  @for (folder of userFolders; track folder.id) {
+                    <div class="inbox-nav-folder-row" [class.active]="selectedMailboxView === inboxUserFolderView(folder)" [class.inbox-nav-folder-row-confirming]="folderPendingDeleteId === folder.id">
+                      @if (renamingFolderId === folder.id) {
+                        <form class="inbox-nav-node inbox-nav-child inbox-nav-rename-folder" (submit)="$event.preventDefault(); saveRenameFolder()">
+                          <fa-icon [icon]="faFolder" class="inbox-nav-node-icon"/>
+                          <input #renameFolderInput class="form-control form-control-sm" name="inbox-user-folder-rename"
+                                 [(ngModel)]="renameFolderName"
+                                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                                 (keydown.escape)="cancelRenameFolder(); $event.preventDefault()"
+                                 (blur)="saveRenameFolder()">
+                        </form>
+                      } @else if (folderPendingDeleteId === folder.id) {
+                        <div class="inbox-nav-folder-confirm-name inbox-nav-child">
+                          <fa-icon [icon]="faFolder" class="inbox-nav-node-icon"/>
+                          <span class="inbox-nav-label">{{ folder.name }}</span>
+                        </div>
+                        <div class="inbox-nav-folder-confirm">
+                          <button class="inbox-nav-folder-confirm-keep" type="button"
+                                  tooltip="Remove the folder, leave the mail in Inbox"
+                                  placement="left" container="body" [adaptivePosition]="false"
+                                  (click)="confirmDeleteUserFolder(folder, InboxFolderDeleteContents.INBOX)">
+                            <fa-icon [icon]="faInbox"/> Keep mail
+                          </button>
+                          <button class="inbox-nav-folder-confirm-delete" type="button"
+                                  tooltip="Remove the folder and the mail"
+                                  placement="left" container="body" [adaptivePosition]="false"
+                                  (click)="confirmDeleteUserFolder(folder, InboxFolderDeleteContents.DELETED)">
+                            <fa-icon [icon]="faTrash"/> Delete mail
+                          </button>
+                          <button class="inbox-nav-folder-confirm-cancel" type="button"
+                                  aria-label="Cancel"
+                                  tooltip="Cancel"
+                                  placement="left" container="body" [adaptivePosition]="false"
+                                  (click)="cancelDeleteUserFolder()">
+                            <fa-icon [icon]="faXmark"/>
+                          </button>
+                        </div>
+                      } @else {
+                        <button class="inbox-nav-node inbox-nav-child" type="button"
+                                [class.active]="selectedMailboxView === inboxUserFolderView(folder)"
+                                [class.inbox-nav-drop-target]="dropTargetView === inboxUserFolderView(folder)"
+                                [attr.data-drop-folder]="folder.id"
+                                [tooltip]="'Click and hold to rename'"
+                                placement="left" container="body" [adaptivePosition]="false"
+                                (click)="selectMailboxView(inboxUserFolderView(folder))"
+                                (pointerdown)="onFolderPointerDown($event, folder)"
+                                (pointermove)="onFolderPointerMove($event)"
+                                (pointerup)="onFolderPointerEnd()"
+                                (pointercancel)="onFolderPointerEnd()"
+                                (dragover)="onFolderDragOver($event, inboxUserFolderView(folder))"
+                                (dragleave)="onFolderDragLeave($event, inboxUserFolderView(folder))"
+                                (drop)="onFolderDrop($event, folder.id)">
+                          <fa-icon [icon]="faFolder" class="inbox-nav-node-icon"/>
+                          <span class="inbox-nav-label">{{ folder.name }}</span>
+                          @if (folder.unreadCount > 0) {
+                            <span class="inbox-nav-count">{{ folder.unreadCount }}</span>
+                          }
+                        </button>
+                        <button class="inbox-nav-folder-delete" type="button"
+                                aria-label="Delete folder"
+                                tooltip="Delete folder"
+                                placement="left" container="body" [adaptivePosition]="false"
+                                (click)="startDeleteUserFolder(folder); $event.stopPropagation()">
+                          <fa-icon [icon]="faTrash"/>
+                        </button>
+                      }
+                    </div>
+                  }
+                  @if (creatingFolder) {
+                    <form class="inbox-nav-new-folder" autocomplete="off" (submit)="$event.preventDefault(); createUserFolder()">
+                      <input #newFolderNameInput class="form-control form-control-sm" name="inbox-user-folder-create"
+                             [(ngModel)]="newFolderName" placeholder="Folder name"
+                             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                             (keydown.escape)="cancelCreateFolder()">
+                      <button class="inbox-nav-folder-add" type="submit" [disabled]="!newFolderName.trim() || busy"
+                              aria-label="Add folder" tooltip="Add folder" placement="left" container="body" [adaptivePosition]="false">
+                        <fa-icon [icon]="faPlus"/>
+                      </button>
+                    </form>
+                  } @else {
+                    <button class="inbox-nav-node inbox-nav-child" type="button" (click)="startCreateFolder()">
+                      <fa-icon [icon]="faPlus" class="inbox-nav-node-icon"/>
+                      <span class="inbox-nav-label">New folder</span>
                     </button>
                   }
                 }
@@ -392,6 +504,20 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                     @if (viewingDeleted) {
                       <li role="menuitem"><button class="dropdown-item" type="button" (click)="restoreSelectedDeleted()"><fa-icon [icon]="faInbox" class="me-2"/>Restore to inbox</button></li>
                     }
+                    @if (viewingUserFolder || viewingAllFolders) {
+                      <li role="menuitem"><button class="dropdown-item" type="button" (click)="moveSelectedToUserFolder(null)"><fa-icon [icon]="faInbox" class="me-2"/>Move to inbox</button></li>
+                    }
+                    @if (canFileSelectedConversations && foldersForMoveMenu.length > 0) {
+                      <li><hr class="dropdown-divider"></li>
+                      <li class="dropdown-header">Move to folder</li>
+                      @for (folder of foldersForMoveMenu; track folder.id) {
+                        <li role="menuitem">
+                          <button class="dropdown-item" type="button" (click)="moveSelectedToUserFolder(folder.id)">
+                            <fa-icon [icon]="faFolder" class="me-2"/>{{ folder.name }}
+                          </button>
+                        </li>
+                      }
+                    }
                     <li><hr class="dropdown-divider"></li>
                     <li role="menuitem"><button class="dropdown-item text-danger" type="button" (click)="deleteSelected()"><fa-icon [icon]="faTrash" class="me-2"/>Delete</button></li>
                   </ul>
@@ -400,10 +526,19 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
               @if (threadListTotalCount > 0 || conversationSearchTerm) {
                 <div class="input-group input-group-sm flex-grow-1 min-w-0">
                   <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
-                  <input type="text" class="form-control" [ngModel]="conversationSearchTerm"
-                         (ngModelChange)="onConversationSearchChange($event)"
-                         [disabled]="selectingAllConversations"
-                         placeholder="Search conversations...">
+                  <div class="inbox-search-input-wrapper">
+                    <input type="text" class="form-control" [ngModel]="conversationSearchTerm"
+                           (ngModelChange)="onConversationSearchChange($event)"
+                           [disabled]="selectingAllConversations"
+                           placeholder="Search conversations...">
+                    @if (conversationSearchTerm) {
+                      <button type="button" class="inbox-search-clear" aria-label="Clear search"
+                              [disabled]="selectingAllConversations"
+                              (click)="onConversationSearchChange('')">
+                        <fa-icon [icon]="faXmark"/>
+                      </button>
+                    }
+                  </div>
                 </div>
               }
             </div>
@@ -451,10 +586,10 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
               }
             </div>
           }
-          <div class="inbox-thread-list" [class.inbox-list-compact]="layout.compactList" [class.inbox-list-drag-selecting]="dragSelectActive" tabindex="0" (keydown)="onThreadListKeydown($event)" (scroll)="rememberListPosition($event)"
-               (mousedown)="onThreadListMouseDown($event)" (mousemove)="onThreadListMouseMove($event)" (mouseup)="onThreadListMouseUp()"
+          <div class="inbox-thread-list" [class.inbox-list-compact]="layout.compactList" [class.inbox-list-has-location]="panel.maximised && !layout.mobile && !viewingDrafts" [class.inbox-list-range-selecting]="rangeSelectActive" tabindex="0" (keydown)="onThreadListKeydown($event)" (scroll)="rememberListPosition($event)"
                [style.--inbox-from]="layout.columnShare.from + 'fr'"
                [style.--inbox-to]="layout.columnShare.to + 'fr'"
+               [style.--inbox-location]="layout.columnShare.location + 'fr'"
                [style.--inbox-subject]="layout.columnShare.subject + 'fr'"
                [style.--inbox-date]="layout.columnShare.date + 'fr'">
           @if (layout.compactList && !viewingDrafts) {
@@ -470,6 +605,9 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                      (change)="toggleSelectAll()">
               <span class="inbox-column-label"><span class="inbox-column-text">From</span><button type="button" class="inbox-col-resize" aria-label="Resize From" (pointerdown)="layout.startColumnResize($event, InboxColumnResizeEdge.FROM)"></button></span>
               <span class="inbox-column-label"><span class="inbox-column-text">To</span><button type="button" class="inbox-col-resize" aria-label="Resize To" (pointerdown)="layout.startColumnResize($event, InboxColumnResizeEdge.TO)"></button></span>
+              @if (panel.maximised && !layout.mobile && !viewingDrafts) {
+                <span class="inbox-column-label inbox-column-location"><span class="inbox-column-text">Folder or role</span><button type="button" class="inbox-col-resize" aria-label="Resize Folder or role" (pointerdown)="layout.startColumnResize($event, InboxColumnResizeEdge.LOCATION)"></button></span>
+              }
               <span class="inbox-column-label"><span class="inbox-column-text">Subject</span><button type="button" class="inbox-col-resize" aria-label="Resize Subject" (pointerdown)="layout.startColumnResize($event, InboxColumnResizeEdge.SUBJECT)"></button></span>
               <span class="inbox-column-label">Date</span>
             </div>
@@ -501,27 +639,37 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                  [class.unread]="conversationUnread(thread)"
                  [attr.data-thread-id]="threadRowKey(thread)"
                  [attr.data-thread-index]="threadIndex"
+                 [class.inbox-thread-draggable]="canDragThreads"
+                 (pointerdown)="onThreadRowPointerDown($event, thread)"
                  (touchstart)="startThreadSwipe($event)"
                  (touchend)="finishThreadSwipe($event, thread)"
-                 (click)="selectThread(thread)">
+                 (click)="selectThread(thread, $event)">
               @if (layout.compactList) {
                 <input type="checkbox" class="form-check-input m-0"
                        [checked]="conversationSelected(thread)"
-                       (click)="$event.stopPropagation(); toggleThreadSelection(thread)">
+                       (pointerdown)="onThreadCheckboxPointerDown($event, thread)"
+                       (click)="$event.stopPropagation(); onThreadCheckboxClick($event, thread)">
                 <div class="inbox-thread-from text-truncate">{{ viewingSent ? sentPartyLabel(thread, true) : (threadRowFrom(thread) || 'No external address') }}</div>
                 <div class="inbox-thread-recipient text-truncate">{{ viewingSent ? sentPartyLabel(thread, false) : (threadRowTo(thread) || '') }}</div>
+                @if (panel.maximised && !layout.mobile && !viewingDrafts) {
+                  <div class="inbox-thread-location text-truncate">{{ threadLocationLabel(thread) }}</div>
+                }
                 <div class="inbox-thread-subject text-truncate">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
                 <div class="inbox-thread-time">{{(viewingSent ? thread.lastOutboundAt || thread.lastSeenAt : thread.lastSeenAt) | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}</div>
               } @else {
                 <input type="checkbox" class="form-check-input flex-shrink-0 m-0"
                        [checked]="conversationSelected(thread)"
-                       (click)="$event.stopPropagation(); toggleThreadSelection(thread)">
+                       (pointerdown)="onThreadCheckboxPointerDown($event, thread)"
+                       (click)="$event.stopPropagation(); onThreadCheckboxClick($event, thread)">
                 <div class="flex-grow-1 min-w-0">
                   <div class="d-flex align-items-center gap-2">
                     @if (conversationUnread(thread)) {
                       <span class="inbox-unread-dot flex-shrink-0" aria-label="Unread"></span>
                     }
                     <div class="inbox-thread-from flex-grow-1 text-truncate">{{ viewingSent ? sentPartyLabel(thread, true) : (threadRowFrom(thread) || 'No external address') }}</div>
+                    @if (panel.maximised && !layout.mobile && !viewingDrafts) {
+                      <div class="inbox-thread-location flex-shrink-0 text-truncate">{{ threadLocationLabel(thread) }}</div>
+                    }
                     <div class="inbox-thread-time flex-shrink-0">{{(viewingSent ? thread.lastOutboundAt || thread.lastSeenAt : thread.lastSeenAt) | date: UIDateFormat.MONTH_DAY_YEAR_ABBREVIATED_TIME_WITH_SECONDS}}</div>
                   </div>
                   <div class="inbox-thread-subject">{{thread.subject || thread.normalisedSubject || "(no subject)"}}</div>
@@ -642,6 +790,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly UIDateFormat = UIDateFormat;
 
   private logger: Logger = inject(LoggerFactory).createLogger("InboxComponent", NgxLoggerLevel.ERROR);
+  private ngZone = inject(NgZone);
   protected layout = inject(InboxLayoutService);
   private inboxService = inject(InboxService);
   private messageRendering = inject(InboxMessageRenderingService);
@@ -667,6 +816,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private urlService = inject(UrlService);
   protected readonly faInbox = faInbox;
+  protected readonly faFolder = faFolder;
+  protected readonly faPlus = faPlus;
   protected readonly faBars = faBars;
   protected readonly faBan = faBan;
   protected readonly faPaperPlane = faPaperPlane;
@@ -821,6 +972,9 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     const folder = thread?.folder;
     if (folder === InboxThreadFolder.DELETED || folder === InboxThreadFolder.JUNK || folder === InboxThreadFolder.SENT || folder === InboxThreadFolder.DRAFTS) {
       return folder;
+    } else if (thread.userFolderId) {
+      const filed = this.userFolders.find(folder => folder.id === thread.userFolderId);
+      return filed ? inboxUserFolderView(filed) : InboxViewScope.FOLDERS;
     } else {
       const alias = this.aliases.find(candidate => candidate.roleType === thread.roleType);
       return alias ? alias.roleType : InboxViewScope.ALL_ACCESSIBLE;
@@ -838,6 +992,12 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (folder === InboxThreadFolder.DRAFTS) {
       return this.viewingDrafts;
     } else if (this.viewingDeleted || this.viewingJunk || this.viewingSent || this.viewingDrafts) {
+      return false;
+    } else if (this.viewingAllFolders) {
+      return !!thread.userFolderId;
+    } else if (this.viewingUserFolder) {
+      return thread.userFolderId === this.selectedUserFolderId;
+    } else if (thread.userFolderId) {
       return false;
     } else {
       const roleType = this.selectedRoleType();
@@ -859,6 +1019,56 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.selectedMailboxView === InboxThreadFolder.DRAFTS;
   }
 
+  get selectedUserFolderId(): string | null {
+    return inboxUserFolderIdFromView(this.selectedMailboxView, this.userFolders);
+  }
+
+  get viewingUserFolder(): boolean {
+    return !!this.selectedUserFolderId;
+  }
+
+  get viewingAllFolders(): boolean {
+    return this.selectedMailboxView === InboxViewScope.FOLDERS;
+  }
+
+  get foldersNodeActive(): boolean {
+    return this.viewingAllFolders;
+  }
+
+  get foldersUnreadCount(): number {
+    return this.userFolders.reduce((total, folder) => total + (folder.unreadCount || 0), 0);
+  }
+
+  get listMailboxUserFolderId(): string | null {
+    if (this.viewingAllFolders) {
+      return InboxUserFolderQuery.ALL;
+    } else {
+      return this.selectedUserFolderId;
+    }
+  }
+
+  threadLocationLabel(thread: InboxThread): string {
+    const folderName = thread.userFolderId
+      ? this.userFolders.find(folder => folder.id === thread.userFolderId)?.name ?? null
+      : null;
+    const alias = this.aliases.find(candidate => candidate.roleType === thread.roleType);
+    const roleName = alias ? this.aliasDisplayLabel(alias) : this.roleLabel(thread.roleType);
+    return inboxThreadLocationLabel(folderName, roleName);
+  }
+
+  get canDragThreads(): boolean {
+    return !this.viewingSent && !this.viewingJunk && !this.viewingDeleted && !this.viewingDrafts;
+  }
+
+  get canFileSelectedConversations(): boolean {
+    return this.canDragThreads && this.userFolders.length > 0;
+  }
+
+  get foldersForMoveMenu(): InboxUserFolderView[] {
+    const current = this.selectedUserFolderId;
+    return current ? this.userFolders.filter(folder => folder.id !== current) : this.userFolders;
+  }
+
   openDraft(draft: EmailCompositionSummary): void {
     void this.router.navigate(["/" + AdminPath.EMAIL_COMPOSER], {queryParams: {[StoredValue.DRAFT_ID]: draft.id}});
   }
@@ -872,15 +1082,210 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private async loadUserFolders(): Promise<void> {
+    try {
+      this.userFolders = (await this.inboxService.listFolders()).folders;
+    } catch (error) {
+      this.logger.warn("loadUserFolders failed", error);
+      this.userFolders = [];
+    }
+  }
+
+  startCreateFolder(): void {
+    this.creatingFolder = true;
+    this.newFolderName = "";
+    this.foldersNodeExpanded = true;
+  }
+
+  cancelCreateFolder(): void {
+    this.creatingFolder = false;
+    this.newFolderName = "";
+  }
+
+  async createUserFolder(): Promise<void> {
+    const name = this.newFolderName.trim();
+    if (name && !this.busy) {
+      this.busy = true;
+      try {
+        const created = await this.inboxService.createFolder(name);
+        this.userFolders = [...this.userFolders, created];
+        this.cancelCreateFolder();
+        this.selectMailboxView(inboxUserFolderView(created));
+      } catch (error) {
+        this.notify.error({title: "Create folder", message: (error as Error).message});
+      } finally {
+        this.busy = false;
+      }
+    }
+  }
+
+  startDeleteUserFolder(folder: InboxUserFolderView): void {
+    this.cancelRenameFolder();
+    this.clearFolderHoldTimer();
+    this.folderPendingDeleteId = folder.id;
+  }
+
+  cancelDeleteUserFolder(): void {
+    this.folderPendingDeleteId = null;
+  }
+
+  async confirmDeleteUserFolder(folder: InboxUserFolderView, contents: InboxFolderDeleteContents): Promise<void> {
+    this.busy = true;
+    try {
+      await this.inboxService.deleteFolder(folder.id, contents);
+      this.userFolders = this.userFolders.filter(item => item.id !== folder.id);
+      this.folderPendingDeleteId = null;
+      if (this.selectedUserFolderId === folder.id) {
+        this.selectMailboxView(contents === InboxFolderDeleteContents.DELETED ? InboxThreadFolder.DELETED : InboxViewScope.ALL_ACCESSIBLE);
+      } else {
+        await this.refresh(false);
+      }
+    } catch (error) {
+      this.notify.error({title: "Delete folder", message: (error as Error).message});
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  onFolderPointerDown(event: PointerEvent, folder: InboxUserFolderView): void {
+    if (event.button === 0) {
+      this.clearFolderHoldTimer();
+      this.folderHoldOrigin = {x: event.clientX, y: event.clientY};
+      this.folderHoldTimer = setTimeout(() => {
+        this.folderHoldTimer = null;
+        this.startRenameFolder(folder);
+      }, InboxComponent.FOLDER_HOLD_MS);
+    }
+  }
+
+  onFolderPointerMove(event: PointerEvent): void {
+    if (this.folderHoldTimer
+      && (Math.abs(event.clientX - this.folderHoldOrigin.x) >= InboxComponent.FOLDER_HOLD_MOVE_PX
+        || Math.abs(event.clientY - this.folderHoldOrigin.y) >= InboxComponent.FOLDER_HOLD_MOVE_PX)) {
+      this.clearFolderHoldTimer();
+    }
+  }
+
+  onFolderPointerEnd(): void {
+    this.clearFolderHoldTimer();
+  }
+
+  private clearFolderHoldTimer(): void {
+    if (this.folderHoldTimer) {
+      clearTimeout(this.folderHoldTimer);
+      this.folderHoldTimer = null;
+    }
+  }
+
+  startRenameFolder(folder: InboxUserFolderView): void {
+    this.renamingFolderId = folder.id;
+    this.renameFolderName = folder.name;
+    this.creatingFolder = false;
+    this.folderPendingDeleteId = null;
+  }
+
+  cancelRenameFolder(): void {
+    this.renamingFolderId = null;
+    this.renameFolderName = "";
+  }
+
+  async saveRenameFolder(): Promise<void> {
+    const folderId = this.renamingFolderId;
+    const name = this.renameFolderName.trim();
+    if (!folderId) {
+      this.cancelRenameFolder();
+    } else if (!name) {
+      this.cancelRenameFolder();
+    } else {
+      const current = this.userFolders.find(folder => folder.id === folderId);
+      if (current && current.name === name) {
+        this.cancelRenameFolder();
+      } else {
+        this.busy = true;
+        try {
+          const updated = await this.inboxService.renameFolder(folderId, name);
+          this.userFolders = this.userFolders.map(folder => folder.id === folderId ? {...folder, name: updated.name, slug: updated.slug} : folder);
+          if (this.selectedUserFolderId === folderId) {
+            this.selectedMailboxView = inboxUserFolderView(updated);
+          }
+          this.cancelRenameFolder();
+        } catch (error) {
+          this.notify.error({title: "Rename folder", message: (error as Error).message});
+        } finally {
+          this.busy = false;
+        }
+      }
+    }
+  }
+
+  onFoldersParentDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.foldersNodeExpanded = true;
+  }
+
+  onFolderDragOver(event: DragEvent, view: string): void {
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "move";
+    }
+    this.dropTargetView = view;
+  }
+
+  onFolderDragLeave(event: DragEvent, view: string): void {
+    const current = event.currentTarget instanceof Node ? event.currentTarget : null;
+    const related = event.relatedTarget instanceof Node ? event.relatedTarget : null;
+    if (!(current && related && current.contains(related)) && this.dropTargetView === view) {
+      this.dropTargetView = null;
+    }
+  }
+
+  async onFolderDrop(event: DragEvent, userFolderId: string | null): Promise<void> {
+    event.preventDefault();
+    this.dropTargetView = null;
+    const raw = event.dataTransfer?.getData("text/plain") || "[]";
+    try {
+      const parsed = JSON.parse(raw);
+      const threadIds = isArray(parsed) ? parsed.filter(id => isString(id)) : [];
+      await this.fileThreadsToFolder(threadIds, userFolderId);
+    } catch (error) {
+      this.logger.warn("Folder drop ignored", error);
+    }
+  }
+
+  private async fileThreadsToFolder(threadIds: string[], userFolderId: string | null): Promise<void> {
+    if (threadIds.length > 0) {
+      this.busy = true;
+      try {
+        await this.inboxService.moveThreadsToFolder(threadIds, userFolderId);
+        this.clearThreadSelection();
+        await this.refresh(false);
+      } catch (error) {
+        this.notify.error({title: "Move to folder", message: (error as Error).message});
+      } finally {
+        this.busy = false;
+      }
+    }
+  }
+
   get inboxNodeActive(): boolean {
     return this.selectedMailboxView === InboxViewScope.ALL_ACCESSIBLE;
+  }
+
+  selectAllFoldersView(): void {
+    this.foldersNodeExpanded = true;
+    this.selectMailboxView(InboxViewScope.FOLDERS);
   }
 
   selectMailboxView(view: string): void {
     if (view !== this.selectedMailboxView) {
       this.clearThreadSelection();
+      this.folderPendingDeleteId = null;
+      this.cancelRenameFolder();
     }
     this.selectedMailboxView = view;
+    if (this.viewingAllFolders || this.viewingUserFolder) {
+      this.foldersNodeExpanded = true;
+    }
     this.layout.mobileNavOpen = false;
     if (this.layout.mobile) {
       this.layout.mobileShowDetail = false;
@@ -939,6 +1344,16 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   public selectedMessages: InboxMessage[] = [];
   public loadingThread = false;
   public selectedMailboxView: string = InboxViewScope.ALL_ACCESSIBLE;
+  public userFolders: InboxUserFolderView[] = [];
+  public foldersNodeExpanded = true;
+  public creatingFolder = false;
+  public newFolderName = "";
+  public renamingFolderId: string | null = null;
+  public renameFolderName = "";
+  public folderPendingDeleteId: string | null = null;
+  public dropTargetView: string | null = null;
+  protected readonly inboxUserFolderView = inboxUserFolderView;
+  protected readonly InboxFolderDeleteContents = InboxFolderDeleteContents;
   public busy = false;
   public deletingSelected = false;
   public selectingAllConversations = false;
@@ -960,6 +1375,19 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.layout.observeLayoutSize();
   }
 
+  @ViewChild("newFolderNameInput") set newFolderNameInput(ref: ElementRef<HTMLInputElement> | null) {
+    if (ref) {
+      ref.nativeElement.focus();
+    }
+  }
+
+  @ViewChild("renameFolderInput") set renameFolderInput(ref: ElementRef<HTMLInputElement> | null) {
+    if (ref) {
+      ref.nativeElement.focus();
+      ref.nativeElement.select();
+    }
+  }
+
   @ViewChild("inboxShell") set inboxShell(ref: ElementRef<HTMLElement> | null) {
     this.layout.attachShell(ref);
     this.layout.observeLayoutSize();
@@ -976,11 +1404,28 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private touchStartX = 0;
   private touchStartY = 0;
   private suppressThreadClick = false;
-  private dragSelectAnchorIndex: number | null = null;
-  protected dragSelectActive = false;
-  private dragSelectStartY = 0;
-  private dragSelectAdditive = false;
-  private static readonly DRAG_SELECT_THRESHOLD_PX = 12;
+  private suppressCheckboxClick = false;
+  protected rangeSelectActive = false;
+  private rangeSelectAnchorIndex: number | null = null;
+  private rangeSelectAdditive = false;
+  private rangeSelectStartX = 0;
+  private rangeSelectStartY = 0;
+  private rangeSelectLastIndex: number | null = null;
+  private rangeSelectCleanup: (() => void) | null = null;
+  private rangeSelectPointerId: number | null = null;
+  private rangeSelectAllowFile = false;
+  private rangeSelectPreferFile = false;
+  private rangeSelectFileIds: string[] = [];
+  private fileDragActive = false;
+  private fileDropOverFolder = false;
+  private fileDropFolderId: string | null = null;
+  private fileDragGhost: HTMLElement | null = null;
+  private static readonly RANGE_SELECT_THRESHOLD_PX = 6;
+  private static readonly FILE_DRAG_THRESHOLD_PX = 8;
+  private static readonly FOLDER_HOLD_MS = 550;
+  private static readonly FOLDER_HOLD_MOVE_PX = 8;
+  private folderHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  private folderHoldOrigin = {x: 0, y: 0};
 
   private subscriptions: Subscription[] = [];
   private openThreadRequestId = 0;
@@ -994,7 +1439,13 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener("window:keydown", ["$event"])
   onWindowKeydown(event: KeyboardEvent): void {
-    if (event.key === "Escape" && this.selectedThreadIds.size > 0) {
+    if (event.key === "Escape" && this.renamingFolderId) {
+      event.preventDefault();
+      this.cancelRenameFolder();
+    } else if (event.key === "Escape" && this.folderPendingDeleteId) {
+      event.preventDefault();
+      this.cancelDeleteUserFolder();
+    } else if (event.key === "Escape" && this.selectedThreadIds.size > 0) {
       event.preventDefault();
       this.clearThreadSelection();
     }
@@ -1002,7 +1453,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener("window:mouseup")
   onWindowMouseUp(): void {
-    this.onThreadListMouseUp();
+    this.onFolderPointerEnd();
   }
 
   async ngOnInit(): Promise<void> {
@@ -1058,24 +1509,36 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
     }
+    this.clearFolderHoldTimer();
     this.dismissPendingDelete();
+    this.stopRangeSelect(false);
   }
 
-  selectThread(thread: InboxThread): void {
+  selectThread(thread: InboxThread, event?: MouseEvent): void {
     if (this.suppressThreadClick) {
       this.suppressThreadClick = false;
-      return;
+    } else {
+      if (this.layout.mobile) {
+        this.layout.mobileShowDetail = true;
+        this.layout.mobileFiltersOpen = false;
+        this.layout.compactDetailHeader = false;
+      }
+      const index = this.filteredThreads.findIndex(candidate => this.threadRowKey(candidate) === this.threadRowKey(thread));
+      if (event?.shiftKey && index >= 0) {
+        const anchor = this.keyboardSelectionAnchorIndex ?? index;
+        this.selectThreadRange(anchor, index);
+        this.keyboardSelectionAnchorIndex = anchor;
+      } else if (event?.metaKey || event?.ctrlKey) {
+        this.toggleThreadSelection(thread);
+        this.keyboardSelectionAnchorIndex = index >= 0 ? index : this.keyboardSelectionAnchorIndex;
+      } else if (!(this.conversationSelected(thread) && this.selectedConversationCount > 1)) {
+        this.selectedThreadIds.clear();
+        this.allAvailableSelected = false;
+        this.selectedThreadIds.add(this.threadRowKey(thread));
+        this.keyboardSelectionAnchorIndex = index >= 0 ? index : null;
+      }
+      void this.openThread(thread);
     }
-    if (this.layout.mobile) {
-      this.layout.mobileShowDetail = true;
-      this.layout.mobileFiltersOpen = false;
-      this.layout.compactDetailHeader = false;
-    }
-    this.selectedThreadIds.clear();
-    this.allAvailableSelected = false;
-    this.selectedThreadIds.add(this.threadRowKey(thread));
-    this.keyboardSelectionAnchorIndex = this.filteredThreads.findIndex(candidate => this.threadRowKey(candidate) === this.threadRowKey(thread));
-    void this.openThread(thread);
   }
 
   backToList(): void {
@@ -1142,32 +1605,176 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     }, null);
   }
 
-  onThreadListMouseDown(event: MouseEvent): void {
-    const target = event.target as HTMLElement;
-    if (event.button === 0 && !target.closest("input, button, a")) {
-      const index = this.threadIndexAtPoint(event.clientX, event.clientY);
-      this.dragSelectAnchorIndex = index >= 0 ? index : null;
-      this.dragSelectActive = false;
-      this.dragSelectStartY = event.clientY;
-      this.dragSelectAdditive = event.shiftKey;
+  onThreadRowPointerDown(event: PointerEvent, thread: InboxThread): void {
+    if (event.pointerType !== "touch" && event.button === 0 && !(event.target as HTMLElement).closest("input, button, a, .inbox-col-resize")) {
+      const index = this.filteredThreads.findIndex(candidate => this.threadRowKey(candidate) === this.threadRowKey(thread));
+      if (index >= 0) {
+        this.beginRowGesture(event, index, thread, this.canDragThreads);
+      }
     }
   }
 
-  onThreadListMouseMove(event: MouseEvent): void {
-    if (this.dragSelectAnchorIndex !== null && (event.buttons & 1) === 1) {
-      const index = this.threadIndexAtPoint(event.clientX, event.clientY);
-      if (!this.dragSelectActive
-        && index >= 0
-        && index !== this.dragSelectAnchorIndex
-        && Math.abs(event.clientY - this.dragSelectStartY) >= InboxComponent.DRAG_SELECT_THRESHOLD_PX) {
-        this.dragSelectActive = true;
-        this.suppressThreadClick = true;
-      }
-      if (this.dragSelectActive && index >= 0) {
-        this.keyboardSelectionAnchorIndex = this.dragSelectAnchorIndex;
-        this.applyDragSelection(this.dragSelectAnchorIndex, index);
+  onThreadCheckboxPointerDown(event: PointerEvent, thread: InboxThread): void {
+    if (event.pointerType !== "touch" && event.button === 0) {
+      event.stopPropagation();
+      const index = this.filteredThreads.findIndex(candidate => this.threadRowKey(candidate) === this.threadRowKey(thread));
+      if (index >= 0) {
+        this.beginRowGesture(event, index, thread, false);
       }
     }
+  }
+
+  onThreadCheckboxClick(event: MouseEvent, thread: InboxThread): void {
+    if (this.suppressCheckboxClick) {
+      this.suppressCheckboxClick = false;
+    } else {
+      this.toggleThreadSelection(thread);
+      this.keyboardSelectionAnchorIndex = this.filteredThreads.findIndex(candidate => this.threadRowKey(candidate) === this.threadRowKey(thread));
+    }
+  }
+
+  private beginRowGesture(event: PointerEvent, index: number, thread: InboxThread, allowFileDrag: boolean): void {
+    this.stopRangeSelect(false);
+    this.rangeSelectAnchorIndex = index;
+    this.rangeSelectAdditive = event.shiftKey || event.metaKey || event.ctrlKey;
+    this.rangeSelectActive = false;
+    this.rangeSelectStartX = event.clientX;
+    this.rangeSelectStartY = event.clientY;
+    this.rangeSelectLastIndex = index;
+    this.rangeSelectAllowFile = allowFileDrag;
+    this.rangeSelectPointerId = event.pointerId;
+    const id = this.threadIdOf(thread);
+    const selected = this.selectedActionIds();
+    this.rangeSelectPreferFile = allowFileDrag && this.conversationSelected(thread) && selected.length > 0 && !event.shiftKey;
+    this.rangeSelectFileIds = this.rangeSelectPreferFile
+      ? [...new Set([id, ...selected])]
+      : [id];
+    this.fileDragActive = false;
+    this.fileDropOverFolder = false;
+    const row = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    row?.setPointerCapture(event.pointerId);
+    this.ngZone.runOutsideAngular(() => {
+      const move = (moveEvent: PointerEvent) => {
+        if (moveEvent.pointerId === this.rangeSelectPointerId) {
+          this.onRangeSelectMove(moveEvent);
+        }
+      };
+      const up = (upEvent: PointerEvent) => {
+        if (upEvent.pointerId === this.rangeSelectPointerId) {
+          this.stopRangeSelect(true);
+        }
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
+      document.addEventListener("pointercancel", up);
+      this.rangeSelectCleanup = () => {
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        document.removeEventListener("pointercancel", up);
+        if (row && this.rangeSelectPointerId !== null) {
+          try {
+            row.releasePointerCapture(this.rangeSelectPointerId);
+          } catch {
+          }
+        }
+      };
+    });
+  }
+
+  private onRangeSelectMove(event: PointerEvent): void {
+    if (this.rangeSelectAnchorIndex === null) {
+    } else if (this.fileDragActive) {
+      this.positionFileDragGhost(event.clientX, event.clientY);
+      this.updateFileDropAtPoint(event.clientX, event.clientY);
+    } else {
+      const index = this.threadIndexAtPoint(event.clientX, event.clientY);
+      const dx = event.clientX - this.rangeSelectStartX;
+      const dy = event.clientY - this.rangeSelectStartY;
+      const distance = Math.hypot(dx, dy);
+      const rangeMode = !this.rangeSelectAllowFile || this.rangeSelectAdditive;
+      const crossedRow = index >= 0 && index !== this.rangeSelectAnchorIndex
+        && Math.abs(dy) >= InboxComponent.RANGE_SELECT_THRESHOLD_PX;
+      if (rangeMode && !this.rangeSelectActive && crossedRow) {
+        this.ngZone.run(() => {
+          this.rangeSelectActive = true;
+          this.suppressThreadClick = true;
+          this.suppressCheckboxClick = true;
+          this.applyRangeSelect(this.rangeSelectAnchorIndex as number, index);
+        });
+      } else if (rangeMode && this.rangeSelectActive && index >= 0 && index !== this.rangeSelectLastIndex) {
+        this.ngZone.run(() => this.applyRangeSelect(this.rangeSelectAnchorIndex as number, index));
+      } else if (this.rangeSelectAllowFile && !this.rangeSelectActive && !rangeMode
+        && distance >= InboxComponent.FILE_DRAG_THRESHOLD_PX) {
+        this.ngZone.run(() => this.startFileDrag(event.clientX, event.clientY));
+      }
+    }
+  }
+
+  private startFileDrag(clientX: number, clientY: number): void {
+    this.fileDragActive = true;
+    this.suppressThreadClick = true;
+    this.foldersNodeExpanded = true;
+    this.removeFileDragGhost();
+    const ghost = document.createElement("div");
+    ghost.className = "inbox-drag-ghost";
+    ghost.textContent = this.stringUtils.pluraliseWithCount(this.rangeSelectFileIds.length, "conversation");
+    document.body.appendChild(ghost);
+    this.fileDragGhost = ghost;
+    this.positionFileDragGhost(clientX, clientY);
+    this.updateFileDropAtPoint(clientX, clientY);
+  }
+
+  private positionFileDragGhost(clientX: number, clientY: number): void {
+    if (this.fileDragGhost) {
+      this.fileDragGhost.style.left = `${clientX + 12}px`;
+      this.fileDragGhost.style.top = `${clientY + 8}px`;
+    }
+  }
+
+  private removeFileDragGhost(): void {
+    this.fileDragGhost?.remove();
+    this.fileDragGhost = null;
+  }
+
+  private dropFolderAtPoint(clientX: number, clientY: number): {id: string | null} | null {
+    const hit = document.elementFromPoint(clientX, clientY);
+    const node = hit instanceof Element ? hit.closest("[data-drop-folder]") : null;
+    const raw = node?.getAttribute("data-drop-folder");
+    if (raw === "inbox") {
+      return {id: null};
+    } else if (raw) {
+      return {id: raw};
+    } else {
+      return null;
+    }
+  }
+
+  private updateFileDropAtPoint(clientX: number, clientY: number): void {
+    const folder = this.dropFolderAtPoint(clientX, clientY);
+    const apply = () => {
+      if (folder) {
+        this.fileDropOverFolder = true;
+        this.fileDropFolderId = folder.id;
+        this.dropTargetView = folder.id === null ? InboxViewScope.ALL_ACCESSIBLE : inboxUserFolderView(this.userFolders.find(item => item.id === folder.id) ?? {id: folder.id, name: "", slug: "", sortIndex: 0, unreadCount: 0});
+      } else {
+        this.fileDropOverFolder = false;
+        this.dropTargetView = null;
+      }
+    };
+    if (NgZone.isInAngularZone()) {
+      apply();
+    } else {
+      this.ngZone.run(apply);
+    }
+  }
+
+  private applyRangeSelect(fromIndex: number, toIndex: number): void {
+    this.rangeSelectLastIndex = toIndex;
+    this.keyboardSelectionAnchorIndex = fromIndex;
+    if (!this.rangeSelectAdditive) {
+      this.selectedThreadIds.clear();
+    }
+    this.selectThreadRange(fromIndex, toIndex);
   }
 
   private threadIndexAtPoint(clientX: number, clientY: number): number {
@@ -1178,12 +1785,34 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     return Number.isFinite(index) ? index : -1;
   }
 
-  onThreadListMouseUp(): void {
-    if (this.dragSelectActive) {
-      setTimeout(() => this.suppressThreadClick = false, 0);
+  private stopRangeSelect(commitFile = false): void {
+    const shouldFile = commitFile && this.fileDragActive && this.fileDropOverFolder;
+    const fileIds = this.rangeSelectFileIds;
+    const folderId = this.fileDropFolderId;
+    if (this.rangeSelectCleanup) {
+      this.rangeSelectCleanup();
+      this.rangeSelectCleanup = null;
     }
-    this.dragSelectAnchorIndex = null;
-    this.dragSelectActive = false;
+    if (this.rangeSelectActive || this.fileDragActive) {
+      setTimeout(() => {
+        this.suppressThreadClick = false;
+        this.suppressCheckboxClick = false;
+      }, 0);
+    }
+    this.rangeSelectAnchorIndex = null;
+    this.rangeSelectActive = false;
+    this.rangeSelectLastIndex = null;
+    this.rangeSelectAllowFile = false;
+    this.rangeSelectPointerId = null;
+    this.rangeSelectFileIds = [];
+    this.fileDragActive = false;
+    this.fileDropOverFolder = false;
+    this.rangeSelectPreferFile = false;
+    this.removeFileDragGhost();
+    this.dropTargetView = null;
+    if (shouldFile) {
+      void this.fileThreadsToFolder(fileIds, folderId);
+    }
   }
 
   startThreadSwipe(event: TouchEvent): void {
@@ -1245,6 +1874,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         this.mailboxViewInitialised = true;
       }
       void this.loadDrafts();
+      await this.loadUserFolders();
+      this.normaliseMailboxViewAfterFoldersLoad();
       if (this.viewingDrafts) {
         this.threads = [];
         this.threadListUnreadCount = 0;
@@ -1269,11 +1900,19 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         this.threadListUnreadCount = sentResponse.unreadCount;
         this.threadListTotalCount = sentResponse.totalCount;
         await this.reloadVisibleConversation(this.threads[0] ?? null);
+      } else if (this.viewingAllFolders || this.viewingUserFolder) {
+        const folderResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, this.readFilter === InboxReadFilter.UNREAD, null, null, null, this.conversationSearchTerm, this.listMailboxUserFolderId);
+        this.threads = folderResponse.threads;
+        this.threadListUnreadCount = folderResponse.unreadCount;
+        this.threadListTotalCount = folderResponse.totalCount;
+        const requestedFolderThread = await this.threadRequestedInUrl();
+        await this.reloadVisibleConversation(requestedFolderThread ?? this.threads[0] ?? null);
       } else {
         if (this.aliases.length === 1) {
           this.selectedMailboxView = this.aliases[0].roleType;
         } else if (!values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope)
           && !this.aliases.some(alias => alias.roleType === this.selectedMailboxView)
+          && !this.viewingUserFolder
           && this.selectedMailboxView !== InboxThreadFolder.SENT
           && this.selectedMailboxView !== InboxThreadFolder.DRAFTS
           && this.selectedMailboxView !== InboxThreadFolder.JUNK
@@ -1352,7 +1991,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       const roleType = this.selectedRoleType();
       const scope = roleType
         ? null
-        : this.viewingSent || this.viewingJunk || this.viewingDeleted
+        : this.viewingSent || this.viewingJunk || this.viewingDeleted || this.viewingUserFolder || this.viewingAllFolders
           ? InboxViewScope.ALL_ACCESSIBLE
           : this.selectedMailboxView as InboxViewScope;
       const folder = this.viewingSent
@@ -1362,7 +2001,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
           : this.viewingDeleted
             ? InboxThreadFolder.DELETED
             : null;
-      const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, InboxComponent.THREAD_PAGE_SIZE, folder, this.threads.length, this.conversationSearchTerm);
+      const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, InboxComponent.THREAD_PAGE_SIZE, folder, this.threads.length, this.conversationSearchTerm, this.listMailboxUserFolderId);
       this.threads = this.threads.concat(response.threads);
       this.threadListUnreadCount = response.unreadCount;
       this.threadListTotalCount = response.totalCount;
@@ -1414,7 +2053,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   selectedRoleType(): string | null {
-    return values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope) || this.viewingSent || this.viewingJunk || this.viewingDeleted
+    return values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope) || this.viewingSent || this.viewingJunk || this.viewingDeleted || this.viewingUserFolder || this.viewingAllFolders
       ? null
       : this.selectedMailboxView;
   }
@@ -1438,26 +2077,52 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private mailboxViewParam(): string {
-    if (values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope)) {
+    if (values(InboxViewScope).includes(this.selectedMailboxView as InboxViewScope) || this.viewingUserFolder) {
       return this.selectedMailboxView;
+    } else {
+      const alias = this.aliases.find(candidate => candidate.roleType === this.selectedMailboxView);
+      return alias ? alias.roleEmail.split("@")[0] : this.selectedMailboxView;
     }
-    const alias = this.aliases.find(candidate => candidate.roleType === this.selectedMailboxView);
-    return alias ? alias.roleEmail.split("@")[0] : this.selectedMailboxView;
   }
 
   private applyMailboxViewFromUrl(): void {
     const param = this.route.snapshot.queryParams[StoredValue.MAILBOX_VIEW];
-    if (!param) {
-      return;
+    if (param) {
+      if (values(InboxViewScope).includes(param as InboxViewScope)) {
+        this.selectedMailboxView = param;
+      } else if (hiddenInboxFolders().concat(InboxThreadFolder.SENT, InboxThreadFolder.DRAFTS).includes(param as InboxThreadFolder)) {
+        this.selectedMailboxView = param;
+      } else if (isInboxUserFolderView(param)) {
+        this.selectedMailboxView = param;
+      } else {
+        const alias = this.aliases.find(candidate => candidate.roleEmail.split("@")[0] === param);
+        if (alias) {
+          this.selectedMailboxView = alias.roleType;
+        }
+      }
     }
-    if (values(InboxViewScope).includes(param as InboxViewScope)) {
-      this.selectedMailboxView = param;
-    } else if (hiddenInboxFolders().concat(InboxThreadFolder.SENT, InboxThreadFolder.DRAFTS).includes(param as InboxThreadFolder)) {
-      this.selectedMailboxView = param;
-    } else {
-      const alias = this.aliases.find(candidate => candidate.roleEmail.split("@")[0] === param);
-      if (alias) {
-        this.selectedMailboxView = alias.roleType;
+  }
+
+  private normaliseMailboxViewAfterFoldersLoad(): void {
+    if (this.viewingAllFolders) {
+      this.foldersNodeExpanded = true;
+    } else if (isInboxUserFolderView(this.selectedMailboxView)) {
+      const folderId = this.selectedUserFolderId;
+      const folder = this.userFolders.find(item => item.id === folderId);
+      if (!folder) {
+        this.selectedMailboxView = InboxViewScope.ALL_ACCESSIBLE;
+      } else {
+        this.foldersNodeExpanded = true;
+        const slugView = inboxUserFolderView(folder);
+        if (this.selectedMailboxView !== slugView) {
+          this.selectedMailboxView = slugView;
+          void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: {[StoredValue.MAILBOX_VIEW]: slugView},
+            queryParamsHandling: "merge",
+            replaceUrl: true
+          });
+        }
       }
     }
   }
@@ -1624,7 +2289,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     const roleType = this.selectedRoleType();
     const scope = roleType
       ? null
-      : this.viewingSent || this.viewingJunk || this.viewingDeleted
+      : this.viewingSent || this.viewingJunk || this.viewingDeleted || this.viewingUserFolder || this.viewingAllFolders
         ? InboxViewScope.ALL_ACCESSIBLE
         : this.selectedMailboxView as InboxViewScope;
     const folder = this.viewingSent
@@ -1635,7 +2300,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
           ? InboxThreadFolder.DELETED
           : null;
     const pageSize = 200;
-    const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, pageSize, folder, this.threads.length, this.conversationSearchTerm);
+    const response = await this.inboxService.listThreads(roleType, scope, this.readFilter === InboxReadFilter.UNREAD, pageSize, folder, this.threads.length, this.conversationSearchTerm, this.listMailboxUserFolderId);
     this.threads = this.threads.concat(response.threads);
     this.threadListUnreadCount = response.unreadCount;
     this.threadListTotalCount = response.totalCount;
@@ -1717,6 +2382,27 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       this.logger.error("Failed to move conversations out of junk:", error);
     } finally {
       this.busy = false;
+    }
+  }
+
+  async moveSelectedToUserFolder(userFolderId: string | null): Promise<void> {
+    const ids = this.selectedActionIds();
+    if (ids.length > 0) {
+      this.busy = true;
+      try {
+        await this.inboxService.moveThreadsToFolder(ids, userFolderId);
+        this.clearThreadSelection();
+        await this.refresh(false);
+        const destination = userFolderId
+          ? this.userFolders.find(folder => folder.id === userFolderId)?.name ?? "folder"
+          : "Inbox";
+        this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} moved to ${destination}`});
+      } catch (error) {
+        this.notify.error({title: "Move to folder", message: (error as Error).message});
+        this.logger.error("Failed to move conversations to a folder:", error);
+      } finally {
+        this.busy = false;
+      }
     }
   }
 
@@ -1854,14 +2540,13 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   threadSlug(thread: InboxThread): string {
-    const sanitised = (thread.normalisedSubject || "").replace(/\p{Extended_Pictographic}/gu, "");
-    return kebabCase(sanitised) || String(thread.firstSeenAt ?? thread.lastSeenAt ?? "");
+    return inboxThreadUrlSlug(thread);
   }
 
   private syncThreadToUrl(thread: InboxThread | null): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {[StoredValue.THREAD]: thread ? this.threadIdOf(thread) : null},
+      queryParams: {[StoredValue.THREAD]: thread ? this.threadSlug(thread) : null},
       queryParamsHandling: "merge",
       replaceUrl: true
     });
@@ -1904,13 +2589,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedThreadIds.clear();
     this.allAvailableSelected = false;
     this.keyboardSelectionAnchorIndex = this.currentConversationIndex();
-  }
-
-  private applyDragSelection(fromIndex: number, toIndex: number): void {
-    if (!this.dragSelectAdditive) {
-      this.selectedThreadIds.clear();
-    }
-    this.selectThreadRange(fromIndex, toIndex);
   }
 
   private selectThreadRange(fromIndex: number, toIndex: number): void {
@@ -2090,7 +2768,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         queryParams: {
           [StoredValue.BRANDING]: BrandingMode.UNBRANDED,
           [StoredValue.TAB]: EmailComposerStepKey.COMPOSE,
-          [StoredValue.THREAD]: this.threadIdOf(this.selectedThread),
+          [StoredValue.THREAD]: this.threadSlug(this.selectedThread),
           [StoredValue.MESSAGE]: target.messageId,
           ...(options.replyAll ? {[StoredValue.REPLY_ALL]: "true"} : {}),
           ...(options.forward ? {[StoredValue.FORWARD]: "true"} : {}),

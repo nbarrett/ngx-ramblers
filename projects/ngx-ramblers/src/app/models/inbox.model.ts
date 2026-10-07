@@ -55,7 +55,12 @@ export enum InboxAccessMode {
 
 export enum InboxViewScope {
   ALL_ACCESSIBLE = "all-accessible",
-  ASSIGNED_ROLES = "assigned-roles"
+  ASSIGNED_ROLES = "assigned-roles",
+  FOLDERS = "folders"
+}
+
+export enum InboxUserFolderQuery {
+  ALL = "all"
 }
 
 export enum InboxPrivacyMode {
@@ -102,6 +107,7 @@ export enum InboxGroupingMode {
 export interface InboxColumnShare {
   from: number;
   to: number;
+  location: number;
   subject: number;
   date: number;
 }
@@ -109,6 +115,7 @@ export interface InboxColumnShare {
 export enum InboxColumnResizeEdge {
   FROM = "from",
   TO = "to",
+  LOCATION = "location",
   SUBJECT = "subject"
 }
 
@@ -120,6 +127,38 @@ export function hiddenInboxFolders(): InboxThreadFolder[] {
 
 export function foldersExcludedFromInboxList(): InboxThreadFolder[] {
   return [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED, InboxThreadFolder.SENT, InboxThreadFolder.DRAFTS];
+}
+
+export const INBOX_USER_FOLDER_VIEW_PREFIX = "folder:";
+
+export interface InboxUserFolder extends Identifiable {
+  tenantSlug: string;
+  name: string;
+  slug: string;
+  sortIndex: number;
+  createdByMemberId: string | null;
+}
+
+export interface InboxUserFolderView {
+  id: string;
+  name: string;
+  slug: string;
+  sortIndex: number;
+  unreadCount: number;
+}
+
+export interface InboxUserFoldersResponse {
+  folders: InboxUserFolderView[];
+}
+
+export interface InboxThreadMoveRequest {
+  threadIds: string[];
+  userFolderId: string | null;
+}
+
+export enum InboxFolderDeleteContents {
+  INBOX = "inbox",
+  DELETED = "deleted"
 }
 
 export interface InboxMailboxConnection extends Identifiable {
@@ -362,6 +401,7 @@ export interface InboxThread extends Identifiable {
   normalisedSubject: string;
   slug?: string;
   folder?: InboxThreadFolder;
+  userFolderId?: string | null;
   deletedAt?: number | null;
   messageIds: string[];
   firstSeenAt: number;

@@ -8,6 +8,7 @@ import { listMailboxConnections, createMailboxConnection, deleteMailboxConnectio
 import { readPubsubPushConfig, receivePubsubPush, readPushPublicKey, subscribeInboxPush, unsubscribeInboxPush } from "./inbox-push-controllers";
 import { listInboxAliases, readJunkAccess, updateRoleNotifications, updateRoleNotificationEmail, updateAliasNotifications } from "./inbox-aliases-controllers";
 import { readInboxUnreadCounts, listInboxThreads } from "./inbox-thread-list-controllers";
+import { createInboxFolder, deleteInboxFolder, listInboxFolders, moveThreadsToUserFolder, renameInboxFolder } from "./inbox-folders-controllers";
 import { readInboxThread, markThreadRead, markThreadUnread, deleteInboxThread, restoreInboxThread, moveThreadToInbox } from "./inbox-thread-actions-controllers";
 import { listOrphanedThreads, remapOrphanedThreads, restoreOrphanedThreads } from "./inbox-repair-controllers";
 
@@ -31,6 +32,11 @@ router.put("/aliases/:roleType/notifications", authConfig.authenticate(), update
 router.put("/aliases/:roleType/notification-email", authConfig.authenticate(), updateRoleNotificationEmail);
 router.put("/aliases/notifications", authConfig.authenticate(), updateAliasNotifications);
 router.get("/unread-counts", authConfig.authenticate(), readInboxUnreadCounts);
+router.get("/folders", authConfig.authenticate(), listInboxFolders);
+router.post("/folders", authConfig.authenticate(), createInboxFolder);
+router.put("/folders/:id", authConfig.authenticate(), renameInboxFolder);
+router.delete("/folders/:id", authConfig.authenticate(), deleteInboxFolder);
+router.post("/threads/move", authConfig.authenticate(), moveThreadsToUserFolder);
 router.get("/threads", authConfig.authenticate(), listInboxThreads);
 router.get("/unassigned-roles", authConfig.authenticate(), handleUnassignedCommitteeRoles);
 router.get("/orphaned-threads", authConfig.authenticate(), listOrphanedThreads);

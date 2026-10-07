@@ -1,13 +1,35 @@
 import { kebabCase } from "es-toolkit/compat";
-import { InboxAddress, InboxAliasConfig, InboxColumnShare, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, isInboxGeneralRoleType } from "../models/inbox.model";
-import { normaliseEmail } from "./strings";
+import { InboxAddress, InboxAliasConfig, InboxColumnShare, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, InboxUserFolderView, INBOX_USER_FOLDER_VIEW_PREFIX, isInboxGeneralRoleType } from "../models/inbox.model";
+import { normaliseEmail, transliterated } from "./strings";
 
 export const INBOX_SEND_COLLAPSE_WINDOW_MS = 5 * 60 * 1000;
 
 export function validatedInboxColumnShare(candidate: Partial<InboxColumnShare>, fallback: InboxColumnShare): InboxColumnShare {
-  const values = [candidate.from, candidate.to, candidate.subject, candidate.date];
+  const location = Number.isFinite(candidate.location) ? candidate.location as number : fallback.location;
+  const values = [candidate.from, candidate.to, location, candidate.subject, candidate.date];
   const valid = values.every(value => Number.isFinite(value) && (value ?? 0) >= 0.1 && (value ?? 0) <= 20);
-  return valid ? candidate as InboxColumnShare : {...fallback};
+  if (valid) {
+    return {
+      from: candidate.from as number,
+      to: candidate.to as number,
+      location,
+      subject: candidate.subject as number,
+      date: candidate.date as number
+    };
+  } else {
+    return {...fallback};
+  }
+}
+
+export function inboxThreadLocationLabel(
+  folderName: string | null,
+  roleName: string
+): string {
+  if (folderName) {
+    return folderName;
+  } else {
+    return roleName;
+  }
 }
 
 export function inboxThreadId(thread: InboxThread): string {
@@ -18,8 +40,71 @@ export function inboxThreadSlug(thread: InboxThread): string {
   return kebabCase(thread?.normalisedSubject || thread?.subject || "");
 }
 
+export function inboxThreadUrlSlug(thread: InboxThread): string {
+  return thread?.slug || inboxThreadSlug(thread) || inboxThreadId(thread);
+}
+
 export function isInboxThreadMongoId(value: string): boolean {
   return /^[a-f0-9]{24}$/i.test(value);
+}
+
+export function inboxFolderSlug(name: string | null | undefined): string {
+  return kebabCase(transliterated(name || "")) || "folder";
+}
+
+export function uniqueInboxFolderSlug(preferred: string, takenSlugs: string[]): string {
+  const base = preferred || "folder";
+  const taken = (takenSlugs || []).filter(Boolean);
+  if (!taken.includes(base)) {
+    return base;
+  } else {
+    const numbered = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+      .map(n => `${base}-${n}`)
+      .find(candidate => !taken.includes(candidate));
+    return numbered ?? `${base}-${taken.length + 1}`;
+  }
+}
+
+export function inboxUserFolderView(folder: Pick<InboxUserFolderView, "id" | "name"> & {slug?: string}): string {
+  return `${INBOX_USER_FOLDER_VIEW_PREFIX}${folder.slug || inboxFolderSlug(folder.name) || folder.id}`;
+}
+
+export function inboxUserFolderKeyFromView(view: string | null): string | null {
+  if (view && view.startsWith(INBOX_USER_FOLDER_VIEW_PREFIX)) {
+    const key = view.slice(INBOX_USER_FOLDER_VIEW_PREFIX.length);
+    if (key) {
+      return key;
+    } else {
+      return null;
+    }
+  } else {
+    return null;
+  }
+}
+
+export function isInboxUserFolderView(view: string | null): boolean {
+  return !!inboxUserFolderKeyFromView(view);
+}
+
+export function inboxUserFolderIdFromView(view: string | null, folders: InboxUserFolderView[] = []): string | null {
+  const key = inboxUserFolderKeyFromView(view);
+  if (!key) {
+    return null;
+  } else {
+    const bySlug = (folders || []).find(folder => (folder.slug || inboxFolderSlug(folder.name)) === key);
+    if (bySlug) {
+      return bySlug.id;
+    } else {
+      const byId = (folders || []).find(folder => folder.id === key);
+      if (byId) {
+        return byId.id;
+      } else if (isInboxThreadMongoId(key)) {
+        return key;
+      } else {
+        return null;
+      }
+    }
+  }
 }
 
 export function aliasMailboxAddresses(alias: Pick<InboxAliasConfig, "roleEmail" | "additionalEmails">): string[] {

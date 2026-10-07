@@ -7,7 +7,7 @@ import { envConfig } from "../env-config/env-config";
 import { errorResponse } from "../shared/error-response";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
-import { InboxMessage, InboxMessageDirection, InboxThread, foldersExcludedFromInboxList, InboxThreadFolder, InboxThreadListResponse, InboxUnreadCountsResponse, InboxViewScope } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { InboxMessage, InboxMessageDirection, InboxThread, foldersExcludedFromInboxList, InboxThreadFolder, InboxThreadListResponse, InboxUnreadCountsResponse, InboxUserFolderQuery, InboxViewScope } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { assignedInboxRoleTypesForMember, permittedInboxRoleTypes, permittedToReadJunk, requestMember, requestingMemberId } from "./inbox-access";
 import { defaultTenantSlug } from "./inbox-aliases";
@@ -107,6 +107,7 @@ export async function listInboxThreads(req: Request, res: Response): Promise<voi
           res.json({ request: { messageType }, response: sentResponse });
         }
         else {
+          const userFolderId = isString(req.query.userFolderId) ? req.query.userFolderId : null;
           const roleScopeFilter: Record<string, unknown> = {
             tenantSlug: defaultTenantSlug(),
             roleType: isString(roleType) ? roleType : { $in: scopeRoleTypes },
@@ -114,6 +115,13 @@ export async function listInboxThreads(req: Request, res: Response): Promise<voi
               ? InboxThreadFolder.DELETED
               : { $nin: foldersExcludedFromInboxList() }
           };
+          if (req.query.folder !== InboxThreadFolder.DELETED) {
+            if (userFolderId === InboxUserFolderQuery.ALL) {
+              roleScopeFilter.userFolderId = {$ne: null};
+            } else {
+              roleScopeFilter.userFolderId = userFolderId || null;
+            }
+          }
           const scopeFilter = await threadSearchFilter(roleScopeFilter, req.query.search);
           const filter = req.query.unreadOnly === "true"
             ? { ...scopeFilter, ...unreadConditionForMember(memberId) }

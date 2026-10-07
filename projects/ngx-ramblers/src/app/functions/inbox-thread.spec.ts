@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { foldersExcludedFromInboxList, hiddenInboxFolders, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, InboxThreadFolder } from "../models/inbox.model";
 import {
   collapseInboxSends,
+  inboxFolderSlug,
   inboxMessageAt,
   inboxMessageMatchingId,
   inboxThreadHeaderFrom,
@@ -11,15 +12,22 @@ import {
   inboxThreadRowTo,
   inboxThreadId,
   inboxThreadMatchingSlug,
+  inboxThreadUrlSlug,
   aliasMailboxExtraCaption,
   aliasMailboxHeading,
   aliasMailboxLabel,
   deliveredToFromMessage,
+  inboxThreadLocationLabel,
   inboxThreadRoleLine,
   inboxThreadSlug,
+  inboxUserFolderIdFromView,
+  inboxUserFolderKeyFromView,
+  inboxUserFolderView,
   isInboxThreadMongoId,
+  isInboxUserFolderView,
   newestInboxMessage,
   replyAllRecipients,
+  uniqueInboxFolderSlug,
   validatedInboxColumnShare
 } from "./inbox-thread";
 
@@ -34,17 +42,36 @@ function thread(overrides: Partial<InboxThread> = {}): InboxThread {
 }
 
 describe("validatedInboxColumnShare", () => {
-  const fallback = {from: 1.1, to: 1.4, subject: 2, date: 1.5};
+  const fallback = {from: 1.1, to: 1.4, location: 1.2, subject: 2, date: 1.5};
 
   it("accepts a complete set of bounded column shares", () => {
-    const candidate = {from: 2, to: 1, subject: 3, date: 1};
+    const candidate = {from: 2, to: 1, location: 1.5, subject: 3, date: 1};
     expect(validatedInboxColumnShare(candidate, fallback)).toEqual(candidate);
+  });
+
+  it("fills a missing location share from the fallback without resetting the other columns", () => {
+    const candidate = {from: 2, to: 1, subject: 3, date: 1};
+    expect(validatedInboxColumnShare(candidate, fallback)).toEqual({...candidate, location: fallback.location});
   });
 
   it("falls back for incomplete, negative or extreme saved values", () => {
     expect(validatedInboxColumnShare({from: 2}, fallback)).toEqual(fallback);
     expect(validatedInboxColumnShare({from: -1, to: 1, subject: 2, date: 1}, fallback)).toEqual(fallback);
     expect(validatedInboxColumnShare({from: 100, to: 1, subject: 2, date: 1}, fallback)).toEqual(fallback);
+  });
+});
+
+describe("inboxThreadLocationLabel", () => {
+  it("shows the folder name when the conversation is filed", () => {
+    expect(inboxThreadLocationLabel("Welcomes", "Membership Co-ordinator")).toEqual("Welcomes");
+  });
+
+  it("shows the folder name when looking at that folder", () => {
+    expect(inboxThreadLocationLabel("To Delete", "Chairman & Website Design")).toEqual("To Delete");
+  });
+
+  it("shows the role when the conversation is still in the inbox", () => {
+    expect(inboxThreadLocationLabel(null, "Chairman")).toEqual("Chairman");
   });
 });
 
@@ -80,6 +107,18 @@ describe("inboxThreadSlug", () => {
 
   it("returns nothing when no thread matches", () => {
     expect(inboxThreadMatchingSlug([thread()], "no-such-thread")).toBeUndefined();
+  });
+
+});
+
+describe("inboxThreadUrlSlug", () => {
+
+  it("prefers the stored slug for the URL", () => {
+    expect(inboxThreadUrlSlug(thread({slug: "stored-slug", normalisedSubject: "Other subject"}))).toEqual("stored-slug");
+  });
+
+  it("falls back to the subject slug when none is stored", () => {
+    expect(inboxThreadUrlSlug(thread({slug: undefined}))).toEqual("group-area-email-project");
   });
 
 });
@@ -413,6 +452,35 @@ describe("hiddenInboxFolders", () => {
       InboxThreadFolder.SENT,
       InboxThreadFolder.DRAFTS
     ]);
+  });
+
+});
+
+describe("inbox user folder views", () => {
+
+  const walkReports = {id: "aaaaaaaaaaaaaaaaaaaaaaaa", name: "Walk reports", slug: "walk-reports", sortIndex: 0, unreadCount: 1};
+
+  it("uses the folder slug in the mailbox view", () => {
+    expect(inboxUserFolderView(walkReports)).toBe("folder:walk-reports");
+    expect(inboxUserFolderIdFromView("folder:walk-reports", [walkReports])).toBe(walkReports.id);
+  });
+
+  it("still opens a mailbox view that used the folder id", () => {
+    expect(inboxUserFolderIdFromView("folder:aaaaaaaaaaaaaaaaaaaaaaaa", [walkReports])).toBe(walkReports.id);
+    expect(inboxUserFolderIdFromView("folder:aaaaaaaaaaaaaaaaaaaaaaaa")).toBe(walkReports.id);
+  });
+
+  it("kebab-cases a folder name for the slug", () => {
+    expect(inboxFolderSlug("Walk reports")).toBe("walk-reports");
+    expect(uniqueInboxFolderSlug("walk-reports", ["walk-reports"])).toBe("walk-reports-2");
+  });
+
+  it("returns null when the mailbox view is not a user folder", () => {
+    expect(isInboxUserFolderView("folders")).toBe(false);
+    expect(inboxUserFolderKeyFromView("inbox")).toBe(null);
+    expect(inboxUserFolderIdFromView("inbox")).toBe(null);
+    expect(inboxUserFolderIdFromView("folder:")).toBe(null);
+    expect(inboxUserFolderIdFromView(null)).toBe(null);
   });
 
 });
