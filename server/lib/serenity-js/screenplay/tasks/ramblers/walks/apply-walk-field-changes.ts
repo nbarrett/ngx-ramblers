@@ -1,5 +1,7 @@
 import { Answerable, AnswersQuestions, PerformsActivities, Task, UsesAbilities } from "@serenity-js/core";
-import { Enter, PageElement, Scroll } from "@serenity-js/web";
+import { BrowseTheWeb, Enter, PageElement, Scroll } from "@serenity-js/web";
+import type { PlaywrightPage } from "@serenity-js/playwright";
+import type { Page as NativePage } from "playwright-core";
 import debug from "debug";
 import { WalkEditField, WalkFieldChange } from "../../../../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { envConfig } from "../../../../../env-config/env-config";
@@ -8,6 +10,7 @@ import { ClickWhenReady } from "../../common/click-when-ready";
 import { EnterRichText } from "./enter-rich-text";
 import { SelectWalkLeaders } from "./select-walk-leaders";
 import { EnterMeetingPoint } from "./enter-meeting-point";
+import { snapMetricImperialNumberInputsScript, walkEditStepNumberValue } from "./walk-edit-number-fields";
 
 const debugLog = debug(envConfig.logNamespace("ApplyWalkFieldChanges"));
 debugLog.enabled = true;
@@ -16,6 +19,13 @@ const RICH_TEXT_FIELDS: Partial<Record<WalkEditField, { selector: string; label:
   [WalkEditField.DESCRIPTION]: { selector: ".field--name-field-basic-description-2", label: "the walk description" },
   [WalkEditField.ADDITIONAL_DETAILS]: { selector: ".field--name-field-additional-details", label: "the additional walk details" }
 };
+
+const NUMBER_FIELDS: WalkEditField[] = [
+  WalkEditField.DISTANCE_KM,
+  WalkEditField.DISTANCE_MILES,
+  WalkEditField.ASCENT_METRES,
+  WalkEditField.ASCENT_FEET
+];
 
 export class ApplyWalkFieldChanges extends Task {
 
@@ -45,9 +55,16 @@ export class ApplyWalkFieldChanges extends Task {
         await actor.attemptsTo(Scroll.to(option), ClickWhenReady.on(option));
       } else {
         const field: Answerable<PageElement> = fieldElementFor(change.field);
-        await actor.attemptsTo(Scroll.to(field), Enter.theValue(change.value).into(field));
+        const value = NUMBER_FIELDS.includes(change.field) ? walkEditStepNumberValue(change.value) : change.value;
+        await actor.attemptsTo(Scroll.to(field), Enter.theValue(value).into(field));
       }
     }, Promise.resolve());
+    if (this.fieldChanges.some(change => NUMBER_FIELDS.includes(change.field))) {
+      const currentPage = await BrowseTheWeb.as(actor).currentPage() as unknown as PlaywrightPage;
+      const native: NativePage = await currentPage.nativePage();
+      const snapped = await native.evaluate(snapMetricImperialNumberInputsScript()) as {id: string; value: string}[];
+      debugLog("snapped number fields", JSON.stringify(snapped));
+    }
   }
 }
 
