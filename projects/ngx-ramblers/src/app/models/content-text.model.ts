@@ -47,6 +47,12 @@ export enum ContentTextCategory {
   MEETUP_DESCRIPTION_PREFIX = "meetup-description-prefix"
 }
 
+export enum ContentTextSeedResult {
+  INSERTED = "inserted",
+  FILLED = "filled",
+  SKIPPED = "skipped"
+}
+
 export enum StringMatch {
   EQUALS = "equals",
   STARTS_WITH = "starts-with",
