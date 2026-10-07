@@ -145,6 +145,12 @@ export async function connectedInboxEmails(tenantSlug: string): Promise<string[]
   return Array.from((await connectedMailboxesByEmail(tenantSlug)).keys());
 }
 
+export function inboxRoutingAddressSet(roles: CommitteeMember[], connectedEmails: string[], aliases: InboxAliasConfig[]): Set<string> {
+  const fromRoles = (roles ?? []).flatMap(role => roleEmailAddresses(role));
+  const fromAliases = (aliases ?? []).flatMap(alias => [alias.roleEmail, ...(alias.additionalEmails ?? [])]);
+  return new Set([...fromRoles, ...(connectedEmails ?? []), ...fromAliases].map(normaliseEmail).filter(Boolean));
+}
+
 export function deriveAliasesFrom(connectionsByEmail: Map<string, InboxMailboxConnection>, roles: CommitteeMember[], tenantSlug: string): InboxAliasConfig[] {
   const connections = Array.from(connectionsByEmail.values());
   const catchAll = catchAllConnection(connections);
@@ -187,6 +193,18 @@ export async function derivedAliases(): Promise<InboxAliasConfig[]> {
     derivedAliasCache.aliases = aliases;
     derivedAliasCache.expiresAt = now + DERIVED_ALIAS_CACHE_TTL_MS;
     return aliases;
+  }
+}
+
+export async function emailGoesToInbox(email: string, roles: CommitteeMember[]): Promise<boolean> {
+  const wanted = normaliseEmail(email);
+  if (!wanted) {
+    return false;
+  } else {
+    const tenantSlug = defaultTenantSlug();
+    const connectedEmails = await connectedInboxEmails(tenantSlug);
+    const aliases = await derivedAliases();
+    return inboxRoutingAddressSet(roles, connectedEmails, aliases).has(wanted);
   }
 }
 
