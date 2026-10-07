@@ -19,11 +19,13 @@ import { MemberService } from "../../../services/member/member.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { WalkLeadEditAppearance } from "../../../models/walk-edit-mode.model";
+import { WalkLeadEditButton } from "../walk-view/walk-lead-edit-button";
 
 @Component({
   selector: "app-walk-leader-dashboard",
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [CalendarSubscribeComponent, WalkProgrammePageComponent, NgTemplateOutlet, FontAwesomeModule],
+  imports: [CalendarSubscribeComponent, WalkProgrammePageComponent, NgTemplateOutlet, FontAwesomeModule, WalkLeadEditButton],
   styleUrls: ["./walk-leader-dashboard.sass"],
   template: `
     <app-walk-programme-page>
@@ -110,12 +112,10 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
             }
           </div>
         </div>
-        <div class="walk-row-actions">
+        <div class="walk-row-actions" (click)="$event.stopPropagation()">
           @if (slot) {
-            <button type="button" class="btn btn-sm btn-primary" (click)="volunteer(displayedWalk); $event.stopPropagation()">
-              <fa-icon [icon]="faHandshake"/>
-              <span class="ms-1">Volunteer to lead</span>
-            </button>
+            <app-walk-lead-edit-button [displayedWalk]="displayedWalk"
+                                       [appearance]="WalkLeadEditAppearance.COMPACT"/>
           } @else {
             <button type="button" class="btn btn-sm btn-quiet" (click)="openWalk(displayedWalk, false); $event.stopPropagation()">Open</button>
             @if (showEdit) {
@@ -156,6 +156,7 @@ export class WalkLeaderDashboardComponent implements OnInit, OnDestroy {
   protected readonly faHandshake = faHandshake;
   protected readonly faPenToSquare = faPenToSquare;
   protected readonly faTriangleExclamation = faTriangleExclamation;
+  protected readonly WalkLeadEditAppearance = WalkLeadEditAppearance;
 
   private readonly outstandingStatuses: ProgrammeOverviewStatus[] = [
     ProgrammeOverviewStatus.AWAITING_WALK_DETAILS,
@@ -241,9 +242,5 @@ export class WalkLeaderDashboardComponent implements OnInit, OnDestroy {
 
   openWalk(displayedWalk: DisplayedWalk, edit: boolean): Promise<boolean> {
     return edit ? this.display.openWalkEdit(displayedWalk.walk) : this.display.openWalkView(displayedWalk.walk);
-  }
-
-  volunteer(displayedWalk: DisplayedWalk): Promise<boolean> {
-    return this.openWalk(displayedWalk, true);
   }
 }

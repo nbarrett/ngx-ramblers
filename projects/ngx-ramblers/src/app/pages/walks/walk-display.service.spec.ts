@@ -96,7 +96,7 @@ describe("WalkDisplayService", () => {
                 .toEqual(WalksReferenceService.walkAccessModes.edit);
         });
 
-        it("should return edit for an admin when a local walk is awaiting a leader", () => {
+        it("should return lead for an admin when a local walk is awaiting a leader", () => {
             spy = vi.spyOn(memberLoginService, "memberLoggedIn").mockReturnValue(true);
             spy = vi.spyOn(memberLoginService, "allowWalkAdminEdits").mockReturnValue(true);
             spy = vi.spyOn(memberLoginService, "loggedInMember").mockReturnValue({ memberId: "admin-member-id" } as any);
@@ -105,7 +105,8 @@ describe("WalkDisplayService", () => {
             const awaitingLeaderEvent: any = { eventType: EventType.AWAITING_LEADER };
             service.group = { walkPopulation: EventPopulation.LOCAL } as Organisation;
             expect(service.toWalkAccessMode(createExtendedGroupEvent(dateUtilsService, anyWalkDate, awaitingLeaderEvent, walkLeaderMemberId)))
-                .toEqual(WalksReferenceService.walkAccessModes.edit);
+                .toEqual(WalksReferenceService.walkAccessModes.lead);
+            expect(service.walkAdminLeadAndEdit({walkAccessMode: WalksReferenceService.walkAccessModes.lead} as any)).toBe(true);
         });
 
         it("should return edit if user is logged in and not admin but is leader", () => {

@@ -5,3 +5,9 @@ export interface WalkAccessMode {
   initialiseWalkLeader?: boolean;
 }
 
+export enum WalkLeadEditAppearance {
+  OVERLAY = "overlay",
+  ACTION = "action",
+  COMPACT = "compact"
+}
+

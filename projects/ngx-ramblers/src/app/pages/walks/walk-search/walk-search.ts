@@ -68,6 +68,16 @@ import { PresetSelect } from "../../../modules/common/preset-select/preset-selec
         top: 8px
         right: 0
         z-index: 6
+        display: inline-flex
+        align-items: center
+        justify-content: center
+        width: max-content
+        max-width: none
+        flex-shrink: 0
+        white-space: nowrap
+
+      .my-walks-label
+        white-space: nowrap
 
       .advanced-search-icon
         transition: transform 0.3s ease-in-out

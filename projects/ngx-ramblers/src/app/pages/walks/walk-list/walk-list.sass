@@ -38,6 +38,9 @@
   display: inline-flex
   align-items: center
   align-self: center
+  width: auto
+  max-width: none
+  flex-wrap: nowrap
   .btn
     display: inline-flex
     align-items: center
@@ -48,6 +51,15 @@
     vertical-align: middle
     .ms-1
       margin-left: .25rem
+  .btn.walk-lead-edit-caret
+    flex: 0 0 2rem
+    width: 2rem
+    min-width: 2rem
+    max-width: 2rem
+    padding: 0
+    overflow: hidden
+    font-size: 0
+    line-height: 0
 
 .pagination
   align-self: center

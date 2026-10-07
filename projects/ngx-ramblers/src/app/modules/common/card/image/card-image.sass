@@ -1,5 +1,9 @@
 @import "../../../../assets/styles/colours"
 
+:host
+  display: block
+  position: relative
+
 .card-img-top
   max-width: 100%
 
@@ -31,10 +35,15 @@
 
 .button-container
   z-index: 1000
+  white-space: nowrap
 
 .btn-group.button-container
   width: auto
+  max-width: calc(100% - 20px)
+
+  .dropdown-toggle-split
+    flex: 0 0 auto
 
   .dropdown-menu
-    min-width: 100%
-    width: 100%
+    min-width: 8rem
+    width: auto

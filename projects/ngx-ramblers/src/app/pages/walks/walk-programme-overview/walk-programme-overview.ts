@@ -35,11 +35,17 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
+import { DisplayedWalk } from "../../../models/walk.model";
+import { ExtendedGroupEvent } from "../../../models/group-event.model";
+import { WalkLeadEditAppearance } from "../../../models/walk-edit-mode.model";
+import { WalkLeadEditButton } from "../walk-view/walk-lead-edit-button";
+import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 
 @Component({
   selector: "app-walk-programme-overview",
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [WalkProgrammePageComponent, DateRangeSelector, FontAwesomeModule, DateRangeDirectionSelector],  styleUrls: ["./walk-programme-overview.sass"],
+  imports: [WalkProgrammePageComponent, DateRangeSelector, FontAwesomeModule, DateRangeDirectionSelector, WalkLeadEditButton],
+  styleUrls: ["./walk-programme-overview.sass"],
   template: `
     <app-walk-programme-page sticky>
       <app-date-range-direction-selector programmeChrome [minDate]="minDate" [maxDate]="maxDate"
@@ -140,7 +146,12 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
                     <fa-icon [icon]="faArrowRightToBracket"/>
                     <span>Open</span>
                   </button>
-                  @if (allowEdit()) {
+                  @if (allowEdit() && row.status === ProgrammeOverviewStatus.AWAITING_LEADER) {
+                    <div class="flex-fill d-flex" (click)="$event.stopPropagation()">
+                      <app-walk-lead-edit-button [displayedWalk]="leadEditDisplayedWalk(row)"
+                                                 [appearance]="WalkLeadEditAppearance.COMPACT"/>
+                    </div>
+                  } @else if (allowEdit()) {
                     <button type="button" class="btn btn-sm btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-fill" [title]="actionTooltip(row)"
                             (click)="editWalk(row); $event.stopPropagation()">
                       <fa-icon [icon]="faPenToSquare"/>
@@ -209,6 +220,8 @@ export class WalkProgrammeOverviewComponent implements OnInit, OnDestroy {
   protected readonly faArrowRightToBracket = faArrowRightToBracket;
   protected readonly faChevronLeft = faChevronLeft;
   protected readonly faChevronRight = faChevronRight;
+  protected readonly ProgrammeOverviewStatus = ProgrammeOverviewStatus;
+  protected readonly WalkLeadEditAppearance = WalkLeadEditAppearance;
 
   ngOnInit() {
     this.applyDateBounds();
@@ -416,6 +429,22 @@ export class WalkProgrammeOverviewComponent implements OnInit, OnDestroy {
   }
 
   editWalk(row: WalkProgrammeSummaryRow) {
-    this.display.openWalkEditFor(this.navIdentifier(row));
+    this.display.openWalkEditFor(this.navIdentifier(row), {
+      bypassLeaderInit: row.status === ProgrammeOverviewStatus.AWAITING_LEADER
+    });
+  }
+
+  leadEditDisplayedWalk(row: WalkProgrammeSummaryRow): DisplayedWalk {
+    return {
+      walk: {
+        id: row.id,
+        groupEvent: {
+          item_type: row.itemType,
+          url: row.url,
+          title: row.title
+        }
+      } as ExtendedGroupEvent,
+      walkAccessMode: WalksReferenceService.walkAccessModes.lead
+    } as DisplayedWalk;
   }
 }

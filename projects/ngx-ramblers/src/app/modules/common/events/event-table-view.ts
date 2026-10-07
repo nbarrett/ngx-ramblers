@@ -15,6 +15,8 @@ import { DisplayTimePipe } from "../../../pipes/display-time.pipe";
 import { EventLeaderContactLinkComponent } from "../../../pages/walks/walk-view/event-leader-contact-link";
 import { EventLeaderPhoneLinkComponent } from "../../../pages/walks/walk-view/event-leader-phone-link";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
+import { WalkLeadEditAppearance } from "../../../models/walk-edit-mode.model";
+import { WalkLeadEditButton } from "../../../pages/walks/walk-view/walk-lead-edit-button";
 
 @Component({
   selector: "app-event-table-view",
@@ -60,12 +62,10 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
         @if (!display.isExpanded(displayedWalk?.walk)) {
           <tr [ngClass]="tableRowEven(displayedWalk)? 'default': 'active'">
             @if ((display.walkPopulationLocal() || memberLoginService.allowWalkAdminEdits()) && memberLoginService.memberLoggedIn()) {
-              <td id="eventAction-{{index}}" class="nowrap action" width="7%">
+              <td id="eventAction-{{index}}" class="nowrap action" width="8%">
                 @if (displayedWalk?.walkAccessMode?.walkWritable) {
-                  <input type="submit"
-                         value="{{displayedWalk?.walkAccessMode?.caption}}"
-                         (click)="display.edit(displayedWalk)"
-                         class="btn btn-primary">
+                  <app-walk-lead-edit-button [displayedWalk]="displayedWalk"
+                                             [appearance]="WalkLeadEditAppearance.COMPACT"/>
                 }
               </td>
             }
@@ -129,7 +129,7 @@ import { DistanceValidationService } from "../../../services/walks/distance-vali
       </tfoot>
     </table>
   `,
-  imports: [NgClass, FontAwesomeModule, TooltipDirective, WalkGradingComponent, WalkPanelExpanderComponent, WalkViewComponent, WalkEditComponent, DisplayDatePipe, DisplayTimePipe, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent]
+  imports: [NgClass, FontAwesomeModule, TooltipDirective, WalkGradingComponent, WalkPanelExpanderComponent, WalkViewComponent, WalkEditComponent, DisplayDatePipe, DisplayTimePipe, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent, WalkLeadEditButton]
 })
 export class EventTableView {
 
@@ -138,6 +138,7 @@ export class EventTableView {
   distanceValidationService = inject(DistanceValidationService);
   protected readonly faWalking = faWalking;
   protected readonly faPeopleGroup = faPeopleGroup;
+  protected readonly WalkLeadEditAppearance = WalkLeadEditAppearance;
 
   @Input() currentPageEvents: DisplayedWalk[] = [];
 
