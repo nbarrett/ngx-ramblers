@@ -106,9 +106,16 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
       </div>
     `,
     styles: [`
+@media (min-width: 992px)
+  nav.navbar
+    flex-wrap: nowrap
+  .container
+    flex-wrap: nowrap
+
 .brand-search-wrap
   display: flex
   align-items: center
+  flex: 0 0 auto
 
 .site-search-anchored
   display: flex

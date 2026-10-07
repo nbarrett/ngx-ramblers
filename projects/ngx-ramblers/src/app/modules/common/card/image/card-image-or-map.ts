@@ -3,18 +3,18 @@ import { NgStyle } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faEye, faPencil, faPersonWalking } from "@fortawesome/free-solid-svg-icons";
+import { faEye } from "@fortawesome/free-solid-svg-icons";
 import { MediaQueryService } from "../../../../services/committee/media-query.service";
 import { DisplayedWalk, FALLBACK_MEDIA } from "../../../../models/walk.model";
 import { WalkDisplayService } from "../../../../pages/walks/walk-display.service";
+import { WalkLeadEditAppearance } from "../../../../models/walk-edit-mode.model";
+import { WalkLeadEditButton } from "../../../../pages/walks/walk-view/walk-lead-edit-button";
 import { MapEditComponent } from "../../../../pages/walks/walk-edit/map-edit";
-import { MemberLoginService } from "../../../../services/member/member-login.service";
 import { AlertInstance } from "../../../../services/notifier.service";
 import { BasicMedia, RamblersEventType } from "../../../../models/ramblers-walks-manager";
 import { GroupEventDisplayService } from "../../../../pages/group-events/group-event-display.service";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { isEqual } from "es-toolkit/compat";
-import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { VisibilityObserverDirective } from "../../../../notifications/common/visibility-observer.directive";
 import { focalPointImageStyles } from "../../../../functions/image-cropper-styles";
 
@@ -22,46 +22,8 @@ import { focalPointImageStyles } from "../../../../functions/image-cropper-style
   selector: "app-card-image-or-map",
   template: `
     @if (displayedWalk?.walkAccessMode?.walkWritable) {
-      @if (memberLoginService.allowWalkAdminEdits() && displayedWalk?.walkAccessMode?.initialiseWalkLeader) {
-        <div class="btn-group btn-group-custom button-container" dropdown
-             (click)="$event.stopPropagation()">
-          <button id="walkAction-{{displayedWalk?.walk?.id}}" type="button"
-                  class="btn pager-btn me-0"
-                  (click)="display.edit(displayedWalk)">
-            <fa-icon [icon]="faPersonWalking"/>
-            <span class="ms-2">{{ displayedWalk?.walkAccessMode?.caption }}</span>
-          </button>
-          <button type="button"
-                  class="dropdown-toggle dropdown-toggle-split btn pager-btn"
-                  dropdownToggle
-                  aria-controls="walkAction-menu-{{displayedWalk?.walk?.id}}">
-            <span class="visually-hidden">Toggle walk actions</span>
-          </button>
-          <ul *dropdownMenu class="dropdown-menu"
-              id="walkAction-menu-{{displayedWalk?.walk?.id}}" role="menu">
-            <li role="menuitem">
-              <a role="button" class="dropdown-item d-flex align-items-center"
-                 (click)="display.edit(displayedWalk)">
-                <fa-icon [icon]="faPersonWalking" class="me-2"/>{{ displayedWalk?.walkAccessMode?.caption }}
-              </a>
-            </li>
-            <li role="menuitem">
-              <a role="button" class="dropdown-item d-flex align-items-center"
-                 (click)="display.edit(displayedWalk, {bypassLeaderInit: true})">
-                <fa-icon [icon]="faPencil" class="me-2"/>edit
-              </a>
-            </li>
-          </ul>
-        </div>
-      } @else {
-        <button
-          id="walkAction-{{displayedWalk?.walk?.id}}" type="button"
-          (click)="$event.stopPropagation(); display.edit(displayedWalk)"
-          class="btn pager-btn me-0 button-container">
-          <fa-icon [icon]="accessModeIcon()"/>
-          <span class="ms-2">{{ displayedWalk?.walkAccessMode?.caption }}</span>
-        </button>
-      }
+      <app-walk-lead-edit-button [displayedWalk]="displayedWalk"
+                                 [appearance]="WalkLeadEditAppearance.OVERLAY"/>
     } @else {
       <a [href]="navigationUrl()"
          class="btn pager-btn me-0 button-container">
@@ -123,22 +85,16 @@ import { focalPointImageStyles } from "../../../../functions/image-cropper-style
     }
   `,
   styleUrls: ["./card-image.sass"],
-  imports: [FontAwesomeModule, MapEditComponent, BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, VisibilityObserverDirective, NgStyle]
+  imports: [FontAwesomeModule, MapEditComponent, WalkLeadEditButton, VisibilityObserverDirective, NgStyle]
 })
 export class CardImageOrMap implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CardImageOrMap", NgxLoggerLevel.ERROR);
   public display = inject(WalkDisplayService);
   public groupEventDisplay = inject(GroupEventDisplayService);
   public mediaQueryService = inject(MediaQueryService);
-  protected memberLoginService = inject(MemberLoginService);
-  protected readonly faPencil = faPencil;
-  protected readonly faPersonWalking = faPersonWalking;
   protected readonly faEye = faEye;
+  protected readonly WalkLeadEditAppearance = WalkLeadEditAppearance;
   protected mapVisible = false;
-
-  accessModeIcon() {
-    return this.displayedWalk?.walkAccessMode?.caption === "lead" ? this.faPersonWalking : this.faPencil;
-  }
   protected basicMedia: BasicMedia;
   protected imageConfig: { class: string, height: number };
   protected imageNavigationEnabled: boolean;

@@ -299,6 +299,10 @@ export class WalkDisplayService {
     return this.loggedInMemberIsLeadingWalk(walk) || this.allowAdminEdits();
   }
 
+  walkAdminLeadAndEdit(displayedWalk: DisplayedWalk): boolean {
+    return this.memberLoginService.allowWalkAdminEdits() && !!displayedWalk?.walkAccessMode?.initialiseWalkLeader;
+  }
+
   loggedInMemberIsLeadingWalk(walk: ExtendedGroupEvent) {
     const memberId = this.memberLoginService.memberLoggedIn() && this.memberLoginService.loggedInMember()?.memberId;
     return memberLeadsWalk(memberId, walk);
@@ -458,12 +462,10 @@ export class WalkDisplayService {
   private resolveWalkAccessMode(walk: ExtendedGroupEvent): WalkAccessMode {
     if (!this.memberLoginService.memberLoggedIn()) {
       return WalksReferenceService.walkAccessModes.view;
-    }
-    const eventType = this.walkEventService.latestEventWithStatusChange(walk)?.eventType;
-    if (this.memberLoginService.allowWalkAdminEdits() || this.loggedInMemberIsLeadingWalk(walk)) {
-      return {...WalksReferenceService.walkAccessModes.edit, walkWritable: true};
-    } else if (eventType === EventType.AWAITING_LEADER && this.walkPopulationLocal()) {
+    } else if (this.awaitingLeader(walk)) {
       return {...WalksReferenceService.walkAccessModes.lead, walkWritable: true};
+    } else if (this.memberLoginService.allowWalkAdminEdits() || this.loggedInMemberIsLeadingWalk(walk)) {
+      return {...WalksReferenceService.walkAccessModes.edit, walkWritable: true};
     } else {
       return WalksReferenceService.walkAccessModes.view;
     }
@@ -651,9 +653,10 @@ export class WalkDisplayService {
     return this.router.navigate(["/" + this.walksArea(), identifier]);
   }
 
-  public openWalkEditFor(identifier: string): Promise<boolean> {
+  public openWalkEditFor(identifier: string, options?: { bypassLeaderInit?: boolean }): Promise<boolean> {
     this.rememberReturnUrl();
-    return this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, identifier]);
+    const queryParams = options?.bypassLeaderInit ? {[StoredValue.AS]: WalksReferenceService.walkAccessModes.edit.caption} : undefined;
+    return this.router.navigate(["/" + this.walksArea(), PathSegment.EDIT, identifier], queryParams ? {queryParams} : undefined);
   }
 
   public openWalkView(walk: ExtendedGroupEvent): Promise<boolean> {

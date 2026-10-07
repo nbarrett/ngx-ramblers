@@ -10,6 +10,8 @@ import { ALERT_WARNING, AlertTarget } from "../../../models/alert-target.model";
 import { LoginResponse } from "../../../models/member.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { DisplayedWalk, EventType, MapDisplay, WalkExportTab } from "../../../models/walk.model";
+import { WalkLeadEditAppearance } from "../../../models/walk-edit-mode.model";
+import { WalkLeadEditButton } from "./walk-lead-edit-button";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
 import { LocationType } from "../../../models/map.model";
@@ -46,7 +48,6 @@ import {
   faCloudArrowUp,
   faEye,
   faImages,
-  faPencil,
   faShareNodes,
   faPersonWalking,
   faCopy,
@@ -403,13 +404,8 @@ import { AppPath } from "../../../models/route-follow.model";
             </span>
           }
           @if (displayedWalk?.walkAccessMode?.walkWritable) {
-            <button type="button"
-                    (click)="display.edit(displayedWalk)"
-                    [tooltip]="displayedWalk?.walkAccessMode?.caption + ' this walk'"
-                    class="btn btn-primary btn-sm walk-view-action">
-              <fa-icon [icon]="walkActionIcon()"/>
-              <span>{{ displayedWalk?.walkAccessMode?.caption }}</span>
-            </button>
+            <app-walk-lead-edit-button [displayedWalk]="displayedWalk"
+                                       [appearance]="WalkLeadEditAppearance.ACTION"/>
           } @else if (allowWalkAdminEdits) {
             <a [routerLink]="display.walkViewLink(displayedWalk?.walk)"
                (click)="display.rememberReturnUrl()"
@@ -476,7 +472,7 @@ import { AppPath } from "../../../models/route-follow.model";
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],
-  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, MaximisableMapComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe, WalkAlbumPanelComponent, NgTemplateOutlet, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent, DrivingOrigin]
+  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, MaximisableMapComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe, WalkAlbumPanelComponent, NgTemplateOutlet, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent, DrivingOrigin, WalkLeadEditButton]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
@@ -539,12 +535,12 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected readonly MapDisplay = MapDisplay;
   protected readonly LocationType = LocationType;
   protected readonly EventType = EventType;
+  protected readonly WalkLeadEditAppearance = WalkLeadEditAppearance;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
   protected readonly WalkStatus = WalkStatus;
   protected readonly faEye = faEye;
   protected readonly faImages = faImages;
   protected readonly faCloudArrowUp = faCloudArrowUp;
-  protected readonly faPencil = faPencil;
   protected readonly faShareNodes = faShareNodes;
   protected readonly faEnvelope = faEnvelope;
   protected readonly faCopy = faCopy;
@@ -557,10 +553,6 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   public publishExportLink: string[] = [];
   public publishExportQueryParams = {tab: WalkExportTab.WALK_UPLOAD_SELECTION};
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
-
-  walkActionIcon() {
-    return this.displayedWalk?.walkAccessMode?.caption === "lead" ? this.faPersonWalking : this.faPencil;
-  }
 
   showWalkViewActions(): boolean {
     return !!(this.allowWalkAdminEdits || this.displayedWalk?.walkAccessMode?.walkWritable || this.showPublishToRamblers || this.canShareWalk() || this.canFollowRoute());
