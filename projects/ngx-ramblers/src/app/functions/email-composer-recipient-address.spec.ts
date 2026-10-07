@@ -4,7 +4,9 @@ import { BrandingMode, MemberSelection } from "../models/mail.model";
 import {
   appendUniqueRecipients,
   composerCommitteeRecipients,
+  composerApiErrorMessage,
   composerContentHasPersonalisation,
+  batchSendJobWasLost,
   composerEveryoneFilterToken,
   composerFilterToken,
   composerRecipientAddressesArePrivate,
@@ -148,6 +150,28 @@ describe("composerContentHasPersonalisation", () => {
 
   it("leaves a shared committee message without merge fields unpersonalised", () => {
     expect(composerContentHasPersonalisation(["Committee update for everyone"], AddresseeType.HI_ALL)).toEqual(false);
+  });
+});
+
+describe("composerApiErrorMessage", () => {
+
+  it("reads Job not found from the batch-status 404 body", () => {
+    expect(composerApiErrorMessage({
+      status: 404,
+      message: "Http failure response for https://group.example.org.uk/api/mail/transactional/batch/job-id: 404 OK",
+      error: {request: {messageType: "brevo:batch-transactional-send"}, error: {message: "Job not found"}}
+    })).toEqual("Job not found");
+  });
+});
+
+describe("batchSendJobWasLost", () => {
+
+  it("treats a 404 poll as a lost send job", () => {
+    expect(batchSendJobWasLost({status: 404, error: {error: {message: "Job not found"}}})).toEqual(true);
+  });
+
+  it("does not treat a 500 send error as a lost job", () => {
+    expect(batchSendJobWasLost({status: 500, error: {error: {message: "Brevo refused the send"}}})).toEqual(false);
   });
 });
 

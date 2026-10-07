@@ -23,6 +23,7 @@ import {
   BatchSendStatus,
   BatchSendEntryStatus,
   BatchSendStartResponse,
+  BATCH_SEND_JOB_LOST_MESSAGE,
   BatchTransactionalSendRequest,
   AddresseeType,
   ComposerExternalRecipient,
@@ -806,19 +807,15 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         progress.completedAt = dateTimeNow().toMillis();
         cancelled.delete(jobId);
         return;
-      }
+      } else {
       const entry = item.entry;
-      if (item.kind === "member") {
-        const memberRecord = membersById.get(entry.memberId);
-        if (!applyMemberSendEligibility(entry, memberRecord, committeeRoles, notifConfig, useCommitteeRoleAddresses, referenceListId, respectEmailBlocks, respectHeadOfficeConsent, progress)) {
-          continue;
-        }
-      } else if (!item.recipient.email) {
+      const skippedMember = item.kind === "member"
+        && !applyMemberSendEligibility(entry, membersById.get(entry.memberId), committeeRoles, notifConfig, useCommitteeRoleAddresses, referenceListId, respectEmailBlocks, respectHeadOfficeConsent, progress);
+      if (item.kind === "external" && !item.recipient.email) {
         entry.status = BatchSendEntryStatus.Failed;
         entry.errorMessage = "Recipient missing email";
         progress.failedCount += 1;
-        continue;
-      }
+      } else if (!skippedMember && entry.status === BatchSendEntryStatus.Pending) {
       try {
         const memberMergeFieldsValue = item.kind === "member"
           ? memberMergeFields(item.memberRecord, item.memberRecord.membershipExpiryDate ? dateTimeFromMillis(item.memberRecord.membershipExpiryDate).toFormat(UIDateFormat.DISPLAY_DATE) : "")
@@ -885,6 +882,8 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
         progress.failedCount += 1;
       }
       await delay(SEND_DELAY_MS);
+      }
+      }
     }
     }
 
@@ -1061,10 +1060,10 @@ export async function batchTransactionalStatus(req: Request, res: Response): Pro
     const jobId = req.params["jobId"];
     const progress = jobs.get(jobId);
     if (!progress) {
-      res.status(404).json({ request: { messageType }, error: { message: "Job not found" } });
-      return;
+      res.status(404).json({ request: { messageType }, error: { message: BATCH_SEND_JOB_LOST_MESSAGE } });
+    } else {
+      successfulResponse({ req, res, response: progress, messageType, debugLog });
     }
-    successfulResponse({ req, res, response: progress, messageType, debugLog });
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }
@@ -1075,11 +1074,11 @@ export async function cancelBatchTransactional(req: Request, res: Response): Pro
     const jobId = req.params["jobId"];
     const progress = jobs.get(jobId);
     if (!progress) {
-      res.status(404).json({ request: { messageType }, error: { message: "Job not found" } });
-      return;
+      res.status(404).json({ request: { messageType }, error: { message: BATCH_SEND_JOB_LOST_MESSAGE } });
+    } else {
+      cancelled.add(jobId);
+      successfulResponse({ req, res, response: progress, messageType, debugLog });
     }
-    cancelled.add(jobId);
-    successfulResponse({ req, res, response: progress, messageType, debugLog });
   } catch (error) {
     handleError(req, res, messageType, debugLog, error);
   }

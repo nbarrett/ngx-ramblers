@@ -4,9 +4,9 @@ import {SystemConfig} from "../../models/system.model";
 import {Subject} from "rxjs";
 import {inject} from "@angular/core";
 import {ActivatedRoute, Router} from "@angular/router";
-import {isString, keys} from "es-toolkit/compat";
+import {keys} from "es-toolkit/compat";
 import {BrandingMode, EmailCompositionKind, EmailComposerStepKey, EmailComposerState} from "../../models/email-composer.model";
-import {defaultEmailComposerState} from "../../functions/email-composer";
+import {composerApiErrorMessage, defaultEmailComposerState} from "../../functions/email-composer";
 import {InboxReplyOutboundContext} from "../../models/inbox.model";
 import {Injectable} from "@angular/core";
 
@@ -26,8 +26,7 @@ export class EmailComposerSessionService {
   public inboxReplyContext: InboxReplyOutboundContext | null = null;
 
   errorMessage(error: unknown): string {
-    const details = error as {error?: {error?: string}; message?: string};
-    return isString(error) ? error : details?.error?.error || details?.message || "An unknown error occurred";
+    return composerApiErrorMessage(error);
   }
 
   newsletterMode(): boolean {
