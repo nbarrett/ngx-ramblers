@@ -201,17 +201,18 @@ import { committeeMeetingAgendaMarkdown, committeeMeetingLocationLine, numberedA
             idPrefix="plan-list"
             [selectedId]="selectedListId"
             noneLabel="No list"
-            (selectedIdChange)="selectedListId = $event"/>
+            (selectedIdChange)="onSelectedListIdChange($event)"/>
           @if (committeeRoleSendOffered()) {
             <div class="form-check mt-2">
-              <input class="form-check-input" type="checkbox" id="plan-send-to-role-addresses" [(ngModel)]="sendToRoleAddresses">
+              <input class="form-check-input" type="checkbox" id="plan-send-to-role-addresses"
+                     [ngModel]="sendToRoleAddresses" (ngModelChange)="onSendToRoleAddressesChange($event)">
               <label class="form-check-label" for="plan-send-to-role-addresses">Send to committee role addresses</label>
             </div>
-            <small class="text-muted">Leave this off to use personal addresses. Turn it on to send to each committee member's role address instead.</small>
+            <small class="text-muted">Everyone on this invite is a committee member. Leave this off to use their personal addresses. Turn it on to use each person's committee role address instead.</small>
           }
         </app-thumbnail-heading-frame>
         <app-thumbnail-heading-frame heading="External recipients (optional)" [compact]="true">
-          <app-recipient-field [to]="guestRecipientsField" (toChange)="guestRecipientsField = $event"
+          <app-recipient-field [to]="guestRecipientsField" (toChange)="onGuestRecipientsChange($event)"
                                [savedRecipients]="previousRecipients" [plain]="true"/>
         </app-thumbnail-heading-frame>
         @if (isEditing() && rsvpPeople().length) {
@@ -354,6 +355,7 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   deleteError: string | null = null;
 
   private generatedTitle = "";
+  private sendToRoleAddressesTouched = false;
   private committeeRoles: CommitteeMember[] = [];
   private fileTypes: CommitteeFileType[] = [];
   private aiConnected = false;
@@ -421,6 +423,9 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
       this.fileTypes = committeeConfig?.fileTypes ?? [];
       this.committeeRoles = committeeConfig?.roles ?? [];
       this.meetingTypes = committeeConfig?.meetingTypes ?? [];
+      if (!this.sendToRoleAddressesTouched) {
+        this.sendToRoleAddresses = this.committeeRoleSendOffered();
+      }
       if (!this.meetingType && this.meetingTypes.length) {
         this.meetingType = this.defaultMeetingType();
         if (this.selectedDateLabel) {
@@ -465,6 +470,8 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   onDateSelected(value: number): void {
     this.clearEditing();
     this.generateAgenda = true;
+    this.sendToRoleAddressesTouched = false;
+    this.sendToRoleAddresses = false;
     this.format = CommitteeMeetingFormat.IN_PERSON;
     this.location = "";
     this.selectedDate = value;
@@ -723,6 +730,8 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
     this.generatedTitle = this.title;
     this.inviteNote = "";
     this.selectedListId = null;
+    this.sendToRoleAddressesTouched = false;
+    this.sendToRoleAddresses = false;
     this.guestRecipientsField = [];
     this.sendError = null;
     this.applyMailLists(this.mailMessagingService.currentConfig());
@@ -764,7 +773,8 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
         this.format = meeting?.format || CommitteeMeetingFormat.IN_PERSON;
         this.location = meeting?.location || "";
         this.selectedListId = meeting?.invitedListId ?? null;
-        this.sendToRoleAddresses = meeting?.useCommitteeRoleAddresses ?? false;
+        this.sendToRoleAddressesTouched = meeting?.useCommitteeRoleAddresses != null;
+        this.sendToRoleAddresses = meeting?.useCommitteeRoleAddresses ?? this.committeeRoleSendOffered();
         this.guestRecipientsField = (meeting?.invitedRecipients || []).map(recipient => ({
           email: recipient.email,
           name: recipient.name
@@ -914,6 +924,27 @@ export class VideoMeetingPlanComponent implements OnInit, AfterViewInit, OnDestr
   private senderRole(): CommitteeMember | null {
     const memberId = this.memberLoginService.loggedInMember()?.memberId;
     return this.committeeRoles.find(role => role.memberId === memberId && !!role.email) || null;
+  }
+
+  onSelectedListIdChange(listId: number | null): void {
+    this.selectedListId = listId;
+    this.syncSendToRoleAddresses();
+  }
+
+  onGuestRecipientsChange(recipients: ComposerExternalRecipient[]): void {
+    this.guestRecipientsField = recipients;
+    this.syncSendToRoleAddresses();
+  }
+
+  private syncSendToRoleAddresses(): void {
+    if (!this.sendToRoleAddressesTouched) {
+      this.sendToRoleAddresses = this.committeeRoleSendOffered();
+    }
+  }
+
+  onSendToRoleAddressesChange(value: boolean): void {
+    this.sendToRoleAddressesTouched = true;
+    this.sendToRoleAddresses = value;
   }
 
   committeeRoleSendOffered(): boolean {

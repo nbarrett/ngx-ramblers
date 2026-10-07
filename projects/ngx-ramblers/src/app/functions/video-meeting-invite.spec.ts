@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { meetingInviteBodyMarkdown, personalisedGuestJoinUrl, personaliseJoinLinkHtml } from "./video-meeting-invite";
+import { RoleType } from "../models/committee.model";
+import { Member } from "../models/member.model";
+import {
+  meetingInviteBodyMarkdown,
+  meetingInviteCommitteeRoleSendOffered,
+  meetingInviteRecipientMember,
+  personalisedGuestJoinUrl,
+  personaliseJoinLinkHtml
+} from "./video-meeting-invite";
 
 describe("meetingInviteBodyMarkdown", () => {
 
@@ -36,6 +44,59 @@ describe("meetingInviteBodyMarkdown", () => {
     expect(body).toContain("We look forward to seeing you there.");
   });
 
+});
+
+describe("meetingInviteCommitteeRoleSendOffered", () => {
+  const chair = {
+    type: "chair",
+    description: "Chair",
+    fullName: "Alex Reed",
+    email: "chair@group.example.org.uk",
+    memberId: "m1",
+    roleType: RoleType.COMMITTEE_MEMBER
+  };
+  const alex = {id: "m1", firstName: "Alex", lastName: "Reed", email: "alex.reed@example.com"} as Member;
+  const walker = {id: "m2", firstName: "Sam", lastName: "Walker", email: "sam.walker@example.com"} as Member;
+
+  it("is offered when every chosen person holds a committee role", () => {
+    expect(meetingInviteCommitteeRoleSendOffered(
+      [{email: alex.email, name: "Alex Reed", memberId: alex.id}],
+      [alex, walker],
+      [chair]
+    )).toEqual(true);
+  });
+
+  it("is still offered after the chip has been rewritten to the role mailbox", () => {
+    expect(meetingInviteCommitteeRoleSendOffered(
+      [{email: chair.email, name: "Alex Reed", memberId: alex.id}],
+      [alex, walker],
+      [chair]
+    )).toEqual(true);
+    expect(meetingInviteRecipientMember(
+      {email: chair.email, name: "Chair"},
+      [alex, walker],
+      [chair]
+    )?.id).toEqual(alex.id);
+  });
+
+  it("is not offered for a mixed invite of committee and other members", () => {
+    expect(meetingInviteCommitteeRoleSendOffered(
+      [
+        {email: alex.email, name: "Alex Reed", memberId: alex.id},
+        {email: walker.email, name: "Sam Walker", memberId: walker.id}
+      ],
+      [alex, walker],
+      [chair]
+    )).toEqual(false);
+  });
+
+  it("is not offered for a previously saved personal address that is not a group member", () => {
+    expect(meetingInviteCommitteeRoleSendOffered(
+      [{email: "guest@example.com", name: "Alex"}],
+      [alex, walker],
+      [chair]
+    )).toEqual(false);
+  });
 });
 
 describe("personalisedGuestJoinUrl", () => {

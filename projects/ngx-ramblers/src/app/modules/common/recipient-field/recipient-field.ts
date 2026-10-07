@@ -882,7 +882,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
       if (list.some(item => item.email.toLowerCase() === email.toLowerCase())) {
         return list;
       } else {
-        return [...list, {email, name: memberDisambiguatedLabel(member)}];
+        return [...list, {email, name: memberDisambiguatedLabel(member), memberId: member.id || undefined}];
       }
     }, this.cachedMemberEntries);
     this.cachedMemberEntries = (this.committeeAddresses || []).reduce((list, address) => {
