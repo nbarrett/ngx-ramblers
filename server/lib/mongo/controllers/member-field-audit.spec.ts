@@ -62,6 +62,16 @@ describe("memberFieldChanges", () => {
     }]);
   });
 
+  it("records a Ramblers Team Emails sending permission change", () => {
+    const changes = memberFieldChanges(member({canEmailMembers: false}), member({canEmailMembers: true}));
+    expect(changes).toEqual([{
+      fieldName: "canEmailMembers",
+      from: "false",
+      to: "true",
+      resolution: "Edited"
+    }]);
+  });
+
   it("ignores credentials and audit stamps so a re-save records nothing", () => {
     const prior = member({password: "old-hash", updatedBy: "member-9", updatedDate: 1} as Partial<Member>);
     const next = member({password: "new-hash", updatedBy: "member-8", updatedDate: 2} as Partial<Member>);

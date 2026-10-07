@@ -1,7 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { protectedEmailPermissionError } from "./salesforce-permissions";
+import { applyHeadOfficeSendingPermissionBounds, protectedEmailPermissionError } from "./salesforce-permissions";
 
 function supporter(values: Partial<Member>): Member {
   return { firstName: "Test", lastName: "Supporter", salesforceMemberRef: "member-ref", ...values };
@@ -30,5 +30,36 @@ describe("protectedEmailPermissionError", () => {
 
   it("does not apply Ramblers permissions to local-only recipients", () => {
     expect(protectedEmailPermissionError(null, [supporter({ salesforceMemberRef: undefined })])).toBeNull();
+  });
+});
+
+describe("applyHeadOfficeSendingPermissionBounds", () => {
+  it("keeps a local grant while Ramblers Team Emails is off", () => {
+    const next = supporter({ canEmailMembers: true, canViewMemberData: true });
+    const prior = supporter({ canEmailMembers: false, canViewMemberData: false });
+    const result = applyHeadOfficeSendingPermissionBounds(next, prior, false);
+    expect(result.canEmailMembers).toEqual(true);
+    expect(result.canViewMemberData).toEqual(true);
+  });
+
+  it("restores Head Office values when Ramblers Team Emails is on", () => {
+    const next = supporter({ canEmailMembers: true, canEmailVolunteers: true, canEmailWellbeingWalkers: true, canViewMemberData: true });
+    const prior = supporter({ canEmailMembers: true, canEmailVolunteers: false, canEmailWellbeingWalkers: false, canViewMemberData: false });
+    expect(applyHeadOfficeSendingPermissionBounds(next, prior, true)).toEqual(supporter({
+      canEmailMembers: true,
+      canEmailVolunteers: false,
+      canEmailWellbeingWalkers: false,
+      canViewMemberData: false
+    }));
+  });
+
+  it("fails closed on a new member when Ramblers Team Emails is on", () => {
+    const next = supporter({ canEmailMembers: true, canViewMemberData: true });
+    expect(applyHeadOfficeSendingPermissionBounds(next, undefined, true)).toEqual(supporter({
+      canEmailMembers: false,
+      canEmailVolunteers: false,
+      canEmailWellbeingWalkers: false,
+      canViewMemberData: false
+    }));
   });
 });
