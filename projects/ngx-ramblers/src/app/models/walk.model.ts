@@ -33,6 +33,17 @@ export interface ValueAndFormatted {
   formatted: string;
 }
 
+export enum WalkShareMenuAction {
+  PUBLISH_RAMBLERS = "publish-ramblers",
+  VIEW = "view",
+  SHARE = "share",
+  COPY_LINK = "copy-link",
+  SOCIAL = "social",
+  ALBUM_SHARE = "album-share",
+  EMAIL_MEMBERS = "email-members",
+  EMAIL_LEADER = "email-leader"
+}
+
 export enum DistanceUnit {
   FEET = "ft",
   KILOMETRES = "km",

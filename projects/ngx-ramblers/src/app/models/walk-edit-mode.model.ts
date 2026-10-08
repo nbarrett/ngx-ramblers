@@ -11,3 +11,8 @@ export enum WalkLeadEditAppearance {
   COMPACT = "compact"
 }
 
+export enum WalkLeadEditAction {
+  LEAD = "lead",
+  EDIT = "edit"
+}
+

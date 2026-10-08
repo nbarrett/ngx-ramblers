@@ -215,17 +215,11 @@
       width: 100%
       min-width: 0
 
-    > .walk-view-split
+    > .walk-view-split,
+    > app-button-dropdown.walk-view-split
       display: flex
       min-width: 0
-
-      > .walk-view-action:not(.dropdown-toggle-split)
-        flex: 1 1 auto
-        justify-content: center
-        min-width: 0
-
-      > .dropdown-toggle-split
-        flex: 0 0 auto
+      width: 100%
 
     > :nth-last-child(1 of .walk-view-split, .walk-view-action:not(.walk-view-action-follow)):nth-child(odd)
       grid-column: 1 / -1

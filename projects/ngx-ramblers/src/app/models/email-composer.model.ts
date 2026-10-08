@@ -45,6 +45,28 @@ export enum RecipientAddressMode {
   COMMITTEE_ROLE = "committee-role"
 }
 
+export enum ComposerSaveAction {
+  PRIVATE = "private",
+  SHARE = "share"
+}
+
+export enum ComposerShowAction {
+  DRAFTS = "drafts",
+  NEW = "new",
+  SENT = "sent"
+}
+
+export enum ComposerAddSectionAction {
+  INTRO = "intro",
+  ARTICLE = "article",
+  EVENTS = "events",
+  SIGNOFF = "signoff",
+  COMMITTEE_FILE = "committee-file",
+  DIVIDER = "divider",
+  TWO_COLUMN = "two-column",
+  THREE_COLUMN = "three-column"
+}
+
 export enum ComposerSenderKind {
   CONTACT = "contact",
   COMMITTEE_ROLE = "committee-role"

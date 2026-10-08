@@ -5,6 +5,7 @@ import { MeetingRoomLeaveGuard } from "../../guards/meeting-room-leave-guard";
 import { hasDynamicPath, hasEmailComposerPath, hasSendNotificationPath } from "../../services/path-matchers";
 import { CommitteeAuthGuard } from "../../guards/committee-auth-guard";
 import { EmailComposerAuthGuard } from "../../guards/email-composer-auth-guard";
+import { ComposerLeaveGuard } from "../../guards/composer-leave-guard";
 import { AreaExistsGuard } from "../../guards/area-exists-guard";
 import { AdminAuthGuard, MemberAdminAuthGuard, VolunteerAdminAuthGuard, VolunteerFeatureGuard } from "../../guards/admin-auth-guard";
 import { EnvironmentAdminGuard } from "../../guards/environment-admin-guard";
@@ -398,13 +399,15 @@ const rp = adminRelativePath;
       matcher: hasSendNotificationPath,
       loadComponent: () => import("../../pages/email-composer/email-composer")
         .then(m => m.EmailComposer),
-      canActivate: [SystemHealthyGuard, EmailComposerAuthGuard]
+      canActivate: [SystemHealthyGuard, EmailComposerAuthGuard],
+      canDeactivate: [ComposerLeaveGuard]
     },
     {
       matcher: hasEmailComposerPath,
       loadComponent: () => import("../../pages/email-composer/email-composer")
         .then(m => m.EmailComposer),
-      canActivate: [SystemHealthyGuard, EmailComposerAuthGuard]
+      canActivate: [SystemHealthyGuard, EmailComposerAuthGuard],
+      canDeactivate: [ComposerLeaveGuard]
     },
     {
       matcher: hasDynamicPath, loadComponent: () => import("../common/dynamic-content-page/dynamic-content-page")
