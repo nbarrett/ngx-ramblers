@@ -12,8 +12,8 @@ import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name
     has just updated <strong
     [textContent]="(display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members) + '\\'s'"
     ></strong>
-    {{ group?.shortName }} expense claim to a status of <strong
-    [textContent]="display.expenseClaimLatestEvent(expenseClaim).eventType.description"></strong>.
+    {{ group?.shortName }} expense claim to <strong
+    [textContent]="display.eventTypeDisplayDescription(display.expenseClaimLatestEvent(expenseClaim).eventType)"></strong>.
     For reference, the claim was originally created on <span
     [textContent]="display.expenseClaimCreatedEvent(expenseClaim).date | displayDate" ></span>
     and contains the following {{stringUtilsService.pluraliseWithCount(expenseClaim.expenseItems.length,'item')}}:
@@ -52,9 +52,12 @@ import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name
     have to be raised for them.</p>
     </div>
     }
-    <p>Once you've organised the payment, please visit the link below and mark the expense as paid and then <span
-      [textContent]="display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members"
-    ></span> will be notified by email.</p>
+    <p>Create the payment in Unity at <a [href]="display.unityNewPaymentUrl" target="_blank">Make a payment or transfer</a>
+      if that has not been done yet. Once the second authorised person has authorised it at
+      <a [href]="display.unityAwaitingAuthorisationUrl" target="_blank">Awaiting authorisation</a>,
+      mark <strong>{{ display.authorisedInUnityLabel }}</strong> on the expenses screen so
+      <span [textContent]="display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members"></span>
+      is told the money is on the way.</p>
     <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
     imports: [ExpenseNotificationDetailsComponent, ExpenseNotificationFooterComponent, DisplayDatePipe, MemberIdToFullNamePipe]
 })

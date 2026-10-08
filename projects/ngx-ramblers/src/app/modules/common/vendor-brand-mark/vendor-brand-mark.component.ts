@@ -1,4 +1,5 @@
 import { Component, Input } from "@angular/core";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { resolveVendorBrand, VendorBrandMark } from "../../../models/vendor-brand.model";
 
@@ -12,7 +13,8 @@ import { resolveVendorBrand, VendorBrandMark } from "../../../models/vendor-bran
              [alt]="brand.alt"
              [style.height.px]="markHeightPx(brand)"
              class="vendor-brand-mark"
-             [class.vendor-brand-mark-inline]="inline">
+             [class.vendor-brand-mark-inline]="inline"
+             [class.vendor-brand-mark-wide]="wide">
       } @else if (brand.icon) {
         <fa-icon [icon]="brand.icon"
                  class="vendor-brand-icon"
@@ -44,6 +46,9 @@ import { resolveVendorBrand, VendorBrandMark } from "../../../models/vendor-bran
       max-width: 1.25rem
       max-height: 1.15rem
 
+    .vendor-brand-mark-wide
+      max-width: 12rem
+
     .vendor-brand-icon
       display: block
       line-height: 1
@@ -61,6 +66,10 @@ export class VendorBrandMarkComponent {
   @Input() systemId: string | null = null;
   @Input() sizePx: number | null = null;
   @Input() inline = false;
+  wide = false;
+  @Input({alias: "wide"}) set wideValue(value: boolean) {
+    this.wide = coerceBooleanProperty(value);
+  }
 
   resolvedBrand(): VendorBrandMark | null {
     return resolveVendorBrand({
