@@ -2,6 +2,7 @@ import express from "express";
 import * as authConfig from "../../auth/auth-config";
 import { memberAuthAudit } from "../models/member-auth-audit";
 import * as crudController from "../controllers/crud-controller";
+import { latestLoginTimes } from "../controllers/member-auth-audit";
 import { MemberAuthAudit } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 
 const controller = crudController.create<MemberAuthAudit>(memberAuthAudit);
@@ -10,6 +11,7 @@ const router = express.Router();
 router.post("", controller.create);
 router.get("", controller.findByConditions);
 router.get("/all", authConfig.authenticate(), controller.all);
+router.get("/latest-logins", authConfig.authenticate(), authConfig.requireFileOrMemberAdmin, latestLoginTimes);
 router.put("/:id", authConfig.authenticate(), controller.update);
 router.get("/:id", controller.findById);
 router.delete("/:id", authConfig.authenticate(), controller.deleteOne);

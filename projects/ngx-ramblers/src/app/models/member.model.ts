@@ -18,6 +18,32 @@ export enum MemberChangeStamp {
   PHOTO_VIDEO_OPT_OUT = "photo-video-opt-out"
 }
 
+export enum MemberAdminSiteUseFilter {
+  NEVER_LOGGED_IN = "Never logged in",
+  HAS_LOGGED_IN = "Has logged in",
+  PROFILE_NOT_CONFIRMED = "Profile not confirmed",
+  PROFILE_CONFIRMED = "Profile confirmed"
+}
+
+export const MEMBER_ADMIN_SITE_USE_FILTER_GROUP = "Login and profile";
+
+export interface MemberLatestLogin {
+  memberId: string | null;
+  userName: string | null;
+  loginTime: number;
+}
+
+export interface MemberLoginAuditSource {
+  userName?: string;
+  loginTime?: number;
+  member?: { memberId?: string };
+}
+
+export interface MemberLatestLoginApiResponse extends ApiResponse {
+  request: any;
+  response?: MemberLatestLogin[];
+}
+
 export interface HelpInfo {
   monthsInPast: number;
   showHelp: boolean;

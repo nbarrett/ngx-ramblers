@@ -8,7 +8,12 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AlertTarget } from "../../../models/alert-target.model";
-import { Member, MemberBulkLoadAudit } from "../../../models/member.model";
+import {
+  MEMBER_ADMIN_SITE_USE_FILTER_GROUP,
+  Member,
+  MemberAdminSiteUseFilter,
+  MemberBulkLoadAudit
+} from "../../../models/member.model";
 import {
   ASCENDING,
   DESCENDING,
@@ -38,6 +43,15 @@ import { MailMessagingService } from "../../../services/mail/mail-messaging.serv
 import { MailService } from "../../../services/mail/mail.service";
 import { uniq } from "es-toolkit/compat";
 import { MemberBulkLoadAuditService } from "../../../services/member/member-bulk-load-audit.service";
+import { MemberAuthAuditService } from "../../../services/member/member-auth-audit.service";
+import {
+  emptyLastLoginIndex,
+  lastLoginIndex,
+  lastLoginTimeFor,
+  LastLoginIndex,
+  memberHasLoggedIn,
+  memberProfileConfirmed
+} from "../../../functions/member-latest-login";
 import { MemberDefaultsService } from "../../../services/member/member-defaults.service";
 import { MailchimpConfig } from "../../../models/mailchimp.model";
 import { MailchimpConfigService } from "../../../services/mailchimp-config.service";
@@ -87,6 +101,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private notifierService = inject(NotifierService);
   private systemConfigService = inject(SystemConfigService);
   private memberBulkLoadAuditService = inject(MemberBulkLoadAuditService);
+  private memberAuthAuditService = inject(MemberAuthAuditService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private dateUtils = inject(DateUtilsService);
   private memberDefaultsService = inject(MemberDefaultsService);
@@ -128,6 +143,7 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
   private storedFilterTitleParam = "";
   private pendingMembershipNumberToOpen: string | null = null;
   private lastOpenedMembershipNumber: string | null = null;
+  private lastLoginIndex: LastLoginIndex = emptyLastLoginIndex();
 
   async ngOnInit() {
     this.subscriptions.push(this.route.queryParamMap.subscribe(params => {
@@ -259,6 +275,26 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
         title: "Unsubscribed from a list (was on, now off)",
         group: "From Ramblers Supplied Data",
         filter: (member: Member) => this.memberHasUnsubscribeHistoryAndIsOff(member)
+      },
+      {
+        title: MemberAdminSiteUseFilter.NEVER_LOGGED_IN,
+        group: MEMBER_ADMIN_SITE_USE_FILTER_GROUP,
+        filter: (member: Member) => !memberHasLoggedIn(member, this.lastLoginIndex)
+      },
+      {
+        title: MemberAdminSiteUseFilter.HAS_LOGGED_IN,
+        group: MEMBER_ADMIN_SITE_USE_FILTER_GROUP,
+        filter: (member: Member) => memberHasLoggedIn(member, this.lastLoginIndex)
+      },
+      {
+        title: MemberAdminSiteUseFilter.PROFILE_NOT_CONFIRMED,
+        group: MEMBER_ADMIN_SITE_USE_FILTER_GROUP,
+        filter: (member: Member) => !memberProfileConfirmed(member)
+      },
+      {
+        title: MemberAdminSiteUseFilter.PROFILE_CONFIRMED,
+        group: MEMBER_ADMIN_SITE_USE_FILTER_GROUP,
+        filter: (member: Member) => memberProfileConfirmed(member)
       },
       {
         title: "Password Expired", group: "Other Settings", filter: (member: Member) => member.expiredPassword
@@ -496,6 +532,10 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
       return MEMBER_SORT;
     } else if (field === "markedForDelete") {
       return (member: Member) => this.markedForDelete(member.id);
+    } else if (field === "lastLoginTime") {
+      return (member: Member) => lastLoginTimeFor(member, this.lastLoginIndex) ?? 0;
+    } else if (field === "profileSettingsConfirmedAt") {
+      return (member: Member) => member.profileSettingsConfirmedAt ?? 0;
     } else if (this.mailMessagingConfig?.brevo?.lists?.lists.map(listInfo => listInfo.name).includes(field)) {
       return (member: Member) => member.mail?.subscriptions?.find(sub => sub.id === this.mailMessagingConfig?.brevo?.lists?.lists?.find(item => item.name === field)?.id)?.subscribed;
     } else {
@@ -544,12 +584,20 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
     if (this.memberLoginService.allowMemberAdminEdits()) {
       this.notify.setBusy();
       return this.memberService.all()
-        .then(refreshedMembers => {
+        .then(async refreshedMembers => {
           this.members = refreshedMembers;
           this.logger.off("refreshMembers:found", refreshedMembers.length, "members");
+          try {
+            this.lastLoginIndex = lastLoginIndex(await this.memberAuthAuditService.latestLoginTimes());
+          } catch (error) {
+            this.logger.error("refreshMembers:latestLoginTimes failed", error);
+            this.lastLoginIndex = emptyLastLoginIndex();
+          }
           this.applyFilterToMembers();
           return this.members;
         });
+    } else {
+      return Promise.resolve(this.members);
     }
   }
 
@@ -669,6 +717,10 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
     return this.memberBulkLoadAuditService.receivedInBulkLoad(member, true, this.latestMemberBulkLoadAudit);
   }
 
+  lastLoginTime(member: Member): number | null {
+    return lastLoginTimeFor(member, this.lastLoginIndex);
+  }
+
   private volunteerRolesOf(member: Member): string {
     const roles = member.volunteerRoles;
     return isString(roles) && roles !== "[object Object]" ? roles : "";
@@ -778,6 +830,9 @@ applySortTo(field: string, filterSource: MemberTableFilter) {
       "email",
       "mobileNumber",
       "createdDate",
+      "updatedDate",
+      "lastLoginTime",
+      "profileSettingsConfirmedAt",
       "membershipExpiryDate",
       "receivedInLastBulkLoad",
       "groupMember",
