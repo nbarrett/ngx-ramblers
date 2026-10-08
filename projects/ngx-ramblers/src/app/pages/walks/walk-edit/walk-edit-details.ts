@@ -140,7 +140,7 @@ import { LatLng } from "leaflet";
                 </div>
               </div>
             </div>
-            @if (renderMapEdit) {
+            @if (renderMapEdit && !syncDisabled) {
               @if (enumValueForKey(WalkType, displayedWalk?.walk?.groupEvent?.shape) === WalkType.LINEAR) {
                 <div class="col-sm-6 mb-4">
                   <app-walk-location-edit [locationType]="LocationType.STARTING"
@@ -260,11 +260,12 @@ import { LatLng } from "leaflet";
                         <fa-icon class="me-2" [icon]="faMap"/>Combined Map
                       </button>
                     </div>
-                    <button type="button" class="btn btn-secondary"
-                            [disabled]="syncDisabled"
-                            (click)="swapStartAndEndLocations()">
-                      <fa-icon class="me-2" [icon]="faRightLeft"/>Swap
-                    </button>
+                    @if (!syncDisabled) {
+                      <button type="button" class="btn btn-secondary"
+                              (click)="swapStartAndEndLocations()">
+                        <fa-icon class="me-2" [icon]="faRightLeft"/>Swap
+                      </button>
+                    }
                   </div>
                 </div>
               }

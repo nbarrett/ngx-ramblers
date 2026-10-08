@@ -55,7 +55,9 @@ import { LatLng } from "leaflet";
                 [startingPoint]="searchStartingPoint"
                 [initialVenue]="searchInitialVenue"
                 (venueSelected)="onVenueSelected($event)"/>
-              <small class="form-text text-muted">{{ locationSearchHint() }}</small>
+              @if (!disabled) {
+                <small class="form-text text-muted">{{ locationSearchHint() }}</small>
+              }
             </div>
           </div>
         </div>
@@ -177,7 +179,9 @@ import { LatLng } from "leaflet";
           }
           @if (showLeafletView) {
             <div [class.d-none]="showGoogleMapsView">
-              <p>Use the map below to drag the pin to accurately pinpoint the location.</p>
+              @if (!disabled) {
+                <p>Use the map below to drag the pin to accurately pinpoint the location.</p>
+              }
               <div app-map-edit class="map-walk-location-edit" [locationType]="locationType"
                 [locationDetails]="locationDetails"
                 [endLocationDetails]="endLocationDetails"
@@ -512,8 +516,9 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
     } else {
       this.searchStartingPoint = null;
     }
-    const name = this.locationDetails?.description || this.locationDetails?.postcode || "";
     const postcode = this.locationDetails?.postcode || "";
+    const description = (this.locationDetails?.description || "").trim();
+    const name = description && description.toUpperCase() !== postcode.toUpperCase() ? description : postcode;
     if (name) {
       if (this.searchInitialVenue?.name !== name || this.searchInitialVenue?.postcode !== postcode) {
         this.searchInitialVenue = {

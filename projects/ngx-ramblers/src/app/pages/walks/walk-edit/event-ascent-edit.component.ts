@@ -7,32 +7,29 @@ import { AscentValidationService } from "../../../services/walks/ascent-validati
 @Component({
   selector: "[app-event-ascent-edit]",
   template: `
-    <div class="d-inline-flex align-items-center flex-wrap">
+    <div class="input-group input-group-sm">
       @if (ascentUnit === DistanceUnit.FEET) {
         <input [disabled]="disabled" [(ngModel)]="groupEvent.ascent_feet"
                (ngModelChange)="onAscentChange(DistanceUnit.FEET, $event)"
-               type="number" class="form-control input-sm ascent-input" [id]="id"
-               placeholder="Enter Ascent">
+               type="number" class="form-control input-sm" [id]="id"
+               placeholder="Ascent">
       } @else {
         <input [disabled]="disabled" [(ngModel)]="groupEvent.ascent_metres"
                (ngModelChange)="onAscentChange(DistanceUnit.METRES, $event)"
-               type="number" class="form-control input-sm ascent-input" [id]="id"
-               placeholder="Enter Ascent">
+               type="number" class="form-control input-sm" [id]="id"
+               placeholder="Ascent">
       }
       <select [disabled]="disabled" [(ngModel)]="ascentUnit" (ngModelChange)="onUnitChange($event)"
-              class="form-control input-sm">
+              class="form-control input-sm ascent-unit">
         <option [value]="DistanceUnit.FEET">{{ DistanceUnit.FEET }}</option>
         <option [value]="DistanceUnit.METRES">{{ DistanceUnit.METRES }}</option>
       </select>
     </div>
   `,
   styles: [`
-    .ascent-input
-      width: 120px
-      margin-right: 12px
-    select.form-control
-      width: 80px
-      margin-left: 4px
+    .ascent-unit
+      max-width: 4.5rem
+      flex: 0 0 4.5rem
   `],
   imports: [
     FormsModule

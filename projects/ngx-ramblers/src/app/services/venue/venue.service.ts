@@ -58,17 +58,24 @@ export class VenueService {
       lon: venue.lon,
       usageCount: venue.usageCount || 0,
       lastUsed: venue.lastUsed ? this.dateUtils.isoDateTime(venue.lastUsed) : undefined,
-      ngSelectLabel: this.buildNgSelectLabel(venue)
+      ngSelectLabel: VenueService.buildNgSelectLabel(venue)
     }));
     this.logger.info("queryVenues: received", venues.length, "venues");
     this.geocodeVenuesWithoutCoordinates(venues);
     return venues;
   }
 
-  private buildNgSelectLabel(venue: StoredVenue): string {
-    const parts = [venue.name];
-    if (venue.address1) parts.push(venue.address1);
-    if (venue.postcode) parts.push(venue.postcode);
+  static buildNgSelectLabel(venue: { name?: string; address1?: string; postcode?: string }): string {
+    const seen = new Set<string>();
+    const parts: string[] = [];
+    for (const part of [venue.name, venue.address1, venue.postcode]) {
+      const trimmed = (part || "").trim();
+      const key = trimmed.toUpperCase();
+      if (trimmed && !seen.has(key)) {
+        seen.add(key);
+        parts.push(trimmed);
+      }
+    }
     return parts.join(", ");
   }
 
