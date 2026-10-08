@@ -17,10 +17,9 @@ import { MemberSelection } from "../../../models/mail.model";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { ListSubscriberCountComponent } from "../mail/list-subscriber-count";
 import { interpretRecipientDraft, isValidEmailAddress } from "../../../functions/email-addresses";
-import { memberDisambiguatedLabel } from "../../../functions/member-names";
 import { committeeAudienceChipQualifier, combinedMemberChipQualifier } from "../../../functions/member-chip-qualifier";
 import { MemberBulkLoadDateMap } from "../../../models/member.model";
-import { composerRecipientIsExpandableSet } from "../../../functions/email-composer";
+import { composerMemberIdentityRecipients, composerRecipientFromSuggestion, composerRecipientIsExpandableSet, composerRecipientIsSamePerson, composerRecipientLacksMarketingConsent, composerRecipientMatchesQuery, composerSuggestionShowsEmail } from "../../../functions/email-composer";
 
 @Component({
   selector: "app-recipient-field",
@@ -135,7 +134,7 @@ import { composerRecipientIsExpandableSet } from "../../../functions/email-compo
                   <div class="recipient-editor-row">
                     <span class="recipient-editor-caption">Field</span>
                     <div class="recipient-editor-switch">
-                      @for (target of fields; track target.key) {
+                      @for (target of fieldSwitcherKeys(); track target.key) {
                         <button type="button"
                                 [class.is-current]="editorField() === target.key"
                                 (click)="moveEditingTo(target.key)">{{ target.label }}</button>
@@ -163,7 +162,7 @@ import { composerRecipientIsExpandableSet } from "../../../functions/email-compo
             }
             @if (!plain && field.key === RecipientField.TO) {
               <div class="recipient-line-aux">
-                @if (!isVisible(RecipientField.CC)) {
+                @if (ccAvailable && !isVisible(RecipientField.CC)) {
                   <button type="button" class="recipient-reveal" (click)="revealCc()">Cc</button>
                 }
                 @if (!isVisible(RecipientField.BCC)) {
@@ -185,10 +184,31 @@ import { composerRecipientIsExpandableSet } from "../../../functions/email-compo
                           <strong>{{ suggestion.name || suggestion.email }}</strong>
                           @if (suggestion.listId) {
                             <app-list-subscriber-count [listId]="suggestion.listId" [members]="members"/>
-                          } @else if (suggestion.name) {
+                          } @else if (suggestion.committeeRoleLabel) {
+                            <span class="recipient-suggestion-role">{{ suggestion.committeeRoleLabel }}</span>
+                          } @else if (suggestionShowsEmail(suggestion) && suggestion.name) {
                             <span class="recipient-suggestion-email">{{ suggestion.email }}</span>
                           }
                         </span>
+                      </button>
+                    </li>
+                  }
+                }
+                @if (visibleWithoutConsentSuggestions.length) {
+                  <li class="recipient-suggestions-heading">Without Head office marketing consent</li>
+                  @for (suggestion of visibleWithoutConsentSuggestions; track suggestion.email; let i = $index) {
+                    <li>
+                      <button type="button" class="recipient-suggestion is-unavailable"
+                              [class.is-active]="activeSuggestionIndex === visibleMemberSuggestions.length + i"
+                              (mouseenter)="activeSuggestionIndex = visibleMemberSuggestions.length + i"
+                              (click)="chooseSuggestion(field.key, suggestion)">
+                        <span class="recipient-suggestion-main">
+                          <strong>{{ suggestion.name || suggestion.email }}</strong>
+                          @if (suggestion.committeeRoleLabel) {
+                            <span class="recipient-suggestion-role">{{ suggestion.committeeRoleLabel }}</span>
+                          }
+                        </span>
+                        <span class="recipient-suggestion-meta">cannot be emailed</span>
                       </button>
                     </li>
                   }
@@ -198,12 +218,14 @@ import { composerRecipientIsExpandableSet } from "../../../functions/email-compo
                   @for (suggestion of visibleSavedSuggestions; track suggestion.id || suggestion.email; let i = $index) {
                     <li>
                       <button type="button" class="recipient-suggestion"
-                              [class.is-active]="activeSuggestionIndex === visibleMemberSuggestions.length + i"
-                              (mouseenter)="activeSuggestionIndex = visibleMemberSuggestions.length + i"
+                              [class.is-active]="activeSuggestionIndex === visibleMemberSuggestions.length + visibleWithoutConsentSuggestions.length + i"
+                              (mouseenter)="activeSuggestionIndex = visibleMemberSuggestions.length + visibleWithoutConsentSuggestions.length + i"
                               (click)="chooseSuggestion(field.key, suggestion)">
                         <span class="recipient-suggestion-main">
                           <strong>{{ suggestion.name || suggestion.email }}</strong>
-                          @if (suggestion.name) { <span class="recipient-suggestion-email">{{ suggestion.email }}</span> }
+                          @if (suggestionShowsEmail(suggestion) && suggestion.name) {
+                            <span class="recipient-suggestion-email">{{ suggestion.email }}</span>
+                          }
                         </span>
                         @if (lastUsedDescription(suggestion); as used) {
                           <span class="recipient-suggestion-meta">{{ used }}</span>
@@ -273,6 +295,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   @Input() committeeAddresses: ComposerExternalRecipient[] = [];
   @Input() listRecipients: ComposerExternalRecipient[] = [];
   @Input() ccAllowedEmails: string[] | null = null;
+  ccAvailable = true;
+  requireConsent = false;
   @Input() audienceFilter: MemberSelection | null = null;
   @Input() memberBulkLoadDateMap: MemberBulkLoadDateMap | null = null;
   @Input() saveForReuse = true;
@@ -290,6 +314,14 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
 
   @Input("knownOnly") set knownOnlyValue(value: boolean) {
     this.knownOnly = coerceBooleanProperty(value);
+  }
+
+  @Input("ccAvailable") set ccAvailableValue(value: boolean) {
+    this.ccAvailable = coerceBooleanProperty(value);
+  }
+
+  @Input("requireConsent") set requireConsentValue(value: boolean) {
+    this.requireConsent = coerceBooleanProperty(value);
   }
 
   @Output() toChange = new EventEmitter<ComposerExternalRecipient[]>();
@@ -342,6 +374,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   private qualifierByEmail = new Map<string, string>();
   private cachedMemberEntries: ComposerExternalRecipient[] = [];
   protected visibleMemberSuggestions: ComposerExternalRecipient[] = [];
+  protected visibleWithoutConsentSuggestions: ComposerExternalRecipient[] = [];
   protected visibleSavedSuggestions: ExternalRecipient[] = [];
 
   ngOnDestroy(): void {
@@ -349,7 +382,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes["members"] || changes["knownMembers"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["savedRecipients"] || changes["to"] || changes["cc"] || changes["bcc"] || changes["audienceFilter"] || changes["memberBulkLoadDateMap"]) {
+    if (changes["members"] || changes["knownMembers"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["savedRecipients"] || changes["to"] || changes["cc"] || changes["bcc"] || changes["audienceFilter"] || changes["memberBulkLoadDateMap"] || changes["requireConsent"]) {
       if (changes["members"] || changes["knownMembers"] || changes["committeeAddresses"] || changes["listRecipients"] || changes["audienceFilter"] || changes["memberBulkLoadDateMap"]) {
         this.rebuildMemberIndex();
       }
@@ -360,13 +393,17 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   protected isVisible(field: RecipientField): boolean {
     switch (field) {
       case RecipientField.TO: return true;
-      case RecipientField.CC: return this.cc.length > 0 || (!this.plain && this.showCc);
+      case RecipientField.CC: return this.ccAvailable && (this.cc.length > 0 || (!this.plain && this.showCc));
       case RecipientField.BCC: return this.bcc.length > 0 || (!this.plain && this.showBcc);
     }
   }
 
+  protected fieldSwitcherKeys(): RecipientFieldConfig[] {
+    return this.fields.filter(field => field.key !== RecipientField.CC || this.ccAvailable);
+  }
+
   protected revealCc(): void {
-    this.showCc = true;
+    this.showCc = this.ccAvailable;
   }
 
   protected revealBcc(): void {
@@ -614,6 +651,10 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     return composerRecipientIsExpandableSet(recipient);
   }
 
+  protected suggestionShowsEmail(recipient: ComposerExternalRecipient): boolean {
+    return composerSuggestionShowsEmail(recipient);
+  }
+
   protected chipTooltip(recipient: ComposerExternalRecipient): string {
     if (this.expandableSet(recipient)) {
       return "Click to show each member so you can remove individuals";
@@ -626,6 +667,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   protected chipQualifier(recipient: ComposerExternalRecipient): string {
     if (recipient.listId || this.expandableSet(recipient)) {
       return "";
+    } else if (recipient.committeeRoleLabel) {
+      return recipient.committeeRoleLabel;
     } else {
       const email = (recipient.email || "").trim().toLowerCase();
       const mapped = this.qualifierByEmail.get(email);
@@ -766,7 +809,9 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   }
 
   protected suggestions(field: RecipientField): ComposerExternalRecipient[] {
-    return this.activeField === field ? [...this.visibleMemberSuggestions, ...this.visibleSavedSuggestions] : [];
+    return this.activeField === field
+      ? [...this.visibleMemberSuggestions, ...this.visibleWithoutConsentSuggestions, ...this.visibleSavedSuggestions]
+      : [];
   }
 
   protected suggestionIndex(field: RecipientField, email: string): number {
@@ -775,27 +820,35 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
 
   protected chooseSuggestion(field: RecipientField, recipient: ComposerExternalRecipient): void {
     const saved = this.savedRecipients.find(item => item.email.toLowerCase() === recipient.email.toLowerCase());
-    const entry: ComposerExternalRecipient = {
-      email: recipient.email,
-      name: recipient.name,
-      existingId: saved?.id,
-      saveForReuse: false,
-      memberId: recipient.memberId,
-      listId: recipient.listId,
-      listCount: recipient.listCount
-    };
-    if (this.rejectNonCommitteeCc(field, entry)) {
-    } else if (!this.valueFor(field).some(item => item.email.toLowerCase() === entry.email.toLowerCase())) {
+    const entry: ComposerExternalRecipient = composerRecipientFromSuggestion(recipient, saved?.id);
+    if (this.lacksMarketingConsent(entry)) {
+      this.error[field] = `${entry.name || entry.email} has not given Head office marketing consent`;
+      this.draft[field] = "";
+      this.activeField = field;
+      this.suggestionsSuppressed = false;
+      this.refreshVisibleSuggestions();
+      this.changeDetector.markForCheck();
+    } else if (this.rejectNonCommitteeCc(field, entry)) {
+    } else if (!this.valueFor(field).some(item => composerRecipientIsSamePerson(item, entry))) {
       this.emit(field, [...this.valueFor(field), entry]);
+      this.draft[field] = "";
+      this.error[field] = null;
+      this.activeField = field;
+      this.suggestionsSuppressed = false;
+      this.refreshVisibleSuggestions();
+      this.activeSuggestionIndex = this.suggestions(field).length > 0 ? 0 : -1;
+      this.changeDetector.markForCheck();
+      setTimeout(() => this.fitSuggestionsToViewport());
+    } else {
+      this.draft[field] = "";
+      this.error[field] = null;
+      this.activeField = field;
+      this.suggestionsSuppressed = false;
+      this.refreshVisibleSuggestions();
+      this.activeSuggestionIndex = this.suggestions(field).length > 0 ? 0 : -1;
+      this.changeDetector.markForCheck();
+      setTimeout(() => this.fitSuggestionsToViewport());
     }
-    this.draft[field] = "";
-    this.error[field] = null;
-    this.activeField = field;
-    this.suggestionsSuppressed = false;
-    this.refreshVisibleSuggestions();
-    this.activeSuggestionIndex = this.suggestions(field).length > 0 ? 0 : -1;
-    this.changeDetector.markForCheck();
-    setTimeout(() => this.fitSuggestionsToViewport());
   }
 
   protected onSaveForReuseChange(value: boolean): void {
@@ -809,12 +862,10 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
 
   private matchingSuggestions<T extends {email: string; name?: string}>(field: RecipientField, source: T[]): T[] {
     const query = (this.draft[field] || "").trim().toLowerCase();
-    const chosen = new Set([...this.to, ...this.cc, ...this.bcc].map(item => item.email.toLowerCase()));
+    const chosen = [...this.to, ...this.cc, ...this.bcc];
     return source
-      .filter(item => !chosen.has(item.email.toLowerCase()))
-      .filter(item => !query
-        || item.email.toLowerCase().includes(query)
-        || (item.name || "").toLowerCase().includes(query))
+      .filter(item => !chosen.some(existing => composerRecipientIsSamePerson(existing, item)))
+      .filter(item => composerRecipientMatchesQuery(item, query))
       .slice(0, 50);
   }
 
@@ -825,10 +876,15 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
       this.visibleSavedSuggestions = [];
     } else {
       this.visibleMemberSuggestions = this.matchingSuggestions(field, this.cachedMemberEntries);
-      const memberEmails = new Set(this.cachedMemberEntries.map(item => item.email.toLowerCase()));
+      const knownEmails = new Set([
+        ...this.cachedMemberEntries.map(item => item.email.toLowerCase()),
+        ...(this.committeeAddresses || []).map(item => (item.email || "").trim().toLowerCase()).filter(email => !!email)
+      ]);
       this.visibleSavedSuggestions = this.knownOnly
         ? []
-        : this.matchingSuggestions(field, this.savedRecipients.filter(item => !memberEmails.has(item.email.toLowerCase())));
+        : this.matchingSuggestions(field, this.savedRecipients.filter(item =>
+          !knownEmails.has(item.email.toLowerCase())
+          && !this.cachedMemberEntries.some(member => composerRecipientIsSamePerson(member, item))));
     }
   }
 
@@ -870,29 +926,11 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
         }
       }
     });
-    this.cachedMemberEntries = (this.listRecipients || []).reduce((list, recipient) => {
-      if (list.some(item => item.email.toLowerCase() === recipient.email.toLowerCase())) {
-        return list;
-      } else {
-        return [...list, recipient];
-      }
-    }, [] as ComposerExternalRecipient[]);
-    this.cachedMemberEntries = [...this.memberByEmail.values()].reduce((list: ComposerExternalRecipient[], member) => {
-      const email = (member.email || "").trim();
-      if (list.some(item => item.email.toLowerCase() === email.toLowerCase())) {
-        return list;
-      } else {
-        return [...list, {email, name: memberDisambiguatedLabel(member), memberId: member.id || undefined}];
-      }
-    }, this.cachedMemberEntries);
-    this.cachedMemberEntries = (this.committeeAddresses || []).reduce((list, address) => {
-      const email = (address.email || "").trim();
-      if (!email || list.some(item => item.email.toLowerCase() === email.toLowerCase())) {
-        return list;
-      } else {
-        return [...list, {email, name: address.name, saveForReuse: false, memberId: address.memberId}];
-      }
-    }, this.cachedMemberEntries);
+    this.cachedMemberEntries = composerMemberIdentityRecipients({
+      members: this.members || [],
+      committeeAddresses: this.committeeAddresses || [],
+      listRecipients: this.listRecipients || []
+    });
   }
 
   private isKnownAddress(email: string): boolean {

@@ -142,6 +142,7 @@ import {
   composerContentHasPersonalisation,
   composerRecipientAddressesArePrivate,
   composerRecipientCount,
+  composerSendProgressDescription,
   composerSenderIdentities,
   defaultAddresseeTypeForBranding,
   defaultBrandedSenderEmail,
@@ -4632,26 +4633,15 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   }
 
   sendProgressDescription(): string {
-    const oneEmail = this.session.state.brandingMode === BrandingMode.UNBRANDED
-      || (this.session.state.externalRecipients?.length ?? 0) > 0
-      || (this.session.state.ccRecipients?.length ?? 0) > 0
-      || (this.session.state.bccRecipients?.length ?? 0) > 0;
-    if (!this.batchProgress) {
-      if (this.recipientResolution.sendingAsCampaign()) {
-        return "Preparing campaign for Brevo…";
-      } else if (oneEmail) {
-        return "Preparing one email…";
-      } else {
-        return "Preparing personalised emails…";
-      }
-    } else if (oneEmail) {
-      return `Sending one email to ${this.stringUtils.pluraliseWithCount(this.batchProgress.totalRecipients, "recipient")}`;
-    } else {
-      const currentEntry = this.batchProgress.entries.find(entry => entry.status === BatchSendEntryStatus.Pending);
-      const currentNumber = Math.min(this.batchProcessedCount() + 1, this.batchProgress.totalRecipients);
-      const recipient = currentEntry?.fullName || currentEntry?.email || "recipient";
-      return `Sending ${currentNumber} of ${this.batchProgress.totalRecipients} - ${recipient}`;
-    }
+    const currentEntry = this.batchProgress?.entries.find(entry => entry.status === BatchSendEntryStatus.Pending);
+    return composerSendProgressDescription({
+      sendingAsCampaign: this.recipientResolution.sendingAsCampaign(),
+      oneCombinedEmail: this.canShareRecipientAddressesOnTo() || this.sharedToCommitteeSend(),
+      hasBatchProgress: !!this.batchProgress,
+      totalRecipients: this.batchProgress?.totalRecipients ?? 0,
+      processedCount: this.batchProcessedCount(),
+      currentRecipientLabel: currentEntry?.fullName || currentEntry?.email || null
+    });
   }
 
   batchProgressBarClass(): string {

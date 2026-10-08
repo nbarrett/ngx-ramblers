@@ -17,6 +17,14 @@ import {
   composerRecipientsForAddressMode,
   batchSendRecipientSplit,
   composerSendsAsCampaign,
+  composerSendProgressDescription,
+  composerCcFieldAvailable,
+  composerRecipientLacksMarketingConsent,
+  composerMemberIdentityRecipients,
+  composerRecipientFromSuggestion,
+  composerRecipientIsSamePerson,
+  composerRecipientMatchesQuery,
+  composerSuggestionShowsEmail,
   defaultAddresseeTypeForBranding,
   memberIsCoveredByComposerHeaders,
   recipientsWithoutEmails,
@@ -58,6 +66,151 @@ describe("syncedRecipientAddressMode", () => {
       preselectCommitteeRole: false,
       current: RecipientAddressMode.COMMITTEE_ROLE
     })).toEqual(RecipientAddressMode.COMMITTEE_ROLE);
+  });
+
+  it("leaves personal addresses selected until the user asks for role addresses", () => {
+    expect(syncedRecipientAddressMode({
+      committeeRoleSendOffered: true,
+      preselectCommitteeRole: false,
+      current: RecipientAddressMode.PERSONAL
+    })).toEqual(RecipientAddressMode.PERSONAL);
+  });
+});
+
+describe("composer member identity recipients", () => {
+
+  it("lists a committee member once, matching both personal and role mailboxes", () => {
+    const member = {id: "alex", firstName: "Alex", lastName: "Reed", email: "alex.reed@example.com"} as Member;
+    const identities = composerMemberIdentityRecipients({
+      members: [member],
+      committeeAddresses: [{
+        email: "treasurer@group.example.org.uk",
+        name: "Treasurer",
+        memberId: "alex",
+        committeeRoleType: "treasurer",
+        saveForReuse: false
+      }]
+    });
+    expect(identities).toHaveLength(1);
+    expect(identities[0].email).toEqual("alex.reed@example.com");
+    expect(identities[0].memberId).toEqual("alex");
+    expect(identities[0].committeeRoleLabel).toEqual("Treasurer");
+    expect(identities[0].committeeRoleType).toBeUndefined();
+    expect(composerSuggestionShowsEmail(identities[0])).toEqual(false);
+    expect(composerRecipientMatchesQuery(identities[0], "treasurer")).toEqual(true);
+    expect(composerRecipientMatchesQuery(identities[0], "treasurer@group.example.org.uk")).toEqual(true);
+    expect(composerRecipientMatchesQuery(identities[0], "alex.reed@example.com")).toEqual(true);
+  });
+
+  it("still lists a vacant role without showing its mailbox as a second person", () => {
+    const identities = composerMemberIdentityRecipients({
+      members: [{id: "other", firstName: "Alex", lastName: "Reed", email: "alex.reed@example.com"} as Member],
+      committeeAddresses: [{
+        email: "chair@group.example.org.uk",
+        name: "Chair",
+        committeeRoleType: "chair",
+        saveForReuse: false
+      }]
+    });
+    expect(identities.map(item => item.email)).toEqual(["alex.reed@example.com", "chair@group.example.org.uk"]);
+    expect(identities[1].name).toEqual("Chair");
+    expect(identities[1].committeeRoleType).toEqual("chair");
+    expect(identities[1].committeeRoleLabel).toBeUndefined();
+    expect(composerSuggestionShowsEmail(identities[1])).toEqual(false);
+  });
+
+  it("treats two chips for the same member as the same person", () => {
+    expect(composerRecipientIsSamePerson(
+      {email: "alex.reed@example.com", memberId: "alex"},
+      {email: "treasurer@group.example.org.uk", memberId: "alex"}
+    )).toEqual(true);
+  });
+});
+
+describe("composer suggestion email visibility", () => {
+
+  it("hides addresses for members, vacant roles and lists", () => {
+    expect(composerSuggestionShowsEmail({email: "alex.reed@example.com", name: "Alex Reed", memberId: "alex", saveForReuse: false})).toEqual(false);
+    expect(composerSuggestionShowsEmail({email: "chair@group.example.org.uk", name: "Chair", committeeRoleType: "chair", saveForReuse: false})).toEqual(false);
+    expect(composerSuggestionShowsEmail({email: "list@group.example.org.uk", name: "Walk leaders", listId: 12, saveForReuse: false})).toEqual(false);
+  });
+
+  it("shows the address for a saved external contact", () => {
+    expect(composerSuggestionShowsEmail({
+      email: "sam.patel@example.com",
+      name: "Sam Patel",
+      saveForReuse: true
+    })).toEqual(true);
+  });
+
+  it("keeps a member role label on the chosen chip without forcing the role mailbox", () => {
+    expect(composerRecipientFromSuggestion({
+      email: "alex.reed@example.com",
+      name: "Alex Reed",
+      memberId: "alex",
+      committeeRoleLabel: "Treasurer",
+      saveForReuse: false,
+      searchText: "alex reed treasurer"
+    })).toEqual({
+      email: "alex.reed@example.com",
+      name: "Alex Reed",
+      existingId: undefined,
+      saveForReuse: false,
+      memberId: "alex",
+      listId: undefined,
+      listCount: undefined,
+      filterKey: undefined,
+      committeeRoleType: undefined,
+      committeeRoleLabel: "Treasurer"
+    });
+  });
+
+  it("keeps a vacant role mailbox as a role chip", () => {
+    expect(composerRecipientFromSuggestion({
+      email: "chair@group.example.org.uk",
+      name: "Chair",
+      committeeRoleType: "chair",
+      saveForReuse: false
+    }).committeeRoleType).toEqual("chair");
+  });
+});
+
+describe("composer cc field", () => {
+
+  it("is available for inbox replies and committee-only mail", () => {
+    expect(composerCcFieldAvailable({inboxReply: true, committeeOnlyAudience: false})).toEqual(true);
+    expect(composerCcFieldAvailable({inboxReply: false, committeeOnlyAudience: true})).toEqual(true);
+  });
+
+  it("is hidden for mixed member sends", () => {
+    expect(composerCcFieldAvailable({inboxReply: false, committeeOnlyAudience: false})).toEqual(false);
+  });
+});
+
+describe("composerRecipientLacksMarketingConsent", () => {
+
+  it("is false when the site does not respect consent", () => {
+    expect(composerRecipientLacksMarketingConsent({
+      requireConsent: false,
+      recipient: {email: "alex@example.com", memberId: "alex"},
+      member: {id: "alex", email: "alex@example.com", emailMarketingConsent: false} as Member
+    })).toEqual(false);
+  });
+
+  it("is true for a member who has withheld Head office marketing consent", () => {
+    expect(composerRecipientLacksMarketingConsent({
+      requireConsent: true,
+      recipient: {email: "alex@example.com", memberId: "alex"},
+      member: {id: "alex", email: "alex@example.com", emailMarketingConsent: false} as Member
+    })).toEqual(true);
+  });
+
+  it("does not apply to mailing-list chips", () => {
+    expect(composerRecipientLacksMarketingConsent({
+      requireConsent: true,
+      recipient: {email: "list@group.example.org.uk", listId: 12, listCount: 20},
+      member: {id: "alex", emailMarketingConsent: false} as Member
+    })).toEqual(false);
   });
 });
 describe("unbrandedCommitteeSharedTo", () => {
@@ -191,6 +344,75 @@ describe("composerSendsAsCampaign", () => {
 
   it("does not apply campaign sending to unbranded mail", () => {
     expect(composerSendsAsCampaign(RecipientMode.ENTIRE_LIST, BrandingMode.UNBRANDED)).toEqual(false);
+  });
+});
+
+describe("composerSendProgressDescription", () => {
+
+  it("names the current recipient on a personalised batch", () => {
+    expect(composerSendProgressDescription({
+      sendingAsCampaign: false,
+      oneCombinedEmail: false,
+      hasBatchProgress: true,
+      totalRecipients: 243,
+      processedCount: 101,
+      currentRecipientLabel: "Alex Reed"
+    })).toEqual("Sending 102 of 243 - Alex Reed");
+  });
+
+  it("keeps a personalised send per-recipient when Cc or Bcc chips are present", () => {
+    expect(composerSendProgressDescription({
+      sendingAsCampaign: false,
+      oneCombinedEmail: false,
+      hasBatchProgress: true,
+      totalRecipients: 243,
+      processedCount: 0,
+      currentRecipientLabel: "Alex Reed"
+    })).toEqual("Sending 1 of 243 - Alex Reed");
+  });
+
+  it("describes a shared committee To as one email", () => {
+    expect(composerSendProgressDescription({
+      sendingAsCampaign: false,
+      oneCombinedEmail: true,
+      hasBatchProgress: true,
+      totalRecipients: 7,
+      processedCount: 0,
+      currentRecipientLabel: "Alex Reed"
+    })).toEqual("Sending one email to 7 recipients");
+  });
+
+  it("prepares personalised emails before the first poll", () => {
+    expect(composerSendProgressDescription({
+      sendingAsCampaign: false,
+      oneCombinedEmail: false,
+      hasBatchProgress: false,
+      totalRecipients: 0,
+      processedCount: 0,
+      currentRecipientLabel: null
+    })).toEqual("Preparing personalised emails…");
+  });
+
+  it("prepares one combined email before the first poll", () => {
+    expect(composerSendProgressDescription({
+      sendingAsCampaign: false,
+      oneCombinedEmail: true,
+      hasBatchProgress: false,
+      totalRecipients: 0,
+      processedCount: 0,
+      currentRecipientLabel: null
+    })).toEqual("Preparing one email…");
+  });
+
+  it("prepares a campaign before the first poll", () => {
+    expect(composerSendProgressDescription({
+      sendingAsCampaign: true,
+      oneCombinedEmail: false,
+      hasBatchProgress: false,
+      totalRecipients: 0,
+      processedCount: 0,
+      currentRecipientLabel: null
+    })).toEqual("Preparing campaign for Brevo…");
   });
 });
 

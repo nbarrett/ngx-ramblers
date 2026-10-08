@@ -494,6 +494,32 @@ export function composerSendsAsCampaign(
   }
 }
 
+export function composerSendProgressDescription(options: {
+  sendingAsCampaign: boolean;
+  oneCombinedEmail: boolean;
+  hasBatchProgress: boolean;
+  totalRecipients: number;
+  processedCount: number;
+  currentRecipientLabel: string | null;
+}): string {
+  if (!options.hasBatchProgress) {
+    if (options.sendingAsCampaign) {
+      return "Preparing campaign for Brevo…";
+    } else if (options.oneCombinedEmail) {
+      return "Preparing one email…";
+    } else {
+      return "Preparing personalised emails…";
+    }
+  } else if (options.oneCombinedEmail) {
+    const recipientWord = options.totalRecipients === 1 ? "recipient" : "recipients";
+    return `Sending one email to ${options.totalRecipients} ${recipientWord}`;
+  } else {
+    const currentNumber = Math.min(options.processedCount + 1, options.totalRecipients);
+    const recipient = options.currentRecipientLabel || "recipient";
+    return `Sending ${currentNumber} of ${options.totalRecipients} - ${recipient}`;
+  }
+}
+
 export function composerRecipientAddressesArePrivate(
   recipientCount: number,
   committeeOnlyAudience: boolean
@@ -580,6 +606,134 @@ export function composerRecipientFromMember(member: Member): ComposerExternalRec
   }
 }
 
+export function composerRecipientIsSamePerson(left: {email: string; memberId?: string}, right: {email: string; memberId?: string}): boolean {
+  if (left.memberId && right.memberId) {
+    return left.memberId === right.memberId;
+  } else {
+    return (left.email || "").toLowerCase() === (right.email || "").toLowerCase();
+  }
+}
+
+export function composerRecipientMatchesQuery(item: {email: string; name?: string; searchText?: string; committeeRoleLabel?: string}, query: string): boolean {
+  const needle = (query || "").trim().toLowerCase();
+  if (!needle) {
+    return true;
+  } else {
+    return item.email.toLowerCase().includes(needle)
+      || (item.name || "").toLowerCase().includes(needle)
+      || (item.committeeRoleLabel || "").toLowerCase().includes(needle)
+      || (item.searchText || "").includes(needle);
+  }
+}
+
+export function composerSuggestionShowsEmail(item: ComposerExternalRecipient): boolean {
+  if (item.memberId || item.committeeRoleType || item.listId || item.filterKey) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+export function composerRecipientFromSuggestion(recipient: ComposerExternalRecipient, existingId?: string): ComposerExternalRecipient {
+  return {
+    email: recipient.email,
+    name: recipient.name,
+    existingId,
+    saveForReuse: false,
+    memberId: recipient.memberId,
+    listId: recipient.listId,
+    listCount: recipient.listCount,
+    filterKey: recipient.filterKey,
+    committeeRoleType: recipient.committeeRoleType,
+    committeeRoleLabel: recipient.committeeRoleLabel
+  };
+}
+
+export function composerCcFieldAvailable(options: {inboxReply: boolean; committeeOnlyAudience: boolean}): boolean {
+  return options.inboxReply || options.committeeOnlyAudience;
+}
+
+export function composerRecipientLacksMarketingConsent(options: {
+  requireConsent: boolean;
+  recipient: ComposerExternalRecipient;
+  member?: Member | null;
+}): boolean {
+  if (!options.requireConsent || options.recipient.listId || options.recipient.filterKey) {
+    return false;
+  } else {
+    return options.member?.emailMarketingConsent === false;
+  }
+}
+
+export function composerMemberIdentityRecipients(options: {
+  members: Member[];
+  committeeAddresses: ComposerExternalRecipient[];
+  listRecipients?: ComposerExternalRecipient[];
+}): ComposerExternalRecipient[] {
+  const listEntries = (options.listRecipients ?? []).reduce((list, recipient) => {
+    if (list.some(item => item.email.toLowerCase() === recipient.email.toLowerCase())) {
+      return list;
+    } else {
+      return [...list, recipient];
+    }
+  }, [] as ComposerExternalRecipient[]);
+  const memberIds = new Set((options.members ?? []).map(member => member.id).filter((id): id is string => !!id));
+  const memberEmails = new Set((options.members ?? []).map(member => (member.email || "").trim().toLowerCase()).filter(email => !!email));
+  const rolesByMemberId = (options.committeeAddresses ?? []).reduce((map, address) => {
+    if (address.memberId && memberIds.has(address.memberId)) {
+      const current = map.get(address.memberId) ?? [];
+      return new Map(map).set(address.memberId, [...current, address]);
+    } else {
+      return map;
+    }
+  }, new Map<string, ComposerExternalRecipient[]>());
+  const memberEntries = (options.members ?? []).reduce((list, member) => {
+    const roles = (member.id ? rolesByMemberId.get(member.id) : undefined) ?? [];
+    const identity = composerRecipientFromMember(member) ?? (roles[0]
+      ? {
+        email: roles[0].email,
+        name: memberDisambiguatedLabel(member) || roles[0].name,
+        saveForReuse: false,
+        memberId: member.id || undefined
+      }
+      : null);
+    if (!identity) {
+      return list;
+    } else {
+      const roleNames = uniq(roles.map(role => (role.name || "").trim()).filter(name => !!name));
+      const searchText = [identity.name, identity.email, ...roles.flatMap(role => [role.name, role.email])]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const already = list.some(item => composerRecipientIsSamePerson(item, identity));
+      return already ? list : [...list, {
+        ...identity,
+        searchText,
+        committeeRoleLabel: roleNames.length ? roleNames.join(", ") : undefined
+      }];
+    }
+  }, [] as ComposerExternalRecipient[]);
+  const heldEmails = new Set([
+    ...memberEmails,
+    ...memberEntries.map(item => item.email.toLowerCase()),
+    ...[...rolesByMemberId.values()].flat().map(role => (role.email || "").toLowerCase())
+  ]);
+  const roleEntries = (options.committeeAddresses ?? []).reduce((list, address) => {
+    const email = (address.email || "").trim().toLowerCase();
+    const heldByListedMember = !!address.memberId && memberIds.has(address.memberId);
+    if (!email || heldByListedMember || heldEmails.has(email) || list.some(item => item.email.toLowerCase() === email)) {
+      return list;
+    } else {
+      return [...list, {
+        ...address,
+        saveForReuse: false,
+        searchText: [address.name, address.email].filter(Boolean).join(" ").toLowerCase()
+      }];
+    }
+  }, [] as ComposerExternalRecipient[]);
+  return [...listEntries, ...memberEntries, ...roleEntries];
+}
+
 export function composerRecipientsForAddressMode(
   recipients: ComposerExternalRecipient[],
   members: Member[],
@@ -641,13 +795,11 @@ export function composerCommitteeRecipients(roles: CommitteeMember[]): ComposerE
 }
 
 export function appendUniqueRecipients(list: ComposerExternalRecipient[], additions: ComposerExternalRecipient[]): ComposerExternalRecipient[] {
-  const existing = new Set((list ?? []).map(item => item.email.toLowerCase()));
   return (additions ?? []).reduce((acc, item) => {
     const email = (item.email || "").trim().toLowerCase();
-    if (!email || existing.has(email)) {
+    if (!email || acc.some(existing => composerRecipientIsSamePerson(existing, item))) {
       return acc;
     } else {
-      existing.add(email);
       return [...acc, item];
     }
   }, list ?? []);
