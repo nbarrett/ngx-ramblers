@@ -83,7 +83,7 @@ export class ContactUsComponent implements OnInit, OnDestroy {
       ? this.committeeReferenceDataSource()?.committeeMembersForRole(this.roles)
       : this.committeeReferenceDataSource()?.committeeMembers();
     this.logger.info("committeeMembers:roles:", this.roles, "committeeMembers:", committeeMembers);
-    return committeeMembers;
+    return committeeMembers || [];
   }
 
   resolvedMember(): CommitteeMember | undefined {

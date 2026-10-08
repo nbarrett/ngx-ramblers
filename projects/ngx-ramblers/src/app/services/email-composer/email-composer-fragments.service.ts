@@ -283,10 +283,19 @@ export class EmailComposerFragmentsService {
     isColumnDragHover(state: EmailComposerState, parentPath: number[]): boolean {
         return this.pathsEqual(state, this.dragHoverColumnPath, parentPath);
     }
+    fragmentsForRender(state: EmailComposerState): ComposerFragment[] {
+        if (state.fragmentOrder && state.fragmentOrder.length > 0) {
+            return state.fragmentOrder;
+        } else {
+            const isUnbranded = state.brandingMode === BrandingMode.UNBRANDED;
+            return buildDefaultFragmentOrder(state, { includeTemplateContent: !isUnbranded, unbranded: isUnbranded });
+        }
+    }
+
     ensureFragmentOrder(state: EmailComposerState): void {
         const isUnbranded = state.brandingMode === BrandingMode.UNBRANDED;
         if (!state.fragmentOrder || state.fragmentOrder.length === 0) {
-            state.fragmentOrder = buildDefaultFragmentOrder(state, { includeTemplateContent: !isUnbranded, unbranded: isUnbranded });
+            state.fragmentOrder = this.fragmentsForRender(state);
             if (isUnbranded) {
                 this.expandedFragmentIds.add("intro");
             }

@@ -485,7 +485,10 @@ export class EmailComposerRecipientsService {
         }
     }
     applyPreFilterAudienceToTo(): void {
-        if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
+        if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+            this.applyDefaultListIfNeeded();
+        }
+        else if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
             this.clearUnbrandedBulkRecipients();
         }
         else {

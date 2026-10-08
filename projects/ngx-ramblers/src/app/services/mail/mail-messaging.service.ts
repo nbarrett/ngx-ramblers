@@ -36,7 +36,6 @@ import { CommitteeMember } from "../../models/committee.model";
 import { ramblersAccountMergeFields } from "../../models/ramblers-legal.model";
 import { resolveContactUsRecipientAddresses } from "../../functions/contact-us-delivery";
 import { resolveAccentColor } from "../../models/email-accent-palette";
-import { NotificationHost } from "../../models/notification-host.model";
 import { DateRangeUnit } from "../../models/search.model";
 import { DateUtilsService } from "../date-utils.service";
 import { CommitteeConfigService } from "../committee/commitee-config.service";
@@ -46,8 +45,7 @@ import { sortBy } from "../../functions/arrays";
 import { BannerConfigService } from "../banner-config.service";
 import { UrlService } from "../url.service";
 import { MemberLoginService } from "../member/member-login.service";
-import { NotificationComponent } from "../../notifications/common/notification.component";
-import { ContactUsComponent } from "../../committee/contact-us/contact-us";
+import { signoffNamesHtml } from "../../functions/signoff-names";
 import { FullNamePipe } from "../../pipes/full-name.pipe";
 import { extractParametersFrom, notificationMappings } from "../../common/mail-parameters";
 import { KeyValue } from "../../functions/enums";
@@ -429,7 +427,7 @@ export class MailMessagingService {
     const replyTo: EmailAddress = createSendSmtpEmailRequest.replyTo
       || (replyToRole ? this.createBrevoAddress(replyToRole) : sender);
     const signoffRoles = createSendSmtpEmailRequest.notificationConfig.signOffRoles ?? [];
-    const signoffHtml = signoffRoles.length > 0 ? this.signoffNames(signoffRoles, createSendSmtpEmailRequest.notificationDirective) : "";
+    const signoffHtml = signoffRoles.length > 0 ? this.signoffNames(signoffRoles) : "";
     const bodyWithSignoff = signoffHtml
       ? `${createSendSmtpEmailRequest.bodyContent ?? ""}\n${signoffHtml}`
       : createSendSmtpEmailRequest.bodyContent;
@@ -483,24 +481,11 @@ export class MailMessagingService {
     return params;
   }
 
-  public signoffNames(roles: string[], notificationDirective: NotificationHost): string {
-    this.logger.info("signoffNames for roles:", roles);
-    const componentAndData = new NotificationComponent<ContactUsComponent>(ContactUsComponent);
-    if (notificationDirective?.viewContainerRef) {
-      notificationDirective.viewContainerRef.clear();
-      const componentRef = notificationDirective.viewContainerRef.createComponent<ContactUsComponent>(componentAndData.component);
-      const componentInstance = componentRef.instance as ContactUsComponent;
-      componentInstance.roles = roles;
-      componentInstance.emailStyle = true;
-      componentInstance.format = "list";
-      componentRef.changeDetectorRef.detectChanges();
-      const html = componentRef.location.nativeElement.innerHTML;
-      this.logger.info("signoffNames ->", html);
-      return html;
-    } else {
-      this.logger.info("signoffNames -> empty due to null notificationDirective");
-      return "";
-    }
+  public signoffNames(roles: string[]): string {
+    const committeeRoles = this.mailMessagingConfig.committeeReferenceData?.committeeMembers() || [];
+    const html = signoffNamesHtml(committeeRoles, roles, this.urlService.publicBaseUrl());
+    this.logger.info("signoffNames for roles:", roles, "->", html);
+    return html;
   }
 
   toSystemMergeFields(member: Member): SystemMergeFields {
