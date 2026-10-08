@@ -8,7 +8,8 @@ import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/funct
 const DESCRIPTION_MAX_LENGTH = 160;
 
 function publicColumn(column: PageContentColumn): boolean {
-  return (column.accessLevel || AccessLevel.PUBLIC) === AccessLevel.PUBLIC;
+  const level = column.accessLevel || AccessLevel.PUBLIC;
+  return level === AccessLevel.PUBLIC || level === AccessLevel.NOT_LOGGED_IN;
 }
 
 function imageMarkdownFrom(column: PageContentColumn): string {

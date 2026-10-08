@@ -373,6 +373,9 @@ import { DateUtilsService } from "../../../services/date-utils.service";
                   @if (rowAccessLevel(row) === AccessLevel.HIDDEN) {
                     <span class="badge bg-warning text-dark ms-2">Hidden</span>
                   }
+                  @if (rowAccessLevel(row) === AccessLevel.NOT_LOGGED_IN) {
+                    <span class="badge bg-warning text-dark ms-2">Not logged in</span>
+                  }
                   @if (isMigrationTemplateSelected()) {
                     @let mappingSummary = templateMappingSummary(row, rowIndex);
                     @if (mappingSummary) {

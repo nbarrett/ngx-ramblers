@@ -23,6 +23,16 @@ describe("content-export-renderer", () => {
       expect(publicMarkdownFromRows(rows)).toBe("Public text");
     });
 
+    it("includes columns shown only to visitors who are not logged in", () => {
+      const rows = [{
+        columns: [
+          {contentText: "Join us", accessLevel: AccessLevel.NOT_LOGGED_IN},
+          {contentText: "Members only", accessLevel: AccessLevel.LOGGED_IN_MEMBER}
+        ]
+      }] as PageContentRow[];
+      expect(publicMarkdownFromRows(rows)).toBe("Join us");
+    });
+
     it("treats columns without an access level as public", () => {
       const rows = [{columns: [{contentText: "Unmarked text"}]}] as PageContentRow[];
       expect(publicMarkdownFromRows(rows)).toBe("Unmarked text");

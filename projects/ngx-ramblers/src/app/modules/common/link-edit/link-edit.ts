@@ -72,6 +72,7 @@ export class LinkEditComponent implements OnInit {
     [AccessLevel.EVENT_LEADER]: "Event Leader or Organiser",
     [AccessLevel.COMMITTEE]: "Committee",
     [AccessLevel.LOGGED_IN_MEMBER]: "Logged In Member",
+    [AccessLevel.NOT_LOGGED_IN]: "Not Logged In",
     [AccessLevel.PUBLIC]: "Public"
   };
   faClose = faClose;

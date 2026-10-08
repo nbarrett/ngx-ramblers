@@ -230,6 +230,7 @@ export class EventTypeSettingsComponent implements OnInit, OnDestroy {
     [AccessLevel.EVENT_LEADER]: "Event leader or organiser",
     [AccessLevel.COMMITTEE]: "Committee",
     [AccessLevel.LOGGED_IN_MEMBER]: "Logged-in member",
+    [AccessLevel.NOT_LOGGED_IN]: "Not logged in",
     [AccessLevel.PUBLIC]: "Public"
   };
 

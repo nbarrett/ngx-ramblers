@@ -36,6 +36,9 @@ export class PageNavigatorComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.broadcastService.on(NamedEventType.MEMBER_LOGOUT_COMPLETE, () => {
       this.redirectIfCurrentPageRestricted();
     }));
+    this.subscriptions.push(this.broadcastService.on(NamedEventType.MEMBER_LOGIN_COMPLETE, () => {
+      this.redirectIfCurrentPageRestricted();
+    }));
     this.redirectIfCurrentPageRestricted();
   }
 
