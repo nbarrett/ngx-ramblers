@@ -13,11 +13,13 @@ import { MailMessagingService } from "../../../../services/mail/mail-messaging.s
 import { NotificationConfig } from "../../../../models/mail.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name.pipe";
+import { UnityExpenseGuidanceMode } from "../../../../models/expense-claim.model";
+import { UnityExpenseGuidanceComponent } from "../unity-expense-guidance";
 
 @Component({
     selector: "app-expense-paid-modal",
     templateUrl: "./expense-paid-modal.component.html",
-    imports: [FontAwesomeModule, MemberIdToFullNamePipe]
+    imports: [FontAwesomeModule, MemberIdToFullNamePipe, UnityExpenseGuidanceComponent]
 })
 export class ExpensePaidModalComponent implements OnInit {
 
@@ -33,6 +35,7 @@ export class ExpensePaidModalComponent implements OnInit {
   public expenseClaim: ExpenseClaim;
   private notificationDirective: NotificationDirective;
   private notificationConfig: NotificationConfig;
+  protected readonly UnityExpenseGuidanceMode = UnityExpenseGuidanceMode;
 
   ngOnInit() {
     this.logger.debug("constructed: expenseClaim:", this.expenseClaim);

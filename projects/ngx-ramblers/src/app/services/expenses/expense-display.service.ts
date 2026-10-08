@@ -13,6 +13,12 @@ import {
   ExpenseItem,
   ExpenseType
 } from "../../notifications/expenses/expense.model";
+import {
+  expenseEventDisplayDescription,
+  ExpenseEventTypeDescription,
+  ExpenseStageActionLabel,
+  UnityBankUrl
+} from "../../models/expense-claim.model";
 import { ContentMetadataService } from "../content-metadata.service";
 import { DateUtilsService } from "../date-utils.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -31,7 +37,7 @@ import { DEFAULT_COST_PER_MILE } from "../../models/committee.model";
 })
 
 export class ExpenseDisplayService {
-  private logger: Logger = inject(LoggerFactory).createLogger("RowSettingsActionButtonsComponent", NgxLoggerLevel.ERROR);
+  private logger: Logger = inject(LoggerFactory).createLogger("ExpenseDisplayService", NgxLoggerLevel.ERROR);
   private contentMetadata = inject(ContentMetadataService);
   private memberService = inject(MemberService);
   private committeeConfigService = inject(CommitteeConfigService);
@@ -49,19 +55,23 @@ export class ExpenseDisplayService {
     {value: "other", name: "Other"}];
 
   public eventTypes = {
-    created: {description: "Created", editable: true} as ExpenseEventType,
-    submitted: {description: "Submitted", actionable: true, notifyCreator: true, notifyApprover: true} as ExpenseEventType,
-    "first-approval": {description: "First Approval", actionable: true, notifyApprover: true} as ExpenseEventType,
+    created: {description: ExpenseEventTypeDescription.CREATED, editable: true} as ExpenseEventType,
+    submitted: {description: ExpenseEventTypeDescription.SUBMITTED, actionable: true, notifyCreator: true, notifyApprover: true} as ExpenseEventType,
+    "first-approval": {description: ExpenseEventTypeDescription.FIRST_APPROVAL, actionable: true, notifyApprover: true} as ExpenseEventType,
     "second-approval": {
-      description: "Second Approval",
+      description: ExpenseEventTypeDescription.SECOND_APPROVAL,
       actionable: true,
       notifyCreator: true,
       notifyApprover: true,
       notifyTreasurer: true
     } as ExpenseEventType,
-    returned: {description: "Returned", atEndpoint: false, editable: true, notifyCreator: true, notifyApprover: true} as ExpenseEventType,
-    paid: {description: "Paid", atEndpoint: true, notifyCreator: true, notifyApprover: true, notifyTreasurer: true} as ExpenseEventType
+    returned: {description: ExpenseEventTypeDescription.RETURNED, atEndpoint: false, editable: true, notifyCreator: true, notifyApprover: true} as ExpenseEventType,
+    paid: {description: ExpenseEventTypeDescription.PAID, atEndpoint: true, notifyCreator: true, notifyApprover: true, notifyTreasurer: true} as ExpenseEventType
   };
+  public unityNewPaymentUrl = UnityBankUrl.NEW_PAYMENT;
+  public unityAwaitingAuthorisationUrl = UnityBankUrl.AWAITING_AUTHORISATION;
+  public paymentCreatedInUnityLabel = ExpenseStageActionLabel.PAYMENT_CREATED_IN_UNITY;
+  public authorisedInUnityLabel = ExpenseStageActionLabel.AUTHORISED_IN_UNITY;
 
   private receiptBaseUrl: string;
   public committeeReferenceData: CommitteeReferenceData;
@@ -295,5 +305,9 @@ export class ExpenseDisplayService {
 
   showExpenseProgressAlert(notify: AlertInstance, message: string, busy?: boolean) {
     notify.progress({title: "Expenses", message}, busy);
+  }
+
+  eventTypeDisplayDescription(eventType?: ExpenseEventType): string {
+    return expenseEventDisplayDescription(eventType?.description);
   }
 }

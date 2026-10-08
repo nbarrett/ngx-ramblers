@@ -13,8 +13,8 @@ import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
       approval:
     </p>
     <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
-    <p>Once your claim has been approved it will be paid. Please note that this can take a week or so to arrange as
-      payments have to be approved by more than one committee member so please be patient with us!</p>
+    <p>Once your claim has been checked it is paid from Unity Trust Bank, which needs two authorised committee members.
+      That can take a few days, so please be patient with us.</p>
     <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
     imports: [ExpenseNotificationDetailsComponent, ExpenseNotificationFooterComponent, DisplayDatePipe]
 })

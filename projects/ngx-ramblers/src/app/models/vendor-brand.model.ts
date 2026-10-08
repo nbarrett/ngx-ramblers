@@ -32,6 +32,7 @@ const MARKS = {
   docker: {alt: "Docker Hub", icon: faDocker, iconColor: "#2496ED"},
   github: {alt: "GitHub", icon: faGithub},
   ramblers: {alt: "Ramblers", logoSrc: "assets/images/local/favicon.ico", logoHeightPx: 22},
+  unityTrustBank: {alt: "Unity Trust Bank", logoSrc: "assets/images/local/unity-trust-bank.png", logoHeightPx: 36},
   salesforce: {alt: "Salesforce", icon: faSalesforce, iconColor: "#00A1E0"},
   gmail: {alt: "Gmail", icon: faEnvelope, iconColor: "#EA4335"},
   webPush: {alt: "Web Push", icon: faBell, iconColor: "#6d7470"},
@@ -67,6 +68,7 @@ const BRAND_BY_KEY: Record<string, VendorBrandMark> = {
   flickr: MARKS.flickr,
   youtube: MARKS.youtube,
   twitter: MARKS.twitter,
+  unityTrustBank: MARKS.unityTrustBank,
   aiTextGeneration: MARKS.ai
 };
 

@@ -38,6 +38,7 @@ import { ExpenseDetailModalComponent } from "./modals/expense-detail-modal.compo
 import { ExpensePaidModalComponent } from "./modals/expense-paid-modal.component";
 import { ExpenseReturnModalComponent } from "./modals/expense-return-modal.component";
 import { ExpenseSubmitModalComponent } from "./modals/expense-submit-modal.component";
+import { UnityExpenseGuidanceComponent } from "./unity-expense-guidance";
 import { NotificationConfig } from "../../../models/mail.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { PageComponent } from "../../../page/page.component";
@@ -51,6 +52,9 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
 import { MoneyPipe } from "../../../pipes/money.pipe";
 import { eventTracker, itemTracker } from "../../../functions/trackers";
+import { AlertPanelVariant } from "../../../models/alert-panel.model";
+import { ExpenseStageActionLabel, UnityExpenseGuidanceMode } from "../../../models/expense-claim.model";
+import { AlertPanelComponent } from "../../../modules/common/alert-panel/alert-panel";
 
 const SELECTED_EXPENSE = "Expense from last email link";
 
@@ -58,7 +62,7 @@ const SELECTED_EXPENSE = "Expense from last email link";
     selector: "app-expenses",
     templateUrl: "./expenses.component.html",
     styleUrls: ["../admin/admin.component.sass", "./expenses.component.sass"],
-    imports: [PageComponent, NotificationDirective, FontAwesomeModule, TooltipDirective, CollapseDirective, ContentTextEditor, NgClass, FormsModule, RouterLink, DisplayDatePipe, MemberIdToFullNamePipe, MoneyPipe]
+    imports: [PageComponent, NotificationDirective, FontAwesomeModule, TooltipDirective, CollapseDirective, ContentTextEditor, NgClass, FormsModule, RouterLink, DisplayDatePipe, MemberIdToFullNamePipe, MoneyPipe, UnityExpenseGuidanceComponent, AlertPanelComponent]
 })
 export class ExpensesComponent implements OnInit, OnDestroy {
 
@@ -92,8 +96,6 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   };
   public notifyTarget: AlertTarget = {};
   public notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
-  public notifyConfirmTarget: AlertTarget = {};
-  private notifyConfirm: AlertInstance = this.notifierService.createAlertInstance(this.notifyConfirmTarget);
   public confirm = new Confirm();
   public filters: ExpenseFilter[];
   private subscriptions: Subscription[] = [];
@@ -103,6 +105,8 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   showOrHide = "hide";
   protected readonly itemTracker = itemTracker;
   protected readonly eventTracker = eventTracker;
+  protected readonly UnityExpenseGuidanceMode = UnityExpenseGuidanceMode;
+  protected readonly AlertPanelVariant = AlertPanelVariant;
 
   ngOnInit() {
     this.mailMessagingService.events().subscribe(mailMessagingConfig => {
@@ -245,9 +249,9 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   nextApprovalStage() {
     const approvals = this.approvalEvents();
     if (approvals.length === 0) {
-      return "First Approval";
+      return ExpenseStageActionLabel.PAYMENT_CREATED_IN_UNITY;
     } else if (approvals.length === 1) {
-      return "Second Approval";
+      return this.display.eventTypeDisplayDescription(this.display.eventTypes["second-approval"]);
     } else {
       return "Already has " + approvals.length + " approvals!";
     }
@@ -255,7 +259,6 @@ export class ExpensesComponent implements OnInit, OnDestroy {
 
   confirmApproveExpenseClaim() {
     const approvals = this.approvalEvents();
-    this.notifyConfirm.hide();
     if (approvals.length <= 1) {
       const request: ExpenseNotificationRequest = {
         notificationConfig: this.notificationConfig,
@@ -335,14 +338,6 @@ export class ExpensesComponent implements OnInit, OnDestroy {
 
   approveExpenseClaim() {
     this.confirm.as(ConfirmType.APPROVE);
-    if (this.lastApprovedByMe()) {
-      this.notifyConfirm.warning({
-        title: "Duplicate approval warning",
-        message: `You were the previous approver, therefore ${this.nextApprovalStage()} ought to be carried out by someone else. Are you sure you want to do this?`
-      });
-    } else {
-      this.notifyConfirm.hide();
-    }
   }
 
   allowResubmitExpenseClaim() {

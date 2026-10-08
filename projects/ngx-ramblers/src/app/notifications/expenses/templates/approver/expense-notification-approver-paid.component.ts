@@ -8,9 +8,10 @@ import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name
     template: `
     <p>This email is to notify you as an Expense Approver, that <strong
       [textContent]="display.expenseClaimLatestEvent(expenseClaim).memberId | memberIdToFullName : members"></strong>
-      has just paid <strong
+      has marked <strong
         [textContent]="(display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members) + '\\'s'"></strong>
-      {{ group?.shortName }} expense claim.</p>
+      {{ group?.shortName }} expense claim as {{ display.eventTypeDisplayDescription(display.eventTypes.paid) }}
+      after the payment was authorised in Unity.</p>
     <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
     imports: [ExpenseNotificationFooterComponent, MemberIdToFullNamePipe]
 })

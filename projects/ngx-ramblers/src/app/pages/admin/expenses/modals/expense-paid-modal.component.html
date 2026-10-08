@@ -1,15 +1,15 @@
 <div class="modal-content">
   <div class="modal-header">
-    <h4 class="modal-title">Pay <em>Expense Claim</em></h4>
+    <h4 class="modal-title">{{ display.authorisedInUnityLabel }}</h4>
     <button type="button" class="close float-end" aria-label="Close" (click)="bsModalRef.hide()">&times;</button>
   </div>
   <div class="modal-body">
-    <h5>You are about to mark the Expense Claim for <strong
+    <h5>You are about to mark the expense claim for <strong
     [textContent]="display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members"></strong>
-    as <strong>Paid</strong></h5>
+    as <strong>{{ display.eventTypeDisplayDescription(display.eventTypes.paid) }}</strong></h5>
+    <app-unity-expense-guidance class="d-block my-3" [mode]="UnityExpenseGuidanceMode.AUTHORISE"/>
     <ul class="list-arrow">
-      <li>This should be done once the payment to their bank account has been organised.</li>
-      <li>An email will now be sent to them informing them of this.</li>
+      <li>An email will be sent to them confirming that Unity has released the payment.</li>
     </ul>
     @if (notifyTarget.showAlert) {
       <div class="row mb-2">
@@ -27,12 +27,12 @@
       }
     </div>
     <div class="modal-footer d-flex gap-2">
-      <input type="submit" value="Confirm Paid" [disabled]="notifyTarget.busy" (click)="confirmPaidExpenseClaim()"
-        title="Confirm this Expense Claim as Paid"
-        class="btn btn-warning">
+      <input type="submit" value="Confirm {{ display.authorisedInUnityLabel }}" [disabled]="notifyTarget.busy" (click)="confirmPaidExpenseClaim()"
+        title="Confirm this expense is authorised in Unity and paid"
+        class="btn btn-primary">
       <input type="submit" value="Cancel" [disabled]="notifyTarget.busy" (click)="cancelPaidExpenseClaim()"
-        title="Don't mark this Expense Claim as paid, just close this form"
-        class="btn btn-success">
+        title="Close without marking this expense as paid"
+        class="btn btn-quiet">
     </div>
   </div>
 

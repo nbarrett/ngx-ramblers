@@ -29,6 +29,7 @@
         </div>
       </div>
     </div>
+    <app-unity-expense-guidance [mode]="UnityExpenseGuidanceMode.OVERVIEW"/>
     @if (notifyTarget.showAlert) {
       <div
         (click)="toggle()" tooltip="Click to {{showOrHide}} help" class="row">
@@ -182,14 +183,14 @@
                                   <input type="submit"
                                          [disabled]="notifyTarget.busy"
                                          value="{{nextApprovalStage()}}"
-                                         (click)="approveExpenseClaim()" title="Approve Claim"
-                                         class="btn btn-success">
+                                         (click)="approveExpenseClaim()" title="{{display.paymentCreatedInUnityLabel}}"
+                                         class="btn btn-primary">
                                 }
                                 @if (allowPaidExpenseClaim()) {
                                   <input type="submit"
                                          [disabled]="notifyTarget.busy"
-                                         value="Claim Paid" (click)="paidExpenseClaim()"
-                                         class="btn btn-success">
+                                         value="{{display.authorisedInUnityLabel}}" (click)="paidExpenseClaim()"
+                                         class="btn btn-primary">
                                 }
                                 @if (allowReturnExpenseClaim()) {
                                   <input type="submit"
@@ -240,26 +241,22 @@
                               }
                               @if (confirm.approveConfirmOutstanding()) {
                                 @if (allowApproveExpenseClaim()) {
-                                  @if (notifyConfirmTarget.showAlert) {
-                                    <div class="mb-10">
-                                      <div class="alert {{notifyConfirmTarget.alertClass}}">
-                                        <fa-icon [icon]="notifyConfirmTarget.alert.icon"></fa-icon>
-                                        @if (notifyConfirmTarget.alertTitle) {
-                                          <strong
-                                          >{{ notifyConfirmTarget.alertTitle }}
-                                            : </strong>
-                                        } {{ notifyConfirmTarget.alertMessage }}
-                                      </div>
-                                    </div>
+                                  @if (lastApprovedByMe()) {
+                                    <app-alert-panel class="mb-2" title="Same person as last time"
+                                                     [variant]="AlertPanelVariant.WARNING">
+                                      You were the previous approver, so someone else ought to do this Unity step. Continue only if you are sure.
+                                    </app-alert-panel>
                                   }
+                                  <app-unity-expense-guidance class="d-block mb-2"
+                                                              [mode]="UnityExpenseGuidanceMode.CREATE_PAYMENT"/>
                                   <input [disabled]="notifyTarget.busy" type="submit"
                                          value="Confirm {{nextApprovalStage()}}"
                                          (click)="confirmApproveExpenseClaim()"
-                                         class="btn btn-success">
+                                         class="btn btn-primary">
                                   <input [disabled]="notifyTarget.busy" type="submit"
-                                         value="Cancel {{nextApprovalStage()}}"
+                                         value="Cancel"
                                          (click)="confirm.clear()"
-                                         class="btn btn-warning">
+                                         class="btn btn-quiet">
                                 }
                               }
                             </div>
@@ -280,7 +277,8 @@
                               <tr>
                                 <td [textContent]="event.date | displayDate" class="nowrap"></td>
                                 <td [textContent]="event.memberId | memberIdToFullName : members"></td>
-                                <td [textContent]="event.eventType.description">
+                                <td>
+                                  {{ display.eventTypeDisplayDescription(event.eventType) }}
                                   @if (event.reason) {
                                     <span [placement]="'right'"
                                           tooltip="Reason: {{event.reason}}">Reason: {{ event.reason }}</span>

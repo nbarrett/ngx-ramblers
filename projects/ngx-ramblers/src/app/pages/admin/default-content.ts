@@ -157,7 +157,8 @@ export const EXPENSES_DETAILED_HELP: ContentText = {
   text:
     "* As an incentive for walk planning, you can claim travel costs for a recce of a walk you have not led before.\n" +
     "* Attach a copy of receipts for all non-travel expenses, or a brief explanation if that is not possible.\n" +
-    "* Click **Add Expense Claim** below and complete the details. When the claim is correct, **Submit Claim** so the committee can process it. For the full process, see [Claiming expenses](" + EXPENSES_HOW_TO_DOCUMENTATION_URL + ")."
+    "* Click **Add Expense Claim** below and complete the details. When the claim is correct, **Submit Claim** so the committee can process it.\n" +
+    "* Payments are made from Unity Trust Bank and need two authorised people. The first person creates the payment in Unity, then marks **Payment created in Unity**. The second person authorises it in Unity, then marks **Authorised in Unity**. Do not mark those stages until the Unity work is done. For the full process, see [Claiming expenses](" + EXPENSES_HOW_TO_DOCUMENTATION_URL + ")."
 };
 
 export const VENUE_SETTINGS_HELP: ContentText = {

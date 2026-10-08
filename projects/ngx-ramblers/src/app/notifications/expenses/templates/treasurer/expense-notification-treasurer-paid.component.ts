@@ -9,8 +9,8 @@ import { MemberIdToFullNamePipe } from "../../../../pipes/member-id-to-full-name
     <p>This email is to notify you that <strong
       [textContent]="(display.expenseClaimCreatedEvent(expenseClaim).memberId | memberIdToFullName : members) + '\\'s'"
       ></strong>
-      {{ group?.shortName }} expense claim is now complete and they have been sent a payment notification informing them
-      that funds will arrive of their bank account within 3 days.
+      {{ group?.shortName }} expense claim is now complete. The payment has been authorised in Unity, and they have been
+      sent a notification that funds should arrive in their bank account within 3 days.
       <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
     imports: [ExpenseNotificationFooterComponent, MemberIdToFullNamePipe]
 })
