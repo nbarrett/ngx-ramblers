@@ -1,5 +1,5 @@
 import {TestBed} from "@angular/core/testing";
-import {describe, expect, it, vi} from "vitest";
+import {afterEach, describe, expect, it, vi} from "vitest";
 import {composerListToken, composerRecipientFromMember, defaultEmailComposerState} from "../../functions/email-composer";
 import {BrandingMode, ComposerExternalRecipient, RecipientField, RecipientMode} from "../../models/email-composer.model";
 import {Member} from "../../models/member.model";
@@ -11,6 +11,10 @@ import {EmailComposerRecipientResolutionService} from "./email-composer-recipien
 import {EmailComposerRecipientsService} from "./email-composer-recipients.service";
 
 describe("composer list expansion", () => {
+  afterEach(() => {
+    TestBed.resetTestingModule();
+  });
+
   it("keeps a mailing-list pill until expanded, then keeps its individual recipients through picker updates", () => {
     const members = [...new Set([..."abcdefghijkl"])].map(id => ({id, firstName: "Alex", lastName: id, email: `${id}@example.com`} as Member));
     const outside = {id: "outside", email: "outside@example.com"} as Member;
@@ -47,5 +51,41 @@ describe("composer list expansion", () => {
     expect(state.externalRecipients.every(recipient => !recipient.listId && !recipient.filterKey)).toBe(true);
     expect(state.externalRecipients.some(recipient => recipient.email === outside.email)).toBe(false);
     expect(state.narrowListId).toBe(list.id);
+  });
+
+  it("does not replace a whole-list send with every member who has an email", () => {
+    const members = [...new Set([..."abcdefghijkl"])].map(id => ({id, firstName: "Alex", lastName: id, email: `${id}@example.com`} as Member));
+    const list = {id: 42, name: "Group members"} as ListInfo;
+    const listToken = composerListToken(list.id, list.name, members.length);
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.BRANDED;
+    state.recipientMode = RecipientMode.ENTIRE_LIST;
+    state.selectedListId = list.id;
+    state.preFilterKey = null;
+    state.externalRecipients = [listToken];
+    TestBed.configureTestingModule({providers: [
+      EmailComposerRecipientsService,
+      {provide: EmailComposerSessionService, useValue: {state, inboxReplyContext: null, syncStateToUrl: vi.fn()}},
+      {provide: MailListUpdaterService, useValue: {memberSubscribed: () => true}},
+      {provide: EmailComposerRecipientSourcesService, useValue: {
+        members,
+        allMembers: members,
+        committeeReferenceData: null,
+        candidateMembers: () => members,
+        nonEmptyLists: () => [],
+        unbrandedCommitteeLists: () => [],
+        subscribedMemberCount: () => members.length
+      }},
+      {provide: EmailComposerRecipientResolutionService, useValue: {
+        committeeRoleSendOffered: () => false,
+        sendingAsCampaign: () => true,
+        memberRecipientsForIds: (selectedIds: string[]) => members.filter(member => selectedIds.includes(member.id))
+          .map(member => composerRecipientFromMember(member)).filter((recipient): recipient is ComposerExternalRecipient => !!recipient)
+      }}
+    ]});
+    const service = TestBed.inject(EmailComposerRecipientsService);
+    service.applyPreFilterAudienceToTo();
+    expect(state.recipientMode).toBe(RecipientMode.ENTIRE_LIST);
+    expect(state.externalRecipients).toEqual([listToken]);
   });
 });

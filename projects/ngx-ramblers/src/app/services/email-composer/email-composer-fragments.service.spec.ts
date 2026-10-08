@@ -36,6 +36,14 @@ describe("composer fragment editing", () => {
     expect(state.fragmentOrder).toEqual([article]);
   });
 
+  it("returns a default fragment list without writing it onto empty state", () => {
+    const service = TestBed.inject(EmailComposerFragmentsService);
+    const state = defaultEmailComposerState();
+    const rendered = service.fragmentsForRender(state);
+    expect(state.fragmentOrder).toEqual([]);
+    expect(rendered.some(fragment => fragment.kind === ComposerFragmentKind.INTRO)).toBe(true);
+  });
+
   it("keeps expansion and drag state separate between composer instances", () => {
     const first = TestBed.runInInjectionContext(() => new EmailComposerFragmentsService());
     const second = TestBed.runInInjectionContext(() => new EmailComposerFragmentsService());

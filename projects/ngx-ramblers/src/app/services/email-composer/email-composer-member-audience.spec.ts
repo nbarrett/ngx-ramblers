@@ -1,5 +1,6 @@
 import {describe, expect, it, vi} from "vitest";
 import {defaultEmailComposerState} from "../../functions/email-composer";
+import {RecipientMode} from "../../models/email-composer.model";
 import {Member} from "../../models/member.model";
 import {MemberSelection} from "../../models/mail.model";
 import {EmailComposerRecipientsService} from "./email-composer-recipients.service";
@@ -7,13 +8,20 @@ import {EmailComposerRecipientsService} from "./email-composer-recipients.servic
 describe("composer member audience", () => {
   function service() {
     const state = defaultEmailComposerState();
+    state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+    const candidates = [
+      {id: "alex", email: "alex@example.com"}, {id: "sam", email: "sam@example.com"}
+    ];
     const instance = Object.create(EmailComposerRecipientsService.prototype);
     Object.assign(instance, {
       session: {state, syncStateToUrl: vi.fn()},
       expandedRecipientFilterKeys: new Set(),
-      pool: {recomputeCandidateMembers: vi.fn(), candidateMembers: () => [
-        {id: "alex", email: "alex@example.com"}, {id: "sam", email: "sam@example.com"}
-      ]},
+      pool: {
+        members: candidates,
+        cachedCandidateMembers: candidates,
+        recomputeCandidateMembers: vi.fn(),
+        candidateMembers: () => candidates
+      },
       resolver: {memberMatchesPreFilter: (member: Member) => member.id === "alex"},
       onFilteredMemberIdsChange: (ids: string[]) => { state.selectedMemberIds = ids; }
     });

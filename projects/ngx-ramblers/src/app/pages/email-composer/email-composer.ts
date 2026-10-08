@@ -1556,6 +1556,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.recipientSources.allMembers = await this.memberService.privilegedFields();
     await this.applyVolunteerAudience();
     this.recipientSources.members = this.recipientSources.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
+    this.recipientSources.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
     this.recipients.applyDefaultListIfNeeded();
     if (this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
       this.recipients.applyPreFilterAudienceToTo();
@@ -1564,10 +1565,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       this.session.state.externalRecipients = this.recipients.expandListChipsWhenMixedWithPeople(this.session.state.externalRecipients ?? []);
     }
     this.recipients.syncRecipientAddressMode();
-    this.recipientSources.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
-    if (this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
-      this.recipients.applyPreFilterAudienceToTo();
-    }
     await this.refreshDrafts();
   }
 
@@ -2908,9 +2905,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         return this.recipientSources.listNameAndCount(list);
       }
     } else {
-      const people = this.recipientResolution.uniqueEntriesFrom(this.session.state.externalRecipients ?? []).length;
-      const ccCount = this.recipientResolution.uniqueEntriesFrom(this.session.state.ccRecipients ?? []).length;
-      const bccCount = this.recipientResolution.uniqueEntriesFrom(this.session.state.bccRecipients ?? []).length;
+      const people = composerRecipientCount(this.session.state.externalRecipients ?? []);
+      const ccCount = composerRecipientCount(this.session.state.ccRecipients ?? []);
+      const bccCount = composerRecipientCount(this.session.state.bccRecipients ?? []);
       const peopleSummary = this.stringUtils.pluraliseWithCount(people, "member");
       const extra: string[] = [];
       if (ccCount > 0)
@@ -3437,7 +3434,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
           const list = this.recipientSources.availableLists().find(item => item.id === this.session.state.selectedListId);
           return list ? this.recipientSources.listNameAndCount(list) : fallback;
         } else {
-          const total = this.recipientResolution.totalRecipientCount();
+          const total = composerRecipientCount(this.session.state.externalRecipients ?? [])
+            + composerRecipientCount(this.session.state.ccRecipients ?? [])
+            + composerRecipientCount(this.session.state.bccRecipients ?? []);
           return total > 0 ? this.recipientCountSummary() : fallback;
         }
       }
@@ -4075,8 +4074,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     bottom: string;
     combined: string;
   } {
-    this.fragmentEditor.ensureFragmentOrder(this.session.state);
-    const fragments = this.session.state.fragmentOrder ?? [];
+    const fragments = this.fragmentEditor.fragmentsForRender(this.session.state);
     const articleBlocksById = new Map((this.session.state.articleBlocks ?? []).map(block => [block.id, block]));
     const renderFragment = (fragment: ComposerFragment): string => {
       switch (fragment.kind) {
@@ -4086,7 +4084,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
           const textHtml = this.rendering.markdownToHtml(this.session.state.signoffTextMarkdown);
           const renderableRoles = this.validSignoffRolesFor(this.session.state.signoffRoles ?? []);
           const namesHtml = renderableRoles.length > 0
-            ? this.mailMessagingService.signoffNames(renderableRoles, this.notificationDirective)
+            ? this.mailMessagingService.signoffNames(renderableRoles)
             : "";
           return [textHtml, namesHtml].filter(s => s && s.trim()).join("\n");
         }
@@ -4207,7 +4205,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     return !this.session.inboxReplyContext && composerRecipientAddressesArePrivate(this.recipientResolution.totalRecipientCount(), this.recipientResolution.committeeOnlyAudience());
   }
 
-  private canShareRecipientAddressesOnTo(): boolean {
+  protected canShareRecipientAddressesOnTo(): boolean {
     return !this.contentIsPersonalised() && !this.recipientAddressesArePrivate() && this.visibleToRecipientCount() > 1;
   }
 
