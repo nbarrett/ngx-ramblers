@@ -22,7 +22,9 @@ import { AddToCalendarLinkComponent } from "../../../modules/common/related-link
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { faCloudArrowUp, faEnvelope, faShareNodes } from "@fortawesome/free-solid-svg-icons";
-import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
+import { ButtonDropdownComponent } from "../../../modules/common/button-dropdown/button-dropdown";
+import { ButtonDropdownContainer, ButtonDropdownItem } from "../../../models/button-dropdown.model";
+import { WalkShareMenuAction } from "../../../models/walk.model";
 import {
   EventSocialPublishModalComponent
 } from "../../../modules/common/social-publish/event-social-publish-modal";
@@ -76,32 +78,14 @@ import { StoredValue } from "../../../models/ui-actions";
                 </button>
               }
               @if (showSocialPublishing() || showEmailNotification()) {
-                <div class="btn-group" dropdown container="body">
-                  <button type="button" dropdownToggle class="btn btn-primary dropdown-toggle"
-                          [disabled]="notifyTarget.busy" aria-label="Publish this event">
-                    <fa-icon [icon]="faCloudArrowUp" class="me-2"/>Publish
-                  </button>
-                  <ul *dropdownMenu class="dropdown-menu">
-                    @if (showSocialPublishing()) {
-                      <li>
-                        <a class="dropdown-item" role="button" (click)="openSocialPublish()"
-                           tooltip="Preview and post this event to Facebook or Instagram"
-                           placement="left" container="body">
-                          <fa-icon [icon]="faShareNodes" class="me-2"/>Share on social media
-                        </a>
-                      </li>
-                    }
-                    @if (showEmailNotification()) {
-                      <li>
-                        <a class="dropdown-item" role="button" (click)="display.sendNotification(groupEvent)"
-                           tooltip="Email members about this event"
-                           placement="left" container="body">
-                          <fa-icon [icon]="faEnvelope" class="me-2"/>Email members about this event
-                        </a>
-                      </li>
-                    }
-                  </ul>
-                </div>
+                <app-button-dropdown label="Publish"
+                                     [icon]="faCloudArrowUp"
+                                     buttonClass="btn btn-primary"
+                                     ariaLabel="Publish this event"
+                                     [disabled]="notifyTarget.busy"
+                                     [container]="ButtonDropdownContainer.BODY"
+                                     [items]="publishMenuItems()"
+                                     (itemSelect)="onPublishMenu($event)"/>
               }
               @if (display.allow.edits) {
                 <input type="submit" value="edit"
@@ -234,7 +218,7 @@ import { StoredValue } from "../../../models/ui-actions";
       </div>
     </div>`,
   styleUrls: ["group-event-view.sass"],
-  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent, AddToCalendarLinkComponent, WalkAlbumPanelComponent, NgStyle]
+  imports: [MarkdownComponent, RelatedLinkComponent, CopyIconComponent, TooltipDirective, FontAwesomeModule, RouterLink, EventDatesAndTimesPipe, BookingFormComponent, EventLeaderComponent, ButtonDropdownComponent, EventSocialPublishModalComponent, AddToCalendarLinkComponent, WalkAlbumPanelComponent, NgStyle]
 })
 export class GroupEventView implements OnInit {
 
@@ -252,6 +236,7 @@ export class GroupEventView implements OnInit {
   protected readonly faShareNodes = faShareNodes;
   protected readonly faCloudArrowUp = faCloudArrowUp;
   protected readonly faEnvelope = faEnvelope;
+  protected readonly ButtonDropdownContainer = ButtonDropdownContainer;
   private walksAndEventsService = inject(WalksAndEventsService);
   private createWalkAlbumService = inject(CreateWalkAlbumService);
 
@@ -273,6 +258,33 @@ export class GroupEventView implements OnInit {
   faFile = faFile;
   public links: Links = null;
   public image: BasicMedia;
+
+  protected publishMenuItems(): ButtonDropdownItem[] {
+    return [
+      {
+        id: WalkShareMenuAction.SOCIAL,
+        label: "Share on social media",
+        icon: this.faShareNodes,
+        hidden: !this.showSocialPublishing(),
+        tooltip: "Preview and post this event to Facebook or Instagram"
+      },
+      {
+        id: WalkShareMenuAction.EMAIL_MEMBERS,
+        label: "Email members about this event",
+        icon: this.faEnvelope,
+        hidden: !this.showEmailNotification(),
+        tooltip: "Email members about this event"
+      }
+    ];
+  }
+
+  protected onPublishMenu(action: string): void {
+    if (action === WalkShareMenuAction.SOCIAL) {
+      this.openSocialPublish();
+    } else if (action === WalkShareMenuAction.EMAIL_MEMBERS) {
+      this.display.sendNotification(this.groupEvent);
+    }
+  }
 
   backToListHref(): string {
     return this.urlService.pageUrl(this.urlService.listPath(eventSlug(this.groupEvent)));

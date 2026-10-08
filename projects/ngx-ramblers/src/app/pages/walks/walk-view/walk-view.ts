@@ -9,7 +9,9 @@ import { AuthService } from "../../../auth/auth.service";
 import { ALERT_WARNING, AlertTarget } from "../../../models/alert-target.model";
 import { LoginResponse } from "../../../models/member.model";
 import { StoredValue } from "../../../models/ui-actions";
-import { DisplayedWalk, EventType, MapDisplay, WalkExportTab } from "../../../models/walk.model";
+import { DisplayedWalk, EventType, MapDisplay, WalkExportTab, WalkShareMenuAction } from "../../../models/walk.model";
+import { ButtonDropdownComponent } from "../../../modules/common/button-dropdown/button-dropdown";
+import { ButtonDropdownContainer, ButtonDropdownItem } from "../../../models/button-dropdown.model";
 import { WalkLeadEditAppearance } from "../../../models/walk-edit-mode.model";
 import { WalkLeadEditButton } from "./walk-lead-edit-button";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
@@ -36,7 +38,7 @@ import { ExtendedGroupEventQueryService } from "../../../services/walks-and-even
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
+
 import {
   EventSocialPublishModalComponent
 } from "../../../modules/common/social-publish/event-social-publish-modal";
@@ -54,8 +56,8 @@ import {
   faCircleCheck,
   faEnvelope
 } from "@fortawesome/free-solid-svg-icons";
-import { AppShellService } from "../../../services/maps/app-shell.service";
-import { nativeShareSupported } from "../../../functions/native-share";
+
+
 import { GroupEventDisplayService } from "../../group-events/group-event-display.service";
 import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
 
@@ -288,115 +290,14 @@ import { AppPath } from "../../../models/route-follow.model";
             </button>
           }
           @if (canShareWalk() || showPublishToRamblers || showSocialPublishing() || showAlbumShare() || showEmailActions()) {
-            <div class="btn-group walk-view-split" dropdown container="body">
-              @if (showPublishToRamblers && publishBlockedUntilApproved()) {
-                <button type="button" disabled
-                        class="btn btn-primary btn-sm walk-view-action"
-                        [tooltip]="publishBlockedTooltip" container="body">
-                  <fa-icon [icon]="faCloudArrowUp"/>
-                  <span>Publish</span>
-                </button>
-              } @else if (splitShareButton()) {
-                <button type="button" (click)="primaryAction()"
-                        class="btn btn-sm walk-view-action"
-                        [class.btn-primary]="showPublishToRamblers"
-                        [class.btn-quiet]="!showPublishToRamblers"
-                        [tooltip]="primaryActionIsPublish() ? publishTooltip : 'Share this ' + eventTypeLabel()"
-                        container="body">
-                  <fa-icon [icon]="primaryActionIsPublish() ? faCloudArrowUp : faShareNodes"/>
-                  <span>{{ primaryActionIsPublish() ? "Publish" : "Share" }}</span>
-                </button>
-              } @else {
-                <button type="button" dropdownToggle
-                        class="btn btn-sm btn-quiet walk-view-action dropdown-toggle"
-                        [tooltip]="'Share and publish options for this ' + eventTypeLabel()"
-                        container="body">
-                  <fa-icon [icon]="faShareNodes"/>
-                  <span>Share</span>
-                </button>
-              }
-              @if (splitShareButton() || (showPublishToRamblers && publishBlockedUntilApproved())) {
-                <button type="button" dropdownToggle
-                        class="btn btn-sm walk-view-action dropdown-toggle dropdown-toggle-split"
-                        [class.btn-primary]="showPublishToRamblers"
-                        [class.btn-quiet]="!showPublishToRamblers"
-                        aria-label="More share and publish options">
-                  <span class="visually-hidden">More options</span>
-                </button>
-              }
-              <ul *dropdownMenu class="dropdown-menu">
-                @if (showPublishToRamblers) {
-                  <li>
-                    @if (publishBlockedUntilApproved()) {
-                      <span class="dropdown-item disabled" [tooltip]="publishBlockedTooltip"
-                            placement="left" container="body">
-                        <fa-icon [icon]="faCloudArrowUp" class="me-2"/>Publish to Ramblers
-                      </span>
-                    } @else {
-                      <a class="dropdown-item" [routerLink]="publishExportLink"
-                         [queryParams]="publishExportQueryParams" [tooltip]="publishTooltip"
-                         placement="left" container="body">
-                        <fa-icon [icon]="faCloudArrowUp" class="me-2"/>Publish to Ramblers
-                      </a>
-                    }
-                  </li>
-                }
-                @if (canShareWalk()) {
-                  <li>
-                    <a class="dropdown-item" [href]="displayedWalk.walkLink" target="_blank"
-                       rel="noopener noreferrer">
-                      <fa-icon [icon]="faEye" class="me-2"/>View this {{ eventTypeLabel() }}
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" role="button" (click)="shareWalk()">
-                      <fa-icon [icon]="faShareNodes" class="me-2"/>Share this {{ eventTypeLabel() }}
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" role="button" (click)="copyLink()">
-                      <fa-icon [icon]="faCopy" class="me-2"/>Copy link
-                    </a>
-                  </li>
-                }
-                @if (showSocialPublishing()) {
-                  <li>
-                    <a class="dropdown-item" role="button" (click)="openSocialPublish()"
-                       tooltip="Let people know this walk is coming up by posting it to Facebook or Instagram"
-                       placement="left" container="body">
-                      <fa-icon [icon]="faShareNodes" class="me-2"/>Promote walk on social media
-                    </a>
-                  </li>
-                }
-                @if (showAlbumShare()) {
-                  <li>
-                    <a class="dropdown-item" role="button" (click)="openAlbumShare()"
-                       tooltip="Post photos from this walk's album to Facebook or Instagram"
-                       placement="left" container="body">
-                      <fa-icon [icon]="faShareNodes" class="me-2"/>Share photos on social media
-                    </a>
-                  </li>
-                }
-                @if (showEmailActions()) {
-                  <li>
-                    <a class="dropdown-item" role="button" (click)="groupEventDisplay.sendNotification(displayedWalk?.walk)"
-                       tooltip="Open the email composer with this {{ eventTypeLabel() }} ready to send to members"
-                       placement="left" container="body">
-                      <fa-icon [icon]="faEnvelope" class="me-2"/>Email members about this {{ eventTypeLabel() }}
-                    </a>
-                  </li>
-                  @if (groupEventDisplay.leaderMemberId(displayedWalk?.walk)) {
-                    <li>
-                      <a class="dropdown-item" role="button" (click)="groupEventDisplay.emailLeader(displayedWalk?.walk)"
-                         tooltip="Send a plain email to the {{ eventTypeLabel() }} leader"
-                         placement="left" container="body">
-                        <fa-icon [icon]="faEnvelope" class="me-2"/>Email the {{ eventTypeLabel() }} leader
-                      </a>
-                    </li>
-                  }
-                }
-              </ul>
-            </div>
+            <app-button-dropdown class="walk-view-split"
+                                 [label]="showPublishToRamblers ? 'Publish' : 'Share'"
+                                 [icon]="showPublishToRamblers ? faCloudArrowUp : faShareNodes"
+                                 [buttonClass]="showPublishToRamblers ? 'btn btn-primary btn-sm walk-view-action' : 'btn btn-quiet btn-sm walk-view-action'"
+                                 [ariaLabel]="'Share and publish options for this ' + eventTypeLabel()"
+                                 [container]="ButtonDropdownContainer.BODY"
+                                 [items]="shareMenuItems()"
+                                 (itemSelect)="onShareMenu($event)"/>
           }
           @if (linkCopied) {
             <span class="walk-view-action link-copied-confirmation" role="status">
@@ -472,7 +373,7 @@ import { AppPath } from "../../../models/route-follow.model";
       </div>
     }`,
   styleUrls: ["./walk-view.sass"],
-  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, MaximisableMapComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe, WalkAlbumPanelComponent, NgTemplateOutlet, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, EventSocialPublishModalComponent, DrivingOrigin, WalkLeadEditButton]
+  imports: [WalkPanelExpanderComponent, TooltipDirective, MarkdownComponent, EventLeaderComponent, WalkFeaturesComponent, FontAwesomeModule, RouterLink, GroupEventImages, MapEditComponent, MaximisableMapComponent, FormsModule, WalkDetailsComponent, DisplayDayPipe, RelatedLinksPanelComponent, DisplayTimePipe, BookingFormComponent, NormaliseMarkdownPipe, WalkAlbumPanelComponent, NgTemplateOutlet, ButtonDropdownComponent, EventSocialPublishModalComponent, DrivingOrigin, WalkLeadEditButton]
 })
 
 export class WalkViewComponent implements OnInit, OnDestroy {
@@ -501,7 +402,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private memberLoginService = inject(MemberLoginService);
   public display = inject(WalkDisplayService);
-  private appShell = inject(AppShellService);
+
   protected groupEventDisplay = inject(GroupEventDisplayService);
   private dateUtils = inject(DateUtilsService);
   public meetupService = inject(MeetupService);
@@ -570,23 +471,86 @@ export class WalkViewComponent implements OnInit, OnDestroy {
     return this.display.eventTypeTitle(this.displayedWalk?.walk).toLowerCase();
   }
 
-  primaryActionIsPublish(): boolean {
-    return this.showPublishToRamblers && !this.publishBlockedUntilApproved();
+  protected readonly ButtonDropdownContainer = ButtonDropdownContainer;
+
+  protected shareMenuItems(): ButtonDropdownItem[] {
+    const eventLabel = this.eventTypeLabel();
+    return [
+      {
+        id: WalkShareMenuAction.PUBLISH_RAMBLERS,
+        label: "Publish to Ramblers",
+        icon: this.faCloudArrowUp,
+        hidden: !this.showPublishToRamblers,
+        disabled: this.publishBlockedUntilApproved(),
+        tooltip: this.publishBlockedUntilApproved() ? this.publishBlockedTooltip : this.publishTooltip,
+        routerLink: this.publishBlockedUntilApproved() ? null : this.publishExportLink,
+        queryParams: this.publishBlockedUntilApproved() ? null : this.publishExportQueryParams
+      },
+      {
+        id: WalkShareMenuAction.VIEW,
+        label: `View this ${eventLabel}`,
+        icon: this.faEye,
+        hidden: !this.canShareWalk(),
+        href: this.displayedWalk?.walkLink,
+        target: "_blank",
+        rel: "noopener noreferrer"
+      },
+      {
+        id: WalkShareMenuAction.SHARE,
+        label: `Share this ${eventLabel}`,
+        icon: this.faShareNodes,
+        hidden: !this.canShareWalk()
+      },
+      {
+        id: WalkShareMenuAction.COPY_LINK,
+        label: "Copy link",
+        icon: this.faCopy,
+        hidden: !this.canShareWalk()
+      },
+      {
+        id: WalkShareMenuAction.SOCIAL,
+        label: "Promote walk on social media",
+        icon: this.faShareNodes,
+        hidden: !this.showSocialPublishing(),
+        tooltip: "Let people know this walk is coming up by posting it to Facebook or Instagram"
+      },
+      {
+        id: WalkShareMenuAction.ALBUM_SHARE,
+        label: "Share photos on social media",
+        icon: this.faShareNodes,
+        hidden: !this.showAlbumShare(),
+        tooltip: "Post photos from this walk's album to Facebook or Instagram"
+      },
+      {
+        id: WalkShareMenuAction.EMAIL_MEMBERS,
+        label: `Email members about this ${eventLabel}`,
+        icon: this.faEnvelope,
+        hidden: !this.showEmailActions(),
+        tooltip: `Open the email composer with this ${eventLabel} ready to send to members`
+      },
+      {
+        id: WalkShareMenuAction.EMAIL_LEADER,
+        label: `Email the ${eventLabel} leader`,
+        icon: this.faEnvelope,
+        hidden: !this.showEmailActions() || !this.groupEventDisplay.leaderMemberId(this.displayedWalk?.walk),
+        tooltip: `Send a plain email to the ${eventLabel} leader`
+      }
+    ];
   }
 
-  primaryActionIsNativeShare(): boolean {
-    return this.appShell.mobilePlatform() && nativeShareSupported();
-  }
-
-  splitShareButton(): boolean {
-    return this.primaryActionIsPublish() || this.primaryActionIsNativeShare();
-  }
-
-  primaryAction(): void {
-    if (this.primaryActionIsPublish()) {
-      this.urlService.navigateTo(this.publishExportLink, this.publishExportQueryParams);
-    } else {
+  protected onShareMenu(action: string): void {
+    if (action === WalkShareMenuAction.SHARE) {
       void this.shareWalk();
+    } else if (action === WalkShareMenuAction.COPY_LINK) {
+      void this.copyLink();
+    } else if (action === WalkShareMenuAction.SOCIAL) {
+      this.openSocialPublish();
+    } else if (action === WalkShareMenuAction.ALBUM_SHARE) {
+      this.openAlbumShare();
+    } else if (action === WalkShareMenuAction.EMAIL_MEMBERS) {
+      this.groupEventDisplay.sendNotification(this.displayedWalk?.walk);
+    } else if (action === WalkShareMenuAction.EMAIL_LEADER) {
+      this.groupEventDisplay.emailLeader(this.displayedWalk?.walk);
     }
   }
 

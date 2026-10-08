@@ -1,10 +1,11 @@
 import { Component, Input, output, signal } from "@angular/core";
-import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { NgClass } from "@angular/common";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faRightFromBracket, faSave, faSpinner, faTimes, faUndo } from "@fortawesome/free-solid-svg-icons";
-import { FormSaveActions } from "../../../models/form-save-actions.model";
+import { FormSaveActions, FormSaveExitAction } from "../../../models/form-save-actions.model";
+import { ButtonDropdownComponent } from "../button-dropdown/button-dropdown";
+import { ButtonDropdownItem } from "../../../models/button-dropdown.model";
 
 enum FormSaveBusyAction {
   SAVE = "save",
@@ -14,7 +15,7 @@ enum FormSaveBusyAction {
 
 @Component({
   selector: "app-form-save-actions",
-  imports: [BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, NgClass, TooltipDirective, FontAwesomeModule],
+  imports: [NgClass, TooltipDirective, FontAwesomeModule, ButtonDropdownComponent],
   template: `
     <div class="form-save-actions d-flex flex-wrap align-items-center gap-2">
       <button type="button"
@@ -41,48 +42,16 @@ enum FormSaveBusyAction {
         }
         {{ undoLabel }}
       </button>
-      <div class="btn-group" dropdown [insideClick]="true">
-        <button type="button"
-                class="btn d-inline-flex align-items-center gap-2"
-                [ngClass]="controlsDisabled() ? 'btn-secondary' : 'btn-quiet'"
-                [disabled]="controlsDisabled()"
-                [tooltip]="saveAndExitLabel"
-                (click)="runSaveAndExit()">
-          @if (busyAction() === FormSaveBusyAction.SAVE_AND_EXIT) {
-            <fa-icon [icon]="faSpinner" animation="spin"/>
-          } @else {
-            <fa-icon [icon]="faRightFromBracket"/>
-          }
-          {{ exitMenuLabel }}
-        </button>
-        <button type="button"
-                class="btn dropdown-toggle dropdown-toggle-split"
-                [ngClass]="controlsDisabled() ? 'btn-secondary' : 'btn-quiet'"
-                [disabled]="controlsDisabled()"
-                dropdownToggle
-                aria-haspopup="true"
-                aria-controls="form-save-actions-exit-menu">
-          <span class="visually-hidden">Show exit options</span>
-        </button>
-        <ul *dropdownMenu class="dropdown-menu" id="form-save-actions-exit-menu" role="menu">
-          <li role="menuitem">
-            <button type="button" class="dropdown-item d-inline-flex align-items-center gap-2" [disabled]="controlsDisabled()" (click)="runSaveAndExit()">
-              @if (busyAction() === FormSaveBusyAction.SAVE_AND_EXIT) {
-                <fa-icon [icon]="faSpinner" animation="spin"/>
-              } @else {
-                <fa-icon [icon]="faRightFromBracket"/>
-              }
-              {{ saveAndExitLabel }}
-            </button>
-          </li>
-          <li role="menuitem">
-            <button type="button" class="dropdown-item d-inline-flex align-items-center gap-2" [disabled]="controlsDisabled()" (click)="runCancel()">
-              <fa-icon [icon]="faTimes"/>
-              {{ cancelLabel }}
-            </button>
-          </li>
-        </ul>
-      </div>
+      <app-button-dropdown [label]="exitMenuLabel"
+                           [icon]="busyAction() === FormSaveBusyAction.SAVE_AND_EXIT ? faSpinner : faRightFromBracket"
+                           [iconSpin]="busyAction() === FormSaveBusyAction.SAVE_AND_EXIT"
+                           [buttonClass]="controlsDisabled() ? 'btn btn-secondary' : 'btn btn-quiet'"
+                           [disabled]="controlsDisabled()"
+                           [tooltip]="saveAndExitLabel"
+                           [defaultItemId]="FormSaveExitAction.SAVE_AND_EXIT"
+                           insideClick
+                           [items]="exitMenuItems()"
+                           (itemSelect)="onExitMenu($event)"/>
     </div>
   `,
   styles: [`
@@ -115,9 +84,25 @@ export class FormSaveActionsComponent {
   protected readonly faTimes = faTimes;
   protected readonly faUndo = faUndo;
   protected readonly FormSaveBusyAction = FormSaveBusyAction;
+  protected readonly FormSaveExitAction = FormSaveExitAction;
 
   controlsDisabled(): boolean {
     return this.disabled || this.busyAction() !== null;
+  }
+
+  protected exitMenuItems(): ButtonDropdownItem[] {
+    return [
+      {id: FormSaveExitAction.SAVE_AND_EXIT, label: this.saveAndExitLabel, icon: this.faRightFromBracket, disabled: this.controlsDisabled()},
+      {id: FormSaveExitAction.CANCEL, label: this.cancelLabel, icon: this.faTimes, disabled: this.controlsDisabled()}
+    ];
+  }
+
+  protected onExitMenu(action: string): void {
+    if (action === FormSaveExitAction.SAVE_AND_EXIT) {
+      this.runSaveAndExit();
+    } else if (action === FormSaveExitAction.CANCEL) {
+      this.runCancel();
+    }
   }
 
   runSave(): void {

@@ -41,6 +41,15 @@ a.btn
 .btn-group > .btn + .btn
   margin-left: 0
 
+.btn-group > .btn.dropdown-toggle:not(.dropdown-toggle-split)
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  gap: 0.35rem
+
+.btn-group > .btn.dropdown-toggle:not(.dropdown-toggle-split)::after
+  margin-left: 0.15rem
+
 // Input-group docking for nested-button components (BrevoButton / ButtonWrapper).
 // Bootstrap's `.input-group > :not(:last-child)` rules reach the wrapper
 // element only, not the inner `.btn`, so the inner `.btn` keeps its full radii

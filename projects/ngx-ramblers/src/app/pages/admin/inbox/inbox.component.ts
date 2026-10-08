@@ -51,6 +51,7 @@ import { EmailComposerStepKey, EmailCompositionStatus, EmailCompositionSummary }
 import { EmailCompositionsService } from "../../../services/email-composer/email-compositions.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { StoredValue } from "../../../models/ui-actions";
+import { UiActionsService } from "../../../services/ui-actions.service";
 import { DeviceSize } from "../../../models/page.model";
 import { UrlService } from "../../../services/url.service";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -813,6 +814,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private notifierService = inject(NotifierService);
   protected stringUtils = inject(StringUtilsService);
   private router = inject(Router);
+  private uiActions = inject(UiActionsService);
   private route = inject(ActivatedRoute);
   private urlService = inject(UrlService);
   protected readonly faInbox = faInbox;

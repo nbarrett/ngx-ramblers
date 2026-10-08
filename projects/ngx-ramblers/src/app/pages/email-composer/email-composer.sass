@@ -185,11 +185,12 @@
   gap: 2px
   min-width: 0
 
-.composer-share-switch
-  margin-top: 4px
-  .form-check-label
-    font-size: 0.9rem
-    color: #6c757d
+.composer-workspace-title-row
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 8px
+  min-width: 0
 
 .composer-workspace-title
   margin: 0
@@ -260,11 +261,13 @@
 .composer-workspace-actions .composer-workspace-window-tools
   display: contents
 
+.composer-workspace-actions app-button-dropdown,
 .composer-workspace-actions .btn-group,
 .composer-workspace-actions .btn
   min-width: max-content
   max-width: none
   width: 100%
+  height: var(--btn-min-height)
 
 .composer-workspace-actions .btn-group > .btn
   width: 100%
@@ -290,6 +293,7 @@
   .composer-workspace-window-tools
     display: flex
     gap: 0.5rem
+  app-button-dropdown,
   .btn-group,
   .btn
     flex: 0 0 auto
@@ -620,6 +624,7 @@
     padding-left: 10px
     padding-right: 10px
 
+  .composer-workspace-actions .composer-workspace-doc-tools app-button-dropdown,
   .composer-workspace-actions .composer-workspace-doc-tools .btn-group,
   .composer-workspace-actions .composer-workspace-doc-tools .btn
     width: 100%

@@ -45,6 +45,9 @@ import {
   EmailCompositionKind,
   EmailCompositionStatus,
   EmailCompositionSummary,
+  ComposerAddSectionAction,
+  ComposerSaveAction,
+  ComposerShowAction,
   EventInclusionMode,
   MERGE_FIELD_CATALOGUE,
   MergeFieldGroup,
@@ -101,7 +104,7 @@ import { volunteerMergeFieldsFor } from "../../functions/volunteer-management";
 import { HttpClient } from "@angular/common/http";
 import { MemberResourcesReferenceDataService } from "../../services/member/member-resources-reference-data.service";
 import { switchMap } from "rxjs/operators";
-import { cloneDeep, isArray, isNumber, isString, kebabCase, keys, values } from "es-toolkit/compat";
+import { cloneDeep, isArray, isBoolean, isNumber, isString, kebabCase, keys, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   faAngleDoubleLeft,
@@ -116,14 +119,16 @@ import {
   faCompress,
   faExpand,
   faFile,
-  faFloppyDisk,
   faFolderOpen,
+  faGear,
+  faLock,
   faPaperPlane,
   faPlus,
   faSpinner,
   faTableColumns,
   faTrash,
   faTriangleExclamation,
+  faUsers,
   faXmark
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -131,6 +136,7 @@ import { Step, StepList, StepPanel, StepPanels, Stepper, StepperModule } from "p
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../services/notifier.service";
 import { AlertTarget } from "../../models/alert-target.model";
+import { ComposerLeaveCheck } from "../../guards/composer-leave-guard";
 import { PageComponent } from "../../page/page.component";
 import { Member, MemberBulkLoadDateMap } from "../../models/member.model";
 import { MemberBulkLoadAuditService } from "../../services/member/member-bulk-load-audit.service";
@@ -208,6 +214,8 @@ import { ListSubscriberService } from "../../services/mail/list-subscriber.servi
 import { UrlService } from "../../services/url.service";
 import { DateUtilsService } from "../../services/date-utils.service";
 import { TiptapMarkdownEditor } from "../../modules/common/tiptap-editor/tiptap-markdown-editor";
+import { ButtonDropdownComponent } from "../../modules/common/button-dropdown/button-dropdown";
+import { ButtonDropdownItem, ButtonDropdownItemType } from "../../models/button-dropdown.model";
 import { MaximisablePanelComponent } from "../../modules/common/maximisable-panel/maximisable-panel";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
 import { MemberAdminModalComponent } from "../admin/member-admin-modal/member-admin-modal.component";
@@ -275,7 +283,7 @@ import { Confirm, ConfirmType, EditMode, StoredValue } from "../../models/ui-act
 import { UiActionsService } from "../../services/ui-actions.service";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
+
 import { NgSelectModule } from "@ng-select/ng-select";
 import { campaignOverflowNotice } from "../../functions/brevo-campaigns";
 import { CampaignOverflowNotice, NGX_BREVO_CAMPAIGN_TAG } from "../../models/brevo-campaign-queue.model";
@@ -323,12 +331,10 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     StepPanel,
     StepPanels,
     TooltipDirective,
-    BsDropdownDirective,
-    BsDropdownToggleDirective,
-    BsDropdownMenuDirective,
     NgSelectModule,
     TiptapMarkdownEditor,
     StickyControlsDirective,
+    ButtonDropdownComponent,
     MaximisablePanelComponent,
     SectionDividerSelectComponent,
     ArticleBlockSingleEditor,
@@ -346,16 +352,49 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       <app-maximisable-panel #composerPanel="maximisablePanel" [showToggleButton]="false">
       <div panelControls class="composer-workspace-bar">
         <div class="composer-workspace-heading">
-          <h1 class="composer-workspace-title">Email Composer</h1>
+          <div class="composer-workspace-title-row">
+            <h1 class="composer-workspace-title">Email Composer</h1>
+            <button type="button" class="btn btn-quiet btn-icon flex-shrink-0"
+                    aria-label="Composer settings"
+                    [attr.aria-expanded]="composerSettingsOpen"
+                    aria-controls="composer-settings-panel"
+                    tooltip="Composer settings"
+                    placement="bottom"
+                    (click)="toggleComposerSettings($event)">
+              <fa-icon [icon]="faGear"/>
+            </button>
+          </div>
           @if (currentComposition) {
             <div class="composer-workspace-status">{{ lastSavedDescription() }}</div>
           }
-          @if (!sendComplete()) {
-            <div class="form-check form-switch mb-0 composer-share-switch">
-              <input class="form-check-input" type="checkbox" role="switch" id="composition-shared"
-                     [checked]="composeShared"
-                     (change)="onSharedToggled($any($event.target).checked)">
-              <label class="form-check-label" for="composition-shared">Share with committee</label>
+          @if (composerSettingsOpen) {
+            <div id="composer-settings-panel" class="thumbnail-heading-frame thumbnail-heading-frame-compact mt-2 mb-0 composer-settings-frame"
+                 (click)="$event.stopPropagation()">
+              <div class="thumbnail-heading">Composer settings</div>
+              <label class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="composer-remember-branding"
+                       [ngModel]="rememberBranding"
+                       (ngModelChange)="setRememberBranding($event)">
+                <span class="form-check-label">Remember last email type</span>
+              </label>
+              <ul class="text-muted small mb-3 ps-3">
+                <li>On: a new email starts with the last type you used</li>
+                <li>Off: a new email starts with {{ defaultNewEmailTypeHint() }}</li>
+              </ul>
+              <label class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="composer-confirm-send"
+                       [ngModel]="confirmSend"
+                       (ngModelChange)="setConfirmSend($event)">
+                <span class="form-check-label">Confirm before send</span>
+              </label>
+              <p class="text-muted small mb-3">An extra Confirm send step after you press Send. Leave this on unless you want Send to go immediately.</p>
+              <label class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="composer-warn-unsaved"
+                       [ngModel]="warnUnsaved"
+                       (ngModelChange)="setWarnUnsaved($event)">
+                <span class="form-check-label">Warn before leaving with unsaved work</span>
+              </label>
+              <p class="text-muted small mb-0">Asks before you leave the composer if this email has not been saved or sent.</p>
             </div>
           }
         </div>
@@ -735,13 +774,11 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
            [class.is-maximised]="composerPanel.maximised">
           <div class="composer-workspace-doc-tools">
           @if (!sendComplete() || batchJobLost) {
-            <button type="button" class="btn btn-quiet"
-                    (click)="saveDraft()"
-                    [disabled]="!hasContentToDraft()"
-                    tooltip="Save as draft"
-                    placement="bottom">
-              <fa-icon [icon]="faFloppyDisk" class="me-1"/>Save
-            </button>
+            <app-button-dropdown label="Save"
+                                 [icon]="faLock"
+                                 [items]="saveMenuItems()"
+                                 [disabled]="!hasContentToDraft() && !session.currentDraftId"
+                                 (itemSelect)="onSaveMenu($event)"/>
             @if (session.currentDraftId) {
               <button type="button" class="btn btn-quiet"
                       (click)="revertToSavedDraft()"
@@ -750,23 +787,10 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Revert
               </button>
             }
-            <div class="btn-group" dropdown>
-              <button type="button" class="btn btn-quiet dropdown-toggle" dropdownToggle>
-                <fa-icon [icon]="faFolderOpen" class="me-1"/>Show
-              </button>
-              <ul *dropdownMenu class="dropdown-menu" role="menu">
-                <li role="menuitem">
-                  <button type="button" class="dropdown-item" (click)="toggleDraftsPanel()">
-                    <fa-icon [icon]="faFolderOpen" class="me-1"/>{{ draftsPanelOpen ? "Hide drafts" : "Drafts" }} ({{ drafts.length }})
-                  </button>
-                </li>
-                <li role="menuitem">
-                  <button type="button" class="dropdown-item" (click)="toggleSentEmailsPanel()">
-                    <fa-icon [icon]="faPaperPlane" class="me-1"/>{{ sentEmailsPanelOpen ? "Hide sent" : "Sent" }} ({{ sentEmails.length }})
-                  </button>
-                </li>
-              </ul>
-            </div>
+            <app-button-dropdown label="Show"
+                                 [icon]="faFolderOpen"
+                                 [items]="showMenuItems()"
+                                 (itemSelect)="onShowMenu($event)"/>
           }
           </div>
           <div class="composer-flow-tools">
@@ -1040,66 +1064,11 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           <app-email-composer-fragments [state]="state" [bodyTemplate]="fragmentBodyTemplate"
                                         [committeeFiles]="documents.committeeFiles" [eventSummary]="eventsPreviewSummary()"/>
           <div class="composer-add-row">
-            <div class="btn-group" dropdown>
-              <button type="button" class="btn btn-sm btn-quiet dropdown-toggle" dropdownToggle>
-                <fa-icon [icon]="faPlus" class="me-1"/>Add section
-              </button>
-              <ul *dropdownMenu class="dropdown-menu" role="menu">
-                <li role="menuitem">
-                  <button type="button" class="dropdown-item"
-                          [disabled]="fragmentEditor.hasFragmentKindAtTopLevel(state, ComposerFragmentKind.INTRO)"
-                          (click)="fragmentEditor.addIntroFragment(state)">
-                    <fa-icon [icon]="faPlus" class="me-2"/>Intro
-                  </button>
-                </li>
-                @if (state.brandingMode !== BrandingMode.UNBRANDED) {
-                  <li role="menuitem">
-                    <button type="button" class="dropdown-item" (click)="fragmentEditor.addArticleFragment(state, [])">
-                      <fa-icon [icon]="faPlus" class="me-2"/>Article block
-                    </button>
-                  </li>
-                  <li role="menuitem">
-                    <button type="button" class="dropdown-item"
-                            [disabled]="fragmentEditor.hasFragmentKindAtTopLevel(state, ComposerFragmentKind.EVENTS)"
-                            (click)="events.addEventsFragment()">
-                      <fa-icon [icon]="faPlus" class="me-2"/>Events
-                    </button>
-                  </li>
-                }
-                <li role="menuitem">
-                  <button type="button" class="dropdown-item"
-                          [disabled]="fragmentEditor.hasFragmentKindAtTopLevel(state, ComposerFragmentKind.SIGNOFF)"
-                          (click)="fragmentEditor.addSignoffFragment(state)">
-                    <fa-icon [icon]="faPlus" class="me-2"/>Signoff
-                  </button>
-                </li>
-                <li role="menuitem">
-                  <button type="button" class="dropdown-item" (click)="documents.onAddCommitteeFileFragmentClicked()">
-                    <fa-icon [icon]="faFile" class="me-2"/>Committee file
-                  </button>
-                </li>
-                <li role="menuitem">
-                  <button type="button" class="dropdown-item" (click)="fragmentEditor.addDividerFragment(state, [])">
-                    <fa-icon [icon]="faPlus" class="me-2"/>Divider
-                  </button>
-                </li>
-                @if (state.brandingMode !== BrandingMode.UNBRANDED) {
-                  <li class="dropdown-divider"></li>
-                  <li role="menuitem">
-                    <button type="button" class="dropdown-item"
-                            (click)="fragmentEditor.addMultiColumnFragment(state, 2)">
-                      <fa-icon [icon]="faTableColumns" class="me-2"/>2-column row
-                    </button>
-                  </li>
-                  <li role="menuitem">
-                    <button type="button" class="dropdown-item"
-                            (click)="fragmentEditor.addMultiColumnFragment(state, 3)">
-                      <fa-icon [icon]="faTableColumns" class="me-2"/>3-column row
-                    </button>
-                  </li>
-                }
-              </ul>
-            </div>
+            <app-button-dropdown label="Add section"
+                                 [icon]="faPlus"
+                                 buttonClass="btn btn-sm btn-quiet"
+                                 [items]="addSectionItems()"
+                                 (itemSelect)="onAddSection($event)"/>
           </div>
         </fieldset>
 
@@ -1328,7 +1297,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     </ng-template>
   `
 })
-export class EmailComposer implements OnInit, DoCheck, OnDestroy {
+export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveCheck {
   @HostListener("input")
   @HostListener("change")
   markUserEdit(): void {
@@ -1337,9 +1306,21 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   @HostListener("window:beforeunload", ["$event"])
   warnBeforeBrowserLeave(event: BeforeUnloadEvent): void {
-    if (this.shouldWarnAboutUnsavedChanges() && !this.sendInProgress) {
+    if (this.warnUnsaved && this.shouldWarnAboutUnsavedChanges() && !this.sendInProgress) {
       event.preventDefault();
       event.returnValue = true;
+    }
+  }
+
+  @HostListener("document:keydown.escape")
+  closeComposerSettingsOnEscape(): void {
+    this.setComposerSettingsOpen(false);
+  }
+
+  @HostListener("document:click")
+  closeComposerSettingsOnDocumentClick(): void {
+    if (this.composerSettingsOpen) {
+      this.setComposerSettingsOpen(false);
     }
   }
 
@@ -1435,6 +1416,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected draftsPanelOpen = false;
   protected sentEmailsPanelOpen = false;
   protected composeShared = false;
+  protected composerSettingsOpen = false;
+  protected rememberBranding = true;
+  protected confirmSend = true;
+  protected warnUnsaved = true;
   protected lastSavedAt: number | null = null;
   protected sendInProgress = false;
   protected sendStatus: SendStatus | null = null;
@@ -1480,8 +1465,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected readonly faXmark = faXmark;
   protected readonly faExpand = faExpand;
   protected readonly faCompress = faCompress;
-  protected readonly faFloppyDisk = faFloppyDisk;
   protected readonly faFolderOpen = faFolderOpen;
+  protected readonly faGear = faGear;
+  protected readonly faLock = faLock;
+  protected readonly faUsers = faUsers;
   protected readonly faFile = faFile;
   protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly faCheckCircle = faCheckCircle;
@@ -1494,6 +1481,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   protected readonly faTrash = faTrash;
 
   async ngOnInit(): Promise<void> {
+    this.loadComposerPrefs();
     this.session.notify = this.notifierService.createAlertInstance(this.session.notifyTarget);
     this.subscriptions.push(this.session.requestStep.subscribe(key => {
       this.goToStepKey(this.canAccessStep(key) ? key : EmailComposerStepKey.RECIPIENTS);
@@ -2047,9 +2035,14 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
           this.applyNotificationConfig(forced);
         }
         this.applyGroupEventCampaignRecipients();
-      } else if (!this.userPickedEmailType && !this.session.state.notificationConfig?.id) {
+      } else if (!this.userPickedEmailType) {
+        const rememberedId = this.rememberBranding
+          ? this.uiActions.initialValueFor(StoredValue.COMPOSER_LAST_CONFIG, null)
+          : null;
+        const remembered = rememberedId ? candidates.find(candidate => candidate.id === rememberedId) : undefined;
         const preferred = this.preferredConfigForCurrentContext(candidates);
-        const next = preferred ?? (!this.session.state.notificationConfig && candidates.length > 0 ? candidates[0] : undefined);
+        const fallback = !this.session.state.notificationConfig?.id && candidates.length > 0 ? candidates[0] : undefined;
+        const next = remembered ?? preferred ?? fallback;
         if (next && next.id !== this.session.state.notificationConfig?.id) {
           this.applyNotificationConfig(next);
           this.applyGroupEventCampaignRecipients();
@@ -2141,7 +2134,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       urlUpdates[StoredValue.EMAIL_TYPE] = kebabCase(RecipientMode.SELECTED_MEMBERS);
     }
     this.session.syncStateToUrl(urlUpdates);
-    this.uiActions.saveValueFor(StoredValue.BRANDING, mode);
+    if (this.rememberBranding) {
+      this.uiActions.saveValueFor(StoredValue.BRANDING, mode);
+    }
   }
 
   private async loadSavedExternalRecipients(): Promise<void> {
@@ -2233,15 +2228,16 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }
 
   private applyUrlStateToComposer(queryParams: ParamMap): void {
+    this.composerSettingsOpen = queryParams.get(StoredValue.CONFIGURE) === "true";
     const branding = queryParams.get(StoredValue.BRANDING);
     const storedBranding = this.uiActions.initialValueFor(StoredValue.BRANDING, BrandingMode.BRANDED);
     if (branding === BrandingMode.UNBRANDED && this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
       this.setBrandingMode(BrandingMode.UNBRANDED, true);
     } else if (branding === BrandingMode.BRANDED && this.session.state.brandingMode !== BrandingMode.BRANDED) {
       this.setBrandingMode(BrandingMode.BRANDED, true);
-    } else if (!branding && storedBranding === BrandingMode.UNBRANDED && this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
+    } else if (this.rememberBranding && !branding && storedBranding === BrandingMode.UNBRANDED && this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
       this.setBrandingMode(BrandingMode.UNBRANDED, true);
-    } else if (!branding && storedBranding === BrandingMode.BRANDED && this.session.state.brandingMode !== BrandingMode.BRANDED) {
+    } else if (this.rememberBranding && !branding && storedBranding === BrandingMode.BRANDED && this.session.state.brandingMode !== BrandingMode.BRANDED) {
       this.setBrandingMode(BrandingMode.BRANDED, true);
     }
     const emailType = queryParams.get(StoredValue.EMAIL_TYPE);
@@ -2661,6 +2657,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       [StoredValue.PRE_FILTER]: this.session.state.recipientMode === RecipientMode.SELECTED_MEMBERS ? this.session.state.preFilterKey ?? null : null,
       [StoredValue.EMAIL_TYPE]: kebabCase(this.session.state.recipientMode)
     });
+    if (this.rememberBranding && this.session.state.notificationConfig?.id) {
+      this.uiActions.saveValueFor(StoredValue.COMPOSER_LAST_CONFIG, this.session.state.notificationConfig.id);
+    }
     this.refreshTemplateContent();
     this.fragmentEditor.ensureFragmentOrder(this.session.state);
     this.maybeAutoRefreshPreview();
@@ -3465,16 +3464,22 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }
   }
 
-  private confirmLeaveComposer(action: string): boolean {
-    if (this.shouldWarnAboutUnsavedChanges() && !this.cancelArmed) {
+  private confirmLeaveComposer(action: string, consequence = "discard and leave"): boolean {
+    if (this.warnUnsaved && this.shouldWarnAboutUnsavedChanges() && !this.cancelArmed) {
       this.cancelArmed = true;
       this.session.notify.warning({
         title: "Discard email content?",
-        message: `You have unsent email content. Click ${action} again to discard and leave.`
+        message: `You have unsent email content. Click ${action} again to ${consequence}.`
       });
       return false;
     } else {
       return true;
+    }
+  }
+
+  protected startNewEmail(): void {
+    if (this.confirmLeaveComposer("New email", "discard and start a new email")) {
+      this.newComposition();
     }
   }
 
@@ -3599,23 +3604,150 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     }
   }
 
-  protected async onSharedToggled(value: boolean): Promise<void> {
-    this.composeShared = value;
-    if (this.session.currentDraftId) {
-      try {
-        this.recipients.syncSelectedMembersToHeaders();
-        const updated = await this.compositionsService.save(this.session.state, this.session.currentDraftId, this.composeShared);
-        this.lastSavedAt = updated.savedAt;
-        await this.refreshDrafts();
-      } catch (error) {
-        this.logger.error("onSharedToggled save failed:", error);
-        this.session.notify.error({title: "Sharing change failed", message: String(error)});
-      }
+  protected toggleComposerSettings(event: MouseEvent): void {
+    event.stopPropagation();
+    this.setComposerSettingsOpen(!this.composerSettingsOpen);
+  }
+
+  private setComposerSettingsOpen(open: boolean): void {
+    this.composerSettingsOpen = open;
+    this.session.syncStateToUrl({[StoredValue.CONFIGURE]: open ? "true" : null});
+  }
+
+  protected saveMenuItems(): ButtonDropdownItem[] {
+    return [
+      {id: ComposerSaveAction.PRIVATE, label: "Save privately", icon: this.faLock},
+      {id: ComposerSaveAction.SHARE, label: "Save and share with committee", icon: this.faUsers}
+    ];
+  }
+
+  protected showMenuItems(): ButtonDropdownItem[] {
+    return [
+      {id: ComposerShowAction.DRAFTS, label: `${this.draftsPanelOpen ? "Hide drafts" : "Drafts"} (${this.drafts.length})`, icon: this.faFolderOpen},
+      {id: ComposerShowAction.SENT, label: `${this.sentEmailsPanelOpen ? "Hide sent" : "Sent"} (${this.sentEmails.length})`, icon: this.faPaperPlane},
+      {id: "show-new-divider", type: ButtonDropdownItemType.DIVIDER},
+      {id: ComposerShowAction.NEW, label: "New email", icon: this.faFile, tooltip: "Abandon this email and start a new one"}
+    ];
+  }
+
+  protected onSaveMenu(action: string): void {
+    if (action === ComposerSaveAction.SHARE) {
+      void this.saveDraft(true);
+    } else {
+      void this.saveDraft(false);
     }
   }
 
-  protected async saveDraft(): Promise<boolean> {
-    if (!this.hasUnsavedChanges()) {
+  protected onShowMenu(action: string): void {
+    if (action === ComposerShowAction.DRAFTS) {
+      this.toggleDraftsPanel();
+    } else if (action === ComposerShowAction.SENT) {
+      this.toggleSentEmailsPanel();
+    } else if (action === ComposerShowAction.NEW) {
+      this.startNewEmail();
+    }
+  }
+
+  protected addSectionItems(): ButtonDropdownItem[] {
+    const branded = this.state.brandingMode !== BrandingMode.UNBRANDED;
+    return [
+      {id: ComposerAddSectionAction.INTRO, label: "Intro", icon: this.faPlus, disabled: this.fragmentEditor.hasFragmentKindAtTopLevel(this.state, ComposerFragmentKind.INTRO)},
+      {id: ComposerAddSectionAction.ARTICLE, label: "Article block", icon: this.faPlus, hidden: !branded},
+      {id: ComposerAddSectionAction.EVENTS, label: "Events", icon: this.faPlus, hidden: !branded, disabled: this.fragmentEditor.hasFragmentKindAtTopLevel(this.state, ComposerFragmentKind.EVENTS)},
+      {id: ComposerAddSectionAction.SIGNOFF, label: "Signoff", icon: this.faPlus, disabled: this.fragmentEditor.hasFragmentKindAtTopLevel(this.state, ComposerFragmentKind.SIGNOFF)},
+      {id: ComposerAddSectionAction.COMMITTEE_FILE, label: "Committee file", icon: this.faFile},
+      {id: ComposerAddSectionAction.DIVIDER, label: "Divider", icon: this.faPlus},
+      {id: "section-columns", type: ButtonDropdownItemType.DIVIDER, hidden: !branded},
+      {id: ComposerAddSectionAction.TWO_COLUMN, label: "2-column row", icon: this.faTableColumns, hidden: !branded},
+      {id: ComposerAddSectionAction.THREE_COLUMN, label: "3-column row", icon: this.faTableColumns, hidden: !branded}
+    ];
+  }
+
+  protected onAddSection(action: string): void {
+    if (action === ComposerAddSectionAction.INTRO) {
+      this.fragmentEditor.addIntroFragment(this.state);
+    } else if (action === ComposerAddSectionAction.ARTICLE) {
+      this.fragmentEditor.addArticleFragment(this.state, []);
+    } else if (action === ComposerAddSectionAction.EVENTS) {
+      this.events.addEventsFragment();
+    } else if (action === ComposerAddSectionAction.SIGNOFF) {
+      this.fragmentEditor.addSignoffFragment(this.state);
+    } else if (action === ComposerAddSectionAction.COMMITTEE_FILE) {
+      this.documents.onAddCommitteeFileFragmentClicked();
+    } else if (action === ComposerAddSectionAction.DIVIDER) {
+      this.fragmentEditor.addDividerFragment(this.state, []);
+    } else if (action === ComposerAddSectionAction.TWO_COLUMN) {
+      this.fragmentEditor.addMultiColumnFragment(this.state, 2);
+    } else if (action === ComposerAddSectionAction.THREE_COLUMN) {
+      this.fragmentEditor.addMultiColumnFragment(this.state, 3);
+    }
+  }
+
+
+  protected defaultNewEmailTypeHint(): string {
+    const candidates = this.composeEmailTypeCandidates();
+    const namedDefault = candidates.find(config => config.defaultListing)?.subject?.text?.trim();
+    const firstTitle = candidates[0]?.subject?.text?.trim();
+    if (namedDefault) {
+      return namedDefault;
+    } else if (firstTitle) {
+      return `the first email type (${firstTitle})`;
+    } else {
+      return "the first email type";
+    }
+  }
+
+  private composeEmailTypeCandidates(): NotificationConfig[] {
+    const listing = this.session.state.notificationConfigListing;
+    if (listing) {
+      return this.mailMessagingService.notificationConfigs(listing);
+    } else if (this.recipientSources.mailMessagingConfig) {
+      return this.mailMessagingService.notificationConfigs({
+        mailMessagingConfig: this.recipientSources.mailMessagingConfig,
+        includeWorkflowRelatedConfigs: false
+      });
+    } else {
+      return [];
+    }
+  }
+
+  private loadComposerPrefs(): void {
+    this.rememberBranding = this.uiActions.initialBooleanValueFor(StoredValue.COMPOSER_REMEMBER_BRANDING, true);
+    this.confirmSend = this.uiActions.initialBooleanValueFor(StoredValue.COMPOSER_CONFIRM_SEND, true);
+    this.warnUnsaved = this.uiActions.initialBooleanValueFor(StoredValue.COMPOSER_WARN_UNSAVED, true);
+  }
+
+  protected setRememberBranding(value: boolean): void {
+    this.rememberBranding = value;
+    this.uiActions.saveValueFor(StoredValue.COMPOSER_REMEMBER_BRANDING, value);
+  }
+
+  protected setConfirmSend(value: boolean): void {
+    this.confirmSend = value;
+    this.uiActions.saveValueFor(StoredValue.COMPOSER_CONFIRM_SEND, value);
+    if (!value) {
+      this.sendConfirm.clear();
+    }
+  }
+
+  protected setWarnUnsaved(value: boolean): void {
+    this.warnUnsaved = value;
+    this.uiActions.saveValueFor(StoredValue.COMPOSER_WARN_UNSAVED, value);
+  }
+
+  confirmNavigationAway(): boolean {
+    if (this.sendInProgress) {
+      return true;
+    } else {
+      return this.confirmLeaveComposer("navigate away");
+    }
+  }
+
+  protected async saveDraft(shareWithCommittee?: boolean): Promise<boolean> {
+    if (isBoolean(shareWithCommittee)) {
+      this.composeShared = shareWithCommittee;
+    }
+    if (!this.hasUnsavedChanges() && !isBoolean(shareWithCommittee)) {
       return true;
     } else {
       try {
@@ -3628,7 +3760,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
         this.routeCompositionKey = `draft:${draft.id}`;
         this.session.syncStateToUrl({[StoredValue.DRAFT_ID]: draft.id, [StoredValue.COPY_OF]: null});
         await this.refreshDrafts();
-        this.session.notify.success({title: "Draft saved", message: draft.title});
+        this.session.notify.success({
+          title: this.composeShared ? "Draft saved and shared" : "Draft saved",
+          message: this.composeShared ? `${draft.title} is visible to the committee.` : draft.title
+        });
         return true;
       } catch (error) {
         this.logger.error("saveDraft failed:", error);
@@ -3871,6 +4006,12 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
     this.recipients.recipientAddressModeTouched = false;
     this.userPickedEmailType = false;
     this.recipients.userPickedRecipientMode = false;
+    if (this.rememberBranding) {
+      const storedBranding = this.uiActions.initialValueFor(StoredValue.BRANDING, BrandingMode.BRANDED);
+      if (storedBranding === BrandingMode.UNBRANDED) {
+        this.setBrandingMode(BrandingMode.UNBRANDED, true);
+      }
+    }
     if (this.recipientSources.mailMessagingConfig) {
       this.session.state.notificationConfigListing = {
         mailMessagingConfig: this.recipientSources.mailMessagingConfig,
@@ -3879,12 +4020,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
       };
       this.autoSelectNotificationConfig();
     }
-    const storedBranding = this.uiActions.initialValueFor(StoredValue.BRANDING, BrandingMode.BRANDED);
-    if (storedBranding === BrandingMode.UNBRANDED) {
-      this.setBrandingMode(BrandingMode.UNBRANDED, true);
-    }
     this.session.currentDraftId = null;
     this.userHasEditedComposer = false;
+    this.cancelArmed = false;
     this.lastSavedAt = null;
     this.composeShared = false;
     this.draftsPanelOpen = false;
@@ -4324,7 +4462,11 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
 
   protected armSend(): void {
     if (!this.hasSendBlockers()) {
-      this.sendConfirm.as(ConfirmType.SEND_NOTIFICATION);
+      if (this.confirmSend) {
+        this.sendConfirm.as(ConfirmType.SEND_NOTIFICATION);
+      } else {
+        void this.executeSend();
+      }
     }
   }
 
@@ -4335,27 +4477,29 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
   async confirmAndSend(): Promise<void> {
     if (this.hasSendBlockers()) {
       this.sendConfirm.clear();
+    } else if (!this.sendConfirm.notificationsOutstanding()) {
+      this.armSend();
     } else {
-      if (!this.sendConfirm.notificationsOutstanding()) {
-        this.armSend();
+      await this.executeSend();
+    }
+  }
+
+  private async executeSend(): Promise<void> {
+    this.sendConfirm.clear();
+    this.goToStepKey(EmailComposerStepKey.SEND);
+    this.sendInProgress = true;
+    try {
+      this.session.state.brandedSenderEmail = this.sender.resolvedBrandedSenderEmail() || null;
+      const useCampaign = this.recipientResolution.sendingAsCampaign();
+      if (useCampaign) {
+        await this.sendCampaign();
       } else {
-        this.sendConfirm.clear();
-        this.goToStepKey(EmailComposerStepKey.SEND);
-        this.sendInProgress = true;
-        try {
-          this.session.state.brandedSenderEmail = this.sender.resolvedBrandedSenderEmail() || null;
-          const useCampaign = this.recipientResolution.sendingAsCampaign();
-          if (useCampaign) {
-            await this.sendCampaign();
-          } else {
-            await this.startBatchTransactionalSend(this.sendMemberIds());
-          }
-        } catch (error) {
-          this.logger.error("send failed", error);
-          this.session.notify.error({title: "Send failed", message: this.session.errorMessage(error)});
-          this.sendInProgress = false;
-        }
+        await this.startBatchTransactionalSend(this.sendMemberIds());
       }
+    } catch (error) {
+      this.logger.error("send failed", error);
+      this.session.notify.error({title: "Send failed", message: this.session.errorMessage(error)});
+      this.sendInProgress = false;
     }
   }
 
