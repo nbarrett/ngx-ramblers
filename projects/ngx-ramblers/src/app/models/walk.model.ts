@@ -27,6 +27,14 @@ export interface GoogleMapsConfig {
   zoomLevel?: number;
 }
 
+export interface DrivingDistanceResponse {
+  miles: number | null;
+  metres: number | null;
+  from?: string;
+  to?: string;
+  error?: string;
+}
+
 export interface ValueAndFormatted {
   value: number;
   valueAsString: string;

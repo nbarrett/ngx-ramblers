@@ -39,17 +39,21 @@
           <div class="col-sm-6">
             <div class="form-group">
               <label for="from">From</label>
-              <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.from" type="text"
-                (ngModelChange)="setExpenseItemFields()" class="form-control input-sm" id="from"
-                placeholder="Enter from location here">
+              <app-location-autocomplete id="from"
+                [disabled]="!editable"
+                [value]="expenseItem.travel.from"
+                placeholder="Enter UK postcode or place name..."
+                (locationChange)="onTravelFromLookup($event)"/>
             </div>
           </div>
           <div class="col-sm-6">
             <div class="form-group">
               <label for="to">To</label>
-              <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.to" type="text"
-                (ngModelChange)="setExpenseItemFields()" class="form-control input-sm" id="to"
-                placeholder="Enter to location here">
+              <app-location-autocomplete id="to"
+                [disabled]="!editable"
+                [value]="expenseItem.travel.to"
+                placeholder="Enter UK postcode or place name..."
+                (locationChange)="onTravelToLookup($event)"/>
             </div>
           </div>
         </div>
@@ -70,11 +74,38 @@
                 <input [disabled]="!editable" [(ngModel)]="expenseItem.travel.miles" type="text"
                   (ngModelChange)="setExpenseItemFields()"
                   class="form-control input-sm" id="miles"
-                  placeholder="Enter miles here">
+                  [placeholder]="calculatingMiles ? 'Calculating driving miles' : 'Enter miles here'">
                 <span class="input-group-text">miles</span>
               </div>
             </div>
           </div>
+          @if (showTravelMap()) {
+            <div class="row">
+              <div class="col-12">
+                <p class="small text-muted mb-2">Enter a postcode or place name, click the map to place a missing pin, or drag the start and finish pins.</p>
+                <div class="expense-travel-map-frame" [style.height.px]="travelMapHeight">
+                  <div app-map-edit class="expense-travel-map"
+                    [locationType]="LocationType.STARTING"
+                    [locationDetails]="travelFromLocation"
+                    [endLocationDetails]="travelToLocation"
+                    [showCombinedMap]="true"
+                    [clickPlacesMissingPin]="true"
+                    [postcodeChangeOffersSelect]="false"
+                    [readonly]="!editable"
+                    [notify]="notify"
+                    (locationChange)="onTravelFromPin($event)"
+                    (endLocationChange)="onTravelToPin($event)">
+                  </div>
+                </div>
+                <app-resizer [orientation]="ResizerOrientation.VERTICAL" [variant]="ResizerVariant.TAB" compact
+                  [size]="travelMapHeight"
+                  [minSize]="200"
+                  [maxSize]="800"
+                  (sizeChange)="onTravelMapHeightChange($event)"
+                  (resizeEnd)="onTravelMapHeightResizeEnd()"/>
+              </div>
+            </div>
+          }
         </div>
       }
       <div class="row">

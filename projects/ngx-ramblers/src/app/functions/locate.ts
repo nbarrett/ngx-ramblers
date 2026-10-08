@@ -24,13 +24,25 @@ export function wazeEmbedUrl(latitude: number, longitude: number, zoom = 16): st
   return `https://embed.waze.com/iframe?zoom=${zoom}&lat=${latitude.toFixed(6)}&lon=${longitude.toFixed(6)}&pin=1`;
 }
 
+export function formattedUkPostcode(value: string | null | undefined): string | null {
+  const trimmed = (value || "").trim();
+  if (!UK_POSTCODE_PATTERN.test(trimmed)) {
+    return null;
+  } else {
+    const compact = trimmed.replace(/\s+/g, "").toUpperCase();
+    const match = compact.match(/^([A-Z]{1,2}\d[A-Z\d]?)(\d[A-Z]{2})$/);
+    return match ? `${match[1]} ${match[2]}` : compact;
+  }
+}
+
 export function locateSuggestionFor(query: string): LocateSuggestion | null {
   const trimmed = (query || "").trim();
   const compact = trimmed.replace(/\s+/g, "").toUpperCase();
   if (parseGridReference(compact)) {
     return {label: `Show grid reference ${compact} on the map`, queryParams: {[StoredValue.GRID_REF]: compact}};
   } else if (UK_POSTCODE_PATTERN.test(trimmed)) {
-    return {label: `Show postcode ${trimmed.toUpperCase()} on the map`, queryParams: {[StoredValue.POSTCODE]: trimmed.toUpperCase()}};
+    const postcode = formattedUkPostcode(trimmed) || compact;
+    return {label: `Show postcode ${postcode} on the map`, queryParams: {[StoredValue.POSTCODE]: postcode}};
   } else if (/^(locate|map|maps|grid ref(erence)?|where is)\b/i.test(trimmed)) {
     return {label: "Locate a place on the map", queryParams: {}};
   } else {
@@ -39,11 +51,12 @@ export function locateSuggestionFor(query: string): LocateSuggestion | null {
 }
 
 export function locationLabel(postcode: string | null | undefined, description: string | null | undefined, fallback = ""): string {
-  const trimmedPostcode = (postcode || "").trim();
+  const trimmedPostcode = formattedUkPostcode(postcode) || (postcode || "").trim();
   const trimmedDescription = (description || "").trim();
   const compact = (value: string) => value.replace(/\s+/g, "").toUpperCase();
   const descriptionHasPostcode = !!trimmedPostcode && compact(trimmedDescription).includes(compact(trimmedPostcode));
-  return [descriptionHasPostcode ? "" : trimmedPostcode, trimmedDescription].filter(value => !!value).join(", ") || fallback;
+  const trimmedFallback = formattedUkPostcode(fallback) || fallback;
+  return [descriptionHasPostcode ? "" : trimmedPostcode, trimmedDescription].filter(value => !!value).join(", ") || trimmedFallback;
 }
 
 export function osMapsUrl(latitude: number, longitude: number, zoom = 16): string {

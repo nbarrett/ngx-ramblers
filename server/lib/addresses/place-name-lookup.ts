@@ -177,6 +177,15 @@ async function lookupUsingNominatim(query: string, preferredCounty?: string): Pr
   };
 }
 
+export async function placeLookupResponse(query: string, preferredCounty?: string): Promise<GridReferenceLookupResponse | undefined> {
+  const gridRefResult = await lookupGridReference(query);
+  const postcodesResult = gridRefResult.response ? null : await lookupUsingPostcodes(query);
+  const nominatimResult = (gridRefResult.response || postcodesResult?.response)
+    ? null
+    : await lookupUsingNominatim(query, preferredCounty);
+  return gridRefResult.response || postcodesResult?.response || nominatimResult?.response;
+}
+
 export async function placeNameLookup(req, res) {
   const query = (req.query.query || "").toString().trim();
   const preferredCounty = (req.query.preferredCounty || "").toString().trim();
@@ -195,38 +204,22 @@ export async function placeNameLookup(req, res) {
   }
   debugLog(`placeNameLookup: query="${query}"${preferredCounty ? `, preferredCounty="${preferredCounty}"` : ""}`);
   try {
-    const gridRefResult = await lookupGridReference(query);
-    let status = gridRefResult.status;
-    let responseBody = gridRefResult.response;
-    let errorMessage;
-
+    const responseBody = await placeLookupResponse(query, preferredCounty || undefined);
     if (!responseBody) {
-      const postcodesResult = await lookupUsingPostcodes(query);
-      status = postcodesResult.status;
-      responseBody = postcodesResult.response;
-      if (!responseBody) {
-        const fallbackResult = await lookupUsingNominatim(query, preferredCounty || undefined);
-        status = fallbackResult.status;
-        responseBody = fallbackResult.response;
-        if (!responseBody) {
-          errorMessage = fallbackResult.response?.error;
-        }
-      }
-    }
-    if (!responseBody) {
-      return res.json({
+      res.json({
         request: apiRequest,
         action: ApiAction.QUERY,
-        response: {error: errorMessage || `No places found for "${query}"`}
+        response: {error: `No places found for "${query}"`}
       });
+    } else {
+      const response: GridReferenceLookupApiResponse = {
+        apiStatusCode: 200,
+        request: apiRequest,
+        action: ApiAction.QUERY,
+        response: responseBody
+      };
+      res.json(response);
     }
-    const response: GridReferenceLookupApiResponse = {
-      apiStatusCode: status,
-      request: apiRequest,
-      action: ApiAction.QUERY,
-      response: responseBody
-    };
-    return res.json(response);
   } catch (error: any) {
     debugLog("placeNameLookup error", error);
     res.status(500);
