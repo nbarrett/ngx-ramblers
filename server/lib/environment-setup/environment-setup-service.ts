@@ -60,6 +60,7 @@ import { baseDomainFrom } from "./environment-context";
 import { registerBrevoSender } from "../brevo/senders/create-sender";
 import { configuredChromeVersion } from "../shared/chrome-version";
 import { flySecretsForEnvironment } from "../shared/secrets";
+import { assertClusterHasCapacityForNewEnvironment } from "./atlas-clusters";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:service"));
 debugLog.enabled = true;
@@ -195,6 +196,19 @@ export async function validateSetupRequest(request: EnvironmentSetupRequest): Pr
     valid: mongoValidation.valid,
     message: `MongoDB: ${mongoValidation.message}`
   });
+
+  try {
+    await assertClusterHasCapacityForNewEnvironment(request.serviceConfigs.mongodb.cluster);
+    results.push({
+      valid: true,
+      message: `MongoDB cluster ${request.serviceConfigs.mongodb.cluster} has room for another site`
+    });
+  } catch (error) {
+    results.push({
+      valid: false,
+      message: error instanceof Error ? error.message : "MongoDB cluster is full"
+    });
+  }
 
   if (isFullDuplicate(request)) {
     if (!request.sourceEnvironmentName) {

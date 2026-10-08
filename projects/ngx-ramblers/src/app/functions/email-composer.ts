@@ -2,7 +2,7 @@ import { uniq } from "es-toolkit/compat";
 import { BrandingMode, MemberSelection, MergeFieldParamsGroup } from "../models/mail.model";
 import { CommitteeMember, roleEmailAddresses } from "../models/committee.model";
 import { Member } from "../models/member.model";
-import { committeeAssignedEmailsForMemberId, outboundEmailForMember } from "./committee-members";
+import { committeeAssignedEmailsForMemberId, memberHoldsCommitteeRole, outboundEmailForMember } from "./committee-members";
 import { memberDisambiguatedLabel } from "./member-names";
 import {
   AddresseeType,
@@ -539,6 +539,50 @@ export function composerSelectedMembersAreCommitteeAudience(
     && committeeMembers.length === members.length;
 }
 
+export function composerMemberForRecipient(
+  recipient: ComposerExternalRecipient,
+  members: Member[],
+  roles: CommitteeMember[]
+): Member | null {
+  if (recipient.memberId) {
+    return (members ?? []).find(member => member.id === recipient.memberId) ?? null;
+  } else {
+    const wanted = (recipient.email || "").trim().toLowerCase();
+    if (!wanted) {
+      return null;
+    } else {
+      return (members ?? []).find(member => (member.email || "").toLowerCase() === wanted)
+        ?? (members ?? []).find(member =>
+          committeeAssignedEmailsForMemberId(roles, member.id ?? null)
+            .some(entry => (entry.email || "").toLowerCase() === wanted))
+        ?? null;
+    }
+  }
+}
+
+export function composerCommitteeRoleSendOffered(options: {
+  recipients: ComposerExternalRecipient[];
+  members: Member[];
+  roles: CommitteeMember[];
+  committeeOnlyAudience: boolean;
+  recipientCount: number;
+}): boolean {
+  const chosen = (options.recipients ?? []).filter(recipient =>
+    !!(recipient.email || "").trim()
+    && !recipient.listId
+    && !recipient.filterKey
+    && recipient.email !== COMPOSER_EVERYONE_FILTER_EMAIL
+  );
+  if (chosen.length === 0) {
+    return options.committeeOnlyAudience && options.recipientCount > 0;
+  } else {
+    return chosen.every(recipient => {
+      const member = composerMemberForRecipient(recipient, options.members, options.roles);
+      return !!member && memberHoldsCommitteeRole(member, options.roles);
+    });
+  }
+}
+
 export const COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT = 10;
 export const COMPOSER_EVERYONE_FILTER_EMAIL = "filter-everyone-with-email@list.internal";
 
@@ -677,8 +721,15 @@ export function composerMemberIdentityRecipients(options: {
       return [...list, recipient];
     }
   }, [] as ComposerExternalRecipient[]);
-  const memberIds = new Set((options.members ?? []).map(member => member.id).filter((id): id is string => !!id));
-  const memberEmails = new Set((options.members ?? []).map(member => (member.email || "").trim().toLowerCase()).filter(email => !!email));
+  const uniqueMembers = (options.members ?? []).reduce((list, member) => {
+    if (member.id && list.some(existing => existing.id === member.id)) {
+      return list;
+    } else {
+      return [...list, member];
+    }
+  }, [] as Member[]);
+  const memberIds = new Set(uniqueMembers.map(member => member.id).filter((id): id is string => !!id));
+  const memberEmails = new Set(uniqueMembers.map(member => (member.email || "").trim().toLowerCase()).filter(email => !!email));
   const rolesByMemberId = (options.committeeAddresses ?? []).reduce((map, address) => {
     if (address.memberId && memberIds.has(address.memberId)) {
       const current = map.get(address.memberId) ?? [];
@@ -687,7 +738,7 @@ export function composerMemberIdentityRecipients(options: {
       return map;
     }
   }, new Map<string, ComposerExternalRecipient[]>());
-  const memberEntries = (options.members ?? []).reduce((list, member) => {
+  const memberEntries = uniqueMembers.reduce((list, member) => {
     const roles = (member.id ? rolesByMemberId.get(member.id) : undefined) ?? [];
     const identity = composerRecipientFromMember(member) ?? (roles[0]
       ? {
@@ -700,12 +751,14 @@ export function composerMemberIdentityRecipients(options: {
     if (!identity) {
       return list;
     } else {
-      const roleNames = uniq(roles.map(role => (role.name || "").trim()).filter(name => !!name));
+      const identityName = (identity.name || "").trim().toLowerCase();
+      const roleNames = uniq(roles.map(role => (role.name || "").trim()).filter(name => !!name && name.toLowerCase() !== identityName));
       const searchText = [identity.name, identity.email, ...roles.flatMap(role => [role.name, role.email])]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-      const already = list.some(item => composerRecipientIsSamePerson(item, identity));
+      const already = list.some(item => composerRecipientIsSamePerson(item, identity)
+        || (!!identityName && (item.name || "").trim().toLowerCase() === identityName));
       return already ? list : [...list, {
         ...identity,
         searchText,
@@ -720,8 +773,13 @@ export function composerMemberIdentityRecipients(options: {
   ]);
   const roleEntries = (options.committeeAddresses ?? []).reduce((list, address) => {
     const email = (address.email || "").trim().toLowerCase();
+    const roleType = (address.committeeRoleType || "").trim().toLowerCase();
+    const roleName = (address.name || "").trim().toLowerCase();
     const heldByListedMember = !!address.memberId && memberIds.has(address.memberId);
-    if (!email || heldByListedMember || heldEmails.has(email) || list.some(item => item.email.toLowerCase() === email)) {
+    const already = list.some(item => item.email.toLowerCase() === email
+      || (!!roleType && (item.committeeRoleType || "").trim().toLowerCase() === roleType)
+      || (!!roleName && (item.name || "").trim().toLowerCase() === roleName));
+    if (!email || heldByListedMember || heldEmails.has(email) || already) {
       return list;
     } else {
       return [...list, {

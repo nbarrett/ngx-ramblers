@@ -1,6 +1,6 @@
 import { environmentNameForGroup, prefixedEnvironmentResourceName } from "../../../models/environment-setup.model";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute, Router } from "@angular/router";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, Subscription } from "rxjs";
 import { kebabCase, values } from "es-toolkit/compat";
@@ -31,6 +31,8 @@ import {
   ValidationResult
 } from "../../../models/environment-setup.model";
 import { FLYIO_DEFAULTS, FlyioMemory } from "../../../models/environment-config.model";
+import { ATLAS_CLUSTER_BUSY_DATABASE_COUNT } from "../../../models/atlas-cluster.model";
+import { AdminPlatformPath } from "../../../models/admin-route-paths.model";
 import { enumKeyValues } from "../../../functions/enums";
 import { StoredValue } from "../../../models/ui-actions";
 import { SystemConfigService } from "../../../services/system/system-config.service";
@@ -514,6 +516,22 @@ import { AreaSelector } from "../../walks/walk-edit/area-selector";
 
                               <div class="row thumbnail-heading-frame">
                                 <div class="thumbnail-heading">MongoDB Configuration</div>
+                                <p class="mb-3">
+                                  New sites should use the default cluster on
+                                  <a [routerLink]="'/' + AdminPlatformPath.ENVIRONMENT_MANAGEMENT_ATLAS">MongoDB Atlas</a>,
+                                  with their own database and user. Create a cluster there if the current one is full.
+                                </p>
+                                @if (busyCluster(); as occupied) {
+                                  <div class="alert alert-warning d-flex align-items-start">
+                                    <fa-icon [icon]="faExclamationTriangle" class="me-2 mt-1"/>
+                                    <div>
+                                      <strong>This cluster already has {{ occupied.databases.length }} databases</strong>
+                                      <div>A free Atlas cluster stops at 500 collections across every database. Registration is already failing on the shared cluster. Create a cluster on
+                                        <a [routerLink]="'/' + AdminPlatformPath.ENVIRONMENT_MANAGEMENT_ATLAS">MongoDB Atlas</a>
+                                        and set it as the default for new sites.</div>
+                                    </div>
+                                  </div>
+                                }
                                 @if (mongoClusters.length > 0) {
                                   <div class="row mb-2">
                                     <div class="col-md-8">
@@ -1004,7 +1022,7 @@ import { AreaSelector } from "../../walks/walk-edit/area-selector";
       </app-page>
     `,
   styleUrls: ["./environment-setup.sass"],
-  imports: [PageComponent, FormsModule, NgClass, FontAwesomeModule, StepperModule, NgSelectComponent, StatusIconComponent, AreaSelector, SecretInputComponent, SessionLogsComponent, TabsetComponent, TabDirective, EnvironmentSettings, EnvironmentManagement, MongoUriInputComponent]
+  imports: [PageComponent, FormsModule, NgClass, FontAwesomeModule, StepperModule, NgSelectComponent, StatusIconComponent, AreaSelector, SecretInputComponent, SessionLogsComponent, TabsetComponent, TabDirective, EnvironmentSettings, EnvironmentManagement, MongoUriInputComponent, RouterLink]
 })
 export class EnvironmentSetupComponent implements OnInit, OnDestroy {
 
@@ -1032,6 +1050,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   protected readonly CloneType = CloneType;
   protected readonly EnvironmentSetupTab = EnvironmentSetupTab;
   protected readonly SetupMode = SetupMode;
+  protected readonly AdminPlatformPath = AdminPlatformPath;
 
   enabled = false;
   requiresApiKey = false;
@@ -1333,6 +1352,16 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
       this.request.serviceConfigs.mongodb.cluster = cluster.cluster;
       this.request.serviceConfigs.mongodb.username = cluster.username;
       this.request.serviceConfigs.mongodb.password = cluster.password;
+    }
+  }
+
+  busyCluster(): MongoClusterInfo | null {
+    const host = this.request.serviceConfigs.mongodb.cluster;
+    const cluster = this.mongoClusters.find(item => item.cluster === host) || this.selectedCluster;
+    if (cluster && cluster.databases.length >= ATLAS_CLUSTER_BUSY_DATABASE_COUNT) {
+      return cluster;
+    } else {
+      return null;
     }
   }
 
@@ -1652,10 +1681,12 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
     if (this.systemConfig?.national?.walksManager?.apiKey) {
       this.request.serviceConfigs.ramblers.apiKey = this.systemConfig.national.walksManager.apiKey;
     }
-    if (this.environmentDefaults?.mongodb?.cluster) {
+    if (this.environmentDefaults?.atlasDefaultCluster) {
+      this.request.serviceConfigs.mongodb.cluster = this.environmentDefaults.atlasDefaultCluster;
+    } else if (this.environmentDefaults?.mongodb?.cluster) {
       this.request.serviceConfigs.mongodb.cluster = this.environmentDefaults.mongodb.cluster;
     }
-    if (this.environmentDefaults?.mongodb?.username) {
+    if (!this.environmentDefaults?.atlasDefaultCluster && this.environmentDefaults?.mongodb?.username) {
       this.request.serviceConfigs.mongodb.username = this.environmentDefaults.mongodb.username;
     }
     if (this.environmentDefaults?.aws?.region) {

@@ -2279,6 +2279,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy {
           this.session.state.narrowListId = numeric;
         }
       }
+    } else if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+      this.recipients.applyDefaultListIfNeeded();
     }
     const tab = queryParams.get(StoredValue.TAB);
     if (tab) {

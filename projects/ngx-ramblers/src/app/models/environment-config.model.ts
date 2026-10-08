@@ -33,6 +33,17 @@ export interface FlyioConfig {
 export interface AtlasConfig {
   publicKey?: string;
   privateKey?: string;
+  projectId?: string;
+  defaultCluster?: string;
+}
+
+export function createEmptyAtlasConfig(): AtlasConfig {
+  return {
+    publicKey: "",
+    privateKey: "",
+    projectId: "",
+    defaultCluster: ""
+  };
 }
 
 export interface CloudflareConfig {

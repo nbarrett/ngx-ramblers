@@ -71,6 +71,18 @@ export enum UnityExpenseGuidanceMode {
   AUTHORISE = "authorise"
 }
 
+export enum ExpenseItemTableColumn {
+  COST = "cost",
+  DATE = "date",
+  DESCRIPTION = "description"
+}
+
+export enum ExpenseEventTableColumn {
+  DATE = "date",
+  DESCRIPTION = "description",
+  WHO = "who"
+}
+
 export interface ExpenseEventType {
   description?: string;
   atEndpoint?: boolean;

@@ -28,8 +28,16 @@
                                description="Expenses help"/>
         </div>
       </div>
+      <hr class="my-3"/>
+      <div class="row align-items-start">
+        <div class="col-sm-3 d-flex flex-column text-center">
+          <app-vendor-brand-mark class="unity-expense-help-mark" brandKey="unityTrustBank" [wide]="true"/>
+        </div>
+        <div class="col-sm-9">
+          <app-unity-expense-guidance [mode]="UnityExpenseGuidanceMode.OVERVIEW"/>
+        </div>
+      </div>
     </div>
-    <app-unity-expense-guidance [mode]="UnityExpenseGuidanceMode.OVERVIEW"/>
     @if (notifyTarget.showAlert) {
       <div
         (click)="toggle()" tooltip="Click to {{showOrHide}} help" class="row">
@@ -49,29 +57,31 @@
         <div class="row">
           <div class="col-sm-12">
             <div class="no-bullets">
-              <div class="mb-4">
-                <div class="d-inline-flex align-items-center flex-wrap gap-2">
+              <div class="expense-toolbar d-flex align-items-center flex-wrap gap-3 mb-4">
                   @if (allowClearError()) {
-                    <div class="form-group">
-                      <input type="submit" value="Show All Expense Claims"
-                             (click)="showAllExpenseClaims()" title="Show All Expense Claims"
+                    <button type="button" (click)="showAllExpenseClaims()" tooltip="Show All Expense Claims"
                              [disabled]="notifyTarget.busy"
                              class="btn btn-primary">
-                    </div>
+                      <fa-icon [icon]="faList"/>
+                      All claims
+                    </button>
                   }
                   @if (allowAddExpenseClaim()) {
-                    <div class="form-group d-flex gap-2">
-                      <input type="submit" [disabled]="notifyTarget.busy" value="Back to admin" (click)="backToAdmin()"
-                             class="btn btn-secondary">
-                      <input type="submit" value="Add Expense Claim"
-                             (click)="addExpenseClaim()" title="Add new Expense Claim"
+                    <button type="button" [disabled]="notifyTarget.busy" (click)="backToAdmin()"
+                             class="btn btn-quiet" tooltip="Back to admin">
+                      <fa-icon [icon]="faArrowLeft"/>
+                      Back to admin
+                    </button>
+                    <button type="button" (click)="addExpenseClaim()" tooltip="Add new Expense Claim"
                              [disabled]="notifyTarget.busy"
                              class="btn btn-primary">
-                    </div>
+                      <fa-icon [icon]="faPlus"/>
+                      Add claim
+                    </button>
                   }
-                  <div class="form-group d-flex align-items-center gap-2">
+                  <div class="d-flex align-items-center gap-2">
                     <label for="filter-expenses" class="mb-0">Filter for:</label>
-                    <select class="form-control input-sm rounded spaced-controls" id="filter-expenses"
+                    <select class="form-control expense-filter-select" id="filter-expenses"
                             (ngModelChange)="changeFilter($event)"
                             [ngModel]="selected.filter">
                       @for (filter of filters; track filter.description) {
@@ -84,210 +94,227 @@
                     </select>
                   </div>
                   @if (display.allowAdminFunctions()) {
-                    <div class="form-group">
-                      <div class="form-check">
-                        <input [(ngModel)]="selected.showOnlyMine"
-                               type="checkbox" class="form-check-input" id="show-only-mine">
-                        <label class="form-check-label"
-                               (click)="refreshExpenses()"
-                               for="show-only-mine">Show only mine
-                        </label>
-                      </div>
+                    <div class="d-flex align-items-center gap-2">
+                      <input [(ngModel)]="selected.showOnlyMine"
+                             type="checkbox" class="form-check-input m-0" id="show-only-mine">
+                      <label class="mb-0"
+                             (click)="refreshExpenses()"
+                             for="show-only-mine">Show only mine
+                      </label>
                     </div>
                   }
-                </div>
               </div>
               @for (expenseClaim of expenseClaims; track expenseClaim.id) {
                 <div>
                   @if (expenseClaim) {
                     <div class="row" (mouseenter)="selectFirstItem(expenseClaim)">
                       <div class="col-sm-7">
-                        <table class="round table styled-table table-striped table-hover table-sm">
-                          <thead>
-                          <tr [ngClass]="{'inactive': isInactive(expenseClaim)}">
-                            <th width="20%">Date</th>
-                            <th width="70%">Description</th>
-                            <th width="10%">Cost</th>
-                          </tr>
-                          </thead>
-                          <tbody>
-                            @for (expenseItem of expenseClaim.expenseItems; track itemTracker) {
-                              <tr
-                                (click)="selectExpenseItem(expenseItem)"
-                                [ngClass]="expenseItem === selected.expenseItem? 'active selected':'default'">
-                                <td [textContent]="expenseItem.expenseDate | displayDate" class="nowrap"></td>
-                                <td [ngClass]="{'inactive': isInactive(expenseClaim)}">
-                                  @if (!notifyTarget.busy) {
-                                    <a [routerLink]="" queryParamsHandling="merge"
-                                       [textContent]="display.prefixedExpenseItemDescription(expenseItem)"
-                                       (click)="editExpenseItem(expenseItem)" href=""></a>
-                                  }
-                                  @if (notifyTarget.busy) {
-                                    <span
-                                      [textContent]="display.prefixedExpenseItemDescription(expenseItem)"></span>
-                                  }
-                                  @if (!notifyTarget.busy && expenseItem.receipt) {
-                                    <div> receipt:
-                                      <a target="_blank" [href]="display.receiptUrl(expenseItem)"
-                                         [textContent]="display.receiptTitle(expenseItem)"></a></div>
-                                  }
-                                  @if (notifyTarget.busy && expenseItem.receipt) {
-                                    <div> receipt:
-                                      {{ display.receiptTitle(expenseItem) }}
-                                    </div>
-                                  }
-                                </td>
-                                <td class="text-end" [textContent]="expenseItem.cost | asMoney"></td>
-                              </tr>
+                        <app-sortable-table
+                          [columns]="expenseItemColumns"
+                          [rows]="expenseClaim.expenseItems"
+                          [trackBy]="itemTracker"
+                          [defaultSortKey]="'expenseDate'"
+                          emptyMessage="No expense items"
+                          (rowSelect)="selectExpenseItem($event)">
+                          <ng-template [appSortableTableCell]="ExpenseItemTableColumn.DATE" let-item>
+                            {{ item.expenseDate | displayDate }}
+                          </ng-template>
+                          <ng-template [appSortableTableCell]="ExpenseItemTableColumn.DESCRIPTION" let-item>
+                            @if (!notifyTarget.busy) {
+                              <a [routerLink]="" queryParamsHandling="merge"
+                                 [textContent]="display.prefixedExpenseItemDescription(item)"
+                                 (click)="$event.stopPropagation(); editExpenseItem(item)" href=""></a>
+                            } @else {
+                              <span [textContent]="display.prefixedExpenseItemDescription(item)"></span>
                             }
-                          <tr>
-                            <td><strong>Total</strong></td>
-                            @if (expenseClaim.expenseItems) {
-                              <td><strong
-                                [textContent]="expenseClaim.expenseItems.length +' item(s)'"></strong>
-                              </td>
+                            @if (item.receipt) {
+                              <div>receipt:
+                                @if (!notifyTarget.busy) {
+                                  <a target="_blank" [href]="display.receiptUrl(item)"
+                                     [textContent]="display.receiptTitle(item)"></a>
+                                } @else {
+                                  {{ display.receiptTitle(item) }}
+                                }
+                              </div>
                             }
-                            <td class="text-end"><strong [textContent]="expenseClaim.cost | asMoney"></strong></td>
-                          </tr>
-                          </tbody>
-                        </table>
+                          </ng-template>
+                          <ng-template [appSortableTableCell]="ExpenseItemTableColumn.COST" let-item>
+                            {{ item.cost | asMoney }}
+                          </ng-template>
+                        </app-sortable-table>
+                        <div class="d-flex justify-content-between align-items-center px-2 py-2">
+                          <strong>Total · {{ stringUtilsService.pluraliseWithCount(expenseClaim.expenseItems.length, "item") }}</strong>
+                          <strong>{{ expenseClaim.cost | asMoney }}</strong>
+                        </div>
                         @if (isActive(expenseClaim)) {
-                          <div class="row mb-3">
-                            <div class="form-group d-flex gap-2 flex-wrap">
+                          <div class="mb-3">
+                            @if (confirm.approveConfirmOutstanding() && allowApproveExpenseClaim()) {
+                              @if (lastApprovedByMe()) {
+                                <app-alert-panel class="mb-2" title="Same person as last time"
+                                                 [variant]="AlertPanelVariant.WARNING">
+                                  You were the previous approver, so someone else ought to do this Unity step. Continue only if you are sure.
+                                </app-alert-panel>
+                              }
+                              <app-unity-expense-guidance class="d-block mb-2"
+                                                          [mode]="UnityExpenseGuidanceMode.CREATE_PAYMENT"/>
+                            }
+                            <div class="expense-claim-actions">
                               @if (!confirm.notificationsOutstanding()) {
                                 @if (display.allowAddExpenseItem(selected.expenseClaim) && confirm.noneOutstanding()) {
-                                  <input type="submit"
+                                  <button type="button"
                                          [disabled]="notifyTarget.busy"
-                                         value="Add Item" (click)="addExpenseItem()" title="Add Item"
+                                         (click)="addExpenseItem()" tooltip="Add item"
                                          class="btn btn-primary">
+                                    <fa-icon [icon]="faPlus"/>
+                                    Add item
+                                  </button>
                                 }
                                 @if (display.allowEditExpenseItem(selected.expenseClaim) && confirm.noneOutstanding()) {
-                                  <input type="submit"
+                                  <button type="button"
                                          [disabled]="notifyTarget.busy"
-                                         value="Edit Item" (click)="editExpenseItem(selected.expenseItem)"
+                                         (click)="editExpenseItem(selected.expenseItem)" tooltip="Edit item"
                                          class="btn btn-primary">
+                                    <fa-icon [icon]="faPenToSquare"/>
+                                    Edit item
+                                  </button>
                                 }
                                 @if (display.allowDeleteExpenseItem(selected.expenseClaim) && confirm.noneOutstanding()) {
-                                  <input type="submit"
+                                  <button type="button"
                                          [disabled]="notifyTarget.busy"
-                                         value="Delete Item" (click)="confirm.toggleOnDeleteConfirm()"
+                                         (click)="confirm.toggleOnDeleteConfirm()" tooltip="Delete item"
                                          class="btn btn-danger">
+                                    <fa-icon [icon]="faTrash"/>
+                                    Delete item
+                                  </button>
                                 }
                                 @if (allowSubmitExpenseClaim(selected.expenseClaim) && confirm.noneOutstanding()) {
-                                  <input type="submit"
+                                  <button type="button"
                                          [disabled]="notifyTarget.busy"
-                                         value="Submit Claim" (click)="submitExpenseClaim(false)"
+                                         (click)="submitExpenseClaim(false)" tooltip="Submit claim"
                                          class="btn btn-success">
+                                    <fa-icon [icon]="faPaperPlane"/>
+                                    Submit claim
+                                  </button>
                                 }
                                 @if (allowApproveExpenseClaim() && confirm.noneOutstanding()) {
-                                  <input type="submit"
+                                  <button type="button"
                                          [disabled]="notifyTarget.busy"
-                                         value="{{nextApprovalStage()}}"
-                                         (click)="approveExpenseClaim()" title="{{display.paymentCreatedInUnityLabel}}"
+                                         (click)="approveExpenseClaim()" [tooltip]="display.paymentCreatedInUnityLabel"
                                          class="btn btn-primary">
+                                    <fa-icon [icon]="faLandmark"/>
+                                    Created in Unity
+                                  </button>
                                 }
-                                @if (allowPaidExpenseClaim()) {
-                                  <input type="submit"
+                                @if (allowPaidExpenseClaim() && confirm.noneOutstanding()) {
+                                  <button type="button"
                                          [disabled]="notifyTarget.busy"
-                                         value="{{display.authorisedInUnityLabel}}" (click)="paidExpenseClaim()"
+                                         (click)="paidExpenseClaim()" [tooltip]="display.authorisedInUnityLabel"
                                          class="btn btn-primary">
+                                    <fa-icon [icon]="faCircleCheck"/>
+                                    Authorised in Unity
+                                  </button>
                                 }
-                                @if (allowReturnExpenseClaim()) {
-                                  <input type="submit"
+                                @if (allowReturnExpenseClaim() && confirm.noneOutstanding()) {
+                                  <button type="button"
                                          [disabled]="notifyTarget.busy"
-                                         value="Return Claim" (click)="returnExpenseClaim()"
+                                         (click)="returnExpenseClaim()" tooltip="Return claim"
                                          class="btn btn-warning">
+                                    <fa-icon [icon]="faUndo"/>
+                                    Return claim
+                                  </button>
                                 }
                                 @if (allowResubmitExpenseClaim() && confirm.noneOutstanding()) {
-                                  <input type="submit"
+                                  <button type="button"
                                          [disabled]="notifyTarget.busy"
-                                         value="Resubmit Claim" (click)="resubmitExpenseClaim()"
+                                         (click)="resubmitExpenseClaim()" tooltip="Resubmit claim"
                                          class="btn btn-success">
+                                    <fa-icon [icon]="faRotateRight"/>
+                                    Resubmit claim
+                                  </button>
                                 }
                               }
-                              @if (!confirm.notificationsOutstanding() && display.allowDeleteExpenseClaim(selected.expenseClaim)) {
-                                <input type="submit"
-                                       value="Delete Expense Claim" (click)="confirm.toggleOnDeleteConfirm()"
-                                       [disabled]="notifyTarget.busy"
+                              @if (display.allowDeleteExpenseClaim(selected.expenseClaim) && confirm.noneOutstanding()) {
+                                <button type="button"
+                                       (click)="confirm.toggleOnDeleteConfirm()"
+                                       [disabled]="notifyTarget.busy" tooltip="Delete Expense Claim"
                                        class="btn btn-danger">
+                                  <fa-icon [icon]="faTrash"/>
+                                  Delete claim
+                                </button>
                               }
                               @if (confirm.deleteConfirmOutstanding()) {
                                 @if (display.allowDeleteExpenseItem(selected.expenseClaim)) {
-                                  <input type="submit"
+                                  <button type="button"
                                          [disabled]="notifyTarget.busy"
-                                         value="Confirm Delete of Item"
                                          (click)="display.deleteExpenseItem(confirm, notify, expenseClaim, selected.expenseItem, expenseClaim.expenseItems.indexOf(selected.expenseItem))"
+                                         tooltip="Confirm Delete of Item"
                                          class="btn btn-danger">
-                                }
-                                @if (display.allowDeleteExpenseItem(selected.expenseClaim)) {
-                                  <input
+                                    <fa-icon [icon]="faCheck"/>
+                                    Confirm delete item
+                                  </button>
+                                  <button type="button"
                                     [disabled]="notifyTarget.busy"
-                                    value="Cancel Delete of Item" (click)="confirm.clear()" type="submit"
-                                    class="btn btn-success">
-                                }
-                                @if (display.allowDeleteExpenseClaim(selected.expenseClaim)) {
-                                  <input
-                                    value="Confirm Delete of Expense Claim" type="submit"
+                                    (click)="confirm.clear()" tooltip="Cancel delete item"
+                                    class="btn btn-quiet">
+                                    <fa-icon [icon]="faXmark"/>
+                                    Cancel
+                                  </button>
+                                } @else if (display.allowDeleteExpenseClaim(selected.expenseClaim)) {
+                                  <button type="button"
                                     (click)="confirmDeleteExpenseClaim()"
+                                    tooltip="Confirm delete claim"
                                     class="btn btn-danger">
-                                }
-                                @if (display.allowDeleteExpenseClaim(selected.expenseClaim)) {
-                                  <input
-                                    value="Cancel Delete of Expense Claim" type="submit"
+                                    <fa-icon [icon]="faCheck"/>
+                                    Confirm delete claim
+                                  </button>
+                                  <button type="button"
                                     (click)="cancelDeleteExpenseClaim()"
-                                    [disabled]="notifyTarget.busy"
-                                    class="btn btn-success">
+                                    [disabled]="notifyTarget.busy" tooltip="Cancel Delete of Expense Claim"
+                                    class="btn btn-quiet">
+                                    <fa-icon [icon]="faXmark"/>
+                                    Cancel
+                                  </button>
                                 }
                               }
-                              @if (confirm.approveConfirmOutstanding()) {
-                                @if (allowApproveExpenseClaim()) {
-                                  @if (lastApprovedByMe()) {
-                                    <app-alert-panel class="mb-2" title="Same person as last time"
-                                                     [variant]="AlertPanelVariant.WARNING">
-                                      You were the previous approver, so someone else ought to do this Unity step. Continue only if you are sure.
-                                    </app-alert-panel>
-                                  }
-                                  <app-unity-expense-guidance class="d-block mb-2"
-                                                              [mode]="UnityExpenseGuidanceMode.CREATE_PAYMENT"/>
-                                  <input [disabled]="notifyTarget.busy" type="submit"
-                                         value="Confirm {{nextApprovalStage()}}"
-                                         (click)="confirmApproveExpenseClaim()"
-                                         class="btn btn-primary">
-                                  <input [disabled]="notifyTarget.busy" type="submit"
-                                         value="Cancel"
-                                         (click)="confirm.clear()"
-                                         class="btn btn-quiet">
-                                }
+                              @if (confirm.approveConfirmOutstanding() && allowApproveExpenseClaim()) {
+                                <button [disabled]="notifyTarget.busy" type="button"
+                                       (click)="confirmApproveExpenseClaim()"
+                                       [tooltip]="'Confirm ' + nextApprovalStage()"
+                                       class="btn btn-primary">
+                                  <fa-icon [icon]="faCheck"/>
+                                  Confirm created in Unity
+                                </button>
+                                <button [disabled]="notifyTarget.busy" type="button"
+                                       (click)="confirm.clear()" tooltip="Cancel"
+                                       class="btn btn-quiet">
+                                  <fa-icon [icon]="faXmark"/>
+                                  Cancel
+                                </button>
                               }
                             </div>
                           </div>
                         }
                       </div>
-                      <div class="col-sm-5 table-responsive" style="padding-left: 0px;">
-                        <table class="round table styled-table table-striped table-hover table-sm">
-                          <thead>
-                          <tr>
-                            <th width="33%" [ngClass]="{'inactive': isInactive(expenseClaim)}">Date</th>
-                            <th width="33%" [ngClass]="{'inactive': isInactive(expenseClaim)}">Who</th>
-                            <th width="34%" [ngClass]="{'inactive': isInactive(expenseClaim)}">Description</th>
-                          </tr>
-                          </thead>
-                          <tbody>
-                            @for (event of expenseClaim.expenseEvents; track eventTracker) {
-                              <tr>
-                                <td [textContent]="event.date | displayDate" class="nowrap"></td>
-                                <td [textContent]="event.memberId | memberIdToFullName : members"></td>
-                                <td>
-                                  {{ display.eventTypeDisplayDescription(event.eventType) }}
-                                  @if (event.reason) {
-                                    <span [placement]="'right'"
-                                          tooltip="Reason: {{event.reason}}">Reason: {{ event.reason }}</span>
-                                  }
-                                </td>
-                              </tr>
+                      <div class="col-sm-5">
+                        <app-sortable-table
+                          [columns]="expenseEventColumns"
+                          [rows]="expenseClaim.expenseEvents"
+                          [trackBy]="eventTracker"
+                          [defaultSortKey]="'date'"
+                          emptyMessage="No history yet">
+                          <ng-template [appSortableTableCell]="ExpenseEventTableColumn.DATE" let-event>
+                            {{ event.date | displayDate }}
+                          </ng-template>
+                          <ng-template [appSortableTableCell]="ExpenseEventTableColumn.WHO" let-event>
+                            {{ event.memberId | memberIdToFullName : members }}
+                          </ng-template>
+                          <ng-template [appSortableTableCell]="ExpenseEventTableColumn.DESCRIPTION" let-event>
+                            {{ display.eventTypeDisplayDescription(event.eventType) }}
+                            @if (event.reason) {
+                              <span tooltip="Reason: {{event.reason}}">Reason: {{ event.reason }}</span>
                             }
-                          </tbody>
-                        </table>
+                          </ng-template>
+                        </app-sortable-table>
                       </div>
                     </div>
                   }

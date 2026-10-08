@@ -145,7 +145,10 @@ describe("site registration lifecycle", () => {
     } as any);
     sandboxState.sandbox.stub(systemConfigModule, "systemConfig").resolves({national: {walksManager: {apiKey: "api-key"}}} as any);
     const createEnvironment = sandboxState.sandbox.stub(environmentSetup, "createEnvironment").resolves({} as any);
-    sandboxState.sandbox.stub(environmentsConfig, "configuredEnvironments").resolves({atlas: {publicKey: "public", privateKey: "private"}, environments: []} as any);
+    sandboxState.sandbox.stub(environmentsConfig, "configuredEnvironments").resolves({
+      atlas: {publicKey: "public", privateKey: "private", defaultCluster: "ngx-ramblers-nonprod.abc123"},
+      environments: []
+    } as any);
     sandboxState.sandbox.stub(mongoDatabaseUser, "waitForMongoLogin").resolves();
     sandboxState.sandbox.stub(mongoDatabaseUser, "createEnvironmentMongoUser").resolves({username: "ngx_example_ramblers_db_user", password: "generated-password"});
     sandboxState.sandbox.stub(registrationLogos, "applyRamblersDirectoryLogo").resolves(null);
@@ -184,6 +187,7 @@ describe("site registration lifecycle", () => {
     expect(createEnvironment.firstCall.args[0].environmentBasics.scaleCount).toBe(FLYIO_DEFAULTS.SCALE_COUNT);
     expect(createEnvironment.firstCall.args[0].environmentBasics.organisation).toBe("source-organisation");
     expect(createEnvironment.firstCall.args[0].serviceConfigs.brevo.apiKey).toBe("");
+    expect(createEnvironment.firstCall.args[0].serviceConfigs.mongodb.cluster).toBe("ngx-ramblers-nonprod.abc123");
     expect(createEnvironment.firstCall.args[0].serviceConfigs.mongodb.username).toBe("ngx_example_ramblers_db_user");
     expect(createEnvironment.firstCall.args[0].serviceConfigs.mongodb.password).toBe("generated-password");
     expect(createEnvironment.firstCall.args[0].options.copyStandardAssets).toBe(false);

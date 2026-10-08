@@ -4,6 +4,7 @@ import { Subscription } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
 import { EnvironmentConfigService } from "../../../services/environment-config.service";
 import {
+  createEmptyAtlasConfig,
   createEmptyAwsConfig,
   createEmptyCloudflareConfig,
   createDefaultFlyioConfig,
@@ -148,6 +149,7 @@ export class EnvironmentSettings implements OnInit, OnDestroy {
     this.editableConfig = JSON.parse(JSON.stringify(config));
     this.editableConfig.environments = this.editableConfig.environments || [];
     this.editableConfig.aws = {...createEmptyAwsConfig(), ...this.editableConfig.aws};
+    this.editableConfig.atlas = {...createEmptyAtlasConfig(), ...this.editableConfig.atlas};
     this.editableConfig.cloudflare = {...createEmptyCloudflareConfig(), ...this.editableConfig.cloudflare};
     this.editableConfig.secrets = this.editableConfig.secrets || {};
     this.editableConfig.uploadWorker = {...createDefaultUploadWorkerConfig(), ...this.editableConfig.uploadWorker};

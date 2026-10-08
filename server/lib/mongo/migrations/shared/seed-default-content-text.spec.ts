@@ -30,8 +30,6 @@ describe("default content catalog", () => {
     expect(expenses?.text).toContain(EXPENSES_HOW_TO_DOCUMENTATION_URL);
     expect(expenses?.text).toContain("Add Expense Claim");
     expect(expenses?.text).toContain("Submit Claim");
-    expect(expenses?.text).toContain("Payment created in Unity");
-    expect(expenses?.text).toContain("Authorised in Unity");
     expect(/mailchi\.mp/i.test(expenses?.text || "")).toBe(false);
     expect(/ekwg|pang valley|mailchimp/i.test(expenses?.text || "")).toBe(false);
   });

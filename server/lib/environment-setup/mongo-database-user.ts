@@ -21,7 +21,9 @@ export async function platformAtlasAccess(): Promise<AtlasApiAccess> {
   const settings = await registrationSettings();
   const environments = await configuredEnvironments();
   const platform = environments.environments?.find(environment => environment.environment === settings.sourceEnvironmentName);
-  return {...environments.atlas, projectId: platform?.consoleAccess?.[ConsoleAccessService.MONGODB_ATLAS]?.identifiers?.projectId};
+  const projectId = environments.atlas?.projectId
+    || platform?.consoleAccess?.[ConsoleAccessService.MONGODB_ATLAS]?.identifiers?.projectId;
+  return {...environments.atlas, projectId};
 }
 
 export async function deleteEnvironmentMongoUser(atlas: AtlasApiAccess, username: string): Promise<string> {
@@ -49,7 +51,7 @@ function atlasFailure(action: string, username: string, status: number, error: A
 
 export async function createEnvironmentMongoUser(atlas: AtlasApiAccess, database: string, environmentName: string): Promise<CreatedEnvironmentMongoUser> {
   if (!atlas?.projectId) {
-    throw new Error("The platform site has no MongoDB Atlas project ID, so the new site cannot be given its own database user. Add it under Estate rebuild → System logins → MongoDB Atlas, then retry.");
+    throw new Error("The platform has no MongoDB Atlas project ID, so the new site cannot be given its own database user. Add it under Environment management → MongoDB Atlas, then retry.");
   } else if (!atlas?.publicKey || !atlas?.privateKey) {
     throw new Error("MongoDB Atlas API access is not set up, so the new site cannot be given its own database user. Add the Atlas API public and private key under Environment management → Global settings → MongoDB Atlas, then retry.");
   } else {

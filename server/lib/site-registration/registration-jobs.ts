@@ -12,6 +12,8 @@ import { contentMetadata } from "../mongo/models/content-metadata";
 import { createEnvironment } from "../environment-setup/environment-setup-service";
 import { environmentDetails } from "../environment-setup/environment-details";
 import { createEnvironmentMongoUser, platformAtlasAccess, waitForMongoLogin } from "../environment-setup/mongo-database-user";
+import { assertClusterHasCapacityForNewEnvironment, registrationMongoCluster } from "../environment-setup/atlas-clusters";
+import { configuredEnvironments } from "../environments/environments-config";
 import { resumeEnvironment } from "../cli";
 import { connectToEnvironmentMongo, EnvironmentMongoConnection, loadEnvironmentContext } from "../environment-setup/environment-context";
 import { findEnvironmentFromDatabase, setEnvironmentEstateDeploy } from "../environments/environments-config";
@@ -135,8 +137,11 @@ async function provisionRegistration(registration: StoredSiteRegistration): Prom
   const name = registration.environmentName;
   const area = (await fetchRamblersGroupsFromApi([registration.group.area_code])).find(candidate => candidate.scope === "A");
   const database = prefixedEnvironmentResourceName(name, 38);
+  const environments = await configuredEnvironments();
+  const cluster = registrationMongoCluster(environments, details.serviceConfigs.mongodb.cluster);
+  await assertClusterHasCapacityForNewEnvironment(cluster);
   const mongoUser = await createEnvironmentMongoUser(await platformAtlasAccess(), database, name);
-  await waitForMongoLogin(details.serviceConfigs.mongodb.cluster, mongoUser, database, attempt => {
+  await waitForMongoLogin(cluster, mongoUser, database, attempt => {
     void pushProgress(registration, "MongoDB", attempt ? SetupStepStatus.Running : SetupStepStatus.Completed,
       attempt ? `Waiting for MongoDB Atlas to activate the database user ${mongoUser.username} (check ${attempt})` : `Database user ${mongoUser.username} is ready`);
   });
@@ -149,7 +154,7 @@ async function provisionRegistration(registration: StoredSiteRegistration): Prom
       appName: prefixedEnvironmentResourceName(name, 30)},
     serviceConfigs: {...defaults.serviceConfigs, ...details.serviceConfigs,
       aws: {...details.serviceConfigs.aws, bucket: prefixedEnvironmentResourceName(name, 63)},
-      mongodb: {cluster: details.serviceConfigs.mongodb.cluster, username: mongoUser.username, password: mongoUser.password, database},
+      mongodb: {cluster, username: mongoUser.username, password: mongoUser.password, database},
       ramblers: {apiKey: currentSystem.national.walksManager.apiKey},
       brevo: {apiKey: ""},
       osMaps: {apiKey: ""}},

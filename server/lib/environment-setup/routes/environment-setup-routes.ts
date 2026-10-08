@@ -1,5 +1,6 @@
 import express from "express";
 import * as controllers from "./environment-setup-controllers";
+import * as atlasClusters from "../atlas-clusters-controllers";
 
 const router = express.Router();
 
@@ -24,6 +25,10 @@ router.post("/site-url/:environmentName", controllers.updateSiteUrl);
 router.get("/existing-environments", controllers.existingEnvironments);
 router.post("/fly-org-migration-status/:environmentName", controllers.flyOrganisationMigrationStatus);
 router.get("/mongo-clusters", controllers.mongoClusters);
+router.get("/atlas-clusters", controllers.requireSetupAccess, atlasClusters.listAtlasClusters);
+router.post("/atlas-clusters", controllers.requireSetupAccess, atlasClusters.createAtlasClusterRequest);
+router.post("/atlas-network-access", controllers.requireSetupAccess, atlasClusters.allowAtlasNetworkAccessRequest);
+router.put("/atlas-provisioning", controllers.requireSetupAccess, atlasClusters.saveAtlasProvisioningRequest);
 router.post("/resume", controllers.resumeEnvironmentRequest);
 router.delete("/destroy/:environmentName", controllers.destroyEnvironmentRequest);
 router.post("/copy-assets/:environmentName", controllers.copyAssetsRequest);

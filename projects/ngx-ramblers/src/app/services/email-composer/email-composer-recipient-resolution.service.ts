@@ -3,7 +3,7 @@ import {memberHoldsCommitteeRole} from "../../functions/committee-members";
 import {isNumber, values} from "es-toolkit/compat";
 import {Member, MemberTerm} from "../../models/member.model";
 import {BrandingMode, EmailComposerRecipientEntry, ComposerExternalRecipient, RecipientAddressMode, RecipientMode, RECIPIENT_PRE_FILTERS} from "../../models/email-composer.model";
-import {COMPOSER_EVERYONE_FILTER_EMAIL, composerRecipientFromMember, composerSelectedMembersAreCommitteeAudience, composerSendsAsCampaign, memberIsCoveredByComposerHeaders} from "../../functions/email-composer";
+import {COMPOSER_EVERYONE_FILTER_EMAIL, composerCommitteeRoleSendOffered, composerRecipientFromMember, composerSelectedMembersAreCommitteeAudience, composerSendsAsCampaign, memberIsCoveredByComposerHeaders} from "../../functions/email-composer";
 import {MemberSelection} from "../../models/mail.model";
 import {MailListUpdaterService} from "../mail/mail-list-updater.service";
 import {MemberService} from "../member/member.service";
@@ -158,9 +158,13 @@ export class EmailComposerRecipientResolutionService {
   }
 
   committeeRoleSendOffered(): boolean {
-    const expandedTo = this.expandedHeaderRecipients(this.session.state.externalRecipients ?? []);
-    const nonMemberTos = expandedTo.length - this.membersInHeader(this.session.state.externalRecipients ?? []).length;
-    return this.committeeOnlyAudience() && this.totalRecipientCount() > 0 && nonMemberTos === 0;
+    return composerCommitteeRoleSendOffered({
+      recipients: this.headerRecipients(),
+      members: this.pool.allMembers,
+      roles: this.pool.committeeReferenceData?.committeeMembers() ?? [],
+      committeeOnlyAudience: this.committeeOnlyAudience(),
+      recipientCount: this.totalRecipientCount()
+    });
   }
 
   allSelectedMembersHoldCommitteeRoles(): boolean {

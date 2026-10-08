@@ -6,7 +6,9 @@ import { SecretInputComponent } from "../secret-input/secret-input.component";
 import { SecretsEditor } from "../secrets-editor/secrets-editor";
 import { CloudflareUrlInputComponent, CloudflareUrlParseResult } from "../cloudflare-url-input/cloudflare-url-input";
 import { VendorBrandMarkComponent } from "../vendor-brand-mark/vendor-brand-mark.component";
-import { createDefaultJitsiConfig, createEmptyAiConfig, EnvironmentsConfig } from "../../../models/environment-config.model";
+import { createDefaultJitsiConfig, createEmptyAiConfig, createEmptyAtlasConfig, EnvironmentsConfig } from "../../../models/environment-config.model";
+import { AdminPlatformPath } from "../../../models/admin-route-paths.model";
+import { RouterLink } from "@angular/router";
 import { AiProviderType } from "../../../models/system.model";
 import { InputSize } from "../../../models/ui-size.model";
 import { CloudflareUrlService } from "../../../services/cloudflare/cloudflare-url.service";
@@ -17,6 +19,7 @@ import { flyAppMetricsUrl, flyAppUrl } from "../../../functions/fly-app-url";
   imports: [
     FormsModule,
     FontAwesomeModule,
+    RouterLink,
     SecretInputComponent,
     SecretsEditor,
     CloudflareUrlInputComponent,
@@ -209,8 +212,20 @@ import { flyAppMetricsUrl, flyAppUrl } from "../../../functions/fly-app-url";
           <label class="form-label">API private key</label>
           <app-secret-input [(ngModel)]="config.atlas.privateKey" name="atlasPrivateKey" [size]="InputSize.SM"/>
         </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label" for="atlasProjectId">Project ID</label>
+          <input id="atlasProjectId" type="text" class="form-control" [(ngModel)]="config.atlas.projectId" name="atlasProjectId"
+                 placeholder="24-character Atlas project id" autocomplete="off">
+        </div>
+        <div class="col-md-6 mb-2">
+          <label class="form-label" for="atlasDefaultCluster">Default cluster for new sites</label>
+          <input id="atlasDefaultCluster" type="text" class="form-control" [(ngModel)]="config.atlas.defaultCluster" name="atlasDefaultCluster"
+                 placeholder="e.g. ngx-ramblers-nonprod.abc123" autocomplete="off">
+          <small class="form-text text-muted">Host prefix without .mongodb.net. Registration uses this instead of the content template's cluster.</small>
+        </div>
       </div>
-      <small class="form-text text-muted">Used to give each new site its own database user, with read and write access to that site's database only. The project is the one recorded for the platform site under System logins → MongoDB Atlas, where the API keys button opens the page to create this key. The key needs the Project Database Access Admin role on that project.</small>
+      <small class="form-text text-muted">Used to create each new site's database user, with read and write access to that site's database only. Create the key in Atlas with Project Owner (or Project Cluster Manager plus Project Database Access Admin). Create clusters and see occupancy on
+        <a [routerLink]="'/' + AdminPlatformPath.ENVIRONMENT_MANAGEMENT_ATLAS">MongoDB Atlas</a>.</small>
     </div>
     <div class="row thumbnail-heading-frame mb-5">
       <div class="thumbnail-heading">Global Application Secrets</div>
@@ -451,6 +466,7 @@ export class EnvironmentGlobalSettings implements OnInit {
 
   protected readonly InputSize = InputSize;
   protected readonly AiProviderType = AiProviderType;
+  protected readonly AdminPlatformPath = AdminPlatformPath;
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
   protected readonly flyAppUrl = flyAppUrl;
   protected readonly flyAppMetricsUrl = flyAppMetricsUrl;
@@ -465,7 +481,7 @@ export class EnvironmentGlobalSettings implements OnInit {
       this.config.jitsi = createDefaultJitsiConfig();
     }
     if (!this.config.atlas) {
-      this.config.atlas = {};
+      this.config.atlas = createEmptyAtlasConfig();
     }
   }
 

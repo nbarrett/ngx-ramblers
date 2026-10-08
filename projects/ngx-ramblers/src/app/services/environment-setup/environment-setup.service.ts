@@ -33,7 +33,12 @@ import {
   ValidateRequestResponse,
   ValidationResult
 } from "../../models/environment-setup.model";
-import { SiteUrlPreference } from "../../models/environment-config.model";
+import { AtlasConfig, SiteUrlPreference } from "../../models/environment-config.model";
+import {
+  AtlasClusterCreateRequest,
+  AtlasClusterRow,
+  AtlasClusterView
+} from "../../models/atlas-cluster.model";
 import { CommonDataService } from "../common-data-service";
 import { PlatformSendControlRequest } from "../../models/mail.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -243,6 +248,42 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as { clusters: MongoClusterInfo[] };
+  }
+
+  async atlasClusters(): Promise<AtlasClusterView> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.get<ApiResponse>(`${this.BASE_URL}/atlas-clusters`, this.opts),
+      this.notifications
+    );
+    return response as unknown as AtlasClusterView;
+  }
+
+  async createAtlasCluster(request: AtlasClusterCreateRequest): Promise<{cluster: AtlasClusterRow | null; message: string}> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/atlas-clusters`, request, this.opts),
+      this.notifications
+    );
+    return response as unknown as {cluster: AtlasClusterRow | null; message: string};
+  }
+
+  async allowAtlasNetworkAccess(): Promise<{message: string}> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/atlas-network-access`, {}, this.opts),
+      this.notifications
+    );
+    return response as unknown as {message: string};
+  }
+
+  async saveAtlasProvisioning(patch: Partial<AtlasConfig>): Promise<{atlas: AtlasConfig}> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.put<ApiResponse>(`${this.BASE_URL}/atlas-provisioning`, patch, this.opts),
+      this.notifications
+    );
+    return response as unknown as {atlas: AtlasConfig};
   }
 
   async existingEnvironments(): Promise<ExistingEnvironmentsResponse> {

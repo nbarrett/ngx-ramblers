@@ -256,6 +256,14 @@ export const REGISTRATIONS_MENU_ITEM: ActionButtonColumn = {
   contentText: "Review self-service group and area site requests and manage approved committee emails"
 };
 
+export const ATLAS_MENU_ITEM: ActionButtonColumn = {
+  accessLevel: "environmentAdmin",
+  title: "MongoDB Atlas",
+  icon: "faLayerGroup",
+  href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_ATLAS,
+  contentText: "Create clusters in the Ramblers Atlas project, set the default for new sites, and see occupancy before a free cluster hits its collection limit"
+};
+
 export const ENVIRONMENT_MANAGEMENT_MENU_ITEMS: ActionButtonColumn[] = [
   REGISTRATIONS_MENU_ITEM,
   {
@@ -265,6 +273,7 @@ export const ENVIRONMENT_MANAGEMENT_MENU_ITEMS: ActionButtonColumn[] = [
     href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP,
     contentText: "Provision new NGX-Ramblers environments for Ramblers groups"
   },
+  ATLAS_MENU_ITEM,
   {
     accessLevel: "committee",
     title: "Backup & Restore",

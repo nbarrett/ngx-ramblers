@@ -53,7 +53,7 @@ describe("createEnvironmentMongoUser", () => {
 
   it("explains what to set up when there is no Atlas API key, and never shows a password", async () => {
     await expect(createEnvironmentMongoUser({projectId: "project-1"}, "ngx-ramblers-new-group", "new-group")).rejects.toThrow("MongoDB Atlas API access is not set up");
-    await expect(createEnvironmentMongoUser({publicKey: "p", privateKey: "k"}, "ngx-ramblers-new-group", "new-group")).rejects.toThrow("no MongoDB Atlas project ID");
+    await expect(createEnvironmentMongoUser({publicKey: "p", privateKey: "k"}, "ngx-ramblers-new-group", "new-group")).rejects.toThrow("The platform has no MongoDB Atlas project ID");
     const fetchStub = sandboxState.sandbox.stub(globalThis, "fetch");
     fetchStub.resolves(atlasResponse(403, {errorCode: "USER_UNAUTHORIZED", detail: "Not authorised"}));
     const failure: Error = await createEnvironmentMongoUser(atlas, "ngx-ramblers-new-group", "new-group").catch(error => error);
