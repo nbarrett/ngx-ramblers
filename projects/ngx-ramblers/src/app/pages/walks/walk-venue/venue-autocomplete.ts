@@ -35,7 +35,7 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
       [inputAttrs]="{ autocomplete: 'one-time-code', 'data-lpignore': 'true', 'data-form-type': 'other' }">
       <ng-template ng-label-tmp let-item="item">
         <fa-icon [icon]="item.type | toVenueIcon" class="colour-mintcake me-2"></fa-icon>
-        <span>{{ item.name }}{{ item.address1 ? ', ' + item.address1 : '' }}{{ item.postcode ? ', ' + item.postcode : '' }}</span>
+        <span>{{ venueLabel(item) }}</span>
       </ng-template>
       <ng-template ng-option-tmp let-item="item">
         <div class="venue-option">
@@ -47,7 +47,7 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
           <div class="venue-details">
             <div class="venue-name">{{ item.name }}</div>
             <div class="venue-address-row">
-              <span class="venue-address text-muted small">{{ item.address1 }}{{ item.address1 && item.postcode ? ', ' : '' }}{{ item.postcode }}</span>
+              <span class="venue-address text-muted small">{{ venueAddress(item) }}</span>
               @if (item.distance !== null && item.distance !== undefined) {
                 <span class="badge distance-badge ms-2" title="Distance from starting point">{{ item.distance | number:'1.1-1' }} mi</span>
               }
@@ -147,6 +147,14 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  venueLabel(item: { name?: string; address1?: string; postcode?: string }): string {
+    return VenueService.buildNgSelectLabel(item);
+  }
+
+  venueAddress(item: { name?: string; address1?: string; postcode?: string }): string {
+    return VenueService.buildNgSelectLabel({address1: item?.address1, postcode: item?.postcode});
   }
 
   private setupVenueSearch() {
