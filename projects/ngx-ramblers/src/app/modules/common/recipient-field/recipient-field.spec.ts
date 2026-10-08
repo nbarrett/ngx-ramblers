@@ -19,4 +19,24 @@ describe("recipient chip identity", () => {
     expect(instance.qualifierForMember).toHaveBeenCalledWith(member);
     expect(instance.chipQualifier({...recipient, memberId: null})).toBe("external");
   });
+
+  it("shows the committee role on a member chip when the typeahead supplied one", () => {
+    const member = {id: "member-one", email: "alex.reed@example.com"};
+    const instance = Object.create(RecipientFieldComponent.prototype);
+    Object.assign(instance, {
+      qualifierByEmail: new Map(),
+      memberById: new Map([[member.id, member]]),
+      memberByEmail: new Map([[member.email, member]]),
+      committeeAddresses: [],
+      expandableSet: () => false,
+      qualifierForMember: vi.fn(() => "with Head Office consent")
+    });
+    expect(instance.chipQualifier({
+      email: member.email,
+      memberId: member.id,
+      name: "Alex Reed",
+      committeeRoleLabel: "Treasurer",
+      saveForReuse: false
+    })).toBe("Treasurer");
+  });
 });

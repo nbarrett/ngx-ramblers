@@ -158,6 +158,7 @@ import {EmailComposerRecipientsService} from "../../services/email-composer/emai
                 [committeeAddresses]="state.brandingMode === BrandingMode.UNBRANDED && recipientResolution.unbrandedSelectedListId() ? [] : recipientResolution.committeeRecipientAddresses()"
                 [listRecipients]="recipientResolution.unbrandedSelectedListId() ? [] : recipients.unbrandedCommitteeListRecipients()"
                 [ccAllowedEmails]="session.inboxReplyContext ? null : recipients.committeeCcEmails()"
+                [ccAvailable]="recipients.ccFieldAvailable()"
                 [audienceFilter]="state.preFilterKey"
                 [memberBulkLoadDateMap]="recipientSources.memberBulkLoadDateMap"
                 [savedRecipients]="recipients.unbrandedSuggestionSavedRecipients()"

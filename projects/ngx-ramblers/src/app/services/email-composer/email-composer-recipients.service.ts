@@ -3,7 +3,7 @@ import { committeeRoleEmailDiffersFromPersonal, memberHoldsCommitteeRole } from 
 import { isNumber, kebabCase } from "es-toolkit/compat";
 import { Member } from "../../models/member.model";
 import { BrandingMode, ComposerExternalRecipient, RecipientAddressMode, RecipientField, RecipientMode, SendingChannel } from "../../models/email-composer.model";
-import { COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT, composerCommitteeRecipients, appendUniqueRecipients, composerEveryoneFilterToken, composerFilterToken, COMPOSER_EVERYONE_FILTER_EMAIL, composerListToken, composerRecipientFromMember, composerRecipientsForAddressMode, composerRecipientIsExpandableSet, syncedRecipientAddressMode } from "../../functions/email-composer";
+import { COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT, composerCcFieldAvailable, composerCommitteeRecipients, appendUniqueRecipients, composerEveryoneFilterToken, composerFilterToken, COMPOSER_EVERYONE_FILTER_EMAIL, composerListToken, composerRecipientFromMember, composerRecipientIsSamePerson, composerRecipientsForAddressMode, composerRecipientIsExpandableSet, syncedRecipientAddressMode } from "../../functions/email-composer";
 import { ListInfo, MemberSelection, NotificationConfig } from "../../models/mail.model";
 import { MailListUpdaterService } from "../mail/mail-list-updater.service";
 import { ExternalRecipient } from "../../models/external-recipient.model";
@@ -269,16 +269,25 @@ export class EmailComposerRecipientsService {
         }
     }
     mergeRecipients(existing: ComposerExternalRecipient[], addition: ComposerExternalRecipient[]): ComposerExternalRecipient[] {
-        const emails = new Set(existing.map(item => item.email.toLowerCase()));
         return addition.reduce((list, item) => {
-            if (emails.has(item.email.toLowerCase())) {
+            if (list.some(existingRecipient => composerRecipientIsSamePerson(existingRecipient, item))) {
                 return list;
             }
             else {
-                emails.add(item.email.toLowerCase());
                 return [...list, item];
             }
         }, existing);
+    }
+    ccFieldAvailable(): boolean {
+        return composerCcFieldAvailable({
+            inboxReply: !!this.session.inboxReplyContext,
+            committeeOnlyAudience: this.resolver.committeeOnlyAudience()
+        });
+    }
+    clearCcWhenUnavailable(): void {
+        if (!this.ccFieldAvailable()) {
+            this.session.state.ccRecipients = [];
+        }
     }
     expandListToken(field: RecipientField, token: ComposerExternalRecipient): void {
         if (token.filterKey || token.email === COMPOSER_EVERYONE_FILTER_EMAIL) {
@@ -402,6 +411,7 @@ export class EmailComposerRecipientsService {
             });
         }
         this.applyChipSendAddresses();
+        this.clearCcWhenUnavailable();
         this.maybePromoteEntireListAfterHeaderEdit();
         this.syncUnbrandedHeadersIntoPicker();
     }
@@ -426,12 +436,17 @@ export class EmailComposerRecipientsService {
         }
     }
     onUnbrandedCcChange(recipients: ComposerExternalRecipient[]): void {
-        const allowed = this.session.inboxReplyContext ? null : new Set(this.committeeCcEmails());
-        this.session.state.ccRecipients = allowed === null
-            ? recipients
-            : recipients.filter(recipient => allowed.has((recipient.email || "").toLowerCase()));
-        this.applyChipSendAddresses();
-        this.syncUnbrandedHeadersIntoPicker();
+        if (!this.ccFieldAvailable()) {
+            this.session.state.ccRecipients = [];
+            this.syncUnbrandedHeadersIntoPicker();
+        } else {
+            const allowed = this.session.inboxReplyContext ? null : new Set(this.committeeCcEmails());
+            this.session.state.ccRecipients = allowed === null
+                ? recipients
+                : recipients.filter(recipient => allowed.has((recipient.email || "").toLowerCase()));
+            this.applyChipSendAddresses();
+            this.syncUnbrandedHeadersIntoPicker();
+        }
     }
     committeeCcEmails(): string[] {
         const roles = this.pool.committeeReferenceData?.committeeMembers() ?? [];
@@ -600,10 +615,11 @@ export class EmailComposerRecipientsService {
     syncRecipientAddressMode(): void {
         this.session.state.recipientAddressMode = syncedRecipientAddressMode({
             committeeRoleSendOffered: this.resolver.committeeRoleSendOffered(),
-            preselectCommitteeRole: !this.recipientAddressModeTouched,
+            preselectCommitteeRole: false,
             current: this.session.state.recipientAddressMode
         });
         this.applyChipSendAddresses();
+        this.clearCcWhenUnavailable();
     }
     applyChipSendAddresses(): void {
         const roles = this.pool.committeeReferenceData?.committeeMembers() ?? [];

@@ -36,6 +36,7 @@ describe("composer list expansion", () => {
       }},
       {provide: EmailComposerRecipientResolutionService, useValue: {
         committeeRoleSendOffered: () => false,
+        committeeOnlyAudience: () => false,
         sendingAsCampaign: () => state.recipientMode === RecipientMode.ENTIRE_LIST,
         memberRecipientsForIds: (selectedIds: string[]) => members.filter(member => selectedIds.includes(member.id))
           .map(member => composerRecipientFromMember(member)).filter((recipient): recipient is ComposerExternalRecipient => !!recipient)
@@ -78,6 +79,7 @@ describe("composer list expansion", () => {
       }},
       {provide: EmailComposerRecipientResolutionService, useValue: {
         committeeRoleSendOffered: () => false,
+        committeeOnlyAudience: () => false,
         sendingAsCampaign: () => true,
         memberRecipientsForIds: (selectedIds: string[]) => members.filter(member => selectedIds.includes(member.id))
           .map(member => composerRecipientFromMember(member)).filter((recipient): recipient is ComposerExternalRecipient => !!recipient)

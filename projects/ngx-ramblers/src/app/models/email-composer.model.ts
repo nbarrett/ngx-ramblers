@@ -472,10 +472,12 @@ export interface ComposerExternalRecipient {
   existingId?: string;
   memberId?: string;
   committeeRoleType?: string;
+  committeeRoleLabel?: string;
   saveForReuse?: boolean;
   listId?: number;
   listCount?: number;
   filterKey?: MemberSelection;
+  searchText?: string;
 }
 
 export interface ParsedMailbox {
