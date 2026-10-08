@@ -3,7 +3,12 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, Subject } from "rxjs";
 import { DataQueryOptions } from "../../models/api-request.model";
-import { MemberAuthAudit, MemberAuthAuditApiResponse } from "../../models/member.model";
+import {
+  MemberAuthAudit,
+  MemberAuthAuditApiResponse,
+  MemberLatestLogin,
+  MemberLatestLoginApiResponse
+} from "../../models/member.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 
@@ -28,6 +33,15 @@ export class MemberAuthAuditService {
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberAuthAuditApiResponse>(`${this.BASE_URL}/all`, {params}), this.authNotifications);
     this.logger.debug("find-all:received", apiResponse);
     return apiResponse.response as MemberAuthAudit[];
+  }
+
+  async latestLoginTimes(): Promise<MemberLatestLogin[]> {
+    const apiResponse = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.get<MemberLatestLoginApiResponse>(`${this.BASE_URL}/latest-logins`)
+    );
+    this.logger.debug("latestLoginTimes:received", apiResponse);
+    return apiResponse.response ?? [];
   }
 
   async getByMemberId(memberId: string): Promise<MemberAuthAudit[]> {

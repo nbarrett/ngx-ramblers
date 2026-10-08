@@ -124,6 +124,12 @@
                 <th (click)="sortMembersBy('updatedDate')"><span class="nowrap">Last Updated
                   @if (showMembersColumn('updatedDate')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
                 </span></th>
+                <th (click)="sortMembersBy('lastLoginTime')"><span class="nowrap">Last Login
+                  @if (showMembersColumn('lastLoginTime')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                </span></th>
+                <th (click)="sortMembersBy('profileSettingsConfirmedAt')"><span class="nowrap">Profile Confirmed
+                  @if (showMembersColumn('profileSettingsConfirmedAt')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
+                </span></th>
                 <th (click)="sortMembersBy('membershipExpiryDate')"><span class="nowrap">Expiry Date
                   @if (showMembersColumn('membershipExpiryDate')) {<span class="sorting-header">{{ memberFilter.sortDirection }}</span>}
                 </span></th>
@@ -214,6 +220,8 @@
                     </td>
                     <td data-label="Created" class="nowrap">{{ member.createdDate | displayDateNoDay }}</td>
                     <td data-label="Last Updated" class="nowrap">{{ member.updatedDate | displayDateNoDay }}</td>
+                    <td data-label="Last Login" class="nowrap">{{ lastLoginTime(member) | displayDateNoDay }}</td>
+                    <td data-label="Profile Confirmed" class="nowrap">{{ member.profileSettingsConfirmedAt | displayDateNoDay }}</td>
                     <td data-label="Expiry" class="nowrap">
                       @if (member.memberTerm === MemberTerm.LIFE) {
                         Lifetime
