@@ -470,6 +470,7 @@ export interface NgxLiteSyncResponse {
 export interface EnvironmentDefaults {
   environment?: string;
   database?: string;
+  atlasDefaultCluster?: string;
   mongodb: {
     cluster: string;
     username: string;

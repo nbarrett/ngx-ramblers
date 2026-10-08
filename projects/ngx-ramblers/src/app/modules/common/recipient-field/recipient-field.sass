@@ -224,6 +224,14 @@
   &:hover,
   &.is-active
     background: #fff8eb
+  &.is-unavailable
+    color: var(--bs-secondary-color)
+    -webkit-text-fill-color: var(--bs-secondary-color)
+    strong
+      font-weight: 500
+    &:hover,
+    &.is-active
+      background: var(--bs-tertiary-bg)
 
 .recipient-suggestion-main
   display: inline-flex

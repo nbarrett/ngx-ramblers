@@ -84,11 +84,14 @@ export function recipientChipQualifier(
   email: string,
   members: Member[],
   nowMillis: number,
-  committeeEmails: string[] = []
+  committeeEmails: string[] = [],
+  committeeMemberIds: string[] = []
 ): string {
   const normalised = (email || "").trim().toLowerCase();
   const match = (members || []).find(member => (member.email || "").trim().toLowerCase() === normalised);
-  if (committeeEmails.some(item => item.toLowerCase() === normalised)) {
+  const committeeByAddress = committeeEmails.some(item => item.toLowerCase() === normalised);
+  const committeeByMember = !!match && (!!match.committee || (!!match.id && committeeMemberIds.includes(match.id)));
+  if (committeeByAddress || committeeByMember) {
     return committeeChipQualifier(match, nowMillis);
   } else if (match) {
     return memberChipQualifier(match, nowMillis);

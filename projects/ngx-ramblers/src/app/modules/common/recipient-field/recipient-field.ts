@@ -421,6 +421,8 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   private canPlaceOnCc(recipient: ComposerExternalRecipient): boolean {
     if (this.ccAllowedEmails === null) {
       return true;
+    } else if (this.committeeHolder(recipient, this.memberFor(recipient))) {
+      return true;
     } else {
       const email = (recipient.email || "").toLowerCase();
       return this.ccAllowedEmails.some(allowed => allowed.toLowerCase() === email);
@@ -469,15 +471,18 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
           return [...acc, this.entryFor(item)];
         }
       }, []);
-      const allowedAdditions = field === RecipientField.CC
+      const withheld = additions.filter(item => this.lacksMarketingConsent(item));
+      const allowedAdditions = (field === RecipientField.CC
         ? additions.filter(item => this.canPlaceOnCc(item))
-        : additions;
+        : additions).filter(item => !this.lacksMarketingConsent(item));
       if (allowedAdditions.length === 0) {
-        this.error[field] = field === RecipientField.CC && additions.length > 0
-          ? "Only committee members can be copied. Other recipients would see their address."
-          : this.knownOnly
-            ? "Choose a group member or a committee address"
-            : "This address is already in the list";
+        this.error[field] = withheld.length > 0
+          ? `${withheld[0].name || withheld[0].email} has not given Head office marketing consent`
+          : field === RecipientField.CC && additions.length > 0
+            ? "Only committee members can be copied. Other recipients would see their address."
+            : this.knownOnly
+              ? "Choose a group member or a committee address"
+              : "This address is already in the list";
       } else {
         this.emit(field, [...this.valueFor(field), ...allowedAdditions]);
         this.draft[field] = "";
@@ -623,17 +628,12 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
         this.pending = {...this.pending, field: target};
       } else if (this.editing) {
         const recipient = this.editorSubject();
-        const { field: from, index } = this.editing;
+        const from = this.editing.field;
         if (recipient && this.rejectNonCommitteeCc(target, recipient)) {
         } else if (recipient) {
-          this.emit(from, this.valueFor(from).filter((_, idx) => idx !== index));
-          const alreadyPresent = this.valueFor(target).some(item => item.email.toLowerCase() === recipient.email.toLowerCase());
-          if (alreadyPresent) {
-            this.editing = null;
-          } else {
-            this.emit(target, [...this.valueFor(target), recipient]);
-            this.editing = { field: target, index: this.valueFor(target).length - 1 };
-          }
+          this.moveRecipient(from, target, recipient);
+          const index = this.valueFor(target).findIndex(item => item.email.toLowerCase() === recipient.email.toLowerCase());
+          this.editing = index >= 0 ? { field: target, index } : null;
         }
       }
     }
@@ -670,24 +670,34 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     } else if (recipient.committeeRoleLabel) {
       return recipient.committeeRoleLabel;
     } else {
-      const email = (recipient.email || "").trim().toLowerCase();
-      const mapped = this.qualifierByEmail.get(email);
-      if (mapped) {
-        return mapped;
-      } else if ((this.committeeAddresses || []).some(address => (address.email || "").toLowerCase() === email)) {
-        const holder = (recipient.memberId && this.memberByEmail.get(email)) || this.memberFor(recipient);
+      const member = this.memberFor(recipient);
+      if (this.committeeHolder(recipient, member)) {
         return committeeAudienceChipQualifier(
-          holder,
+          member,
           this.dateUtils.dateTimeNowNoTime().toMillis(),
           millis => this.dateUtils.displayDate(millis),
           this.audienceFilter,
-          holder?.membershipNumber ? this.memberBulkLoadDateMap?.[holder.membershipNumber] ?? null : null
+          this.bulkLoadDateFor(member)
         );
       } else {
-        const member = this.memberFor(recipient);
-        return member ? this.qualifierForMember(member) : "external";
+        const email = (recipient.email || "").trim().toLowerCase();
+        const mapped = this.qualifierByEmail.get(email);
+        if (mapped) {
+          return mapped;
+        } else {
+          return member ? this.qualifierForMember(member) : "external";
+        }
       }
     }
+  }
+
+  private committeeHolder(recipient: ComposerExternalRecipient, member: Member | null): boolean {
+    const email = (recipient.email || "").trim().toLowerCase();
+    const addresses = this.committeeAddresses || [];
+    return !!recipient.committeeRoleType
+      || !!member?.committee
+      || !!(member?.id && addresses.some(address => address.memberId === member.id))
+      || addresses.some(address => (address.email || "").trim().toLowerCase() === email);
   }
 
   protected memberFor(recipient: ComposerExternalRecipient): Member | null {
@@ -829,17 +839,15 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
       this.refreshVisibleSuggestions();
       this.changeDetector.markForCheck();
     } else if (this.rejectNonCommitteeCc(field, entry)) {
-    } else if (!this.valueFor(field).some(item => composerRecipientIsSamePerson(item, entry))) {
-      this.emit(field, [...this.valueFor(field), entry]);
       this.draft[field] = "";
-      this.error[field] = null;
       this.activeField = field;
       this.suggestionsSuppressed = false;
       this.refreshVisibleSuggestions();
-      this.activeSuggestionIndex = this.suggestions(field).length > 0 ? 0 : -1;
       this.changeDetector.markForCheck();
-      setTimeout(() => this.fitSuggestionsToViewport());
     } else {
+      if (!this.valueFor(field).some(item => composerRecipientIsSamePerson(item, entry))) {
+        this.emit(field, [...this.valueFor(field), entry]);
+      }
       this.draft[field] = "";
       this.error[field] = null;
       this.activeField = field;
@@ -865,17 +873,19 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     const chosen = [...this.to, ...this.cc, ...this.bcc];
     return source
       .filter(item => !chosen.some(existing => composerRecipientIsSamePerson(existing, item)))
-      .filter(item => composerRecipientMatchesQuery(item, query))
-      .slice(0, 50);
+      .filter(item => composerRecipientMatchesQuery(item, query));
   }
 
   private refreshVisibleSuggestions(): void {
     const field = this.activeField;
     if (!field) {
       this.visibleMemberSuggestions = [];
+      this.visibleWithoutConsentSuggestions = [];
       this.visibleSavedSuggestions = [];
     } else {
-      this.visibleMemberSuggestions = this.matchingSuggestions(field, this.cachedMemberEntries);
+      const matches = this.matchingSuggestions(field, this.cachedMemberEntries);
+      this.visibleMemberSuggestions = matches.filter(item => !this.lacksMarketingConsent(item)).slice(0, 50);
+      this.visibleWithoutConsentSuggestions = matches.filter(item => this.lacksMarketingConsent(item)).slice(0, 50);
       const knownEmails = new Set([
         ...this.cachedMemberEntries.map(item => item.email.toLowerCase()),
         ...(this.committeeAddresses || []).map(item => (item.email || "").trim().toLowerCase()).filter(email => !!email)
@@ -884,8 +894,16 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
         ? []
         : this.matchingSuggestions(field, this.savedRecipients.filter(item =>
           !knownEmails.has(item.email.toLowerCase())
-          && !this.cachedMemberEntries.some(member => composerRecipientIsSamePerson(member, item))));
+          && !this.cachedMemberEntries.some(member => composerRecipientIsSamePerson(member, item)))).slice(0, 50);
     }
+  }
+
+  private lacksMarketingConsent(recipient: ComposerExternalRecipient): boolean {
+    return composerRecipientLacksMarketingConsent({
+      requireConsent: this.requireConsent,
+      recipient,
+      member: this.memberFor(recipient)
+    });
   }
 
   private bulkLoadDateFor(member: Member | null | undefined): number | null {
@@ -1044,10 +1062,10 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
       if (field === RecipientField.BCC) {
         this.showBcc = true;
       }
-      this.emit(from, this.valueFor(from).filter(item => item.email.toLowerCase() !== recipient.email.toLowerCase()));
       if (!this.valueFor(field).some(item => item.email.toLowerCase() === recipient.email.toLowerCase())) {
         this.emit(field, [...this.valueFor(field), recipient]);
       }
+      this.emit(from, this.valueFor(from).filter(item => item.email.toLowerCase() !== recipient.email.toLowerCase()));
     }
   }
 

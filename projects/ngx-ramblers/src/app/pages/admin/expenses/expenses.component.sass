@@ -11,3 +11,49 @@
   position: absolute
   margin: 7px 0px 0px -27px
   z-index: 100
+
+.unity-expense-help-mark
+  display: flex
+  width: 100%
+  justify-content: center
+  margin-top: 1.5rem
+
+:host ::ng-deep .unity-expense-help-mark .vendor-brand-mark
+  max-width: 100%
+  width: 90%
+  height: auto !important
+
+.expense-toolbar,
+.expense-claim-actions
+  .btn
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    gap: 0.4rem
+    white-space: nowrap
+
+.expense-filter-select
+  width: 13rem
+  min-height: var(--btn-min-height)
+  margin: 0
+
+.expense-claim-actions
+  display: flex
+  flex-direction: column
+  gap: 0.5rem
+
+  .btn
+    width: 100%
+
+  .btn + .btn
+    margin-left: 0
+
+@media (min-width: 576px)
+  .expense-claim-actions
+    flex-direction: row
+    flex-wrap: wrap
+    align-items: center
+
+    .btn
+      width: auto
+      flex: 0 0 auto

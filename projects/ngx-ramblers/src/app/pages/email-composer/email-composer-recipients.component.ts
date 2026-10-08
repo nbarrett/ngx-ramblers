@@ -159,6 +159,7 @@ import {EmailComposerRecipientsService} from "../../services/email-composer/emai
                 [listRecipients]="recipientResolution.unbrandedSelectedListId() ? [] : recipients.unbrandedCommitteeListRecipients()"
                 [ccAllowedEmails]="session.inboxReplyContext ? null : recipients.committeeCcEmails()"
                 [ccAvailable]="recipients.ccFieldAvailable()"
+                [requireConsent]="recipientSources.requiresConsent()"
                 [audienceFilter]="state.preFilterKey"
                 [memberBulkLoadDateMap]="recipientSources.memberBulkLoadDateMap"
                 [savedRecipients]="recipients.unbrandedSuggestionSavedRecipients()"

@@ -88,16 +88,7 @@ export class EmailComposerRecipientsService {
         }
     }
     unbrandedSuggestionMembers(): Member[] {
-        const listId = this.resolver.unbrandedSelectedListId();
-        if (this.session.state.brandingMode === BrandingMode.UNBRANDED && listId !== null) {
-            return this.pool.members.filter(member => this.mailListUpdaterService.memberSubscribed(member, listId));
-        }
-        else if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
-            return this.pool.members;
-        }
-        else {
-            return this.pool.candidateMembers();
-        }
+        return this.pool.members;
     }
     unbrandedSuggestionSavedRecipients(): ExternalRecipient[] {
         if (this.session.state.brandingMode !== BrandingMode.UNBRANDED || this.resolver.unbrandedSelectedListId() !== null) {
@@ -316,6 +307,9 @@ export class EmailComposerRecipientsService {
                 .map(member => composerRecipientFromMember(member))
                 .filter((recipient): recipient is ComposerExternalRecipient => !!recipient);
             const replace = (list: ComposerExternalRecipient[]) => this.mergeRecipients(list.filter(item => item.email.toLowerCase() !== token.email.toLowerCase()), people);
+            if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+                this.promoteEntireListToSpecificMembers(token.listId);
+            }
             if (field === RecipientField.TO) {
                 this.onUnbrandedToChange(replace(this.session.state.externalRecipients ?? []));
             }
@@ -325,21 +319,25 @@ export class EmailComposerRecipientsService {
             else {
                 this.onUnbrandedBccChange(replace(this.session.state.bccRecipients ?? []));
             }
-            this.promoteEntireListToSpecificMembers(token.listId);
         }
     }
     promoteEntireListToSpecificMembers(listId: number): void {
-        if (!(this.session.state.recipientMode !== RecipientMode.ENTIRE_LIST)) if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
-            this.onUnbrandedToChange(this.expandListChipsWhenMixedWithPeople(this.session.state.externalRecipients ?? []));
-        }
-        else {
-            this.session.state.narrowListId = listId;
-            this.session.state.selectedMemberIds = this.pool.members
-                .filter(member => this.mailListUpdaterService.memberSubscribed(member, listId) && !!member.id && !!(member.email || "").trim())
-                .map(member => member.id as string);
-            this.userPickedRecipientMode = true;
-            this.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
-            this.session.syncStateToUrl({ [StoredValue.LIST_ID]: listId.toString() });
+        if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+            if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
+                this.session.state.externalRecipients = this.expandListChipsWhenMixedWithPeople(this.session.state.externalRecipients ?? []);
+                this.userPickedRecipientMode = true;
+                this.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
+                this.session.state.selectedListId = null;
+                this.session.syncStateToUrl({[StoredValue.LIST_ID]: null});
+            } else {
+                this.session.state.narrowListId = listId;
+                this.session.state.selectedMemberIds = this.pool.members
+                    .filter(member => this.mailListUpdaterService.memberSubscribed(member, listId) && !!member.id && !!(member.email || "").trim())
+                    .map(member => member.id as string);
+                this.userPickedRecipientMode = true;
+                this.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
+                this.session.syncStateToUrl({[StoredValue.LIST_ID]: listId.toString()});
+            }
         }
     }
     onUnbrandedActiveFieldChange(field: RecipientField | null): void {
@@ -402,17 +400,18 @@ export class EmailComposerRecipientsService {
     onUnbrandedToChange(recipients: ComposerExternalRecipient[]): void {
         const normalised = this.expandListChipsWhenMixedWithPeople(recipients);
         this.session.state.externalRecipients = normalised;
-        if (normalised !== recipients && this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
-            this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+        if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST && normalised.some(recipient => !recipient.listId)) {
+            const listId = this.session.state.selectedListId;
+            this.userPickedRecipientMode = true;
+            this.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
             this.session.state.selectedListId = null;
+            this.session.state.narrowListId = listId;
             this.session.syncStateToUrl({
                 [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
-                [StoredValue.LIST_ID]: null
+                [StoredValue.LIST_ID]: listId?.toString() ?? null
             });
         }
-        this.applyChipSendAddresses();
-        this.clearCcWhenUnavailable();
-        this.maybePromoteEntireListAfterHeaderEdit();
+        this.syncRecipientAddressMode();
         this.syncUnbrandedHeadersIntoPicker();
     }
     expandListChipsWhenMixedWithPeople(recipients: ComposerExternalRecipient[]): ComposerExternalRecipient[] {
@@ -430,22 +429,35 @@ export class EmailComposerRecipientsService {
         }
     }
     maybePromoteEntireListAfterHeaderEdit(): void {
-        if (!(this.session.state.recipientMode !== RecipientMode.ENTIRE_LIST)) if (this.session.state.selectedListId !== null
-            && (this.session.state.externalRecipients ?? []).some(recipient => !recipient.listId)) {
+        const recipients = this.session.state.externalRecipients ?? [];
+        if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST
+            && this.session.state.selectedListId !== null
+            && recipients.some(recipient => !recipient.listId)
+            && recipients.some(recipient => !!recipient.listId)) {
             this.promoteEntireListToSpecificMembers(this.session.state.selectedListId);
         }
     }
     onUnbrandedCcChange(recipients: ComposerExternalRecipient[]): void {
-        if (!this.ccFieldAvailable()) {
-            this.session.state.ccRecipients = [];
-            this.syncUnbrandedHeadersIntoPicker();
-        } else {
-            const allowed = this.session.inboxReplyContext ? null : new Set(this.committeeCcEmails());
-            this.session.state.ccRecipients = allowed === null
-                ? recipients
-                : recipients.filter(recipient => allowed.has((recipient.email || "").toLowerCase()));
+        const allowed = this.session.inboxReplyContext ? null : new Set(this.committeeCcEmails());
+        const next = allowed === null
+            ? recipients
+            : recipients.filter(recipient => this.ccRecipientAllowed(recipient, allowed));
+        if (this.ccFieldAvailable() || next.length > 0) {
+            this.session.state.ccRecipients = next;
             this.applyChipSendAddresses();
             this.syncUnbrandedHeadersIntoPicker();
+        } else {
+            this.session.state.ccRecipients = [];
+            this.syncUnbrandedHeadersIntoPicker();
+        }
+    }
+    ccRecipientAllowed(recipient: ComposerExternalRecipient, allowed: Set<string>): boolean {
+        if (allowed.has((recipient.email || "").toLowerCase())) {
+            return true;
+        } else {
+            const roles = this.pool.committeeReferenceData?.committeeMembers() ?? [];
+            const member = this.resolver.memberMatchingHeader(recipient, roles);
+            return !!member && (memberHoldsCommitteeRole(member, roles) || !!member.committee);
         }
     }
     committeeCcEmails(): string[] {
@@ -615,7 +627,7 @@ export class EmailComposerRecipientsService {
     syncRecipientAddressMode(): void {
         this.session.state.recipientAddressMode = syncedRecipientAddressMode({
             committeeRoleSendOffered: this.resolver.committeeRoleSendOffered(),
-            preselectCommitteeRole: false,
+            preselectCommitteeRole: !this.recipientAddressModeTouched,
             current: this.session.state.recipientAddressMode
         });
         this.applyChipSendAddresses();

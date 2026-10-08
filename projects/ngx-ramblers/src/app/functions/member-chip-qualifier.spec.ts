@@ -47,6 +47,16 @@ describe("recipientChipQualifier", () => {
     expect(recipientChipQualifier("membership@group.org", [member({})], now, ["membership@group.org"])).toEqual("committee");
   });
 
+  it("keeps committee on a member's personal address when they hold a role", () => {
+    expect(recipientChipQualifier(
+      "alex.reed@example.com",
+      [member({id: "alex", email: "alex.reed@example.com", committee: true, emailMarketingConsent: true})],
+      now,
+      ["chair@group.example.org.uk"],
+      ["alex"]
+    )).toEqual("committee · with Head Office consent");
+  });
+
   it("adds Head Office consent next to committee when the holder is known", () => {
     expect(committeeChipQualifier(member({emailMarketingConsent: false}), now))
       .toEqual("committee · without Head Office consent");

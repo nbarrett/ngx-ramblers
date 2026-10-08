@@ -80,6 +80,13 @@ export class EnvironmentManagementLandingComponent implements OnInit, OnDestroy 
             accessLevel: AccessLevel.ENVIRONMENT_ADMIN
           },
           {
+            href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_ATLAS,
+            title: "MongoDB Atlas",
+            icon: "faLayerGroup",
+            contentText: "Create clusters in the Ramblers Atlas project, set the default for new sites, and see occupancy before a free cluster hits its collection limit",
+            accessLevel: AccessLevel.ENVIRONMENT_ADMIN
+          },
+          {
             href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_BACKUP,
             title: "Backup & Restore",
             icon: "faDatabase",

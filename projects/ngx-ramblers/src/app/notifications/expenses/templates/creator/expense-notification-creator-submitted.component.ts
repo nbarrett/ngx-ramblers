@@ -13,8 +13,8 @@ import { DisplayDatePipe } from "../../../../pipes/display-date.pipe";
       approval:
     </p>
     <app-expense-notification-details [expenseClaim]="expenseClaim"></app-expense-notification-details>
-    <p>Once your claim has been checked it is paid from Unity Trust Bank, which needs two authorised committee members.
-      That can take a few days, so please be patient with us.</p>
+    <p>Once your claim has been checked, two authorised committee members pay it by hand in Unity Trust Bank.
+      NGX does not send the payment. That can take a few days, so please be patient with us.</p>
     <app-expense-notification-footer [expenseClaim]="expenseClaim"></app-expense-notification-footer>`,
     imports: [ExpenseNotificationDetailsComponent, ExpenseNotificationFooterComponent, DisplayDatePipe]
 })

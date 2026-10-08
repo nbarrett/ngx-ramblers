@@ -90,4 +90,84 @@ describe("composer list expansion", () => {
     expect(state.recipientMode).toBe(RecipientMode.ENTIRE_LIST);
     expect(state.externalRecipients).toEqual([listToken]);
   });
+
+  it("does not recurse when a person is added to a whole-list send", () => {
+    const members = [{id: "alex", firstName: "Alex", lastName: "Reed", email: "alex.reed@example.com", committee: true} as Member];
+    const list = {id: 7, name: "Committee"} as ListInfo;
+    const listToken = composerListToken(list.id, list.name, members.length);
+    const guest = {email: "guest@example.com", name: "Guest", saveForReuse: false};
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.UNBRANDED;
+    state.recipientMode = RecipientMode.ENTIRE_LIST;
+    state.selectedListId = list.id;
+    state.externalRecipients = [listToken];
+    TestBed.configureTestingModule({providers: [
+      EmailComposerRecipientsService,
+      {provide: EmailComposerSessionService, useValue: {state, inboxReplyContext: null, syncStateToUrl: vi.fn()}},
+      {provide: MailListUpdaterService, useValue: {memberSubscribed: () => true}},
+      {provide: EmailComposerRecipientSourcesService, useValue: {
+        members,
+        allMembers: members,
+        committeeReferenceData: {committeeMembers: () => []},
+        candidateMembers: () => members,
+        nonEmptyLists: () => [list],
+        unbrandedCommitteeLists: () => [list],
+        subscribedMemberCount: () => members.length
+      }},
+      {provide: EmailComposerRecipientResolutionService, useValue: {
+        committeeRoleSendOffered: () => false,
+        committeeOnlyAudience: () => false,
+        sendingAsCampaign: () => false,
+        headerEmailSet: () => new Set((state.externalRecipients ?? []).map(recipient => recipient.email.toLowerCase())),
+        memberRecipientsForIds: () => members.map(member => composerRecipientFromMember(member))
+          .filter((recipient): recipient is ComposerExternalRecipient => !!recipient)
+      }}
+    ]});
+    const service = TestBed.inject(EmailComposerRecipientsService);
+    expect(() => service.onUnbrandedToChange([listToken, guest])).not.toThrow();
+    expect(state.recipientMode).toBe(RecipientMode.SELECTED_MEMBERS);
+    expect(state.selectedListId).toBeNull();
+    expect(state.narrowListId).toBe(list.id);
+    expect(state.externalRecipients.some(recipient => recipient.email === guest.email)).toBe(true);
+    expect(state.externalRecipients.every(recipient => !recipient.listId)).toBe(true);
+  });
+
+  it("keeps the mailing list as the member audience when a person is added to a branded list send", () => {
+    const members = [{id: "alex", firstName: "Alex", lastName: "Reed", email: "alex.reed@example.com"} as Member];
+    const list = {id: 7, name: "Committee"} as ListInfo;
+    const listToken = composerListToken(list.id, list.name, members.length);
+    const person = composerRecipientFromMember(members[0]) as ComposerExternalRecipient;
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.BRANDED;
+    state.recipientMode = RecipientMode.ENTIRE_LIST;
+    state.selectedListId = list.id;
+    state.externalRecipients = [listToken];
+    TestBed.configureTestingModule({providers: [
+      EmailComposerRecipientsService,
+      {provide: EmailComposerSessionService, useValue: {state, inboxReplyContext: null, syncStateToUrl: vi.fn()}},
+      {provide: MailListUpdaterService, useValue: {memberSubscribed: () => true}},
+      {provide: EmailComposerRecipientSourcesService, useValue: {
+        members,
+        allMembers: members,
+        committeeReferenceData: {committeeMembers: () => []},
+        candidateMembers: () => members,
+        nonEmptyLists: () => [list],
+        unbrandedCommitteeLists: () => [],
+        subscribedMemberCount: () => members.length
+      }},
+      {provide: EmailComposerRecipientResolutionService, useValue: {
+        committeeRoleSendOffered: () => false,
+        committeeOnlyAudience: () => false,
+        sendingAsCampaign: () => true,
+        headerEmailSet: () => new Set((state.externalRecipients ?? []).map(recipient => recipient.email.toLowerCase())),
+        memberRecipientsForIds: () => [person]
+      }}
+    ]});
+    const service = TestBed.inject(EmailComposerRecipientsService);
+    service.onUnbrandedToChange([listToken, person]);
+    expect(state.recipientMode).toBe(RecipientMode.SELECTED_MEMBERS);
+    expect(state.selectedListId).toBeNull();
+    expect(state.narrowListId).toBe(list.id);
+    expect(state.externalRecipients.some(recipient => recipient.email === person.email)).toBe(true);
+  });
 });

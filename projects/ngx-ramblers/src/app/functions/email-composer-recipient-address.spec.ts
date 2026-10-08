@@ -19,6 +19,7 @@ import {
   composerSendsAsCampaign,
   composerSendProgressDescription,
   composerCcFieldAvailable,
+  composerCommitteeRoleSendOffered,
   composerRecipientLacksMarketingConsent,
   composerMemberIdentityRecipients,
   composerRecipientFromSuggestion,
@@ -100,6 +101,71 @@ describe("composer member identity recipients", () => {
     expect(composerRecipientMatchesQuery(identities[0], "treasurer")).toEqual(true);
     expect(composerRecipientMatchesQuery(identities[0], "treasurer@group.example.org.uk")).toEqual(true);
     expect(composerRecipientMatchesQuery(identities[0], "alex.reed@example.com")).toEqual(true);
+  });
+
+  it("lists a vacant role once when it has more than one mailbox", () => {
+    const identities = composerMemberIdentityRecipients({
+      members: [],
+      committeeAddresses: [
+        {email: "support@group.example.org.uk", name: "Support", committeeRoleType: "support", saveForReuse: false},
+        {email: "help@group.example.org.uk", name: "Support", committeeRoleType: "support", saveForReuse: false}
+      ]
+    });
+    expect(identities.map(item => item.name)).toEqual(["Support"]);
+    expect(identities[0].email).toEqual("support@group.example.org.uk");
+  });
+
+  it("does not repeat the person's name as a committee role", () => {
+    const member = {id: "alex", firstName: "Alex", lastName: "Reed", email: "alex.reed@example.com"} as Member;
+    const identities = composerMemberIdentityRecipients({
+      members: [member],
+      committeeAddresses: [{
+        email: "alex.reed@group.example.org.uk",
+        name: "Alex Reed",
+        memberId: "alex",
+        committeeRoleType: "named-mailbox",
+        saveForReuse: false
+      }]
+    });
+    expect(identities).toHaveLength(1);
+    expect(identities[0].name).toEqual("Alex Reed");
+    expect(identities[0].committeeRoleLabel).toBeUndefined();
+  });
+
+  it("keeps a real role title when a named mailbox also matches the person", () => {
+    const member = {id: "alex", firstName: "Alex", lastName: "Reed", email: "alex.reed@example.com"} as Member;
+    const identities = composerMemberIdentityRecipients({
+      members: [member],
+      committeeAddresses: [
+        {
+          email: "alex.reed@group.example.org.uk",
+          name: "Alex Reed",
+          memberId: "alex",
+          committeeRoleType: "named-mailbox",
+          saveForReuse: false
+        },
+        {
+          email: "treasurer@group.example.org.uk",
+          name: "Treasurer",
+          memberId: "alex",
+          committeeRoleType: "treasurer",
+          saveForReuse: false
+        }
+      ]
+    });
+    expect(identities[0].committeeRoleLabel).toEqual("Treasurer");
+  });
+
+  it("lists a member once when the same person appears twice", () => {
+    const identities = composerMemberIdentityRecipients({
+      members: [
+        {id: "alex-1", firstName: "Alex", lastName: "Reed", email: "alex.reed@example.com"} as Member,
+        {id: "alex-2", firstName: "Alex", lastName: "Reed", email: "alex.reed2@example.com"} as Member
+      ],
+      committeeAddresses: []
+    });
+    expect(identities).toHaveLength(1);
+    expect(identities[0].email).toEqual("alex.reed@example.com");
   });
 
   it("still lists a vacant role without showing its mailbox as a second person", () => {
@@ -452,6 +518,52 @@ describe("composerSelectedMembersAreCommitteeAudience", () => {
       [{committee: true}, {committee: true}],
       3
     )).toEqual(false);
+  });
+});
+
+describe("composerCommitteeRoleSendOffered", () => {
+  const chair = {
+    type: "chair",
+    description: "Chair",
+    fullName: "Alex Reed",
+    email: "chair@group.example.org.uk",
+    memberId: "m1",
+    roleType: RoleType.COMMITTEE_MEMBER
+  };
+  const alex = {id: "m1", firstName: "Alex", lastName: "Reed", email: "alex.reed@example.com"} as Member;
+  const walker = {id: "m2", firstName: "Sam", lastName: "Walker", email: "sam.walker@example.com"} as Member;
+
+  it("is offered when the only To chip is a committee member", () => {
+    expect(composerCommitteeRoleSendOffered({
+      recipients: [{email: alex.email, name: "Alex Reed", memberId: alex.id, saveForReuse: false}],
+      members: [alex, walker],
+      roles: [chair],
+      committeeOnlyAudience: false,
+      recipientCount: 1
+    })).toEqual(true);
+  });
+
+  it("is not offered when a non-committee member is also on To", () => {
+    expect(composerCommitteeRoleSendOffered({
+      recipients: [
+        {email: alex.email, name: "Alex Reed", memberId: alex.id, saveForReuse: false},
+        {email: walker.email, name: "Sam Walker", memberId: walker.id, saveForReuse: false}
+      ],
+      members: [alex, walker],
+      roles: [chair],
+      committeeOnlyAudience: false,
+      recipientCount: 2
+    })).toEqual(false);
+  });
+
+  it("is offered for a committee-only mailing list with no person chips", () => {
+    expect(composerCommitteeRoleSendOffered({
+      recipients: [{email: "list@list.internal", name: "Committee", listId: 7, saveForReuse: false}],
+      members: [alex],
+      roles: [chair],
+      committeeOnlyAudience: true,
+      recipientCount: 8
+    })).toEqual(true);
   });
 });
 

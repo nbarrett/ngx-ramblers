@@ -3,6 +3,7 @@ import { Environment } from "../../../projects/ngx-ramblers/src/app/models/envir
 import { recaptchaKeys } from "../config/recaptcha-keys";
 import { systemConfig } from "../config/system-config";
 import { envConfig } from "../env-config/env-config";
+import { configuredEnvironments } from "../environments/environments-config";
 import { createErrorDebugLog } from "../shared/error-debug-log";
 import { extractClusterFromUri, extractUsernameFromUri, parseMongoUri } from "../shared/mongodb-uri";
 
@@ -14,12 +15,15 @@ export async function environmentDefaults(req: Request, res: Response): Promise<
     const parsedMongo = parseMongoUri(mongoUri);
     const config = await systemConfig();
     const recaptcha = await recaptchaKeys();
+    const environments = await configuredEnvironments();
+    const atlasDefaultCluster = environments.atlas?.defaultCluster || "";
     res.json({
       environment: (parsedMongo?.database || "").replace(/^ngx-ramblers-/, ""),
       database: parsedMongo?.database || "",
+      atlasDefaultCluster,
       mongodb: {
-        cluster: extractClusterFromUri(mongoUri) || "",
-        username: extractUsernameFromUri(mongoUri) || ""
+        cluster: atlasDefaultCluster || extractClusterFromUri(mongoUri) || "",
+        username: atlasDefaultCluster ? "" : (extractUsernameFromUri(mongoUri) || "")
       },
       aws: {
         region: envConfig.value(Environment.AWS_REGION) || ""

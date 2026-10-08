@@ -1,6 +1,22 @@
 import { Component, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute, ParamMap, RouterLink } from "@angular/router";
-import { faCaretDown, faCaretUp, faCashRegister } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowLeft,
+  faCaretDown,
+  faCaretUp,
+  faCashRegister,
+  faCheck,
+  faCircleCheck,
+  faLandmark,
+  faList,
+  faPaperPlane,
+  faPenToSquare,
+  faPlus,
+  faRotateRight,
+  faTrash,
+  faUndo,
+  faXmark
+} from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep } from "es-toolkit/compat";
 import { extend } from "es-toolkit/compat";
 import { filter } from "es-toolkit/compat";
@@ -21,6 +37,7 @@ import { Confirm, ConfirmType } from "../../../models/ui-actions";
 import { NotificationDirective } from "../../../notifications/common/notification.directive";
 import {
   ExpenseClaim,
+  ExpenseEvent,
   ExpenseFilter,
   ExpenseItem,
   ExpenseNotificationRequest
@@ -46,15 +63,23 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { CollapseDirective } from "ngx-bootstrap/collapse";
 import { ContentTextEditor } from "../../../modules/common/tiptap-editor/content-text-editor";
-import { NgClass } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 import { MemberIdToFullNamePipe } from "../../../pipes/member-id-to-full-name.pipe";
 import { MoneyPipe } from "../../../pipes/money.pipe";
 import { eventTracker, itemTracker } from "../../../functions/trackers";
 import { AlertPanelVariant } from "../../../models/alert-panel.model";
-import { ExpenseStageActionLabel, UnityExpenseGuidanceMode } from "../../../models/expense-claim.model";
+import {
+  ExpenseEventTableColumn,
+  ExpenseItemTableColumn,
+  ExpenseStageActionLabel,
+  UnityExpenseGuidanceMode
+} from "../../../models/expense-claim.model";
+import { SortableTableAlignment, SortableTableColumn } from "../../../modules/common/sortable-table/sortable-table.model";
+import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
 import { AlertPanelComponent } from "../../../modules/common/alert-panel/alert-panel";
+import { VendorBrandMarkComponent } from "../../../modules/common/vendor-brand-mark/vendor-brand-mark.component";
 
 const SELECTED_EXPENSE = "Expense from last email link";
 
@@ -62,7 +87,7 @@ const SELECTED_EXPENSE = "Expense from last email link";
     selector: "app-expenses",
     templateUrl: "./expenses.component.html",
     styleUrls: ["../admin/admin.component.sass", "./expenses.component.sass"],
-    imports: [PageComponent, NotificationDirective, FontAwesomeModule, TooltipDirective, CollapseDirective, ContentTextEditor, NgClass, FormsModule, RouterLink, DisplayDatePipe, MemberIdToFullNamePipe, MoneyPipe, UnityExpenseGuidanceComponent, AlertPanelComponent]
+    imports: [PageComponent, NotificationDirective, FontAwesomeModule, TooltipDirective, CollapseDirective, ContentTextEditor, FormsModule, RouterLink, DisplayDatePipe, MemberIdToFullNamePipe, MoneyPipe, UnityExpenseGuidanceComponent, AlertPanelComponent, VendorBrandMarkComponent, SortableTableComponent, SortableTableCellDirective]
 })
 export class ExpensesComponent implements OnInit, OnDestroy {
 
@@ -76,13 +101,25 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   private mailMessagingService = inject(MailMessagingService);
   private route = inject(ActivatedRoute);
   private urlService = inject(UrlService);
-  private stringUtilsService = inject(StringUtilsService);
+  stringUtilsService = inject(StringUtilsService);
   display = inject(ExpenseDisplayService);
   notifications = inject(ExpenseNotificationService);
 
   faCashRegister = faCashRegister;
   faCaretUp = faCaretUp;
   faCaretDown = faCaretDown;
+  faPlus = faPlus;
+  faPenToSquare = faPenToSquare;
+  faTrash = faTrash;
+  faPaperPlane = faPaperPlane;
+  faLandmark = faLandmark;
+  faCircleCheck = faCircleCheck;
+  faUndo = faUndo;
+  faRotateRight = faRotateRight;
+  faCheck = faCheck;
+  faXmark = faXmark;
+  faArrowLeft = faArrowLeft;
+  faList = faList;
   private expenseId: string;
   private dataError: boolean;
   public members: Member[];
@@ -107,6 +144,18 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   protected readonly eventTracker = eventTracker;
   protected readonly UnityExpenseGuidanceMode = UnityExpenseGuidanceMode;
   protected readonly AlertPanelVariant = AlertPanelVariant;
+  protected readonly ExpenseItemTableColumn = ExpenseItemTableColumn;
+  protected readonly ExpenseEventTableColumn = ExpenseEventTableColumn;
+  expenseItemColumns: SortableTableColumn<ExpenseItem>[] = [
+    {key: ExpenseItemTableColumn.DATE, label: "Date", sortKey: "expenseDate"},
+    {key: ExpenseItemTableColumn.DESCRIPTION, label: "Description"},
+    {key: ExpenseItemTableColumn.COST, label: "Cost", sortKey: "cost", align: SortableTableAlignment.RIGHT}
+  ];
+  expenseEventColumns: SortableTableColumn<ExpenseEvent>[] = [
+    {key: ExpenseEventTableColumn.DATE, label: "Date", sortKey: "date"},
+    {key: ExpenseEventTableColumn.WHO, label: "Who", sortKey: "memberId"},
+    {key: ExpenseEventTableColumn.DESCRIPTION, label: "Description", sortKey: "eventType.description"}
+  ];
 
   ngOnInit() {
     this.mailMessagingService.events().subscribe(mailMessagingConfig => {
@@ -231,7 +280,14 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   }
 
   allowApproveExpenseClaim() {
-    return this.memberLoginService.allowCommittee() && (this.approvalEvents().length === 0 && !this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.paid));
+    return this.memberLoginService.allowCommittee()
+      && !!this.selected.expenseClaim
+      && this.display.hasExpenseItems(this.selected.expenseClaim)
+      && this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.submitted)
+      && !this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.returned)
+      && !this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.paid)
+      && this.approvalEvents().length === 0
+      && !!this.display.expenseClaimStatus(this.selected.expenseClaim).actionable;
   }
 
   lastApprovedByMe() {
@@ -331,6 +387,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
     return this.display.allowAdminFunctions()
       && this.confirm.noneOutstanding()
       && this.selected.expenseClaim
+      && this.display.hasExpenseItems(this.selected.expenseClaim)
       && this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.submitted)
       && !this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.returned)
       && this.display.expenseClaimStatus(this.selected.expenseClaim).actionable;
@@ -341,12 +398,16 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   }
 
   allowResubmitExpenseClaim() {
-    return this.display.editable(this.selected.expenseClaim) && this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.returned);
+    return this.display.editable(this.selected.expenseClaim)
+      && this.display.hasExpenseItems(this.selected.expenseClaim)
+      && this.display.expenseClaimHasEventType(this.selected.expenseClaim, this.display.eventTypes.returned);
   }
 
   allowPaidExpenseClaim() {
-    return this.memberLoginService.allowTreasuryAdmin() && [this.display.eventTypes["first-approval"].description]
-      .includes(this.display.expenseClaimLatestEvent(this.selected.expenseClaim).eventType.description);
+    const latest = this.selected.expenseClaim ? this.display.expenseClaimLatestEvent(this.selected.expenseClaim) : null;
+    return this.memberLoginService.allowTreasuryAdmin()
+      && this.display.hasExpenseItems(this.selected.expenseClaim)
+      && latest?.eventType?.description === this.display.eventTypes["first-approval"].description;
   }
 
   showExpenseDeleted() {

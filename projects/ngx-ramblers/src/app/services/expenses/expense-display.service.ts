@@ -26,6 +26,7 @@ import { MemberLoginService } from "../member/member-login.service";
 import { MemberService } from "../member/member.service";
 import { AlertInstance } from "../notifier.service";
 import { NumberUtilsService } from "../number-utils.service";
+import { StringUtilsService } from "../string-utils.service";
 import { UrlService } from "../url.service";
 import { ExpenseClaimService } from "./expense-claim.service";
 import { CommitteeConfigService } from "../committee/commitee-config.service";
@@ -46,6 +47,7 @@ export class ExpenseDisplayService {
   private urlService = inject(UrlService);
   private numberUtils = inject(NumberUtilsService);
   private dateUtils = inject(DateUtilsService);
+  private stringUtils = inject(StringUtilsService);
 
   public members: Member [] = [];
 
@@ -165,7 +167,8 @@ export class ExpenseDisplayService {
     this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => this.committeeReferenceData = data);
   }
 
-  showExpenseEmailErrorAlert(notify: AlertInstance, message: string) {
+  showExpenseEmailErrorAlert(notify: AlertInstance, error: unknown) {
+    const message = this.stringUtils.userErrorMessage(error, "Please try this again.");
     notify.error({title: "Expenses Error", message: "Your expense claim email processing failed. " + message});
   }
 
@@ -279,8 +282,12 @@ export class ExpenseDisplayService {
     return this.memberLoginService.allowFinanceAdmin();
   }
 
+  hasExpenseItems(expenseClaim: ExpenseClaim): boolean {
+    return !isEmpty(expenseClaim?.expenseItems);
+  }
+
   allowEditExpenseItem(expenseClaim: ExpenseClaim) {
-    return isEmpty(expenseClaim) ? false : expenseClaim.expenseItems.length > 0 && this.allowAddExpenseItem(expenseClaim) && expenseClaim && expenseClaim.id;
+    return isEmpty(expenseClaim) ? false : this.hasExpenseItems(expenseClaim) && this.allowAddExpenseItem(expenseClaim) && expenseClaim && expenseClaim.id;
   }
 
   allowAddExpenseItem(expenseClaim: ExpenseClaim) {
