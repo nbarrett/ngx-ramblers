@@ -1,4 +1,4 @@
-import { directionsLinks, locatePagePath, locateParentPath, locateSuggestionFor, osMapsUrl, wazeEmbedUrl, locationLabel } from "./locate";
+import { directionsLinks, formattedUkPostcode, locatePagePath, locateParentPath, locateSuggestionFor, osMapsUrl, wazeEmbedUrl, locationLabel } from "./locate";
 import { DirectionsApp } from "../models/locate.model";
 import { AppInstallPlatform } from "../models/route-follow.model";
 
@@ -47,6 +47,22 @@ describe("locationLabel", () => {
   });
 
   it("falls back to the typed term when nothing is known", () => {
-    expect(locationLabel("", "", "ss7 4jr")).toBe("ss7 4jr");
+    expect(locationLabel("", "", "Hillside Park")).toBe("Hillside Park");
+  });
+
+  it("uppercases a postcode used as the fallback label", () => {
+    expect(locationLabel("", "", "aa11 1aa")).toBe("AA11 1AA");
+  });
+});
+
+describe("formattedUkPostcode", () => {
+  it("uppercases and spaces a UK postcode", () => {
+    expect(formattedUkPostcode("aa111aa")).toBe("AA11 1AA");
+    expect(formattedUkPostcode("aa11 1aa")).toBe("AA11 1AA");
+  });
+
+  it("leaves a place name unchanged", () => {
+    expect(formattedUkPostcode("shoebury")).toBeNull();
+    expect(formattedUkPostcode("Hillside Park")).toBeNull();
   });
 });

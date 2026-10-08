@@ -127,6 +127,7 @@ export enum StoredValue {
   EXACT = "exact",
   EXPANDED = "expanded",
   EXPANDED_SESSIONS = "expanded-sessions",
+  EXPENSE_TRAVEL_MAP_HEIGHT = "expense-travel-map-height",
   FACILITIES = "facilities",
   FIELD = "field",
   FILE = "file",

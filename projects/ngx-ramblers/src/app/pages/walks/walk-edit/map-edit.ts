@@ -14,7 +14,10 @@ import { WalksConfigService } from "../../../services/system/walks-config.servic
 import { WalksConfig } from "../../../models/walks-config.model";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
-import { DEFAULT_OS_STYLE, LocationType, MapProvider } from "../../../models/map.model";
+import { DEFAULT_OS_STYLE, LocationType, MapProvider, UK_MAP_CENTER, UK_MAP_ZOOM } from "../../../models/map.model";
+import { UK_POSTCODE_PATTERN } from "../../../models/locate.model";
+import { formattedUkPostcode } from "../../../functions/locate";
+import { isString } from "es-toolkit/compat";
 import { LocationDetails, WalkStatus } from "../../../models/ramblers-walks-manager";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { sortBy } from "../../../functions/arrays";
@@ -75,7 +78,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   set initialiseWalk(locationDetails: LocationDetails) {
     this.logger.debug("cloning walk for edit");
     this.locationDetails = locationDetails;
-    this.setDefaultLatLng().then(() => this.initializeMap());
+    this.initializeMap();
   }
   private notifyInstance: AlertInstance;
   @Input() set notify(value: AlertInstance | undefined) {
@@ -88,6 +91,14 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   @Input() walkStatus?: WalkStatus;
   @Input() endLocationDetails: LocationDetails | null = null;
   @Input() showCombinedMap = false;
+  public clickPlacesMissingPin = false;
+  @Input("clickPlacesMissingPin") set clickPlacesMissingPinValue(value: boolean) {
+    this.clickPlacesMissingPin = coerceBooleanProperty(value);
+  }
+  public postcodeChangeOffersSelect = true;
+  @Input("postcodeChangeOffersSelect") set postcodeChangeOffersSelectValue(value: boolean) {
+    this.postcodeChangeOffersSelect = coerceBooleanProperty(value);
+  }
   @Input() gpxFile: FileNameData;
   @Input() routeColor: string;
   @Input() routeWeight: number;
@@ -101,6 +112,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   @Output() routePointsChange = new EventEmitter<RouteFollowPoint[]>();
   @Output() showPostcodeSelectChange = new EventEmitter<boolean>();
   @Output() locationChange = new EventEmitter<LocationDetails>();
+  @Output() endLocationChange = new EventEmitter<LocationDetails>();
   public locationDetails: LocationDetails;
   public notifyTarget: AlertTarget = {};
   public options: any;
@@ -128,6 +140,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   private gpxLayers: L.Layer[] = [];
   private gpxLoadSequence = 0;
   private startMarker: L.Marker | null = null;
+  private endMarker: L.Marker | null = null;
   private waypointLayers = new Map<string, L.Marker>();
   private provider: MapProvider = MapProvider.OSM;
   private providerStyle = "";
@@ -222,34 +235,50 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     );
   }
 
-  private async setDefaultLatLng(): Promise<void> {
-    if (!this.locationDetails?.latitude || !this.locationDetails?.longitude) {
-      const postcode = this.locationDetails?.postcode;
-      if (postcode) {
-        const response: GridReferenceLookupResponse | undefined = await this.addressQueryService.gridReferenceLookup(postcode)
+  private async fillLatLngFromPostcode(location: LocationDetails): Promise<void> {
+    if (location && (!location.latitude || !location.longitude) && location.postcode) {
+      const query = location.postcode.trim();
+      const response: GridReferenceLookupResponse | undefined = UK_POSTCODE_PATTERN.test(query)
+        ? await this.addressQueryService.gridReferenceLookup(query)
           .catch(error => {
             this.notify.error({title: "Error looking up postcode", message: error});
             return undefined;
+          })
+        : await this.addressQueryService.placeNameLookup(query)
+          .catch(error => {
+            this.logger.error("place name lookup failed:", query, error);
+            return undefined;
           });
-        if (response) {
-          const lat = response.latlng.lat;
-          const lng = response.latlng.lng;
-          this.logger.info("Setting LatLng from postcode:", {postcode, lat, lng}, "response:", response);
-          this.locationDetails.latitude = lat;
-          this.locationDetails.longitude = lng;
-        } else {
-          this.logger.error("no response given:", postcode, "response:", response);
+      if (response?.latlng) {
+        this.logger.info("Setting LatLng from location:", {query, lat: response.latlng.lat, lng: response.latlng.lng}, "response:", response);
+        location.latitude = response.latlng.lat;
+        location.longitude = response.latlng.lng;
+        if (this.usablePostcode(response.postcode)) {
+          location.postcode = formattedUkPostcode(response.postcode) || response.postcode.trim();
         }
+        if (response.description) {
+          location.description = response.description;
+        }
+      } else {
+        this.logger.error("no response given:", query, "response:", response);
       }
-    } else {
-      this.logger.info("Using existing LatLng:", this.locationDetails);
+    } else if (location?.latitude && location?.longitude) {
+      this.logger.info("Using existing LatLng:", location);
     }
   }
 
   private initializeMap() {
     this.logger.info("Initializing map");
     this.setupDefaultIcon();
-    if (this?.locationDetails?.latitude && this?.locationDetails?.longitude) {
+    void this.prepareLocationsAndConfigure();
+  }
+
+  private async prepareLocationsAndConfigure(): Promise<void> {
+    await this.fillLatLngFromPostcode(this.locationDetails);
+    if (this.showCombinedMap) {
+      await this.fillLatLngFromPostcode(this.endLocationDetails);
+    }
+    if (this.hasCoords(this.locationDetails) || this.clickPlacesMissingPin) {
       this.configureMap();
     } else {
       this.logger.error("Invalid LatLng: latitude or longitude is undefined");
@@ -268,24 +297,21 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   private configureMap() {
-    const {latitude, longitude} = this.locationDetails;
+    const hasStart = this.hasCoords(this.locationDetails);
+    const hasEnd = this.showCombinedMap && this.hasCoords(this.endLocationDetails);
     const hasKey = this.hasOsApiKey();
     const provider = hasKey ? MapProvider.OS : MapProvider.OSM;
     const style = hasKey ? DEFAULT_OS_STYLE : "";
     const base = this.mapTiles.createBaseLayer(provider, style);
     const crs = this.mapTiles.crsForStyle(provider, style);
     const maxZoom = this.mapTiles.maxZoomForStyle(provider, style);
-    const initialZoom = Math.max(1, Math.min(15, maxZoom) - 1 + this.effectiveZoomOffset());
-
-    let center = L.latLng(latitude, longitude);
-    let bounds: L.LatLngBounds | undefined;
-
-    if (this.showCombinedMap && this.endLocationDetails?.latitude && this.endLocationDetails?.longitude) {
-      const startLatLng = L.latLng(latitude, longitude);
-      const endLatLng = L.latLng(this.endLocationDetails.latitude, this.endLocationDetails.longitude);
-      bounds = L.latLngBounds(startLatLng, endLatLng).pad(COMBINED_MAP_BOUNDS_PADDING);
-      center = bounds.getCenter();
-    }
+    const startLatLng = hasStart
+      ? L.latLng(this.locationDetails.latitude, this.locationDetails.longitude)
+      : L.latLng(UK_MAP_CENTER[0], UK_MAP_CENTER[1]);
+    const endLatLng = hasEnd ? L.latLng(this.endLocationDetails.latitude, this.endLocationDetails.longitude) : null;
+    const bounds = hasStart && hasEnd ? L.latLngBounds(startLatLng, endLatLng).pad(COMBINED_MAP_BOUNDS_PADDING) : undefined;
+    const center = bounds ? bounds.getCenter() : startLatLng;
+    const initialZoom = hasStart ? Math.max(1, Math.min(15, maxZoom) - 1 + this.effectiveZoomOffset()) : UK_MAP_ZOOM;
 
     this.options = {
       layers: [base],
@@ -299,21 +325,25 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
 
     this.provider = provider;
     this.providerStyle = style;
-    const markerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
-    this.startMarker = L.marker([latitude, longitude], { draggable: !this.readonly, icon: markerIcon as any }).on("dragend", (event) =>
-      this.zone.run(() => this.onMarkerDragEnd(event))
-    );
-    this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
-    this.layers = [this.startMarker];
-
-    if (this.showCombinedMap && this.endLocationDetails?.latitude && this.endLocationDetails?.longitude) {
+    this.layers = [];
+    this.startMarker = null;
+    this.endMarker = null;
+    if (hasStart) {
+      const markerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
+      this.startMarker = L.marker(startLatLng, { draggable: !this.readonly, icon: markerIcon as any }).on("dragend", (event) =>
+        this.zone.run(() => this.onMarkerDragEnd(event))
+      );
+      this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
+      this.layers.push(this.startMarker);
+    }
+    if (hasEnd) {
       const endMarkerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
-      const endMarker = L.marker([this.endLocationDetails.latitude, this.endLocationDetails.longitude], {
-        draggable: false,
+      this.endMarker = L.marker(endLatLng, {
+        draggable: !this.readonly,
         icon: endMarkerIcon as any
-      });
-      this.bindLocationPopup(endMarker, this.endLocationDetails, this.endPinRole());
-      this.layers.push(endMarker);
+      }).on("dragend", (event) => this.zone.run(() => this.onEndMarkerDragEnd(event)));
+      this.bindLocationPopup(this.endMarker, this.endLocationDetails, this.endPinRole());
+      this.layers.push(this.endMarker);
     }
 
     this.renderWaypoints();
@@ -452,7 +482,11 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onMapClick(event: L.LeafletMouseEvent) {
-    if (!this.readonly) {
+    if (this.readonly) {
+      this.logger.debug("map click ignored while readonly");
+    } else if (this.clickPlacesMissingPin) {
+      this.zone.run(() => this.placeMissingPin(event.latlng));
+    } else {
       this.zone.run(() => this.updateWalkLocation(event.latlng));
     }
   }
@@ -464,25 +498,83 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     }
   }
 
+  onEndMarkerDragEnd(event: L.DragEndEvent) {
+    if (!this.readonly && this.endLocationDetails) {
+      const latlng = (event.target as L.Marker).getLatLng();
+      this.zone.run(() => this.updateEndLocation(latlng));
+    }
+  }
+
+  private hasCoords(location: LocationDetails): boolean {
+    return !!(location?.latitude && location?.longitude);
+  }
+
+  private usablePostcode(postcode: string): boolean {
+    return isString(postcode) && postcode.trim().length > 0;
+  }
+
+  private placeMissingPin(latlng: LatLng) {
+    if (!this.hasCoords(this.locationDetails)) {
+      this.updateWalkLocation(latlng);
+      this.addOrMoveStartMarker(latlng);
+    } else if (!this.hasCoords(this.endLocationDetails)) {
+      this.updateEndLocation(latlng);
+      this.addOrMoveEndMarker(latlng);
+    }
+  }
+
+  private addOrMoveStartMarker(latlng: LatLng) {
+    if (this.startMarker) {
+      this.startMarker.setLatLng(latlng);
+    } else if (this.map) {
+      const markerIcon = this.markerStyle.markerIcon(this.provider, this.providerStyle, this.walkStatus);
+      this.startMarker = L.marker(latlng, {draggable: !this.readonly, icon: markerIcon as any})
+        .on("dragend", (event) => this.zone.run(() => this.onMarkerDragEnd(event)));
+      this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
+      this.startMarker.addTo(this.map);
+      this.layers = [...this.layers, this.startMarker];
+    }
+  }
+
+  private addOrMoveEndMarker(latlng: LatLng) {
+    if (this.endMarker) {
+      this.endMarker.setLatLng(latlng);
+    } else if (this.map && this.endLocationDetails) {
+      const markerIcon = this.markerStyle.markerIcon(this.provider, this.providerStyle, this.walkStatus);
+      this.endMarker = L.marker(latlng, {draggable: !this.readonly, icon: markerIcon as any})
+        .on("dragend", (event) => this.zone.run(() => this.onEndMarkerDragEnd(event)));
+      this.bindLocationPopup(this.endMarker, this.endLocationDetails, this.endPinRole());
+      this.endMarker.addTo(this.map);
+      this.layers = [...this.layers, this.endMarker];
+    }
+  }
+
   private async updateWalkLocation(latlng: LatLng) {
+    const previousLatitude = this.locationDetails.latitude;
+    const previousLongitude = this.locationDetails.longitude;
     this.notify?.hide();
     this.locationDetails.latitude = latlng.lat;
     this.locationDetails.longitude = latlng.lng;
 
     this.addressQueryService.gridReferenceLookupFromLatLng(latlng)
       .then((responses: GridReferenceLookupResponse[]) => {
-        const sortedResponses = responses.sort(sortBy("distance"));
+        const sortedResponses = responses.filter(item => this.usablePostcode(item.postcode)).sort(sortBy("distance"));
         this.logger.info("gridReferenceLookupFromLatLng: Received", this.stringUtils.pluraliseWithCount(sortedResponses.length, "response"), sortedResponses);
-        if (responses.length === 0) {
+        if (sortedResponses.length === 0) {
+          this.locationDetails.latitude = previousLatitude;
+          this.locationDetails.longitude = previousLongitude;
+          if (this.startMarker && previousLatitude && previousLongitude) {
+            this.startMarker.setLatLng(L.latLng(previousLatitude, previousLongitude));
+          }
           this.notify.warning({
-            title: "No grid reference found",
-            message: "Try moving the pin to a different location."
+            title: "No postcode here",
+            message: "Move the pin onto a place that has a postcode."
           });
         } else {
           const closestResponse = sortedResponses[0];
           const previousPostcode = this.locationDetails.postcode;
           this.updateLocationWith(closestResponse);
-          if (previousPostcode && closestResponse.postcode !== previousPostcode) {
+          if (this.postcodeChangeOffersSelect && this.usablePostcode(previousPostcode) && closestResponse.postcode !== previousPostcode) {
             const postcodeOptions = sortedResponses.map(item => ({postcode: item.postcode, distance: item.distance}));
             const previousStillListed = postcodeOptions.some(option => option.postcode === previousPostcode);
             this.notify.warning({
@@ -503,7 +595,9 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
 
   private updateLocationWith(response: GridReferenceLookupResponse) {
     this.showPostcodeSelectChange.emit(false);
-    this.locationDetails.postcode = response.postcode;
+    if (this.usablePostcode(response.postcode)) {
+      this.locationDetails.postcode = formattedUkPostcode(response.postcode) || response.postcode.trim();
+    }
     this.locationDetails.grid_reference_6 = response.gridReference6;
     this.locationDetails.grid_reference_8 = response.gridReference8;
     this.locationDetails.grid_reference_10 = response.gridReference10;
@@ -512,6 +606,47 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
       this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
     }
     this.locationChange.emit(this.locationDetails);
+  }
+
+  private async updateEndLocation(latlng: LatLng) {
+    const previousLatitude = this.endLocationDetails.latitude;
+    const previousLongitude = this.endLocationDetails.longitude;
+    this.notify?.hide();
+    this.endLocationDetails.latitude = latlng.lat;
+    this.endLocationDetails.longitude = latlng.lng;
+    this.addressQueryService.gridReferenceLookupFromLatLng(latlng)
+      .then((responses: GridReferenceLookupResponse[]) => {
+        const sortedResponses = responses.filter(item => this.usablePostcode(item.postcode)).sort(sortBy("distance"));
+        this.logger.info("end pin gridReferenceLookupFromLatLng: Received", this.stringUtils.pluraliseWithCount(sortedResponses.length, "response"), sortedResponses);
+        if (sortedResponses.length === 0) {
+          this.endLocationDetails.latitude = previousLatitude;
+          this.endLocationDetails.longitude = previousLongitude;
+          if (this.endMarker && previousLatitude && previousLongitude) {
+            this.endMarker.setLatLng(L.latLng(previousLatitude, previousLongitude));
+          }
+          this.notify.warning({
+            title: "No postcode here",
+            message: "Move the pin onto a place that has a postcode."
+          });
+        } else {
+          const closestResponse = sortedResponses[0];
+          this.endLocationDetails.postcode = this.usablePostcode(closestResponse.postcode)
+            ? (formattedUkPostcode(closestResponse.postcode) || closestResponse.postcode.trim())
+            : this.endLocationDetails.postcode;
+          this.endLocationDetails.grid_reference_6 = closestResponse.gridReference6;
+          this.endLocationDetails.grid_reference_8 = closestResponse.gridReference8;
+          this.endLocationDetails.grid_reference_10 = closestResponse.gridReference10;
+          this.endLocationDetails.description = closestResponse.description;
+          if (this.endMarker) {
+            this.bindLocationPopup(this.endMarker, this.endLocationDetails, this.endPinRole());
+          }
+          this.endLocationChange.emit(this.endLocationDetails);
+        }
+      })
+      .catch(error => {
+        this.logger.error("end pin gridReferenceLookupFromLatLng:error", error);
+        this.notify.error({title: "Error looking up grid reference", message: error?.message || error});
+      });
   }
 
   private primaryPinRole(): string {
