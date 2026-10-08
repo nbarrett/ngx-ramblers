@@ -48,6 +48,7 @@ const PageContentRow = new mongoose.Schema({
   migrationPlaceholder: {type: Boolean},
   migrationNote: {type: Object},
   hidden: {type: Boolean},
+  accessLevel: {type: String},
 }, { _id : false });
 
 const pageContentSchema = new mongoose.Schema({
