@@ -67,8 +67,14 @@ export class GroupEventDisplayService {
     this.configureEventSubscriptions();
   }
 
-  groupEventArea(): string {
-    return this.urlService.area();
+  groupEventListTitle(extendedGroupEvent: ExtendedGroupEvent): string {
+    const area = this.urlService.listPath(eventSlug(extendedGroupEvent));
+    const lastSegment = last((area || "").split("/").filter(segment => segment));
+    if (lastSegment) {
+      return this.stringUtils.asPathSegmentTitle(lastSegment);
+    } else {
+      return this.stringUtils.asTitle(this.urlService.area() || "events");
+    }
   }
 
   public fromAndToFrom(eventsData: EventsData): HasStartAndEndTime {
@@ -174,10 +180,7 @@ export class GroupEventDisplayService {
 
   groupEventLink(extendedGroupEvent: ExtendedGroupEvent, relative: boolean): string {
     const eventId: string = eventSlug(extendedGroupEvent);
-    const segments = this.urlService.pathSegments();
-    const last = segments[segments.length - 1];
-    const areaSegments = last === PathSegment.EDIT ? segments.slice(0, -2) : (last === PathSegment.NEW || last === eventId ? segments.slice(0, -1) : segments);
-    const area = areaSegments.join("/");
+    const area = this.urlService.listPath(eventId);
     const url = eventId ? this.urlService.linkUrl({
       area,
       id: eventId,

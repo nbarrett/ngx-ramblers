@@ -257,6 +257,18 @@ export class UrlService {
     return this.firstPathSegment();
   }
 
+  listPath(eventId?: string): string {
+    const segments = this.pathSegments();
+    const lastSegment = last(segments);
+    if (lastSegment === PathSegment.EDIT) {
+      return segments.slice(0, -2).join("/");
+    } else if (lastSegment === PathSegment.NEW || (eventId && lastSegment === eventId)) {
+      return segments.slice(0, -1).join("/");
+    } else {
+      return segments.join("/");
+    }
+  }
+
   firstPathSegment(): string {
     return first(this.pathSegments());
   }
@@ -327,21 +339,16 @@ export class UrlService {
     }
 
     const segments = this.pathSegments();
-    if (segments.length === 2) {
-      return this.looksLikeASlug(identifier) || this.identifierCanBeConvertedToSlug(identifier);
-    }
-
     if (segments.length >= 3 && (segments[segments.length - 1] === PathSegment.VIEW || segments[segments.length - 1] === PathSegment.EDIT)) {
       const slugSegment = segments[segments.length - 2];
       return this.looksLikeASlug(slugSegment) || this.identifierCanBeConvertedToSlug(slugSegment) || this.isMongoId(slugSegment);
-    }
-
-    if (segments.length >= 3 && segments[segments.length - 2] === PathSegment.VIEW) {
-      const identifier = this.lastPathSegment();
+    } else if (segments.length >= 3 && segments[segments.length - 2] === PathSegment.VIEW) {
       return this.looksLikeASlug(identifier) || this.identifierCanBeConvertedToSlug(identifier) || this.pathContainsMongoId() || this.pathContainsNumericRamblersId();
+    } else if (segments.length >= 2) {
+      return this.looksLikeASlug(identifier) || this.identifierCanBeConvertedToSlug(identifier);
+    } else {
+      return false;
     }
-
-    return false;
   }
 
   pathContainsNumericRamblersId(): boolean {
@@ -353,11 +360,21 @@ export class UrlService {
   }
 
   resourceUrl(area: string, subArea: string, id: string, relative?: boolean): string {
-    return [relative ? null : this.baseUrl(), area, subArea, id].filter(item => !!item).join("/");
+    const path = [area, subArea, id].filter(item => !!item).join("/");
+    if (relative) {
+      return this.pageUrl(path);
+    } else {
+      return [this.baseUrl(), path].filter(item => !!item).join("/");
+    }
   }
 
   publicResourceUrl(area: string, subArea: string, id: string, relative?: boolean): string {
-    return [relative ? null : this.publicBaseUrl(), area, subArea, id].filter(item => !!item).join("/");
+    const path = [area, subArea, id].filter(item => !!item).join("/");
+    if (relative) {
+      return this.pageUrl(path);
+    } else {
+      return [this.publicBaseUrl(), path].filter(item => !!item).join("/");
+    }
   }
 
   refresh(): void {

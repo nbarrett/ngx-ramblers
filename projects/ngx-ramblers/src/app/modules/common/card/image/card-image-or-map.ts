@@ -1,5 +1,4 @@
 import { Component, inject, Input, OnInit } from "@angular/core";
-import { NgStyle } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -16,7 +15,8 @@ import { GroupEventDisplayService } from "../../../../pages/group-events/group-e
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { isEqual } from "es-toolkit/compat";
 import { VisibilityObserverDirective } from "../../../../notifications/common/visibility-observer.directive";
-import { focalPointImageStyles } from "../../../../functions/image-cropper-styles";
+import { FocalPoint } from "../../../../models/image-cropper.model";
+import { CardImageComponent } from "./card-image";
 
 @Component({
   selector: "app-card-image-or-map",
@@ -37,7 +37,7 @@ import { focalPointImageStyles } from "../../../../functions/image-cropper-style
           @if (imageNavigationEnabled) {
             <a [href]="navigationUrl()" class="d-block">
               <div app-map-edit readonly
-                   [class]="this.imageConfig.class"
+                   [class]="determineClass()"
                    [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
                    [walkStatus]="displayedWalk.walk?.groupEvent?.status"
                    [gpxFile]="displayedWalk.walk?.fields?.gpxFile"
@@ -48,7 +48,7 @@ import { focalPointImageStyles } from "../../../../functions/image-cropper-style
             </a>
           } @else {
             <div app-map-edit readonly
-                 [class]="this.imageConfig.class"
+                 [class]="determineClass()"
                  [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
                  [walkStatus]="displayedWalk.walk?.groupEvent?.status"
                  [gpxFile]="displayedWalk.walk?.fields?.gpxFile"
@@ -58,34 +58,28 @@ import { focalPointImageStyles } from "../../../../functions/image-cropper-style
                  [notify]="notify"></div>
           }
         } @else {
-          <div [class]="this.imageConfig.class"></div>
+          <div [class]="determineClass()"></div>
         }
       </div>
     }
     @if (!mapFallbackActive() && display.displayImage(displayedWalk.walk)) {
       @if (imageNavigationEnabled) {
         <a [href]="navigationUrl()" class="d-block">
-          <img (error)="imageError($event)"
-               src="{{basicMedia?.url}}"
-               alt="{{basicMedia?.alt}}"
-               loading="lazy"
-               [height]="this.imageConfig.height"
-               [ngStyle]="imageStyles()"
-               class="card-img-top"/>
+          <app-card-image [imageSource]="basicMedia?.url"
+                          [alt]="basicMedia?.alt"
+                          [height]="determineHeight()"
+                          [focalPoint]="eventFocalPoint()"/>
         </a>
       } @else {
-        <img (error)="imageError($event)"
-             src="{{basicMedia?.url}}"
-             alt="{{basicMedia?.alt}}"
-             loading="lazy"
-             [height]="this.imageConfig.height"
-             [ngStyle]="imageStyles()"
-             class="card-img-top"/>
+        <app-card-image [imageSource]="basicMedia?.url"
+                        [alt]="basicMedia?.alt"
+                        [height]="determineHeight()"
+                        [focalPoint]="eventFocalPoint()"/>
       }
     }
   `,
   styleUrls: ["./card-image.sass"],
-  imports: [FontAwesomeModule, MapEditComponent, WalkLeadEditButton, VisibilityObserverDirective, NgStyle]
+  imports: [FontAwesomeModule, MapEditComponent, WalkLeadEditButton, VisibilityObserverDirective, CardImageComponent]
 })
 export class CardImageOrMap implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CardImageOrMap", NgxLoggerLevel.ERROR);
@@ -96,7 +90,6 @@ export class CardImageOrMap implements OnInit {
   protected readonly WalkLeadEditAppearance = WalkLeadEditAppearance;
   protected mapVisible = false;
   protected basicMedia: BasicMedia;
-  protected imageConfig: { class: string, height: number };
   protected imageNavigationEnabled: boolean;
   private _displayedWalk: DisplayedWalk;
   @Input() notify!: AlertInstance;
@@ -117,7 +110,6 @@ export class CardImageOrMap implements OnInit {
   }
 
   ngOnInit() {
-    this.imageConfig = {class: this.determineClass(), height: this.determineHeight()};
     this.logger.info("ngOnInit:displayedWalk", this.displayedWalk);
     this.updateBasicMedia();
   }
@@ -129,13 +121,8 @@ export class CardImageOrMap implements OnInit {
     }
   }
 
-  imageStyles(): Record<string, string> {
-    return focalPointImageStyles(this.displayedWalk?.walk?.groupEvent?.media?.[0]?.focalPoint);
-  }
-
-  imageError(event: ErrorEvent) {
-    this.logger.error("imageError:", event);
-    this.basicMedia = FALLBACK_MEDIA;
+  eventFocalPoint(): FocalPoint {
+    return this.displayedWalk?.walk?.groupEvent?.media?.[0]?.focalPoint || null;
   }
 
   determineClass(): string {
