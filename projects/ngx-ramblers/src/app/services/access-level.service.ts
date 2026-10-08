@@ -20,6 +20,8 @@ export class AccessLevelService {
       return true;
     } else if (level === AccessLevel.LOGGED_IN_MEMBER) {
       return this.memberLoginService.memberLoggedIn();
+    } else if (level === AccessLevel.NOT_LOGGED_IN) {
+      return !this.memberLoginService.memberLoggedIn();
     } else if (level === AccessLevel.COMMITTEE) {
       return this.memberLoginService.allowCommittee();
     } else if (level === AccessLevel.MEMBER_ADMIN) {

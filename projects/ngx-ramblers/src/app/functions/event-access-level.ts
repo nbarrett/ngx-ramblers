@@ -8,6 +8,8 @@ export function eventAccessPermitted(accessLevel: AccessLevel | null | undefined
     return true;
   } else if (level === AccessLevel.LOGGED_IN_MEMBER) {
     return context.loggedIn;
+  } else if (level === AccessLevel.NOT_LOGGED_IN) {
+    return !context.loggedIn;
   } else if (level === AccessLevel.COMMITTEE) {
     return context.eventAdmin || context.committee;
   } else if (level === AccessLevel.EVENT_LEADER) {

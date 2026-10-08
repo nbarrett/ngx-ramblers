@@ -10,6 +10,7 @@ export enum AccessLevel {
   EVENT_LEADER = "eventLeader",
   COMMITTEE = "committee",
   LOGGED_IN_MEMBER = "loggedInMember",
+  NOT_LOGGED_IN = "notLoggedIn",
   PUBLIC = "public"
 }
 
@@ -18,7 +19,7 @@ export const EVENT_SCOPED_ACCESS_LEVELS: AccessLevel[] = [AccessLevel.EVENT_ADMI
 export const EVENT_ACTION_ACCESS_LEVELS: AccessLevel[] = [AccessLevel.HIDDEN, AccessLevel.EVENT_ADMIN, AccessLevel.EVENT_LEADER, AccessLevel.COMMITTEE, AccessLevel.LOGGED_IN_MEMBER];
 
 export function generalAccessLevels(): AccessLevel[] {
-  return [AccessLevel.HIDDEN, AccessLevel.ENVIRONMENT_ADMIN, AccessLevel.MEMBER_ADMIN, AccessLevel.COMMITTEE, AccessLevel.LOGGED_IN_MEMBER, AccessLevel.PUBLIC];
+  return [AccessLevel.HIDDEN, AccessLevel.ENVIRONMENT_ADMIN, AccessLevel.MEMBER_ADMIN, AccessLevel.COMMITTEE, AccessLevel.LOGGED_IN_MEMBER, AccessLevel.NOT_LOGGED_IN, AccessLevel.PUBLIC];
 }
 
 export interface EventAccessContext {

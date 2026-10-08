@@ -135,37 +135,43 @@ export class MemberResourcesReferenceDataService {
   accessLevels(): AccessLevelData[] {
     return [
       {
-        id: "hidden",
+        id: AccessLevel.HIDDEN,
         description: "Hidden",
         filter: () => this.siteEditService.active() || false,
         includeAccessLevelIds: []
       },
       {
-        id: "environmentAdmin",
+        id: AccessLevel.ENVIRONMENT_ADMIN,
         description: "Environment Admin",
         filter: () => this.siteEditService.active() || (this.platformAdminEnabled && this.memberLoginService.allowCommittee()),
         includeAccessLevelIds: [AccessLevel.ENVIRONMENT_ADMIN, AccessLevel.COMMITTEE, AccessLevel.LOGGED_IN_MEMBER, AccessLevel.PUBLIC, AccessLevel.HIDDEN]
       },
       {
-        id: "memberAdmin",
+        id: AccessLevel.MEMBER_ADMIN,
         description: "Member Admin",
         filter: () => this.siteEditService.active() || this.memberLoginService.allowMemberAdminEdits(),
         includeAccessLevelIds: [AccessLevel.MEMBER_ADMIN, AccessLevel.COMMITTEE, AccessLevel.LOGGED_IN_MEMBER, AccessLevel.PUBLIC, AccessLevel.HIDDEN]
       },
       {
-        id: "committee",
+        id: AccessLevel.COMMITTEE,
         description: "Committee",
         filter: () => this.siteEditService.active() || this.memberLoginService.allowCommittee(),
         includeAccessLevelIds: [AccessLevel.COMMITTEE, AccessLevel.LOGGED_IN_MEMBER, AccessLevel.PUBLIC, AccessLevel.HIDDEN]
       },
       {
-        id: "loggedInMember",
+        id: AccessLevel.LOGGED_IN_MEMBER,
         description: "Logged-in member",
         filter: () => this.siteEditService.active() || this.memberLoginService.memberLoggedIn(),
         includeAccessLevelIds: [AccessLevel.LOGGED_IN_MEMBER]
       },
       {
-        id: "public",
+        id: AccessLevel.NOT_LOGGED_IN,
+        description: "Not logged in",
+        filter: () => this.siteEditService.active() || !this.memberLoginService.memberLoggedIn(),
+        includeAccessLevelIds: [AccessLevel.NOT_LOGGED_IN]
+      },
+      {
+        id: AccessLevel.PUBLIC,
         description: "Public",
         filter: () => true,
         includeAccessLevelIds: [AccessLevel.PUBLIC]

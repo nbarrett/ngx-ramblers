@@ -86,6 +86,8 @@ function accessibleLevels(user: any): AccessLevel[] {
     if (admin) {
       levels.push(AccessLevel.ENVIRONMENT_ADMIN);
     }
+  } else {
+    levels.push(AccessLevel.NOT_LOGGED_IN);
   }
   return levels;
 }
@@ -317,7 +319,7 @@ export async function publicSitePaths(): Promise<string[] | null> {
   if (!index) {
     return null;
   }
-  const publicLevels = [AccessLevel.PUBLIC];
+  const publicLevels = [AccessLevel.PUBLIC, AccessLevel.NOT_LOGGED_IN];
   const pagePaths = index.pages.filter(entry => pageVisible(entry, publicLevels)).map(entry => entry.path);
   const eventPaths = index.events.filter(entry => entry.includeInPublicSitemap).map(entry => entry.path);
   return Array.from(new Set(pagePaths.concat(eventPaths)));
