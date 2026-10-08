@@ -1445,7 +1445,7 @@ export class AGMStatsComponent implements OnInit {
     }
     const source = this.stats.currentYear ? [this.stats.currentYear] : [];
     const events = source.flatMap(year => year.socials.socialsList).map(event => {
-      const link = event.link || (event.description ? `/${this.groupEventDisplayService.groupEventArea()}/${this.stringUtils.kebabCase(event.description)}` : null);
+      const link = event.link || (event.description ? `/${this.urlService.area()}/${this.stringUtils.kebabCase(event.description)}` : null);
       const id = (event as any).id || this.stringUtils.kebabCase(event.description);
       return {
         ...event,

@@ -92,6 +92,48 @@ describe("UrlService", () => {
 
     });
 
+    describe("listPath", () => {
+        let service: UrlService;
+        let originalRouter: Router;
+
+        const setRouterPath = (path: string) => {
+            const segments = path.split("/").filter(item => item).map(item => ({ path: item }));
+            (service as any).router = {
+                url: path,
+                parseUrl: () => ({ root: { children: { primary: { segments } } } })
+            };
+        };
+
+        beforeEach(() => {
+            service = TestBed.inject(UrlService);
+            originalRouter = (service as any).router;
+        });
+
+        afterEach(() => {
+            (service as any).router = originalRouter;
+        });
+
+        it("keeps a nested list path when the event slug is not the last segment", () => {
+            setRouterPath("/events/social");
+            expect(service.listPath("hillside-christmas-lunch")).toBe("events/social");
+        });
+
+        it("strips the event slug from a nested event page", () => {
+            setRouterPath("/events/social/hillside-christmas-lunch");
+            expect(service.listPath("hillside-christmas-lunch")).toBe("events/social");
+        });
+
+        it("strips the event slug from a two-segment walk page", () => {
+            setRouterPath("/walks/hillside-loop");
+            expect(service.listPath("hillside-loop")).toBe("walks");
+        });
+
+        it("strips edit and the event slug", () => {
+            setRouterPath("/events/social/hillside-christmas-lunch/edit");
+            expect(service.listPath("hillside-christmas-lunch")).toBe("events/social");
+        });
+    });
+
     describe("areaUrl", () => {
 
         it("should return the url segment after the area", () => {
@@ -133,7 +175,7 @@ describe("UrlService", () => {
             };
 
             const service: UrlService = TestBed.inject(UrlService);
-            expect(service.linkUrl(object)).toBe("admin/profile/expenses/1234-567");
+            expect(service.linkUrl(object)).toBe("/admin/profile/expenses/1234-567");
         });
 
         it("should return the aws url if name supplied", () => {
@@ -363,6 +405,11 @@ describe("UrlService", () => {
 
         it("should return true for mongo identifiers in social path", () => {
             setRouterPath("/social/689667240ac482029442c7bd");
+            expect(service.pathContainsEventIdOrSlug()).toBe(true);
+        });
+
+        it("should return true for a slug on a nested CMS events page", () => {
+            setRouterPath("/events/social/hillside-christmas-lunch");
             expect(service.pathContainsEventIdOrSlug()).toBe(true);
         });
 

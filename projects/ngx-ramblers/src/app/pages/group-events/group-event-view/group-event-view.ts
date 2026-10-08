@@ -39,6 +39,7 @@ import { BookingFormComponent } from "../../admin/bookings/booking-form.componen
 import { EventLeaderComponent } from "../../walks/walk-view/event-leader";
 import { WalkAlbumPanelComponent } from "../../walks/walk-view/walk-album-panel";
 import { CreateWalkAlbumService } from "../../../services/walks/create-walk-album.service";
+import { eventSlug } from "../../../functions/walks/event-slug";
 
 import { AlbumEditRole, AlbumPanelPresentation } from "../../../models/content-metadata.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -223,9 +224,9 @@ import { StoredValue } from "../../../models/ui-actions";
                 <fa-icon [icon]="notifyTarget.alert.icon"/>
                 <strong class="ms-2">{{ notifyTarget.alertTitle }}</strong>
                 {{ notifyTarget.alertMessage }}
-                <a [href]="'/' + display.groupEventArea()" type="button"
+                <a [href]="backToListHref()" type="button"
                    class="rams-text-decoration-pink"
-                   (click)="backToList($event)">Back to {{ pageService.areaTitle() }}</a>
+                   (click)="backToList($event)">Back to {{ display.groupEventListTitle(groupEvent) }}</a>
               </div>
             }
           </div>
@@ -273,9 +274,13 @@ export class GroupEventView implements OnInit {
   public links: Links = null;
   public image: BasicMedia;
 
+  backToListHref(): string {
+    return this.urlService.pageUrl(this.urlService.listPath(eventSlug(this.groupEvent)));
+  }
+
   backToList($event: Event): void {
     $event.preventDefault();
-    this.urlService.backToRememberedList(this.display.groupEventArea());
+    this.urlService.backToRememberedList(this.urlService.listPath(eventSlug(this.groupEvent)));
   }
 
   ngOnInit() {
