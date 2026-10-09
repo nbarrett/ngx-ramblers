@@ -4004,6 +4004,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     this.routeCompositionKey = null;
     this.unbrandedSenderAlertDismissed = false;
     this.session.state = defaultEmailComposerState();
+    this.session.inboxReplyContext = null;
+    this.drafting.resetForNewComposition();
+    this.fragmentEditor.expandedFragmentIds.clear();
     this.recipients.narrowMembersExpanded = true;
     this.recipients.recipientAddressModeTouched = false;
     this.userPickedEmailType = false;
@@ -4031,7 +4034,19 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     this.setActiveStepperTab(EmailComposerStepKey.TEMPLATE, {
       [StoredValue.MEMBER]: null,
       [StoredValue.DRAFT_ID]: null,
-      [StoredValue.COPY_OF]: null
+      [StoredValue.COPY_OF]: null,
+      [StoredValue.EVENT_INCLUSION]: null,
+      [StoredValue.DATE_FROM]: null,
+      [StoredValue.DATE_TO]: null,
+      [StoredValue.DATE_RANGE_PRESET]: null,
+      [StoredValue.THREAD]: null,
+      [StoredValue.FORWARD]: null,
+      [StoredValue.REPLY_ALL]: null,
+      [StoredValue.MESSAGE]: null,
+      [StoredValue.EVENT]: null,
+      [StoredValue.COMMITTEE_FILE]: null,
+      [StoredValue.PRE_FILTER]: null,
+      [StoredValue.AUDIENCE]: null
     });
     this.batchProgress = null;
     this.batchJobLost = false;

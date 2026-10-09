@@ -3,7 +3,7 @@ import { EmailComposerSessionService } from "./email-composer-session.service";
 import { EmailComposerRecipientsService } from "./email-composer-recipients.service";
 import { EmailComposerRecipientSourcesService } from "./email-composer-recipient-sources.service";
 import { EmailComposerUpdateSettingsService } from "./email-composer-update-settings.service";
-import { ArticleBlock, ComposerFragment, DEFAULT_NEWSLETTER_CADENCE, EmailComposerStepKey, EmailCompositionKind, EventInclusionMode, NEWSLETTER_CADENCE_OPTIONS, NewsletterCadence, NewsletterCadenceOption, NewsletterStartMode, NewsletterWindow, PreviousNewsletter, RecipientMode } from "../../models/email-composer.model";
+import { ArticleBlock, BrandingMode, ComposerFragment, DEFAULT_NEWSLETTER_CADENCE, EmailComposerStepKey, EmailCompositionKind, EventInclusionMode, NEWSLETTER_CADENCE_OPTIONS, NewsletterCadence, NewsletterCadenceOption, NewsletterStartMode, NewsletterWindow, PreviousNewsletter, RecipientMode } from "../../models/email-composer.model";
 import { EmailComposerFragmentsService } from "./email-composer-fragments.service";
 import { inject } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -13,7 +13,7 @@ import { newEventCount, newsletterPeriodPhrase, newsletterSubjectFromSelection, 
 import { ProgrammeOverviewStatus, walkIsMemberFacing, walkNeedsLeader } from "../../models/walk-programme.model";
 import { subjectStillDefault } from "../../functions/email-composer-intro-paste";
 import { AiService } from "../ai/ai.service";
-import { NEWSLETTER_INTRO_PURPOSE_OPTIONS, NewsletterIntroEvent, NewsletterIntroPurpose, NewsletterIntroPurposeOption, NewsletterPlan, ReleaseNoteUpdateDraftOutcome, ReleaseNoteUpdateResponse } from "../../models/ai.model";
+import { DEFAULT_NEWSLETTER_INTRO_DETAIL, NEWSLETTER_INTRO_DETAIL_OPTIONS, NEWSLETTER_INTRO_PURPOSE_OPTIONS, NewsletterIntroDetail, NewsletterIntroEvent, NewsletterIntroPurpose, NewsletterIntroPurposeOption, NewsletterPlan, ReleaseNoteUpdateDraftOutcome, ReleaseNoteUpdateResponse } from "../../models/ai.model";
 import { emptyDraftPurposeCopy as purposeEmptyCopy, emptyDraftPurposeMessage as purposeEmptyMessage, eventsMatchingDraftPurpose, introPurposeFrom, walkTimeOfDayFromHour } from "../../functions/newsletter-purpose";
 import { UIDateFormat } from "../../models/date-format.model";
 import { walkChangeFieldsFrom, WALK_CHANGE_INTRO_LOOKBACK_DAYS } from "../../functions/walk-change-intro";
@@ -47,6 +47,7 @@ export class EmailComposerDraftingService {
   readonly newsletterPeriodOptions: NewsletterCadenceOption[] = NEWSLETTER_CADENCE_OPTIONS.filter(option => option.key !== NewsletterCadence.CUSTOM);
   newsletterStartMode: NewsletterStartMode = NewsletterStartMode.PERIOD;
   newsletterStartPeriod: NewsletterCadence = DEFAULT_NEWSLETTER_CADENCE;
+  introDetail: NewsletterIntroDetail = DEFAULT_NEWSLETTER_INTRO_DETAIL;
   newsletterFreeText = "";
   creatingNewsletter = false;
   creatingReleaseNoteUpdate = false;
@@ -61,6 +62,7 @@ export class EmailComposerDraftingService {
   ignoredPreviousNewsletter = false;
   lastAppliedNewsletterSubject: string | null = null;
   private leaderRequestPeriodReady = false;
+  private startPeriodFromPreviousApplied = false;
 
   walkLeaderRequest(): boolean {
     return this.currentDraftPurpose() === NewsletterIntroPurpose.WALK_LEADER_REQUEST;
@@ -70,12 +72,27 @@ export class EmailComposerDraftingService {
     return this.session.state.notificationConfig?.composerDrafting?.offerDraftedIntro === true;
   }
 
+  introDraftOffered(): boolean {
+    return this.draftingOffered()
+      && !this.session.releaseNoteUpdateMode()
+      && this.effectiveStartMode() !== NewsletterStartMode.UPDATE;
+  }
+
+  startUiOffered(): boolean {
+    return this.session.state.brandingMode !== BrandingMode.UNBRANDED
+      && !this.session.inboxReplyContext
+      && !this.session.currentDraftId
+      && !this.session.releaseNoteUpdateMode();
+  }
+
   availableStartModes(): NewsletterStartMode[] {
     this.ensureWalkLeaderRequestPeriod();
-    return [
-      ...(this.draftingOffered() ? [NewsletterStartMode.PERIOD, NewsletterStartMode.FREE_TEXT] : []),
-      ...(this.session.platformAdminEnabled && !this.walkLeaderRequest() ? [NewsletterStartMode.UPDATE] : [])
-    ];
+    return this.startUiOffered()
+      ? [
+        ...(this.draftingOffered() ? [NewsletterStartMode.PERIOD, NewsletterStartMode.FREE_TEXT] : []),
+        ...(this.session.platformAdminEnabled && !this.walkLeaderRequest() ? [NewsletterStartMode.UPDATE] : [])
+      ]
+      : [];
   }
 
   effectiveStartMode(): NewsletterStartMode {
@@ -240,12 +257,61 @@ export class EmailComposerDraftingService {
   onNewsletterStartPeriodChange(period: NewsletterCadence): void {
     this.newsletterStartPeriod = period;
     this.newsletterStartMode = NewsletterStartMode.PERIOD;
+    this.startPeriodFromPreviousApplied = true;
     void this.createNewsletter();
   }
 
+  resetForNewComposition(): void {
+    this.newsletterStartMode = NewsletterStartMode.PERIOD;
+    this.newsletterStartPeriod = DEFAULT_NEWSLETTER_CADENCE;
+    this.introDetail = DEFAULT_NEWSLETTER_INTRO_DETAIL;
+    this.newsletterFreeText = "";
+    this.creatingNewsletter = false;
+    this.creatingReleaseNoteUpdate = false;
+    this.draftingIntro = false;
+    this.draftingReleaseNoteUpdate = false;
+    this.walkChangeIntroById = null;
+    this.introBeforeDraft = null;
+    this.articlesBeforeDraft = null;
+    this.fragmentOrderBeforeDraft = null;
+    this.previousNewsletter = null;
+    this.ignoredPreviousNewsletter = false;
+    this.lastAppliedNewsletterSubject = null;
+    this.leaderRequestPeriodReady = false;
+    this.startPeriodFromPreviousApplied = false;
+  }
+
+  onIntroDetailSelect(id: string): void {
+    const selected = NEWSLETTER_INTRO_DETAIL_OPTIONS.find(option => option.key === id);
+    if (selected) {
+      this.introDetail = selected.key;
+      void this.draftNewsletterIntro();
+    }
+  }
+
   ensurePeriodEvents(): void {
-    if (this.effectiveStartMode() === NewsletterStartMode.PERIOD && this.draftingOffered() && this.events.selectedGroupEventCount() === 0) {
-      void this.createNewsletter();
+    void this.startPeriodEvents();
+  }
+
+  async startPeriodEvents(): Promise<void> {
+    await this.applyDefaultStartPeriodFromPreviousNewsletter();
+    if (this.startUiOffered() && this.effectiveStartMode() === NewsletterStartMode.PERIOD && this.draftingOffered()) {
+      if (this.events.selectedGroupEventCount() === 0 || !this.session.newsletterMode()) {
+        await this.createNewsletter();
+      }
+    }
+  }
+
+  async applyDefaultStartPeriodFromPreviousNewsletter(): Promise<void> {
+    if (!this.startPeriodFromPreviousApplied && this.startUiOffered()) {
+      this.startPeriodFromPreviousApplied = true;
+      const previous = this.compositionsService
+        ? await this.compositionsService.previousNewsletter(this.session.currentDraftId)
+        : null;
+      const cadence = previous?.cadence;
+      if (cadence && this.newsletterPeriodOptions.some(option => option.key === cadence)) {
+        this.newsletterStartPeriod = cadence;
+      }
     }
   }
 
@@ -648,7 +714,8 @@ export class EmailComposerDraftingService {
         periodDescription: this.newsletterPeriodDescription(),
         groupName: this.session.systemConfig?.group?.longName || this.session.systemConfig?.group?.shortName,
         guidance: this.session.state.newsletter?.guidance ?? undefined,
-        purpose: this.currentDraftPurpose()
+        purpose: this.currentDraftPurpose(),
+        detail: this.walkLeaderRequest() ? NewsletterIntroDetail.STANDARD : this.introDetail
       });
       if (output?.trim()) {
         this.introBeforeDraft = previousIntro;

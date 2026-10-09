@@ -1,7 +1,7 @@
 import {Component, inject, Input, OnInit} from "@angular/core";
 import {FormsModule} from "@angular/forms";
 import {FontAwesomeModule} from "@fortawesome/angular-fontawesome";
-import {faArrowRotateLeft, faSpinner, faWandMagicSparkles} from "@fortawesome/free-solid-svg-icons";
+import {faAlignCenter, faAlignLeft, faArrowRotateLeft, faListUl, faSpinner, faWandMagicSparkles} from "@fortawesome/free-solid-svg-icons";
 import {NgSelectModule} from "@ng-select/ng-select";
 import {EmailComposerDraftingMode, EmailComposerUpdateSettingsMode, NewsletterStartMode} from "../../models/email-composer.model";
 import {RESEND_WITHIN_PERIOD_LABEL} from "../../functions/newsletter-purpose";
@@ -9,10 +9,13 @@ import {EmailComposerDraftingService} from "../../services/email-composer/email-
 import {EmailComposerSessionService} from "../../services/email-composer/email-composer-session.service";
 import {EmailComposerEventSelectionService} from "../../services/email-composer/email-composer-event-selection.service";
 import {EmailComposerUpdateSettingsComponent} from "./email-composer-update-settings.component";
+import {ButtonDropdownComponent} from "../../modules/common/button-dropdown/button-dropdown";
+import {ButtonDropdownItem} from "../../models/button-dropdown.model";
+import {NEWSLETTER_INTRO_DETAIL_OPTIONS, NewsletterIntroDetail} from "../../models/ai.model";
 
 @Component({
   selector: "app-email-composer-drafting",
-  imports: [FormsModule, FontAwesomeModule, NgSelectModule, EmailComposerUpdateSettingsComponent],
+  imports: [FormsModule, FontAwesomeModule, NgSelectModule, EmailComposerUpdateSettingsComponent, ButtonDropdownComponent],
   template: `
     @switch (mode) {
       @case (EmailComposerDraftingMode.INTRO) {
@@ -91,15 +94,29 @@ import {EmailComposerUpdateSettingsComponent} from "./email-composer-update-sett
                         }
                       </div>
                     }
-                    @if (session.newsletterMode() && drafting.draftingOffered()) {
+                    @if (drafting.introDraftOffered()) {
                       <div class="text-muted small mb-2">{{ drafting.draftPurposeHint() }}</div>
                       <div class="mb-2 d-flex align-items-center flex-wrap gap-2">
-                        <button type="button" class="btn btn-primary btn-sm"
-                                [disabled]="drafting.draftingIntro || events.selectedGroupEventCount() === 0"
-                                (click)="drafting.draftNewsletterIntro()">
-                          <fa-icon [icon]="drafting.draftingIntro ? faSpinner : faWandMagicSparkles" [spin]="drafting.draftingIntro" class="me-1"/>
-                          {{ drafting.draftingIntro ? "Drafting…" : drafting.introDraftUndoAvailable() ? "Draft it again" : "Draft the intro" }}
-                        </button>
+                        @if (drafting.walkLeaderRequest()) {
+                          <button type="button" class="btn btn-primary btn-sm"
+                                  [disabled]="drafting.draftingIntro || events.selectedGroupEventCount() === 0"
+                                  (click)="drafting.draftNewsletterIntro()">
+                            <fa-icon [icon]="drafting.draftingIntro ? faSpinner : faWandMagicSparkles" [spin]="drafting.draftingIntro" class="me-1"/>
+                            {{ drafting.draftingIntro ? "Drafting…" : drafting.introDraftUndoAvailable() ? "Draft it again" : "Draft the intro" }}
+                          </button>
+                        } @else {
+                          <div class="d-inline-flex">
+                            <app-button-dropdown [label]="drafting.draftingIntro ? 'Drafting…' : drafting.introDraftUndoAvailable() ? 'Draft it again' : 'Draft the intro'"
+                                                 [icon]="drafting.draftingIntro ? faSpinner : faWandMagicSparkles"
+                                                 [iconSpin]="drafting.draftingIntro"
+                                                 buttonClass="btn btn-primary btn-sm"
+                                                 tooltip="Choose how much detail to include"
+                                                 [items]="introDetailItems()"
+                                                 [defaultItemId]="drafting.introDetail"
+                                                 [disabled]="drafting.draftingIntro || events.selectedGroupEventCount() === 0"
+                                                 (itemSelect)="drafting.onIntroDetailSelect($event)"/>
+                          </div>
+                        }
                         @if (drafting.introDraftUndoAvailable()) {
                           <button type="button" class="btn btn-quiet btn-sm" (click)="drafting.undoDraftedIntro()">
                             <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Undo draft
@@ -165,6 +182,21 @@ export class EmailComposerDraftingComponent implements OnInit {
       this.drafting.ensurePeriodEvents();
     }
   }
+
+  protected introDetailItems(): ButtonDropdownItem[] {
+    return NEWSLETTER_INTRO_DETAIL_OPTIONS.map(option => ({
+      id: option.key,
+      label: option.label,
+      extraLabel: option.extraLabel,
+      icon: option.key === NewsletterIntroDetail.LESS
+        ? faAlignLeft
+        : option.key === NewsletterIntroDetail.MORE
+          ? faListUl
+          : faAlignCenter,
+      selected: this.drafting.introDetail === option.key
+    }));
+  }
+
   protected readonly EmailComposerDraftingMode = EmailComposerDraftingMode;
   protected readonly EmailComposerUpdateSettingsMode = EmailComposerUpdateSettingsMode;
   protected readonly NewsletterStartMode = NewsletterStartMode;

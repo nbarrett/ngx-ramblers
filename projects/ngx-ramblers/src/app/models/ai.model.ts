@@ -130,12 +130,33 @@ export interface NewsletterIntroEvent {
   changes?: NewsletterIntroFieldChange[];
 }
 
+export enum NewsletterIntroDetail {
+  LESS = "less",
+  STANDARD = "standard",
+  MORE = "more"
+}
+
+export const DEFAULT_NEWSLETTER_INTRO_DETAIL = NewsletterIntroDetail.STANDARD;
+
+export interface NewsletterIntroDetailOption {
+  key: NewsletterIntroDetail;
+  label: string;
+  extraLabel: string;
+}
+
+export const NEWSLETTER_INTRO_DETAIL_OPTIONS: NewsletterIntroDetailOption[] = [
+  {key: NewsletterIntroDetail.LESS, label: "Less detail", extraLabel: "A couple of sentences"},
+  {key: NewsletterIntroDetail.STANDARD, label: "Standard", extraLabel: "A few highlights"},
+  {key: NewsletterIntroDetail.MORE, label: "More detail", extraLabel: "Name the walks"}
+];
+
 export interface NewsletterIntroRequest {
   events: NewsletterIntroEvent[];
   periodDescription?: string;
   groupName?: string;
   guidance?: string;
   purpose?: NewsletterIntroPurpose;
+  detail?: NewsletterIntroDetail;
 }
 
 export interface NewsletterIntroResponse {
