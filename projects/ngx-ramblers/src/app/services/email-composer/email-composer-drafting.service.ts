@@ -14,7 +14,7 @@ import { ProgrammeOverviewStatus, walkIsMemberFacing, walkNeedsLeader } from "..
 import { subjectStillDefault } from "../../functions/email-composer-intro-paste";
 import { AiService } from "../ai/ai.service";
 import { NEWSLETTER_INTRO_PURPOSE_OPTIONS, NewsletterIntroEvent, NewsletterIntroPurpose, NewsletterIntroPurposeOption, NewsletterPlan, ReleaseNoteUpdateDraftOutcome, ReleaseNoteUpdateResponse } from "../../models/ai.model";
-import { eventsMatchingDraftPurpose, introPurposeFrom, walkTimeOfDayFromHour } from "../../functions/newsletter-purpose";
+import { emptyDraftPurposeCopy as purposeEmptyCopy, emptyDraftPurposeMessage as purposeEmptyMessage, eventsMatchingDraftPurpose, introPurposeFrom, walkTimeOfDayFromHour } from "../../functions/newsletter-purpose";
 import { UIDateFormat } from "../../models/date-format.model";
 import { walkChangeFieldsFrom, WALK_CHANGE_INTRO_LOOKBACK_DAYS } from "../../functions/walk-change-intro";
 import { ComposerDrafting } from "../../models/mail.model";
@@ -338,25 +338,22 @@ export class EmailComposerDraftingService {
     const previousSentAt = this.previousNewsletter?.sentAt ?? this.session.state.newsletter?.previousSentAt;
     const sentAt = previousSentAt ? this.dateUtils.displayDate(previousSentAt) : "an unrecorded date";
     return this.ignoredPreviousNewsletter
-      ? "Not carrying on from the last newsletter"
+      ? "Including dates already covered"
       : this.previousNewsletterExists()
-        ? `Last newsletter went out on ${sentAt}`
-        : "This is the first newsletter";
+        ? `Last newsletter: ${sentAt}`
+        : "First newsletter";
   }
 
-  newEventsSentence(): string {
+  newEventsBrief(): string {
     const newCount = newEventCount(this.session.state.groupEvents);
-    const countDescription = newCount === 0 ? "None of them are" : newCount === 1 ? "One of them is" : `${newCount} of them are`;
-    return this.session.state.newsletter?.markNewEvents ? ` ${countDescription} new since that newsletter.` : "";
+    return !this.session.state.newsletter?.markNewEvents || newCount === 0
+      ? ""
+      : newCount === 1 ? " 1 new event." : ` ${newCount} new events.`;
   }
 
   newsletterWindowDescription(): string {
-    const range = this.newsletterPeriodDescription() ?? "the dates chosen on the Events step";
-    return this.ignoredPreviousNewsletter
-      ? `Covering ${range}. Events are included as they are, including any already mentioned last time.`
-      : this.previousNewsletterExists()
-        ? `Covering ${range}, carrying on from the last one so members are not told the same thing twice.${this.newEventsSentence()}`
-        : `There is no earlier newsletter to carry on from, so this one covers ${range}. Every event is shown as it is, with nothing marked as new.`;
+    const range = this.newsletterPeriodDescription() ?? "the dates on the Events step";
+    return `Covering ${range}.${this.previousNewsletterExists() ? this.newEventsBrief() : ""}`;
   }
 
   async ignorePreviousNewsletter(): Promise<void> {
@@ -431,10 +428,6 @@ export class EmailComposerDraftingService {
     return from && to ? `${this.dateUtils.displayDate(from)} to ${this.dateUtils.displayDate(to)}` : undefined;
   }
 
-  draftPurposeLabel(): string {
-    return this.draftPurposeOptions.find(option => option.key === this.currentDraftPurpose())?.label ?? "";
-  }
-
   draftPurposeHint(): string {
     return this.draftPurposeOptions.find(option => option.key === this.currentDraftPurpose())?.hint ?? "";
   }
@@ -480,12 +473,20 @@ export class EmailComposerDraftingService {
     );
   }
 
+  emptyDraftPurposeCopy() {
+    return purposeEmptyCopy({
+      purpose: this.currentDraftPurpose(),
+      selectedEventCount: this.events.selectedGroupEventCount(),
+      carryingOnFromLastNewsletter: this.previousNewsletterExists()
+    });
+  }
+
   emptyDraftPurposeMessage(): string {
-    if (this.currentDraftPurpose() === NewsletterIntroPurpose.WALK_LEADER_REQUEST) {
-      return "None of the selected dates are empty slots, so there is nothing to ask for leaders for. Widen the dates on the Events step.";
-    } else {
-      return "No completed events are selected, so there is nothing to write an intro from. Choose events, or widen the dates, on the Events step.";
-    }
+    return purposeEmptyMessage({
+      purpose: this.currentDraftPurpose(),
+      selectedEventCount: this.events.selectedGroupEventCount(),
+      carryingOnFromLastNewsletter: this.previousNewsletterExists()
+    });
   }
 
   async draftNewsletterIntro(): Promise<void> {

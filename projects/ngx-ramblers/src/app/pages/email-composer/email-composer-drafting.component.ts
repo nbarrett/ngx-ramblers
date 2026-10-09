@@ -4,6 +4,7 @@ import {FontAwesomeModule} from "@fortawesome/angular-fontawesome";
 import {faArrowRotateLeft, faSpinner, faWandMagicSparkles} from "@fortawesome/free-solid-svg-icons";
 import {NgSelectModule} from "@ng-select/ng-select";
 import {EmailComposerDraftingMode, EmailComposerUpdateSettingsMode, NewsletterStartMode} from "../../models/email-composer.model";
+import {RESEND_WITHIN_PERIOD_LABEL} from "../../functions/newsletter-purpose";
 import {EmailComposerDraftingService} from "../../services/email-composer/email-composer-drafting.service";
 import {EmailComposerSessionService} from "../../services/email-composer/email-composer-session.service";
 import {EmailComposerEventSelectionService} from "../../services/email-composer/email-composer-event-selection.service";
@@ -107,7 +108,11 @@ import {EmailComposerUpdateSettingsComponent} from "./email-composer-update-sett
                         @let draftEventCount = drafting.eventsForDraftPurpose().length;
                         <span class="text-muted small">
                           @if (draftEventCount === 0) {
-                            Nothing on the Events step matches {{ drafting.draftPurposeLabel() }} yet.
+                            @let copy = drafting.emptyDraftPurposeCopy();
+                            {{ copy.before }}
+                            @if (copy.after) {
+                              <button type="button" class="btn btn-link p-0 align-baseline" (click)="drafting.ignorePreviousNewsletter()">{{ resendWithinPeriodLabel }}</button>{{ copy.after }}
+                            }
                           } @else {
                             Written from {{ draftEventCount }} of the {{ events.selectedGroupEventCount() }} selected {{ events.selectedGroupEventCount() === 1 ? "event" : "events" }}. Read it before you send.
                           }
@@ -166,4 +171,5 @@ export class EmailComposerDraftingComponent implements OnInit {
   protected readonly faSpinner = faSpinner;
   protected readonly faWandMagicSparkles = faWandMagicSparkles;
   protected readonly faArrowRotateLeft = faArrowRotateLeft;
+  protected readonly resendWithinPeriodLabel = RESEND_WITHIN_PERIOD_LABEL;
 }

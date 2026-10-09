@@ -1,5 +1,5 @@
 import { NewsletterIntroEvent, NewsletterIntroPurpose, WalkTimeOfDay } from "../models/ai.model";
-import { eventsMatchingDraftPurpose, introPurposeFrom, walkTimeOfDayFromHour } from "./newsletter-purpose";
+import { emptyDraftPurposeCopy, emptyDraftPurposeMessage, eventsMatchingDraftPurpose, introPurposeFrom, RESEND_WITHIN_PERIOD_LABEL, walkTimeOfDayFromHour } from "./newsletter-purpose";
 
 describe("walkTimeOfDayFromHour", () => {
   it("treats hours before midday as morning", () => {
@@ -61,5 +61,45 @@ describe("eventsMatchingDraftPurpose", () => {
       NewsletterIntroPurpose.UPCOMING_EVENTS,
       true
     )).toEqual([complete]);
+  });
+});
+
+describe("emptyDraftPurposeMessage", () => {
+
+  it("explains when no events are selected for an upcoming intro", () => {
+    expect(emptyDraftPurposeMessage({
+      purpose: NewsletterIntroPurpose.UPCOMING_EVENTS,
+      selectedEventCount: 0
+    })).toEqual("No events are selected on the Events step, so there is nothing to write an intro from. Choose events, or widen the dates.");
+  });
+
+  it("explains when selected events are not ready for an upcoming intro", () => {
+    expect(emptyDraftPurposeMessage({
+      purpose: NewsletterIntroPurpose.UPCOMING_EVENTS,
+      selectedEventCount: 4
+    })).toEqual("None of the selected events have their details filled in yet, so there is nothing to write an intro from. Choose walks that are ready on the Events step.");
+  });
+
+  it("explains when no empty slots are selected for a walk-leader request", () => {
+    expect(emptyDraftPurposeMessage({
+      purpose: NewsletterIntroPurpose.WALK_LEADER_REQUEST,
+      selectedEventCount: 3
+    })).toEqual("None of the selected dates are empty slots, so there is nothing to ask for leaders for. Widen the dates on the Events step.");
+  });
+
+  it("offers a resend when the period starts after the last newsletter", () => {
+    expect(emptyDraftPurposeCopy({
+      purpose: NewsletterIntroPurpose.UPCOMING_EVENTS,
+      selectedEventCount: 0,
+      carryingOnFromLastNewsletter: true
+    })).toEqual({
+      before: "No events are selected because this period starts after the last newsletter.",
+      after: " to include those dates, or choose events on the Events step."
+    });
+    expect(emptyDraftPurposeMessage({
+      purpose: NewsletterIntroPurpose.UPCOMING_EVENTS,
+      selectedEventCount: 0,
+      carryingOnFromLastNewsletter: true
+    })).toEqual(`No events are selected because this period starts after the last newsletter. ${RESEND_WITHIN_PERIOD_LABEL} to include those dates, or choose events on the Events step.`);
   });
 });

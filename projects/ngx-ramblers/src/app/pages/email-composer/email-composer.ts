@@ -186,7 +186,7 @@ import {
   ReleaseNoteUpdateDraftOutcome,
   ReleaseNoteUpdateResponse
 } from "../../models/ai.model";
-import { eventsForPurpose } from "../../functions/newsletter-purpose";
+import { eventsForPurpose, RESEND_WITHIN_PERIOD_LABEL } from "../../functions/newsletter-purpose";
 import {
   BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS,
   COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME,
@@ -681,11 +681,11 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             @if (stepperActiveTab === EmailComposerStepKey.TEMPLATE || stepperActiveTab === EmailComposerStepKey.COMPOSE) {
               @if (newsletterMode()) {
                 <app-alert-message [title]="drafting.newsletterWindowTitle()"
-                                   [messageKey]="drafting.newsletterWindowDescription()"
-                                   [actionLabel]="drafting.previousNewsletterExists() ? 'Ignore last newsletter' : ''"
-                                   [actionIcon]="faArrowRotateLeft"
-                                   (action)="drafting.ignorePreviousNewsletter()">
-                  {{ drafting.newsletterWindowDescription() }} The period, the events and the drafted intro can all be changed.
+                                   [messageKey]="drafting.newsletterWindowDescription()">
+                  {{ drafting.newsletterWindowDescription() }}
+                  @if (drafting.previousNewsletterExists()) {
+                    <a href="" class="ms-1" (click)="$event.preventDefault(); drafting.ignorePreviousNewsletter()">{{ resendWithinPeriodLabel }}</a>
+                  }
                 </app-alert-message>
               } @else if (releaseNoteUpdateMode() && !drafting.creatingReleaseNoteUpdate) {
                 <app-alert-message [title]="updateSettings.releaseNoteUpdateWindowTitle(state, session.currentDraftId)"
@@ -1467,6 +1467,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   protected readonly faCompress = faCompress;
   protected readonly faFolderOpen = faFolderOpen;
   protected readonly faGear = faGear;
+  protected readonly resendWithinPeriodLabel = RESEND_WITHIN_PERIOD_LABEL;
   protected readonly faLock = faLock;
   protected readonly faUsers = faUsers;
   protected readonly faFile = faFile;
@@ -3682,7 +3683,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       this.fragmentEditor.addMultiColumnFragment(this.state, 3);
     }
   }
-
 
   protected defaultNewEmailTypeHint(): string {
     const candidates = this.composeEmailTypeCandidates();
