@@ -7,6 +7,16 @@ export function separateReplyToAddress(replyTo: EmailAddress | null, sender: Ema
   return email && email.toLowerCase() !== senderEmail ? {...replyTo, email} : null;
 }
 
+export function campaignReplyToAddress(replyTo: EmailAddress | null, sender: EmailAddress | null): string | null {
+  const separate = separateReplyToAddress(replyTo, sender);
+  if (separate?.email) {
+    return separate.email;
+  } else {
+    const senderEmail = sender?.email?.trim() || "";
+    return senderEmail || null;
+  }
+}
+
 const MAILBOX_IN_BRACKETS = /^(.*?)<\s*([^>\s]+@[^>\s]+)\s*>\s*$/;
 const INLINE_EMAIL = /([^\s<>"',;]+@[^\s<>"',;]+)/;
 

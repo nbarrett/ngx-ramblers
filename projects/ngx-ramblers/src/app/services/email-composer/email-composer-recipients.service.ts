@@ -129,7 +129,7 @@ export class EmailComposerRecipientsService {
         }
     }
     campaignRoleAddressMembers(): Member[] {
-        const listId = this.session.state.selectedListId;
+        const listId = this.resolver.campaignListId();
         const roles = this.pool.committeeReferenceData?.committeeMembers() ?? [];
         return listId === null
             ? []

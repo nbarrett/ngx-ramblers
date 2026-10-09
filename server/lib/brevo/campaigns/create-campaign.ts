@@ -23,7 +23,8 @@ import { contactUsParentSegment } from "../contacts/unsubscribe-token";
 import { fetchBrevoAccount } from "../account/account";
 import { publicCampaignAttachmentUrl } from "./campaign-attachment";
 import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
-import {separateReplyToAddress} from "../../../../projects/ngx-ramblers/src/app/functions/email-addresses";
+import {campaignReplyToAddress} from "../../../../projects/ngx-ramblers/src/app/functions/email-addresses";
+import {CAMPAIGN_TO_FIELD} from "../../../../projects/ngx-ramblers/src/app/common/campaign-contact-tokens";
 
 const messageType = "brevo:send-email-campaign";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -110,11 +111,10 @@ export async function createCampaign(req: Request, res: Response): Promise<void>
     createEmailCampaign.footer = "<!--[if !mso]><!--><span style=\"display:none;visibility:hidden;font-size:0;line-height:0;color:transparent;height:0;width:0;overflow:hidden\" aria-hidden=\"true\">{unsubscribe}</span><!--<![endif]-->";
     createEmailCampaign.inlineImageActivation = createCampaignRequest.inlineImageActivation;
     createEmailCampaign.mirrorActive = createCampaignRequest.mirrorActive;
-    createEmailCampaign.params = createCampaignRequest.params as unknown as Record<string, unknown>;
     createEmailCampaign.recipients = createCampaignRequest.recipients;
-    const replyTo = separateReplyToAddress({email: createCampaignRequest.replyTo, name: ""}, createCampaignRequest.sender);
-    if (replyTo) {
-      createEmailCampaign.replyTo = replyTo.email;
+    const replyToEmail = campaignReplyToAddress({email: createCampaignRequest.replyTo, name: ""}, createCampaignRequest.sender);
+    if (replyToEmail) {
+      createEmailCampaign.replyTo = replyToEmail;
     }
     createEmailCampaign.subject = createCampaignRequest.subject;
     const tagsSupported = await campaignTagsSupported(brevoConfig.apiKey).catch(() => true);
@@ -122,7 +122,7 @@ export async function createCampaign(req: Request, res: Response): Promise<void>
       debugLog("Account plan does not support campaign tags; omitting tag", createCampaignRequest.tag, "so the campaign is not tracked in the managed Campaign Queue.");
     }
     createEmailCampaign.tag = tagsSupported ? createCampaignRequest.tag : undefined;
-    createEmailCampaign.toField = "{{contact.FIRSTNAME}} {{contact.LASTNAME}}";
+    createEmailCampaign.toField = CAMPAIGN_TO_FIELD;
     await performTemplateSubstitution(createCampaignRequest, createEmailCampaign, debugLog, true);
     debugLog("Email campaign preparation 2/2 createEmailCampaign:", JSON.stringify(omit(createEmailCampaign, "htmlContent")));
     const response = await createEmailCampaignWithTagFallback(client, createEmailCampaign);

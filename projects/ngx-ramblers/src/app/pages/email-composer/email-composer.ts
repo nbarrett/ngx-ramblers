@@ -410,7 +410,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       @let unbrandedSenderLoading = unbrandedSenderOnTemplateStep && !sender.unbrandedSenderInfo().email && !unbrandedSenderCheckReady();
         @let
         recipientsChosenVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && recipientsStepErrors().length === 0 && recipientResolution.totalRecipientCount() > 0 && !recipientsChosenAlertDismissed;
-      @let recipientAddressesPrivateVisible = recipientAddressesArePrivate() && !recipientAddressesPrivateAlertDismissed;
+      @let recipientAddressesPrivateVisible = recipientAddressesArePrivate() && !sendComplete() && !recipientAddressesPrivateAlertDismissed;
         <ng-template #templateStatusErrors>
           @for (error of templateStepErrors(); track $index) {
             <div>
@@ -708,8 +708,8 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 <app-alert-message [title]="sendProgressDescription()" [icon]="faSpinner" [spinning]="true"/>
               }
               @if (batchJobLost) {
-                <app-alert-message title="This send can no longer be tracked" [messageKey]="BATCH_SEND_JOB_LOST_MESSAGE">
-                  <div>{{ BATCH_SEND_JOB_LOST_MESSAGE }}</div>
+                <app-alert-message title="This send can no longer be tracked">
+                  <div>Refresh the composer and try again. Recipients already sent cannot be recalled.</div>
                   <div class="mt-2 d-flex flex-wrap gap-2">
                     <button type="button" class="btn btn-primary" (click)="saveDraftAndRestartComposerSession()">Save draft and refresh</button>
                     <button type="button" class="btn btn-quiet" (click)="restartComposerSession()">Refresh composer</button>
@@ -865,7 +865,9 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               <ng-container *ngTemplateOutlet="composerStatusAlerts"/>
             }
             </div>
-            <h3 class="email-composer-step-title">{{ draftsPanelOpen ? "Drafts" : sentEmailsPanelOpen ? "Sent" : currentStepTitle() }}</h3>
+            @if (draftsPanelOpen || sentEmailsPanelOpen || !(stepperActiveTab === EmailComposerStepKey.SEND && campaignSendComplete)) {
+              <h3 class="email-composer-step-title">{{ draftsPanelOpen ? "Drafts" : sentEmailsPanelOpen ? "Sent" : currentStepTitle() }}</h3>
+            }
             @if (draftsPanelOpen || sentEmailsPanelOpen) {
               <app-email-composition-list [records]="draftsPanelOpen ? drafts : sentEmails" [members]="recipientSources.members" [busy]="sendInProgress"
                                           (open)="openSavedComposition($event.id)" (deleted)="onCompositionsDeleted($event)"/>
@@ -1441,7 +1443,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   private userPickedEmailType = false;
   protected readonly EmailComposerStepKey = EmailComposerStepKey;
   protected readonly BatchSendStatus = BatchSendStatus;
-  protected readonly BATCH_SEND_JOB_LOST_MESSAGE = BATCH_SEND_JOB_LOST_MESSAGE;
   protected readonly RecipientMode = RecipientMode;
   protected readonly RecipientField = RecipientField;
   protected readonly RecipientAddressMode = RecipientAddressMode;
@@ -2897,13 +2898,18 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
 
   recipientCountSummary(includeChannel = true): string {
     const toHasExtraPeople = (this.session.state.externalRecipients ?? []).some(recipient => !recipient.listId);
-    if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST && !this.recipientResolution.unbrandedListExpanded() && !toHasExtraPeople) {
+    const campaignListId = this.recipientResolution.campaignListId();
+    const campaignList = campaignListId === null
+      ? null
+      : this.recipientSources.availableLists().find(item => item.id === campaignListId);
+    if (this.recipientResolution.sendingAsCampaign() && campaignList) {
+      return includeChannel
+        ? `${this.recipientSources.listNameAndCount(campaignList)} (campaign)`
+        : this.recipientSources.listNameAndCount(campaignList);
+    } else if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST && !this.recipientResolution.unbrandedListExpanded() && !toHasExtraPeople) {
       const list = this.recipientSources.availableLists().find(item => item.id === this.session.state.selectedListId);
-      const campaign = includeChannel && this.recipientResolution.sendingAsCampaign();
       if (!list) {
         return "no list chosen";
-      } else if (campaign) {
-        return `${this.recipientSources.listNameAndCount(list)} (campaign)`;
       } else {
         return this.recipientSources.listNameAndCount(list);
       }
@@ -2928,7 +2934,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   protected campaignQueueNotice(): CampaignOverflowNotice | null {
-    if (this.session.state.recipientMode !== RecipientMode.ENTIRE_LIST || this.session.state.brandingMode === BrandingMode.UNBRANDED) {
+    if (!this.recipientResolution.sendingAsCampaign()) {
       return null;
     } else {
       return campaignOverflowNotice(this.recipientResolution.totalRecipientCount(), this.recipientSources.mailMessagingConfig?.brevo?.account, this.campaignAutomaticReleaseEnabled());
@@ -3782,10 +3788,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
         errorMessage: BATCH_SEND_JOB_LOST_MESSAGE
       };
     }
-    this.session.notify.error({
-      title: "This send can no longer be tracked",
-      message: BATCH_SEND_JOB_LOST_MESSAGE
-    });
   }
 
   protected async saveDraftAndRestartComposerSession(): Promise<void> {
@@ -4515,75 +4517,81 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     const campaignCombined = toCampaignContactTokens(combined);
     const overflowNotice = this.campaignQueueNotice();
     const params = this.mailMessagingService.createSendSmtpEmailParams(member, this.session.state.notificationConfig!, campaignCombined, this.session.state.subject, "", campaignTop, campaignBottom);
-    const roleMembers = this.recipientResolution.useCommitteeRoleAddresses() ? this.recipients.campaignRoleAddressMembers() : [];
-    const exclusionListId = await this.campaignExclusionListId(roleMembers.map(member => member.email).filter((email): email is string => !!email));
-    const request: CreateCampaignRequest = {
-      createAsDraft: false,
-      templateName: this.session.state.notificationConfig!.templateName,
-      templateOverrides: this.session.state.notificationConfig!.templateOverrides,
-      body: this.editableBodyForSend(),
-      showTitle: this.session.state.showTitle,
-      htmlContent: campaignCombined,
-      attachmentUrl: this.session.state.attachments?.[0]?.url,
-      inlineImageActivation: false,
-      mirrorActive: false,
-      name: this.session.state.subject,
-      tag: NGX_BREVO_CAMPAIGN_TAG,
-      params,
-      recipients: {
-        listIds: [this.session.state.selectedListId!],
-        ...(exclusionListId !== null ? {exclusionListIds: [exclusionListId]} : {})
-      },
-      replyTo: this.session.state.notificationConfig!.replyToRole?.trim()
-        ? this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.replyToRole, "email") || ""
-        : "",
-      sender: {
-        email: this.sender.resolvedBrandedSenderIdentity()?.email
-          || this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.senderRole, "email")
-          || "",
-        name: this.sender.resolvedBrandedSenderIdentity()?.name
-          || this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.senderRole, "fullName")
-          || ""
-      },
-      subject: this.session.state.subject
-    };
-    const created: StatusMappedResponseSingleInput = await this.mailService.createCampaign(request);
-    const campaignId: number = created?.responseBody?.id;
-    if (!created?.success || !isNumber(campaignId)) {
-      throw new Error(`Brevo did not create the campaign${created?.message ? `: ${created.message}` : ""}`);
-    }
-    const sent: StatusMappedResponseSingleInput = await this.mailService.sendCampaign({campaignId});
-    if (!sent?.success) {
-      throw new Error(`Brevo did not accept campaign ${campaignId} for sending${sent?.message ? `: ${sent.message}` : ""}`);
-    }
-    const postSendSummary = await this.applyCampaignPostSendActions();
-    const roleMemberIds = roleMembers.map(member => member.id).filter((id): id is string => !!id);
-    if (roleMemberIds.length > 0) {
-      await this.startBatchTransactionalSend(roleMemberIds);
+    const campaignListId = this.recipientResolution.campaignListId();
+    if (campaignListId === null) {
+      throw new Error("Choose a mailing list before sending as a campaign");
     } else {
-      this.campaignSendComplete = true;
-      this.offerNextConfigAfterSend();
-      this.sendInProgress = false;
-      await this.recordSentToHistory();
-      this.session.notify.hide();
-      this.session.notify.success({
-        title: "Campaign sent",
-        message: (overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `successfully to ${this.recipientCountSummary(false)}`) + postSendSummary
-      });
+      const roleMembers = this.recipientResolution.useCommitteeRoleAddresses() ? this.recipients.campaignRoleAddressMembers() : [];
+      const exclusionListId = await this.campaignExclusionListId(roleMembers.map(member => member.email).filter((email): email is string => !!email));
+      const request: CreateCampaignRequest = {
+        createAsDraft: false,
+        templateName: this.session.state.notificationConfig!.templateName,
+        templateOverrides: this.session.state.notificationConfig!.templateOverrides,
+        body: this.editableBodyForSend(),
+        showTitle: this.session.state.showTitle,
+        htmlContent: campaignCombined,
+        attachmentUrl: this.session.state.attachments?.[0]?.url,
+        inlineImageActivation: false,
+        mirrorActive: false,
+        name: this.session.state.subject,
+        tag: NGX_BREVO_CAMPAIGN_TAG,
+        params,
+        recipients: {
+          listIds: [campaignListId],
+          ...(exclusionListId !== null ? {exclusionListIds: [exclusionListId]} : {})
+        },
+        replyTo: this.session.state.notificationConfig!.replyToRole?.trim()
+          ? this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.replyToRole, "email") || ""
+          : "",
+        sender: {
+          email: this.sender.resolvedBrandedSenderIdentity()?.email
+            || this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.senderRole, "email")
+            || "",
+          name: this.sender.resolvedBrandedSenderIdentity()?.name
+            || this.recipientSources.committeeReferenceData?.contactUsField(this.session.state.notificationConfig!.senderRole, "fullName")
+            || ""
+        },
+        subject: this.session.state.subject
+      };
+      const created: StatusMappedResponseSingleInput = await this.mailService.createCampaign(request);
+      const campaignId: number = created?.responseBody?.id;
+      if (!created?.success || !isNumber(campaignId)) {
+        throw new Error(`Brevo did not create the campaign${created?.message ? `: ${created.message}` : ""}`);
+      }
+      const sent: StatusMappedResponseSingleInput = await this.mailService.sendCampaign({campaignId});
+      if (!sent?.success) {
+        throw new Error(`Brevo did not accept campaign ${campaignId} for sending${sent?.message ? `: ${sent.message}` : ""}`);
+      }
+      const postSendSummary = await this.applyCampaignPostSendActions();
+      const roleMemberIds = roleMembers.map(member => member.id).filter((id): id is string => !!id);
+      if (roleMemberIds.length > 0) {
+        await this.startBatchTransactionalSend(roleMemberIds);
+      } else {
+        this.campaignSendComplete = true;
+        this.offerNextConfigAfterSend();
+        this.sendInProgress = false;
+        await this.recordSentToHistory();
+        this.session.notify.hide();
+        this.session.notify.success({
+          title: "Campaign sent",
+          message: (overflowNotice ? `Campaign submitted to Brevo. ${overflowNotice.title} ${overflowNotice.message}` : `successfully to ${this.recipientCountSummary(false)}`) + postSendSummary
+        });
+      }
     }
   }
 
   private async applyCampaignPostSendActions(): Promise<string> {
     const postSendActions = this.session.state.notificationConfig?.postSendActions ?? [];
-    if (postSendActions.length === 0 || this.session.state.selectedListId === null) {
+    const campaignListId = this.recipientResolution.campaignListId();
+    if (postSendActions.length === 0 || campaignListId === null) {
       return "";
     } else {
       const listMemberIds = this.recipientSources.members
         .filter(this.memberService.filterFor.GROUP_MEMBERS)
-        .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.session.state.selectedListId!))
+        .filter(member => this.mailListUpdaterService.memberSubscribed(member, campaignListId))
         .map(member => member.id)
         .filter((id): id is string => !!id);
-      this.logger.info("applyCampaignPostSendActions: resolved", listMemberIds.length, "list members subscribed to list", this.session.state.selectedListId, "for post-send actions", postSendActions);
+      this.logger.info("applyCampaignPostSendActions: resolved", listMemberIds.length, "list members subscribed to list", campaignListId, "for post-send actions", postSendActions);
       if (listMemberIds.length === 0) {
         this.session.notify.warning({
           title: "Post-send actions",

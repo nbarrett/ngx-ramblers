@@ -17,6 +17,9 @@ import {
   composerRecipientsForAddressMode,
   batchSendRecipientSplit,
   composerSendsAsCampaign,
+  composerCampaignListId,
+  composerWholeMailingListSelected,
+  composerListToken,
   composerSendProgressDescription,
   composerCcFieldAvailable,
   composerCommitteeRoleSendOffered,
@@ -404,12 +407,69 @@ describe("composerSendsAsCampaign", () => {
     expect(composerSendsAsCampaign(RecipientMode.ENTIRE_LIST, BrandingMode.BRANDED, true)).toEqual(false);
   });
 
-  it("does not apply campaign sending to selected recipients", () => {
-    expect(composerSendsAsCampaign(RecipientMode.SELECTED_MEMBERS, BrandingMode.BRANDED)).toEqual(false);
+  it("does not apply campaign sending to a subset of selected recipients", () => {
+    expect(composerSendsAsCampaign(RecipientMode.SELECTED_MEMBERS, BrandingMode.BRANDED, false, false)).toEqual(false);
+  });
+
+  it("sends a branded selected-members audience as a campaign when the whole mailing list is still selected", () => {
+    expect(composerSendsAsCampaign(RecipientMode.SELECTED_MEMBERS, BrandingMode.BRANDED, false, true)).toEqual(true);
   });
 
   it("does not apply campaign sending to unbranded mail", () => {
     expect(composerSendsAsCampaign(RecipientMode.ENTIRE_LIST, BrandingMode.UNBRANDED)).toEqual(false);
+  });
+});
+
+describe("composerCampaignListId", () => {
+
+  it("uses the selected list on a whole-list send", () => {
+    expect(composerCampaignListId({
+      recipientMode: RecipientMode.ENTIRE_LIST,
+      selectedListId: 4,
+      narrowListId: null
+    })).toEqual(4);
+  });
+
+  it("uses the member-audience list after a whole-list send is expanded", () => {
+    expect(composerCampaignListId({
+      recipientMode: RecipientMode.SELECTED_MEMBERS,
+      selectedListId: null,
+      narrowListId: 4
+    })).toEqual(4);
+  });
+});
+
+describe("composerWholeMailingListSelected", () => {
+  const listToken = composerListToken(4, "Walk leaders", 3);
+
+  it("is true when every subscriber is still selected", () => {
+    expect(composerWholeMailingListSelected({
+      listId: 4,
+      preFilterKey: null,
+      selectedMemberIds: ["a", "b", "c"],
+      subscribedMemberIds: ["a", "b", "c"],
+      toRecipients: [listToken]
+    })).toEqual(true);
+  });
+
+  it("is false when someone has been removed from the list", () => {
+    expect(composerWholeMailingListSelected({
+      listId: 4,
+      preFilterKey: null,
+      selectedMemberIds: ["a", "b"],
+      subscribedMemberIds: ["a", "b", "c"],
+      toRecipients: []
+    })).toEqual(false);
+  });
+
+  it("is false when an extra person is added", () => {
+    expect(composerWholeMailingListSelected({
+      listId: 4,
+      preFilterKey: null,
+      selectedMemberIds: ["a", "b", "c"],
+      subscribedMemberIds: ["a", "b", "c"],
+      toRecipients: [listToken, {email: "guest@example.com", name: "Guest", saveForReuse: false}]
+    })).toEqual(false);
   });
 });
 

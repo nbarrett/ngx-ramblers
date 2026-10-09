@@ -482,15 +482,57 @@ export function batchSendJobWasLost(error: unknown): boolean {
   }
 }
 
+export function composerCampaignListId(options: {
+  recipientMode: RecipientMode;
+  selectedListId: number | null;
+  narrowListId: number | null;
+}): number | null {
+  if (options.recipientMode === RecipientMode.ENTIRE_LIST) {
+    return options.selectedListId;
+  } else {
+    return options.narrowListId ?? options.selectedListId;
+  }
+}
+
+export function composerWholeMailingListSelected(options: {
+  listId: number | null;
+  preFilterKey: string | null;
+  selectedMemberIds: string[];
+  subscribedMemberIds: string[];
+  toRecipients: ComposerExternalRecipient[];
+}): boolean {
+  if (options.listId === null || options.preFilterKey || options.subscribedMemberIds.length === 0) {
+    return false;
+  } else {
+    const subscribed = new Set(options.subscribedMemberIds);
+    const selectedOnList = options.selectedMemberIds.filter(id => subscribed.has(id));
+    const extraPeople = options.toRecipients.some(recipient =>
+      recipient.listId !== options.listId
+      && !composerRecipientIsExpandableSet(recipient)
+      && !subscribed.has(recipient.memberId ?? "")
+    );
+    if (extraPeople) {
+      return false;
+    } else if (options.selectedMemberIds.length === 0) {
+      return options.toRecipients.some(recipient => recipient.listId === options.listId);
+    } else {
+      return selectedOnList.length === subscribed.size && selectedOnList.length === options.selectedMemberIds.length;
+    }
+  }
+}
+
 export function composerSendsAsCampaign(
   recipientMode: RecipientMode,
   brandingMode: BrandingMode,
-  committeeOnlyAudience = false
+  committeeOnlyAudience = false,
+  wholeMailingListSelected = false
 ): boolean {
   if (brandingMode === BrandingMode.UNBRANDED || committeeOnlyAudience) {
     return false;
+  } else if (recipientMode === RecipientMode.ENTIRE_LIST) {
+    return true;
   } else {
-    return recipientMode === RecipientMode.ENTIRE_LIST;
+    return wholeMailingListSelected;
   }
 }
 

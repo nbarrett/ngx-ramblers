@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RecipientDraftOutcomeKind } from "../models/email-composer.model";
-import { capitalisePersonName, interpretRecipientDraft, isValidEmailAddress, looksLikePersonName, parseEmailAddress, parseEmailAddressList } from "./email-addresses";
+import { campaignReplyToAddress, capitalisePersonName, interpretRecipientDraft, isValidEmailAddress, looksLikePersonName, parseEmailAddress, parseEmailAddressList } from "./email-addresses";
 
 describe("parseEmailAddress", () => {
   it("reads a display name in angle brackets", () => {
@@ -178,5 +178,21 @@ describe("interpretRecipientDraft", () => {
     expect(interpretRecipientDraft("Alex Rivera <foo@bar>", [])).toEqual({
       kind: RecipientDraftOutcomeKind.INVALID
     });
+  });
+});
+
+describe("campaignReplyToAddress", () => {
+  const sender = {name: "Walks", email: "walks@group.example.org.uk"};
+
+  it("uses a distinct reply-to address", () => {
+    expect(campaignReplyToAddress({name: "Membership", email: "membership@group.example.org.uk"}, sender))
+      .toEqual("membership@group.example.org.uk");
+  });
+
+  it("falls back to the sender so Brevo is not left with a placeholder", () => {
+    expect(campaignReplyToAddress({name: "Walks", email: "walks@group.example.org.uk"}, sender))
+      .toEqual("walks@group.example.org.uk");
+    expect(campaignReplyToAddress({name: "", email: ""}, sender))
+      .toEqual("walks@group.example.org.uk");
   });
 });
