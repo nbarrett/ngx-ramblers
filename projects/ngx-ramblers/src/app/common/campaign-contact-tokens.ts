@@ -1,4 +1,7 @@
 import { toPairs } from "es-toolkit/compat";
+
+export const CAMPAIGN_TO_FIELD = "{{contact.FIRSTNAME}} {{contact.LASTNAME}}";
+
 export function toCampaignContactTokens(html: string): string {
   const contactTokenByMergeField: Record<string, string> = {
     FULL_NAME: "{{contact.FIRSTNAME}} {{contact.LASTNAME}}",

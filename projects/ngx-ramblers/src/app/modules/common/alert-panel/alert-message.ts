@@ -43,21 +43,27 @@ import {TooltipDirective} from "ngx-bootstrap/tooltip";
         background-color: transparent
         color: inherit
     @media (min-width: 768px)
+      :host-context(.alert-panel-compact) .alert-message-content
+        display: flow-root
       :host-context(.alert-panel-compact) .alert-message-title
-        display: inline-flex
-        align-items: baseline
-        gap: 8px
+        float: left
+        display: block
         margin: 0
-        vertical-align: baseline
-        &::after
-          content: " — "
-          font-weight: normal
-          white-space: pre
-      :host-context(.alert-panel-compact) .alert-message-body,
-      :host-context(.alert-panel-compact) ::ng-deep .alert-message-body *
+      :host-context(.alert-panel-compact) .alert-message-title fa-icon
+        margin-right: 8px
+      :host-context(.alert-panel-compact) .alert-message-content:has(> .alert-message-body:not(:empty)) .alert-message-title::after
+        content: "—"
+        margin: 0 0.4em
+        font-weight: 400
+      :host-context(.alert-panel-compact) .alert-message-body:empty
+        display: none
+      :host-context(.alert-panel-compact) .alert-message-body:not(:empty)
+        display: block
+      :host-context(.alert-panel-compact) .alert-message-body:not(:empty) ::ng-deep *
         display: inline
       :host-context(.alert-panel-compact) .alert-message-actions
         display: block
+        clear: both
     .alert-message-dismiss
       display: inline-flex
       align-items: center

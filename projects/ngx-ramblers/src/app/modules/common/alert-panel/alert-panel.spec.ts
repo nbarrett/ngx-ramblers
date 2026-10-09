@@ -19,6 +19,17 @@ class AlertPanelTestHost {
   fixes = signal(0);
 }
 
+@Component({
+  imports: [AlertPanelComponent, AlertMessageComponent],
+  template: `
+    <app-alert-panel grouped compact>
+      <app-alert-message title="Preparing campaign for Brevo…"/>
+      <app-alert-message title="Campaign sent">successfully to the mailing list</app-alert-message>
+    </app-alert-panel>
+  `
+})
+class CompactAlertHost {}
+
 describe("grouped alert messages", () => {
   beforeEach(() => TestBed.configureTestingModule({imports: [AlertPanelTestHost]}));
 
@@ -50,6 +61,7 @@ describe("grouped alert messages", () => {
     expect(messages[0].componentInstance.dismissed).toBe(false);
     expect(messages[1].componentInstance.dismissed).toBe(true);
   });
+
   it("renders both titles and bodies through the same layout and keeps Fix separate from dismissal", () => {
     const fixture = TestBed.createComponent(AlertPanelTestHost);
     fixture.detectChanges();
@@ -60,6 +72,19 @@ describe("grouped alert messages", () => {
     fixture.detectChanges();
     expect(fixture.componentInstance.fixes()).toBe(1);
     expect(message.componentInstance.dismissed).toBe(false);
+  });
+
+});
+
+describe("compact alert messages", () => {
+  beforeEach(() => TestBed.configureTestingModule({imports: [CompactAlertHost]}));
+
+  it("keeps a title-only compact message without a body", () => {
+    const fixture = TestBed.createComponent(CompactAlertHost);
+    fixture.detectChanges();
+    const bodies = fixture.nativeElement.querySelectorAll(".alert-message-body");
+    expect(bodies[0].textContent).toEqual("");
+    expect(bodies[1].textContent).toContain("successfully to the mailing list");
   });
 
 });

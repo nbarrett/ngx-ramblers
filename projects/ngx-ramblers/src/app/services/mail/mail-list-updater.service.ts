@@ -927,8 +927,8 @@ export class MailListUpdaterService {
       email: this.cleanEmail(member.email),
       extId: member.id,
       attributes: {
-        FIRSTNAME: member.firstName,
-        LASTNAME: member.lastName,
+        FIRSTNAME: member.firstName ?? "",
+        LASTNAME: member.lastName ?? "",
         MEMBER_NUM: memberMergeFields.MEMBER_NUM,
         MEMBER_EXP: memberMergeFields.MEMBER_EXP,
         USERNAME: memberMergeFields.USERNAME
@@ -945,8 +945,8 @@ export class MailListUpdaterService {
       extId: member.id,
       attributes: {
         EMAIL: this.cleanEmail(member.email) as any,
-        FIRSTNAME: member.firstName as any,
-        LASTNAME: member.lastName as any,
+        FIRSTNAME: (member.firstName ?? "") as any,
+        LASTNAME: (member.lastName ?? "") as any,
         MEMBER_NUM: memberMergeFields.MEMBER_NUM as any,
         MEMBER_EXP: memberMergeFields.MEMBER_EXP as any,
         USERNAME: memberMergeFields.USERNAME as any

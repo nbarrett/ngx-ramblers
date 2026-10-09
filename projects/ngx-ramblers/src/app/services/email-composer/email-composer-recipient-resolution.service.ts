@@ -3,7 +3,7 @@ import {memberHoldsCommitteeRole} from "../../functions/committee-members";
 import {isNumber, values} from "es-toolkit/compat";
 import {Member, MemberTerm} from "../../models/member.model";
 import {BrandingMode, EmailComposerRecipientEntry, ComposerExternalRecipient, RecipientAddressMode, RecipientMode, RECIPIENT_PRE_FILTERS} from "../../models/email-composer.model";
-import {COMPOSER_EVERYONE_FILTER_EMAIL, composerCommitteeRoleSendOffered, composerRecipientFromMember, composerSelectedMembersAreCommitteeAudience, composerSendsAsCampaign, memberIsCoveredByComposerHeaders} from "../../functions/email-composer";
+import {COMPOSER_EVERYONE_FILTER_EMAIL, composerCampaignListId, composerCommitteeRoleSendOffered, composerRecipientFromMember, composerSelectedMembersAreCommitteeAudience, composerSendsAsCampaign, composerWholeMailingListSelected, memberIsCoveredByComposerHeaders} from "../../functions/email-composer";
 import {MemberSelection} from "../../models/mail.model";
 import {MailListUpdaterService} from "../mail/mail-list-updater.service";
 import {MemberService} from "../member/member.service";
@@ -24,9 +24,34 @@ export class EmailComposerRecipientResolutionService {
   protected stringUtils = inject(StringUtilsService);
   protected dateUtils = inject(DateUtilsService);
 
+  campaignListId(): number | null {
+    return composerCampaignListId({
+      recipientMode: this.session.state.recipientMode,
+      selectedListId: this.session.state.selectedListId,
+      narrowListId: this.session.state.narrowListId
+    });
+  }
+
+  wholeMailingListSelected(): boolean {
+    const listId = this.campaignListId();
+    const subscribedMemberIds = listId === null
+      ? []
+      : this.pool.members
+        .filter(member => this.mailListUpdaterService.memberSubscribed(member, listId) && !!member.id && !!(member.email || "").trim())
+        .map(member => member.id as string);
+    return composerWholeMailingListSelected({
+      listId,
+      preFilterKey: this.session.state.preFilterKey,
+      selectedMemberIds: this.session.state.selectedMemberIds ?? [],
+      subscribedMemberIds,
+      toRecipients: this.session.state.externalRecipients ?? []
+    });
+  }
+
   committeeOnlyAudience(): boolean {
-    if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST && this.session.state.selectedListId !== null) {
-      return this.pool.committeeOnlyLists().some(list => list.id === this.session.state.selectedListId);
+    const listId = this.campaignListId();
+    if (listId !== null && (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST || this.wholeMailingListSelected())) {
+      return this.pool.committeeOnlyLists().some(list => list.id === listId);
     } else {
       const headers = this.expandedHeaderRecipients(this.headerRecipients());
       const members = this.recipientsForAddressMode();
@@ -214,10 +239,11 @@ export class EmailComposerRecipientResolutionService {
   }
 
   uniqueSendEntries(): EmailComposerRecipientEntry[] {
-    if (this.sendingAsCampaign() && this.session.state.selectedListId !== null) {
+    const campaignListId = this.campaignListId();
+    if (this.sendingAsCampaign() && campaignListId !== null) {
       return this.pool.members
         .filter(this.memberService.filterFor.GROUP_MEMBERS)
-        .filter(member => this.mailListUpdaterService.memberSubscribed(member, this.session.state.selectedListId!))
+        .filter(member => this.mailListUpdaterService.memberSubscribed(member, campaignListId))
         .map(member => ({ name: this.previewMemberName(member), member }));
     } else {
       const fromHeaders = this.uniqueEntriesFrom(this.headerRecipients());
@@ -276,7 +302,12 @@ export class EmailComposerRecipientResolutionService {
     if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
       return false;
     } else {
-      return composerSendsAsCampaign(this.session.state.recipientMode, this.session.state.brandingMode, this.committeeOnlyAudience());
+      return composerSendsAsCampaign(
+        this.session.state.recipientMode,
+        this.session.state.brandingMode,
+        this.committeeOnlyAudience(),
+        this.wholeMailingListSelected()
+      );
     }
   }
 
