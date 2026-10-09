@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { EmailComposer } from "./email-composer";
 import { Confirm, StoredValue } from "../../models/ui-actions";
-import { ComposerShowAction } from "../../models/email-composer.model";
+import { ComposerShowAction, EmailComposerStepKey } from "../../models/email-composer.model";
 import { BrandingMode } from "../../models/mail.model";
 import { ButtonDropdownItemType } from "../../models/button-dropdown.model";
 import { faFile, faFolderOpen, faPaperPlane } from "@fortawesome/free-solid-svg-icons";
@@ -103,6 +103,62 @@ describe("composer personal settings", () => {
     expect(instance.startNewEmail).toHaveBeenCalled();
     expect(instance.toggleDraftsPanel).not.toHaveBeenCalled();
     expect(instance.toggleSentEmailsPanel).not.toHaveBeenCalled();
+  });
+
+  it("clears leftover newsletter state when starting a new email", () => {
+    const setActiveStepperTab = vi.fn();
+    const resetForNewComposition = vi.fn();
+    const instance = Object.create(EmailComposer.prototype);
+    Object.assign(instance, {
+      recipients: {
+        forcedMemberId: "member-1",
+        narrowMembersExpanded: false,
+        recipientAddressModeTouched: true,
+        userPickedRecipientMode: true
+      },
+      rememberBranding: false,
+      recipientSources: {mailMessagingConfig: null},
+      session: {
+        state: {subject: "old newsletter"},
+        currentDraftId: "draft-1",
+        inboxReplyContext: {threadId: "thread-1"},
+        notify: {hide: vi.fn()}
+      },
+      drafting: {resetForNewComposition},
+      fragmentEditor: {expandedFragmentIds: new Set(["events"])},
+      documents: {
+        committeeFiles: new Map([["a", {}]]),
+        committeeFileUrlInput: "https://example.org",
+        committeeFileUrlError: "bad",
+        committeeFileUrlAllowedIds: ["a"]
+      },
+      sendConfirm: {clear: vi.fn()},
+      setActiveStepperTab,
+      batchProgress: {},
+      batchJobLost: true,
+      campaignSendComplete: true,
+      nextConfigAfterSend: {},
+      userPickedEmailType: true,
+      userHasEditedComposer: true,
+      cancelArmed: true,
+      lastSavedAt: 1,
+      composeShared: true,
+      draftsPanelOpen: true,
+      unbrandedSenderAlertDismissed: true,
+      routeCompositionKey: "old"
+    });
+    instance.newComposition();
+    expect(resetForNewComposition).toHaveBeenCalled();
+    expect(instance.session.currentDraftId).toBe(null);
+    expect(instance.session.inboxReplyContext).toBe(null);
+    expect(instance.session.state.subject).toBe("");
+    expect(setActiveStepperTab).toHaveBeenCalledWith(EmailComposerStepKey.TEMPLATE, expect.objectContaining({
+      [StoredValue.DRAFT_ID]: null,
+      [StoredValue.EVENT_INCLUSION]: null,
+      [StoredValue.DATE_FROM]: null,
+      [StoredValue.DATE_TO]: null,
+      [StoredValue.THREAD]: null
+    }));
   });
 
   it("starts from the remembered email type when that preference is on", () => {

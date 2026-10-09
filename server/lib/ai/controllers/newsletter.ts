@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
 import debugLib from "debug";
-import { isArray } from "es-toolkit/compat";
+import { isArray, values } from "es-toolkit/compat";
 import { envConfig } from "../../env-config/env-config";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { Ai } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import {
+  NewsletterIntroDetail,
   NewsletterIntroRequest,
   NewsletterPlanRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/ai.model";
@@ -23,7 +24,8 @@ export async function draftNewsletterIntro(req: Request, res: Response): Promise
     periodDescription: req.body?.periodDescription,
     groupName: req.body?.groupName,
     guidance: req.body?.guidance,
-    purpose: req.body?.purpose
+    purpose: req.body?.purpose,
+    detail: values(NewsletterIntroDetail).includes(req.body?.detail) ? req.body.detail : undefined
   };
   if (!request.events.length) {
     res.json({request: {}, response: {output: ""}});
@@ -31,7 +33,10 @@ export async function draftNewsletterIntro(req: Request, res: Response): Promise
     res.status(503).json({request: {}, error: "AI is not enabled in this environment"});
   } else {
     try {
-      const output = await generate(ai, systemPromptFor(request.purpose), buildNewsletterIntroInput(request), NEWSLETTER_INTRO_MAX_TOKENS);
+      const maxTokens = request.detail === NewsletterIntroDetail.MORE
+        ? NEWSLETTER_INTRO_MAX_TOKENS * 2
+        : NEWSLETTER_INTRO_MAX_TOKENS;
+      const output = await generate(ai, systemPromptFor(request.purpose), buildNewsletterIntroInput(request), maxTokens);
       res.json({request: {}, response: {output}});
     } catch (error) {
       debug("newsletter-intro error:", error);

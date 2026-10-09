@@ -101,6 +101,7 @@ export enum EmailCompositionKind {
 export enum NewsletterCadence {
   WEEKLY = "weekly",
   FORTNIGHTLY = "fortnightly",
+  THREE_WEEKS = "three-weeks",
   MONTHLY = "monthly",
   QUARTERLY = "quarterly",
   PROGRAMME = "programme",
@@ -117,6 +118,7 @@ export interface NewsletterCadenceOption {
 export const NEWSLETTER_CADENCE_OPTIONS: NewsletterCadenceOption[] = [
   { key: NewsletterCadence.WEEKLY, label: "Weekly", periodLabel: "the next week", days: 7 },
   { key: NewsletterCadence.FORTNIGHTLY, label: "Fortnightly", periodLabel: "the next fortnight", days: 14 },
+  { key: NewsletterCadence.THREE_WEEKS, label: "Every three weeks", periodLabel: "the next three weeks", days: 21 },
   { key: NewsletterCadence.MONTHLY, label: "Monthly", periodLabel: "the next month", days: 30 },
   { key: NewsletterCadence.QUARTERLY, label: "Quarterly", periodLabel: "the next quarter", days: 91 },
   { key: NewsletterCadence.PROGRAMME, label: "Whole programme", periodLabel: "all future walks on the programme", days: null },

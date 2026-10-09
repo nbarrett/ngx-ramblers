@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { NewsletterIntroEvent, NewsletterIntroPurpose, WalkTimeOfDay } from "../../../projects/ngx-ramblers/src/app/models/ai.model";
+import { NewsletterIntroDetail, NewsletterIntroEvent, NewsletterIntroPurpose, WalkTimeOfDay } from "../../../projects/ngx-ramblers/src/app/models/ai.model";
 import {
   buildNewsletterIntroInput,
   collapsedDescription,
@@ -11,6 +11,7 @@ import {
   eventsByType,
   eventsForPurpose,
   introShouldNameEachWalk,
+  introStyleLine,
   leaderFirstName,
   MAX_EVENTS_IN_PROMPT,
   milesOnlyDistance,
@@ -166,6 +167,22 @@ describe("newsletter-intro", () => {
         "Saturday, 1 August 2026 to Monday, 31 August 2026"
       )).toEqual(false);
     });
+
+    it("never names each walk when less detail is asked for", () => {
+      expect(introShouldNameEachWalk(
+        [walk(), walk({title: "Two"})],
+        "Tuesday, 6 October 2026 to Monday, 12 October 2026",
+        NewsletterIntroDetail.LESS
+      )).toEqual(false);
+    });
+
+    it("names each walk when more detail is asked for, even on a longer programme", () => {
+      expect(introShouldNameEachWalk(
+        Array.from({length: 10}, (_value, index) => walk({title: `Walk ${index}`})),
+        "Saturday, 1 August 2026 to Monday, 31 August 2026",
+        NewsletterIntroDetail.MORE
+      )).toEqual(true);
+    });
   });
 
   describe("walkPatternSummary", () => {
@@ -272,6 +289,7 @@ describe("newsletter-intro", () => {
 
     it("asks for an overview for upcoming events", () => {
       expect(systemPromptFor(NewsletterIntroPurpose.UPCOMING_EVENTS)).toEqual(NEWSLETTER_INTRO_SYSTEM_PROMPT);
+      expect(NEWSLETTER_INTRO_SYSTEM_PROMPT).toContain("Follow the Style line in the source");
       expect(NEWSLETTER_INTRO_SYSTEM_PROMPT).toContain("Closing sentence supplied in the source");
       expect(NEWSLETTER_INTRO_SYSTEM_PROMPT).toContain("Mention every listed change for a walk");
       expect(NEWSLETTER_INTRO_SYSTEM_PROMPT).toContain("Give distances in miles only");
@@ -404,6 +422,34 @@ describe("newsletter-intro", () => {
       expect(input).toContain("Walk pattern: Sunday morning walks");
       expect(input).toContain("Social events: Christmas meal on Fri 12 Dec");
       expect(input).not.toContain("Style: a short period");
+      expect(input).toContain("Style: set the scene in two or three sentences");
+    });
+
+    it("asks for a short overview when less detail is selected", () => {
+      const input = buildNewsletterIntroInput({
+        events: Array.from({length: 8}, (_value, index) => walk({title: `Walk ${index}`})),
+        periodDescription: "Tuesday, 6 October 2026 to Monday, 12 October 2026",
+        detail: NewsletterIntroDetail.LESS
+      });
+
+      expect(input).toContain("Style: less detail");
+      expect(input).not.toContain("Style: a short period");
+      expect(introStyleLine(NewsletterIntroPurpose.UPCOMING_EVENTS, false, NewsletterIntroDetail.LESS)).toContain("Two sentences at most");
+    });
+
+    it("asks to name each walk when more detail is selected", () => {
+      const input = buildNewsletterIntroInput({
+        events: Array.from({length: 8}, (_value, index) => walk({
+          title: `Walk ${index}`,
+          weekday: "Sunday",
+          timeOfDay: WalkTimeOfDay.MORNING
+        })),
+        periodDescription: "Saturday, 1 August 2026 to Monday, 31 August 2026",
+        detail: NewsletterIntroDetail.MORE
+      });
+
+      expect(input).toContain("Style: more detail");
+      expect(input).not.toContain("Walk pattern:");
     });
 
     it("asks the intro to close with walks and social events when both are included", () => {

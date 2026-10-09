@@ -1,6 +1,6 @@
 import { Component, Input, output } from "@angular/core";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
-import { NgClass } from "@angular/common";
+import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { RouterLink } from "@angular/router";
 import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { faCheck } from "@fortawesome/free-solid-svg-icons";
@@ -16,7 +16,7 @@ import {
 
 @Component({
   selector: "app-button-dropdown",
-  imports: [BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FontAwesomeModule, TooltipDirective, RouterLink, NgClass],
+  imports: [BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FontAwesomeModule, TooltipDirective, RouterLink, NgClass, NgTemplateOutlet],
   host: {
     "[class.full-width]": "fullWidth"
   },
@@ -93,6 +93,25 @@ import {
       flex: 0 0 1.15em
       width: 1.15em
       line-height: 1
+
+    .dropdown-item-copy
+      display: flex
+      flex-direction: column
+      align-items: flex-start
+      justify-content: center
+      min-width: 0
+      flex: 1 1 auto
+      line-height: 1.25
+      text-align: left
+
+    .dropdown-item-extra
+      margin-top: 0.15em
+      font-size: 0.8125rem
+      font-weight: 400
+      color: var(--bs-secondary-color, #6c757d)
+
+    .dropdown-item-selected
+      margin-left: auto
   `],
   template: `
     <div class="btn-group" [class.w-100]="fullWidth" [ngClass]="groupClass"
@@ -156,50 +175,26 @@ import {
               @default {
                 <li role="menuitem">
                   @if (item.routerLink) {
-                    <a class="dropdown-item d-flex align-items-center" [class.text-danger]="item.danger"
+                    <a class="dropdown-item" [class.text-danger]="item.danger"
                        [class.disabled]="item.disabled" [ngClass]="item.itemClass"
                        [routerLink]="item.routerLink" [queryParams]="item.queryParams"
                        [tooltip]="item.tooltip" [placement]="item.tooltipPlacement || 'left'" container="body">
-                      @if (item.icon) {
-                        <fa-icon [icon]="item.icon"/>
-                      }
-                      <span>{{ item.label }}</span>
-                      @if (item.extraLabel) {
-                        <span class="text-muted small ms-1">{{ item.extraLabel }}</span>
-                      }
-                      @if (item.selected) {
-                        <fa-icon [icon]="faCheck" class="ms-auto ps-3"/>
-                      }
+                      <ng-container *ngTemplateOutlet="itemBody; context: {$implicit: item}"/>
                     </a>
                   } @else if (item.href) {
-                    <a class="dropdown-item d-flex align-items-center" [class.text-danger]="item.danger"
+                    <a class="dropdown-item" [class.text-danger]="item.danger"
                        [class.disabled]="item.disabled" [ngClass]="item.itemClass"
                        [href]="item.href" [target]="item.target || '_self'" [attr.rel]="item.rel"
                        [tooltip]="item.tooltip" [placement]="item.tooltipPlacement || 'left'" container="body">
-                      @if (item.icon) {
-                        <fa-icon [icon]="item.icon"/>
-                      }
-                      <span>{{ item.label }}</span>
-                      @if (item.extraLabel) {
-                        <span class="text-muted small ms-1">{{ item.extraLabel }}</span>
-                      }
+                      <ng-container *ngTemplateOutlet="itemBody; context: {$implicit: item}"/>
                     </a>
                   } @else {
-                    <button type="button" class="dropdown-item d-flex align-items-center"
+                    <button type="button" class="dropdown-item"
                             [class.text-danger]="item.danger"
                             [ngClass]="item.itemClass" [disabled]="item.disabled"
                             [tooltip]="item.tooltip" [placement]="item.tooltipPlacement || 'left'" container="body"
                             (click)="choose(item)">
-                      @if (item.icon) {
-                        <fa-icon [icon]="item.icon"/>
-                      }
-                      <span>{{ item.label }}</span>
-                      @if (item.extraLabel) {
-                        <span class="text-muted small ms-1">{{ item.extraLabel }}</span>
-                      }
-                      @if (item.selected) {
-                        <fa-icon [icon]="faCheck" class="ms-auto ps-3"/>
-                      }
+                      <ng-container *ngTemplateOutlet="itemBody; context: {$implicit: item}"/>
                     </button>
                   }
                 </li>
@@ -209,6 +204,20 @@ import {
         }
       </ul>
     </div>
+    <ng-template #itemBody let-item>
+      @if (item.icon) {
+        <fa-icon [icon]="item.icon"/>
+      }
+      <span class="dropdown-item-copy">
+        <span>{{ item.label }}</span>
+        @if (item.extraLabel) {
+          <span class="dropdown-item-extra">{{ item.extraLabel }}</span>
+        }
+      </span>
+      @if (item.selected) {
+        <fa-icon [icon]="faCheck" class="dropdown-item-selected"/>
+      }
+    </ng-template>
   `
 })
 export class ButtonDropdownComponent {

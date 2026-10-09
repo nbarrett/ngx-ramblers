@@ -1,5 +1,7 @@
 import {
+  DEFAULT_NEWSLETTER_INTRO_DETAIL,
   DEFAULT_NEWSLETTER_INTRO_PURPOSE,
+  NewsletterIntroDetail,
   NewsletterIntroEvent,
   NewsletterIntroFieldChange,
   NewsletterIntroPurpose,
@@ -24,6 +26,7 @@ export const NEWSLETTER_INTRO_SYSTEM_PROMPT = [
   "Do not open with how many events there are.",
   "Do not say the programme continues, and do not invent a weekly series from a single walk.",
   "Once dates are stated, do not add that the walks are spread across the week, the fortnight or the month.",
+  "Follow the Style line in the source for how much detail to include.",
   "The full details follow immediately underneath, so the introduction only needs to set the scene.",
   "If any walks have listed changes, mention those differences in the same introduction, naming the walk as the leader's walk when a first name is listed (Alex's Chilham circular, not The Chilham circular) and saying what changed from the old value to the new value.",
   "Never write that a walk has seen some changes, has been updated, or differs from its original listing. Always say the old value and the new value.",
@@ -33,7 +36,7 @@ export const NEWSLETTER_INTRO_SYSTEM_PROMPT = [
   "Write listed changes as a person would say them. Do not copy the Changes line word for word.",
   "Do not mention a change unless it is listed, and do not mention walks with no listed changes when talking about differences.",
   "If several walks have changed, a short markdown bullet list of those changes is fine after the overview.",
-  "Two or three sentences is usually enough for the overview, and never more than four before any change list.",
+  "Two or three sentences is usually enough for the overview unless the Style line asks for more, and never more than four before any change list unless the Style line asks you to name each walk.",
   "The last sentence must be the Closing sentence supplied in the source, word for word.",
   "Use only the facts supplied. Do not invent walks, places, distances, dates, weather, people or anything else that is not in the source.",
   "If you mention a fact from the source, include it in full. Never cut a word or sentence short, and never use an ellipsis.",
@@ -123,15 +126,43 @@ export function periodSpanDays(periodDescription: string | undefined): number | 
   }
 }
 
-export function introShouldNameEachWalk(events: NewsletterIntroEvent[], periodDescription?: string): boolean {
-  const span = periodSpanDays(periodDescription);
-  if (span !== null && span <= SHORT_PERIOD_DAYS) {
-    return true;
-  } else if (/\b(this|next|one)\s+week\b/i.test(periodDescription || "")) {
-    return true;
+export function introShouldNameEachWalk(
+  events: NewsletterIntroEvent[],
+  periodDescription?: string,
+  detail?: NewsletterIntroDetail
+): boolean {
+  if (detail === NewsletterIntroDetail.LESS) {
+    return false;
+  } else if (detail === NewsletterIntroDetail.MORE) {
+    return (events ?? []).length > 0;
   } else {
-    const count = (events ?? []).length;
-    return count > 0 && count <= NAME_EACH_WALK_LIMIT;
+    const span = periodSpanDays(periodDescription);
+    if (span !== null && span <= SHORT_PERIOD_DAYS) {
+      return true;
+    } else if (/\b(this|next|one)\s+week\b/i.test(periodDescription || "")) {
+      return true;
+    } else {
+      const count = (events ?? []).length;
+      return count > 0 && count <= NAME_EACH_WALK_LIMIT;
+    }
+  }
+}
+
+export function introStyleLine(
+  purpose: NewsletterIntroPurpose,
+  nameEachWalk: boolean,
+  detail: NewsletterIntroDetail
+): string | null {
+  if (purpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST) {
+    return null;
+  } else if (detail === NewsletterIntroDetail.LESS) {
+    return "Style: less detail. Two sentences at most. Do not list walks. Mention at most one or two highlights by name.";
+  } else if (detail === NewsletterIntroDetail.MORE) {
+    return "Style: more detail. Name each walk with its day and, where listed, the leader's first name. A markdown bullet list of the walks is fine after a short overview.";
+  } else if (nameEachWalk) {
+    return "Style: a short period. Name each walk with its day and, where listed, the leader's first name. Do not collapse them into a weekday pattern.";
+  } else {
+    return "Style: set the scene in two or three sentences. Name a few highlights. Do not list every walk.";
   }
 }
 
@@ -217,21 +248,21 @@ export function eventsByType(events: NewsletterIntroEvent[]): Map<string, Newsle
 
 export function buildNewsletterIntroInput(request: NewsletterIntroRequest): string {
   const purpose = request?.purpose ?? DEFAULT_NEWSLETTER_INTRO_PURPOSE;
+  const detail = request?.detail ?? DEFAULT_NEWSLETTER_INTRO_DETAIL;
   const allEvents = eventsForPurpose(request?.events, purpose);
   const events = allEvents.slice(0, MAX_EVENTS_IN_PROMPT);
   const newCount = events.filter(event => event.newSinceLastNewsletter).length;
   const changedCount = events.filter(event => (event.changes?.length ?? 0) > 0).length;
   const detailsPhrase = purpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST ? null : closingDetailsPhrase(events);
-  const nameEachWalk = purpose !== NewsletterIntroPurpose.WALK_LEADER_REQUEST && introShouldNameEachWalk(events, request?.periodDescription);
+  const nameEachWalk = purpose !== NewsletterIntroPurpose.WALK_LEADER_REQUEST
+    && introShouldNameEachWalk(events, request?.periodDescription, detail);
   const walkPattern = purpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST || nameEachWalk ? null : walkPatternSummary(events);
   const socials = purpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST ? null : socialEventsSummary(events);
   const guidance = collapsedDescription(request?.guidance);
   const heading = [
     request?.groupName ? `Group: ${request.groupName}` : null,
     request?.periodDescription ? `Period covered: ${request.periodDescription}` : null,
-    nameEachWalk
-      ? "Style: a short period. Name each walk with its day and, where listed, the leader's first name. Do not collapse them into a weekday pattern."
-      : null,
+    allEvents.length ? introStyleLine(purpose, nameEachWalk, detail) : null,
     walkPattern ? `Walk pattern: ${walkPattern}` : null,
     socials ? `Social events: ${socials}` : null,
     guidance ? `Guidance from the sender: ${guidance}` : null,

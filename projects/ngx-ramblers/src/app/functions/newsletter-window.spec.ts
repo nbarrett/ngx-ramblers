@@ -46,6 +46,7 @@ describe("newsletter-window", () => {
     it("resolves a span for each fixed cadence", () => {
       expect(cadenceDays(NewsletterCadence.WEEKLY)).toBe(7);
       expect(cadenceDays(NewsletterCadence.FORTNIGHTLY)).toBe(14);
+      expect(cadenceDays(NewsletterCadence.THREE_WEEKS)).toBe(21);
       expect(cadenceDays(NewsletterCadence.MONTHLY)).toBe(30);
       expect(cadenceDays(NewsletterCadence.QUARTERLY)).toBe(91);
       expect(cadenceDays(NewsletterCadence.PROGRAMME)).toBeNull();
@@ -165,6 +166,8 @@ describe("newsletter-window", () => {
     it("names walks and socials for the chosen period", () => {
       expect(newsletterSubjectFromSelection(true, true, NewsletterCadence.FORTNIGHTLY, "7 October to 21 October 2026"))
         .toEqual("Walks and socials for the next fortnight");
+      expect(newsletterSubjectFromSelection(true, true, NewsletterCadence.THREE_WEEKS, "7 October to 28 October 2026"))
+        .toEqual("Walks and socials for the next three weeks");
     });
 
     it("names walks only when there are no socials", () => {
