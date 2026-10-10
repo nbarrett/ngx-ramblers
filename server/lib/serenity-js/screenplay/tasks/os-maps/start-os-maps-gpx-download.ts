@@ -33,7 +33,16 @@ export class StartOsMapsGpxDownload extends Task {
     const outcome = osMapsExportOutcome();
     clearOsMapsExportOutcome();
     if (outcome === OsMapsExportClickOutcome.CONFIRMATION_SHOWN) {
-      await actor.attemptsTo(ConfirmOsMapsExport.now());
+      try {
+        await actor.attemptsTo(ConfirmOsMapsExport.now());
+      } catch (error) {
+        if (attemptsRemaining > 1) {
+          await actor.attemptsTo(DismissOsMapsOverlays.now());
+          await this.clickUntilDownloadStarts(actor, attemptNumber + 1, attemptsRemaining - 1);
+        } else {
+          throw error;
+        }
+      }
     } else if (OUTCOMES_WORTH_ANOTHER_CLICK.includes(outcome) && attemptsRemaining > 1) {
       await actor.attemptsTo(DismissOsMapsOverlays.now());
       await this.clickUntilDownloadStarts(actor, attemptNumber + 1, attemptsRemaining - 1);
