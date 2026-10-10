@@ -1,8 +1,10 @@
 import { CommitteeMember, ForwardEmailTarget, RoleType } from "../models/committee.model";
+import { SendSmtpEmailParams } from "../models/mail.model";
 import {
   contactUsDeliveryProblem,
   effectiveContactUsTarget,
-  resolveContactUsRecipientAddresses
+  resolveContactUsRecipientAddresses,
+  withContactUsRecipientMergeFields
 } from "./contact-us-delivery";
 
 function role(partial: Partial<CommitteeMember>): CommitteeMember {
@@ -87,4 +89,65 @@ describe("contact-us-delivery", () => {
     );
     expect(problem).toBeNull();
   });
+
+  it("greets the committee recipient rather than the visitor on the inbound copy", () => {
+    const params = visitorParams();
+    const updated = withContactUsRecipientMergeFields(params, [
+      {name: "Pat Taylor", email: "chair@group.example.org.uk"}
+    ]);
+    expect(updated.memberMergeFields.FNAME).toBe("Pat");
+    expect(updated.memberMergeFields.LNAME).toBe("Taylor");
+    expect(updated.memberMergeFields.FULL_NAME).toBe("Pat Taylor");
+    expect(updated.memberMergeFields.EMAIL).toBe("chair@group.example.org.uk");
+    expect(params.memberMergeFields.FNAME).toBe("Alex");
+  });
+
+  it("keeps the visitor greeting when the copy is sent to the visitor", () => {
+    const updated = withContactUsRecipientMergeFields(visitorParams(), [
+      {name: "Alex Reed", email: "alex.reed@example.com"}
+    ]);
+    expect(updated.memberMergeFields.FNAME).toBe("Alex");
+    expect(updated.memberMergeFields.EMAIL).toBe("alex.reed@example.com");
+  });
+
+  it("leaves merge fields unchanged when there is no recipient", () => {
+    const params = visitorParams();
+    const updated = withContactUsRecipientMergeFields(params, []);
+    expect(updated).toBe(params);
+  });
 });
+
+function visitorParams(): SendSmtpEmailParams {
+  return {
+    messageMergeFields: {
+      subject: "Website Enquiry",
+      BANNER_IMAGE_SOURCE: "",
+      ADDRESS_LINE: "Hi {{params.memberMergeFields.FNAME}},"
+    },
+    memberMergeFields: {
+      FULL_NAME: "Alex Reed",
+      EMAIL: "alex.reed@example.com",
+      FNAME: "Alex",
+      LNAME: "Reed",
+      MEMBER_NUM: "",
+      MEMBER_EXP: "",
+      USERNAME: "",
+      PW_RESET: ""
+    },
+    systemMergeFields: {
+      APP_URL: "https://group.example.org.uk",
+      APP_SHORTNAME: "Hillside",
+      APP_LONGNAME: "Hillside Park Ramblers",
+      PW_RESET_LINK: "",
+      FACEBOOK_URL: "",
+      TWITTER_URL: "",
+      INSTAGRAM_URL: ""
+    },
+    accountMergeFields: {
+      STREET: "",
+      POSTCODE: "",
+      TOWN: "",
+      REGISTERED_OFFICE: ""
+    }
+  };
+}

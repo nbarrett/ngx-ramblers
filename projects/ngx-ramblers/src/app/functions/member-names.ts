@@ -1,4 +1,5 @@
-import { isString } from "es-toolkit/compat";
+import { first, isString } from "es-toolkit/compat";
+import { FirstAndLastName } from "../models/member.model";
 
 export type MemberNameParts = {
   firstName?: string | null;
@@ -6,6 +7,14 @@ export type MemberNameParts = {
   lastName?: string | null;
   displayName?: string | null;
 };
+
+export function firstAndLastNameFrom(contactName: string | null): FirstAndLastName | null {
+  const contactNames = contactName ? contactName.split(" ") : [];
+  return contactName ? {
+    firstName: first(contactNames),
+    lastName: contactNames.length > 1 ? contactNames.slice(1).join(" ") : ""
+  } : null;
+}
 
 export function trimmedNamePart(value: unknown): string {
   return isString(value) ? value.trim() : "";

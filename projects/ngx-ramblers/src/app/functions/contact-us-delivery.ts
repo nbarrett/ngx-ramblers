@@ -1,9 +1,25 @@
 import { CommitteeMember, ForwardEmailTarget } from "../models/committee.model";
-import { EmailAddress } from "../models/mail.model";
+import { EmailAddress, SendSmtpEmailParams } from "../models/mail.model";
+import { firstAndLastNameFrom, memberFullName } from "./member-names";
 import { normaliseEmail } from "./strings";
 
 export function effectiveContactUsTarget(member: CommitteeMember): ForwardEmailTarget | undefined {
   return member?.contactUsTarget ?? member?.forwardEmailTarget;
+}
+
+export function withContactUsRecipientMergeFields(params: SendSmtpEmailParams, to: EmailAddress[]): SendSmtpEmailParams {
+  const recipient = to?.[0];
+  const names = recipient ? firstAndLastNameFrom(recipient.name) : null;
+  return params?.memberMergeFields && recipient ? {
+    ...params,
+    memberMergeFields: {
+      ...params.memberMergeFields,
+      EMAIL: recipient.email || "",
+      FNAME: names?.firstName || "",
+      LNAME: names?.lastName || "",
+      FULL_NAME: recipient.name || memberFullName(names)
+    }
+  } : params;
 }
 
 export function resolveContactUsRecipientAddresses(
