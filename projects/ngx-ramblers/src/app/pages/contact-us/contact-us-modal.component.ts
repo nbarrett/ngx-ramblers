@@ -29,7 +29,7 @@ import { ContactInteractionService } from "../../services/contact-interaction.se
 import { ContactInteractionStatus } from "../../models/booking.model";
 import { StoredValue } from "../../models/ui-actions";
 import { redirectPathFrom } from "../../functions/redirect-path";
-import { contactUsDeliveryProblem, effectiveContactUsTarget } from "../../functions/contact-us-delivery";
+import { contactUsDeliveryProblem, effectiveContactUsTarget, withContactUsRecipientMergeFields } from "../../functions/contact-us-delivery";
 
 @Component({
     selector: "app-contact-modal",
@@ -381,13 +381,17 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
 
   sendInboundEmailRequest(): Promise<void> {
     this.logger.info("sendInboundEmailRequest:contactFormDetails:", this.contactFormDetails);
-    const visitorName: FirstAndLastName = this.memberNamingService.firstAndLastNameFrom(this.contactFormDetails.name);
     const email = this.contactFormDetails.anonymous ? `noreply@${this.urlService.baseDomain()}` : this.contactFormDetails.email;
     const replyTo = {email, name: this.contactFormDetails.name};
     const to: EmailAddress[] = this.mailMessagingService.resolveContactRecipients(this.committeeMember);
+    const recipientName = this.memberNamingService.firstAndLastNameFrom(to[0]?.name || this.contactDisplayName());
     const formBodyHtml = this.inboundBodyContent();
     const emailRequest: SendSmtpEmailRequest = this.mailMessagingService.createEmailRequest({
-      member: {email, firstName: visitorName?.firstName || null, lastName: visitorName?.lastName || null},
+      member: {
+        email: to[0]?.email || this.committeeMember?.email,
+        firstName: recipientName?.firstName || "",
+        lastName: recipientName?.lastName || ""
+      },
       notificationConfig: this.notificationConfig,
       notificationDirective: this.notificationDirective,
       emailSubject: this.contactFormDetails.subject,
@@ -398,6 +402,9 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
     });
     emailRequest.contactUsRecipientRole = this.committeeMember?.type || null;
     emailRequest.contactUsFormBodyHtml = formBodyHtml;
+    if (emailRequest.params) {
+      emailRequest.params = withContactUsRecipientMergeFields(emailRequest.params, to);
+    }
     this.logger.info("sendInboundEmailRequest:emailRequest:", emailRequest);
     return this.contactUsService.sendTransactionalMessage(emailRequest);
   }
@@ -416,6 +423,9 @@ export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit
         sender: this.mailMessagingService.createBrevoAddress(this.notificationConfig.senderRole),
         to: [to]
       });
+      if (emailRequest.params) {
+        emailRequest.params = withContactUsRecipientMergeFields(emailRequest.params, [to]);
+      }
       this.logger.info("sendEmailRequest:emailRequest:", emailRequest);
       return this.contactUsService.sendTransactionalMessage(emailRequest);
     } else {

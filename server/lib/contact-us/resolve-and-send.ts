@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { Brevo } from "@getbrevo/brevo";
 import { sendTransactionalMail } from "../brevo/transactional-mail/send-transactional-mail";
 import { ramblersAccountMergeFields } from "../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
+import { withContactUsRecipientMergeFields } from "../../../projects/ngx-ramblers/src/app/functions/contact-us-delivery";
 import { performTemplateSubstitution } from "../brevo/common/messages";
 import * as config from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
@@ -358,6 +359,7 @@ export async function sendContactUsTransactionalMail(req: Request, res: Response
       });
     } else {
       if (emailRequest.params) {
+        emailRequest.params = withContactUsRecipientMergeFields(emailRequest.params, emailRequest.to);
         emailRequest.params.accountMergeFields = ramblersAccountMergeFields();
       }
       const role = requestedRecipients.length > 0 ? requestedRole : fallbackRole;
@@ -373,6 +375,9 @@ export async function sendContactUsTransactionalMail(req: Request, res: Response
       } else {
         if (storedToInbox && externalTo.length > 0) {
           emailRequest.to = externalTo;
+          if (emailRequest.params) {
+            emailRequest.params = withContactUsRecipientMergeFields(emailRequest.params, externalTo);
+          }
           debugLog("sendContactUsTransactionalMail: stored to inbox and sending SMTP to external recipients %o", externalTo);
         } else {
           debugLog("sendContactUsTransactionalMail:resolved to:", emailRequest.to);

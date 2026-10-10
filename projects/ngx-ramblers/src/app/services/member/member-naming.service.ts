@@ -1,7 +1,6 @@
 import { inject, Injectable } from "@angular/core";
-import { first } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
-import { abbreviatedWalksManagerContactName, memberFullName } from "../../functions/member-names";
+import { abbreviatedWalksManagerContactName, firstAndLastNameFrom, memberFullName } from "../../functions/member-names";
 import { defaultDisplayName } from "../../functions/walks/ramblers-event.mapper";
 import { FirstAndLastName, HasEmailFirstAndLastName, Member, RamblersMember } from "../../models/member.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -17,15 +16,8 @@ export class MemberNamingService {
     return contactName ? defaultDisplayName(contactName) : null;
   }
 
-  public firstAndLastNameFrom(contactName: string): FirstAndLastName {
-    if (contactName) {
-      const contactNames: string[] = contactName?.split(" ");
-      const firstName = first(contactNames);
-      const lastName = contactNames.length > 1 ? contactNames.slice(1).join(" ") : "";
-      return {firstName, lastName};
-    } else {
-      return null;
-    }
+  public firstAndLastNameFrom(contactName: string | null): FirstAndLastName | null {
+    return firstAndLastNameFrom(contactName);
   }
 
   public memberFullName(member: Member, defaultValue = ""): string {
