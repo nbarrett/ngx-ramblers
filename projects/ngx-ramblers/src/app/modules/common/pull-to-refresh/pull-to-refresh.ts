@@ -1,12 +1,14 @@
 import { DOCUMENT } from "@angular/common";
-import { ChangeDetectorRef, Component, inject, NgZone, OnDestroy, OnInit } from "@angular/core";
+import { booleanAttribute, ChangeDetectorRef, Component, inject, Input, NgZone, OnDestroy, OnInit } from "@angular/core";
+import { NgxLoggerLevel } from "ngx-logger";
+import { LoggerFactory } from "../../../services/logger-factory.service";
 
 @Component({
   selector: "app-pull-to-refresh",
   template: `
-    <div class="pull-to-refresh" [class.pull-to-refresh-ready]="ready()" [class.pull-to-refresh-busy]="refreshing"
-         [class.pull-to-refresh-visible]="visible()" [style.height.px]="indicatorHeight()" aria-hidden="true">
-      <div class="pull-sunburst" [class.pull-sunburst-busy]="visible()">
+    <div class="pull-to-refresh" [class.pull-to-refresh-inline]="inline" [class.pull-to-refresh-ready]="ready()" [class.pull-to-refresh-busy]="refreshing"
+         [class.pull-to-refresh-visible]="visible()" [style.height.px]="indicatorHeight()" role="status" aria-label="Refreshing" [attr.aria-hidden]="visible() ? null : true">
+      <div aria-hidden="true" class="pull-sunburst" [class.pull-sunburst-busy]="visible()">
         @for (tick of ticks; track tick) {
           <span class="pull-sunburst-tick" [style.transform]="'rotate(' + (tick * 30) + 'deg)'"></span>
         }
@@ -16,11 +18,15 @@ import { ChangeDetectorRef, Component, inject, NgZone, OnDestroy, OnInit } from 
   styleUrls: ["./pull-to-refresh.sass"]
 })
 export class PullToRefreshComponent implements OnInit, OnDestroy {
+  @Input() refreshAction: (() => Promise<void>) | null = null;
+  @Input({transform: booleanAttribute}) allowLinkPull = false;
+  @Input({transform: booleanAttribute}) inline = false;
+  private logger = inject(LoggerFactory).createLogger("PullToRefreshComponent", NgxLoggerLevel.ERROR);
   private document = inject(DOCUMENT);
   private changeDetector = inject(ChangeDetectorRef);
   private zone = inject(NgZone);
   protected readonly ticks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-  protected refreshing = false;
+  refreshing = false;
   private pull = {active: false, startX: 0, startY: 0, distance: 0, committed: false};
   private listeners: {target: EventTarget; type: string; listener: EventListener; options: AddEventListenerOptions}[] = [];
   private readonly threshold = 72;
@@ -98,11 +104,7 @@ export class PullToRefreshComponent implements OnInit, OnDestroy {
   private onTouchEnd(): void {
     if (this.pull.active && this.pull.committed && !this.refreshing) {
       if (this.pull.distance >= this.threshold) {
-        this.refreshing = true;
-        this.pull.distance = this.threshold;
-        this.shiftPage(this.threshold, true);
-        this.redraw();
-        this.document.defaultView?.location.reload();
+        void this.refresh();
       } else {
         this.pull.distance = 0;
         this.shiftPage(0, true);
@@ -115,6 +117,35 @@ export class PullToRefreshComponent implements OnInit, OnDestroy {
     }
     this.pull.active = false;
     this.pull.committed = false;
+  }
+
+  async refresh(): Promise<void> {
+    if (!this.refreshing) {
+      this.refreshing = true;
+      this.pull.distance = this.threshold;
+      this.shiftPage(this.threshold, true);
+      this.redraw();
+      await this.refreshContent();
+    }
+  }
+
+  private async refreshContent(): Promise<void> {
+    try {
+      if (this.refreshAction) {
+        await this.refreshAction();
+      } else {
+        this.document.defaultView?.location.reload();
+      }
+    } catch (error) {
+      this.logger.error("Pull to refresh failed", error);
+    } finally {
+      if (this.refreshAction) {
+        this.refreshing = false;
+        this.pull.distance = 0;
+        this.shiftPage(0, true);
+        this.redraw();
+      }
+    }
   }
 
   private controlTouch(event: TouchEvent): boolean {
@@ -132,7 +163,7 @@ export class PullToRefreshComponent implements OnInit, OnDestroy {
 
   private blocksPull(node: Element): boolean {
     if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement
-      || node instanceof HTMLButtonElement || node instanceof HTMLAnchorElement || node instanceof HTMLLabelElement) {
+      || node instanceof HTMLButtonElement || (node instanceof HTMLAnchorElement && !this.allowLinkPull) || node instanceof HTMLLabelElement) {
       return true;
     } else if (node instanceof HTMLElement && node.isContentEditable) {
       return true;
@@ -149,9 +180,11 @@ export class PullToRefreshComponent implements OnInit, OnDestroy {
   }
 
   private shiftPage(distance: number, animate: boolean): void {
-    const page = this.scroller();
-    page.style.transition = animate ? "transform 0.22s ease" : "none";
-    page.style.transform = distance > 0 ? `translateY(${distance}px)` : "";
+    if (!this.refreshAction) {
+      const page = this.scroller();
+      page.style.transition = animate ? "transform 0.22s ease" : "none";
+      page.style.transform = distance > 0 ? `translateY(${distance}px)` : "";
+    }
   }
 
   private scrollerAtTop(): boolean {

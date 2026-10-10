@@ -5,7 +5,7 @@ import { NavigationEnd, NavigationStart, Router } from "@angular/router";
 import { BehaviorSubject } from "rxjs";
 import { filter } from "rxjs/operators";
 import { environment } from "../../../environments/environment";
-import { AppAppearance, appAppearanceFromStored, AppInstallPlatform, AppPath, nextAppAppearance } from "../../models/route-follow.model";
+import { AppAppearance, appAppearanceFromStored, AppInstallPlatform, AppPath, nextAppAppearance, NGX_RAMBLERS_APP_NAME } from "../../models/route-follow.model";
 import { StoredValue } from "../../models/ui-actions";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -150,7 +150,7 @@ export class AppShellService {
   }
 
   applyHomeScreenIdentity(shortName: string): void {
-    const name = shortName || "Ramblers";
+    const name = shortName || NGX_RAMBLERS_APP_NAME;
     this.setMetaContent("application-name", name);
     this.setMetaContent("apple-mobile-web-app-title", name);
     void this.replaceManifestNames(name);

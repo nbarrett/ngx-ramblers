@@ -1,4 +1,5 @@
 import { OsMapsImportContext } from "./os-maps-export.model";
+import { FileNameData } from "./aws-object.model";
 import { RouteAudit } from "./audit";
 import * as L from "leaflet";
 import { toSlug } from "../functions/strings";
@@ -10,6 +11,12 @@ export enum AppPath {
   ROOT = "app",
   ROUTE = "route",
   LEGACY_FOLLOW = "follow"
+}
+
+export const NGX_RAMBLERS_APP_NAME = "NGX-Ramblers";
+
+export function walkingAppName(group?: {shortName?: string; longName?: string} | null): string {
+  return group?.shortName || group?.longName || NGX_RAMBLERS_APP_NAME;
 }
 
 export const APP_NEARBY_MILES = 25;
@@ -261,6 +268,7 @@ export interface CachedFollowRoute {
 
 export interface RouteFollowSession {
   recordingId?: string | null;
+  recordingDetailsOpen?: boolean;
   walkId: string | null;
   path: string | null;
   routeId: string | null;
@@ -294,6 +302,7 @@ export function isLiveFollowMode(mode: RouteFollowMode): boolean {
 }
 
 export enum RouteFollowLocationError {
+  ACQUIRING = "acquiring",
   NONE = "none",
   INACCURATE = "inaccurate",
   UNSUPPORTED = "unsupported",
@@ -454,6 +463,12 @@ export enum RouteDetailsPart {
   ALL = "all"
 }
 
+export enum RouteDirectionsChrome {
+  PANEL = "panel",
+  GENERATE_ONLY = "generate-only",
+  VIEW = "view"
+}
+
 export const ROUTE_EXCLUDED_FEATURES: Feature[] = [Feature.CAR_SHARING, Feature.COACH_TRIP, Feature.INTRODUCTORY_WALK];
 
 export interface WriteUpSection {
@@ -570,6 +585,7 @@ export interface RouteFollowPayload extends RouteAudit, OsMapsImportContext {
   color: string;
   weight: number;
   opacity: number;
+  gpxFile?: FileNameData | null;
   points: RouteFollowPoint[];
   waypoints: RouteFollowWaypoint[];
   totalMetres: number;
@@ -580,6 +596,7 @@ export interface RouteFollowPayload extends RouteAudit, OsMapsImportContext {
 }
 
 export interface RouteFollowSummary extends RouteAudit, OsMapsImportContext {
+  gpxFile?: FileNameData | null;
   canEdit?: boolean;
   recordingId?: string | null;
   description?: string | null;
@@ -673,7 +690,8 @@ export function followRouteIdFromQuery(value: string | null | undefined): string
   }
 }
 
-export const ROUTE_FOLLOW_NETWORK_TIMEOUT_MS = 12000;
+export const APP_HOME_NETWORK_TIMEOUT_MS = 30000;
+export const ROUTE_FOLLOW_NETWORK_TIMEOUT_MS = 30000;
 
 export function formatDataSize(bytes: number): string {
   if (bytes < 1024) {
@@ -787,12 +805,12 @@ const FOLLOW_MAP_SCALE_CHOICES: FollowMapScaleBarChoice[] = [
   {metres: 200 * METRES_PER_FOOT, label: "200 ft"},
   {metres: 500 * METRES_PER_FOOT, label: "500 ft"},
   {metres: 1000 * METRES_PER_FOOT, label: "1000 ft"},
-  {metres: 0.25 * METRES_PER_MILE, label: "0.25 mi"},
-  {metres: 0.5 * METRES_PER_MILE, label: "0.5 mi"},
-  {metres: 1 * METRES_PER_MILE, label: "1 mi"},
-  {metres: 2 * METRES_PER_MILE, label: "2 mi"},
-  {metres: 5 * METRES_PER_MILE, label: "5 mi"},
-  {metres: 10 * METRES_PER_MILE, label: "10 mi"}
+  {metres: 0.25 * METRES_PER_MILE, label: "0.25 miles"},
+  {metres: 0.5 * METRES_PER_MILE, label: "0.5 miles"},
+  {metres: 1 * METRES_PER_MILE, label: "1 mile"},
+  {metres: 2 * METRES_PER_MILE, label: "2 miles"},
+  {metres: 5 * METRES_PER_MILE, label: "5 miles"},
+  {metres: 10 * METRES_PER_MILE, label: "10 miles"}
 ];
 
 interface FollowMapScaleBarChoice {
@@ -915,7 +933,7 @@ export function followScaleDisplayLabel(label: string): string {
 }
 
 export function followScaleHalfLabel(label: string): string {
-  const match = label.match(/^([\d.]+)\s*(ft|mi)$/);
+  const match = label.match(/^([\d.]+)\s*(ft|miles|mile)$/);
   if (!match) {
     return "";
   } else {
@@ -924,7 +942,7 @@ export function followScaleHalfLabel(label: string): string {
       return `${Math.round(value)} ft`;
     } else {
       const miles = value >= 1 ? (value >= 10 ? value.toFixed(0) : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")) : String(value);
-      return `${miles} mi`;
+      return Number(miles) === 1 ? "1 mile" : `${miles} miles`;
     }
   }
 }

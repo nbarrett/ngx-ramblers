@@ -92,6 +92,24 @@ describe("RouteFollowService", () => {
     expect(service.trackPoints()).toHaveLength(2);
   });
 
+  it("restores recorded points and waits for a fresh fix instead of restoring stale GPS status", () => {
+    service.loadRoute([], [], "fictional-recording");
+    service.startRecording(true);
+    expect(service.progress().locationError).toBe(RouteFollowLocationError.ACQUIRING);
+    service["onPosition"]({coords: {latitude: 51, longitude: 0, accuracy: 5}, timestamp: 1000} as GeolocationPosition);
+    const checkpoint = service.progress();
+    const points = service.trackPoints();
+    service.loadRoute([], [], "fictional-recording");
+    service.restoreRecording(points, []);
+    service.restoreProgress(checkpoint);
+    expect(service.progress().mode).toBe(RouteFollowMode.RECORDING);
+    expect(service.trackPoints()).toEqual(points);
+    expect(service.progress().locationError).toBe(RouteFollowLocationError.ACQUIRING);
+    service["onPosition"]({coords: {latitude: 51.0001, longitude: 0, accuracy: 5}, timestamp: 6000} as GeolocationPosition);
+    expect(service.progress().locationError).toBe(RouteFollowLocationError.NONE);
+    expect(service.trackPoints()).toHaveLength(2);
+  });
+
   it("rejects inaccurate fixes without moving the accepted position", () => {
     service.loadRoute([], []);
     service.startRecording(true);
@@ -100,6 +118,28 @@ describe("RouteFollowService", () => {
     expect(service.trackPoints()).toHaveLength(1);
     expect(service.progress().position.latitude).toBe(51);
     expect(service.progress().locationError).toBe(RouteFollowLocationError.INACCURATE);
+  });
+
+  it("keeps nearby accurate fixes connected after a stationary interval", () => {
+    service.loadRoute([], []);
+    service.startRecording(true);
+    service["onPosition"]({coords: {latitude: 51, longitude: 0, accuracy: 5}, timestamp: 1000} as GeolocationPosition);
+    service["onPosition"]({coords: {latitude: 51.00003, longitude: 0, accuracy: 5}, timestamp: 54000} as GeolocationPosition);
+    service["onPosition"]({coords: {latitude: 51.0001, longitude: 0, accuracy: 5}, timestamp: 56000} as GeolocationPosition);
+    expect(service.trackPoints()).toHaveLength(2);
+    expect(service.trackPoints().some(point => point.breakBefore)).toBe(false);
+    expect(service.totalMetres()).toBeGreaterThan(8);
+  });
+
+  it("checks GPS timing against accepted fixes rather than thinned route points", () => {
+    service.loadRoute([], []);
+    service.startRecording(true);
+    [1000, 11000, 21000, 31000, 41000].forEach(timestamp => {
+      service["onPosition"]({coords: {latitude: 51, longitude: 0, accuracy: 5}, timestamp} as GeolocationPosition);
+    });
+    service["onPosition"]({coords: {latitude: 51.0001, longitude: 0, accuracy: 5}, timestamp: 43000} as GeolocationPosition);
+    expect(service.trackPoints()).toHaveLength(2);
+    expect(service.trackPoints()[1].breakBefore).toBe(false);
   });
 
   it("requires a consistent recovery fix and excludes a signal gap from distance", () => {
@@ -228,7 +268,7 @@ describe("RouteFollowService", () => {
 
   it("formats short distances in metres and longer ones in miles", () => {
     expect(service.formatDistance(80)).toBe("80 m");
-    expect(service.formatDistance(3200)).toContain("mi");
+    expect(service.formatDistance(3200)).toContain("mile");
   });
 
   it("formats durations under and over an hour", () => {

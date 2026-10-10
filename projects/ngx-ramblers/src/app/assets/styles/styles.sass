@@ -104,6 +104,12 @@ body.app-shell-active
   body:not(.app-shell-active)
     padding-top: env(safe-area-inset-top, 0px)
 
+body.app-shell-active .modal-backdrop
+  z-index: 3000
+
+body.app-shell-active .modal
+  z-index: 3010
+
 body.app-shell-active .tooltip,
 .follow-app .tooltip
   z-index: 4000

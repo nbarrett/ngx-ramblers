@@ -58,6 +58,16 @@
   <link data-n-head="ssr" rel="apple-touch-icon" href="/assets/images/local/apple-touch-icon.png">
   <link data-n-head="ssr" rel="icon" sizes="16x16" href="favicon.ico">
   <link data-n-head="ssr" rel="icon" sizes="32x32" href="favicon.ico">
+  <style>
+    .app-startup { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; box-sizing: border-box; padding: 24px; background: #f4f5f5; color: #1b1b1b; font-family: system-ui, sans-serif; text-align: center; }
+    .app-startup img { width: 88px; height: 88px; border-radius: 16px; }
+    .app-startup h1 { margin: 0; font: 700 28px system-ui, sans-serif; color: inherit; }
+    .app-startup p { margin: 0; }
+    .app-startup-spinner { width: 28px; height: 28px; border: 3px solid #d0d4d2; border-top-color: #f9b104; border-radius: 50%; animation: app-startup-turn 1s linear infinite; }
+    @keyframes app-startup-turn { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .app-startup-spinner { animation: none; } }
+    @media (prefers-color-scheme: dark) { .app-startup { background: #102018; color: #f4f1ea; } }
+  </style>
 </head>
 <body>
 <script>
@@ -133,6 +143,13 @@
     });
   })();
 </script>
-<app-root></app-root>
+<app-root>
+  <div class="app-startup" role="status" aria-live="polite">
+    <img src="assets/images/local/pwa-192.png" alt="" width="88" height="88">
+    <h1>NGX Ramblers</h1>
+    <p>Preparing your view…</p>
+    <div class="app-startup-spinner" aria-hidden="true"></div>
+  </div>
+</app-root>
 </body>
 </html>

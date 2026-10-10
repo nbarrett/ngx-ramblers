@@ -1,3 +1,5 @@
+import { Capacitor } from "@capacitor/core";
+import { NativeWalkingWindow } from "../models/native-route.model";
 import { DOCUMENT, Location } from "@angular/common";
 import { TestBed } from "@angular/core/testing";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -203,6 +205,22 @@ describe("UrlService", () => {
     });
 
     describe("resourceUrlForAWSFileName", () => {
+
+        it("loads native images from the configured site without repeating the origin", () => {
+            const nativeWindow = window as NativeWalkingWindow;
+            const previousSite = nativeWindow.ngxNativeSiteUrl;
+            const platform = vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+            nativeWindow.ngxNativeSiteUrl = "https://group.example.org.uk";
+            try {
+                const service: UrlService = TestBed.inject(UrlService);
+                expect(service.resourceRelativePathForAWSFileName("logos/group.png")).toBe("https://group.example.org.uk/api/aws/s3/logos/group.png");
+                expect(service.imageSource("walks/photo.jpg")).toBe("https://group.example.org.uk/api/aws/s3/walks/photo.jpg");
+                expect(service.imageSource("logos/group.png", true)).toBe("https://group.example.org.uk/api/aws/s3/logos/group.png");
+            } finally {
+                nativeWindow.ngxNativeSiteUrl = previousSite;
+                platform.mockRestore();
+            }
+        });
 
         it("should return a path to an aws file name", () => {
             const service: UrlService = TestBed.inject(UrlService);

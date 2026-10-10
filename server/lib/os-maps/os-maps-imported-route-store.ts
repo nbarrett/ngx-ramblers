@@ -106,6 +106,8 @@ export async function saveOsMapsImportedRoute(routeId: string, update: {
   color?: string | null;
   weight?: number | null;
   opacity?: number | null;
+  waypoints?: OsMapsListedRoute["waypoints"];
+  difficulty?: OsMapsListedRoute["difficulty"];
 }, contributor: RouteContributor | null = null): Promise<OsMapsImportedRouteRecord | null> {
   return mongooseClient.execute(async () => {
     const existing = await osMapsImportedRoute.findOne({routeId}).lean();
@@ -117,7 +119,8 @@ export async function saveOsMapsImportedRoute(routeId: string, update: {
         createdDate: existing?.gpxFile?.createdDate || null, createdBy: existing?.gpxFile?.createdBy || null,
         createdByName: existing?.gpxFile?.createdByName || null,
         updatedDate: audit.updatedDate, updatedBy: audit.updatedBy, updatedByName: audit.updatedByName};
-      return osMapsImportedRoute.findOneAndUpdate({routeId}, {$set: {...update, gpxFile}}, {new: true, lean: true});
+      const url = gpxFile.title || existing.url;
+      return osMapsImportedRoute.findOneAndUpdate({routeId}, {$set: {...update, gpxFile, ...(url ? {url} : {})}}, {new: true, lean: true});
     }
   });
 }
@@ -136,7 +139,9 @@ export function withImportedAt(routes: OsMapsListedRoute[], importedById: Record
       routeWeight: imported?.weight || null,
       routeOpacity: imported?.opacity || null,
       walkedAt: imported?.gpxFile?.walkedAt || null,
-      walkedByName: imported?.gpxFile?.walkedByName || null
+      walkedByName: imported?.gpxFile?.walkedByName || null,
+      waypoints: imported?.waypoints || route.waypoints || null,
+      difficulty: imported?.difficulty || route.difficulty || null
     };
   });
 }

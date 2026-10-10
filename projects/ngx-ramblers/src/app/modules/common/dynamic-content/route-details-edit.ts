@@ -14,7 +14,6 @@ import { ROUTE_EXCLUDED_FEATURES, RouteDetailsPart, RouteGuideData } from "../..
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
-import { WalkDisplayService } from "../../../pages/walks/walk-display.service";
 import { EventDistanceEdit } from "../../../pages/walks/walk-edit/event-distance-edit";
 import { WalkLocationEditComponent } from "../../../pages/walks/walk-edit/walk-location-edit";
 import { WalkFeatureListComponent } from "../../../pages/walks/walk-edit/walk-edit-feature-category";
@@ -26,6 +25,7 @@ import { GpxDerivedValues } from "../../../models/gpx-proposals.model";
 import { FileNameData } from "../../../models/aws-object.model";
 import { GpxProposalsService } from "../../../services/maps/gpx-proposals.service";
 import { GpxProposalsComponent } from "../../../shared/components/gpx-proposals";
+import { WalkGradeSelect } from "../../../shared/components/walk-grade-select";
 
 @Component({
   selector: "app-route-details-edit",
@@ -48,12 +48,9 @@ import { GpxProposalsComponent } from "../../../shared/components/gpx-proposals"
           </div>
           <div class="col-md-4">
             <label class="form-label" [for]="'route-difficulty-' + id">Difficulty</label>
-            <select class="form-control" [id]="'route-difficulty-' + id" [compareWith]="difficultyComparer" [(ngModel)]="routeGuide.difficulty" (ngModelChange)="changed()">
-              <option [ngValue]="null">Not set</option>
-              @for (difficulty of difficulties; track difficulty.code) {
-                <option [ngValue]="difficulty">{{ difficulty.description }}</option>
-              }
-            </select>
+            <app-walk-grade-select [inputId]="'route-difficulty-' + id"
+                                   [value]="routeGuide.difficulty"
+                                   (valueChange)="setDifficulty($event)"/>
           </div>
           <div class="col-md-4" app-event-distance-edit label="Distance" [groupEvent]="asGroupEvent" [id]="'route-' + id" (change)="distanceChanged()"></div>
           <div class="col-md-2">
@@ -98,7 +95,7 @@ import { GpxProposalsComponent } from "../../../shared/components/gpx-proposals"
       }
     }
   `,
-  imports: [FormsModule, FontAwesomeModule, EventDistanceEdit, WalkLocationEditComponent, WalkFeatureListComponent, TiptapMarkdownEditor, GpxProposalsComponent]
+  imports: [FormsModule, FontAwesomeModule, EventDistanceEdit, WalkLocationEditComponent, WalkFeatureListComponent, TiptapMarkdownEditor, GpxProposalsComponent, WalkGradeSelect]
 })
 export class RouteDetailsEdit implements OnInit, OnDestroy {
   ngOnInit(): void {
@@ -114,7 +111,7 @@ export class RouteDetailsEdit implements OnInit, OnDestroy {
 
   private broadcastService = inject(BroadcastService);
   private actions = inject(PageContentActionsService);
-  private display = inject(WalkDisplayService);
+
   private ramblersWalksAndEventsService = inject(RamblersWalksAndEventsService);
   private walksConfigService = inject(WalksConfigService);
   private gpxProposalsService = inject(GpxProposalsService);
@@ -128,7 +125,6 @@ export class RouteDetailsEdit implements OnInit, OnDestroy {
   protected readonly LocationType = LocationType;
   protected readonly FeatureCategory = FeatureCategory;
   protected readonly excludedFeatures = ROUTE_EXCLUDED_FEATURES;
-  protected difficulties: Difficulty[] = this.display.difficulties();
   protected displayedWalk: DisplayedWalk;
   @Input() id = "route";
   @Input() part: RouteDetailsPart = RouteDetailsPart.ALL;
@@ -243,8 +239,9 @@ export class RouteDetailsEdit implements OnInit, OnDestroy {
     this.changed();
   }
 
-  difficultyComparer(item1: Difficulty, item2: Difficulty): boolean {
-    return item1?.code === item2?.code;
+  setDifficulty(difficulty: Difficulty | null): void {
+    this.routeGuide.difficulty = difficulty;
+    this.changed();
   }
 
   changed(): void {

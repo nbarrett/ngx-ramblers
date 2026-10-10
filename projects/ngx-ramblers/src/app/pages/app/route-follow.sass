@@ -1,3 +1,5 @@
+@import "../../assets/styles/colours"
+
 :host
   display: block
   height: 100%
@@ -18,6 +20,7 @@
   --follow-offline: #1b4332
   --follow-shadow: 0 8px 20px rgba(16, 32, 24, 0.16)
   --follow-instruction: rgba(255, 255, 255, 0.96)
+  --follow-desktop-panel: 24rem
   position: relative
   height: 100%
   min-height: 100%
@@ -578,6 +581,7 @@
   touch-action: pan-y
   width: 100%
   height: auto
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px))
   background: var(--follow-panel)
   color: var(--follow-ink)
   border-radius: 22px 22px 0 0
@@ -589,9 +593,14 @@
   justify-content: flex-start
   flex: 0 0 auto
 
-@media (display-mode: standalone)
-  .follow-sheet
-    padding-bottom: env(safe-area-inset-bottom, 0px)
+.follow-sheet-heading
+  display: none
+  margin: 0 0 12px
+  font-size: 1.4rem
+  font-weight: 700
+  line-height: 1.2
+  text-align: left
+  color: var(--follow-ink)
 
 .follow-sheet-handle
   display: flex
@@ -599,9 +608,9 @@
   justify-content: center
   flex: 0 0 auto
   width: 100%
-  height: 20px
+  min-height: 44px
   margin: 0
-  padding: 0
+  padding: 12px 0 8px
   border: 0
   background: transparent
   position: relative
@@ -616,16 +625,46 @@
   border-radius: 999px
   background: var(--follow-handle)
 
+.follow-recording-tray
+  display: flex
+  align-items: center
+  justify-content: center
+  gap: var(--space-3)
+  min-height: 48px
+  margin-bottom: var(--space-3)
+  flex-shrink: 0
+
+.follow-recording-indicator
+  color: var(--follow-muted)
+
+.follow-recording-indicator.is-recording
+  color: $ramblers-colour-sunrise
+  animation: recording-pulse 1.6s ease-in-out infinite
+
+@keyframes recording-pulse
+  0%, 100%
+    opacity: 1
+  50%
+    opacity: 0.35
+
+@media (prefers-reduced-motion: reduce)
+  .follow-recording-indicator.is-recording
+    animation: none
+
 .follow-sheet-body-slot
   display: block
   overflow: hidden
+  overflow-y: auto
   max-height: 0
   flex: 0 0 auto
   min-height: 0
   transition: max-height 0.36s cubic-bezier(0.32, 0.72, 0, 1)
 
 .follow-sheet:not(.is-minimised) .follow-sheet-body-slot
-  max-height: 70vh
+  max-height: none
+  flex: 1 1 auto
+  min-height: 0
+  overflow-y: auto
 
 .follow-sheet-peek
   display: flex
@@ -672,6 +711,55 @@
   padding-bottom: 8px
 
 
+.follow-route-details
+  display: flex
+  flex-direction: column
+  align-items: stretch
+  text-align: left
+
+.follow-route-details .form-label
+  display: block
+  width: 100%
+  text-align: left
+  margin-top: 12px
+  margin-bottom: 4px
+
+.follow-route-details .form-label:first-of-type
+  margin-top: 0
+
+.follow-route-details .form-control
+  user-select: text
+  -webkit-user-select: text
+
+.follow-route-view-copy
+  margin: 0.75rem 0 0
+  white-space: pre-wrap
+  overflow-wrap: anywhere
+  text-align: left
+
+.follow-route-view-facts
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  gap: 0.35rem 1rem
+  margin-top: 0.75rem
+
+.follow-route-view-fact
+  margin: 0
+  color: var(--follow-muted)
+  font-size: 0.875rem
+
+.follow-name-input
+  box-sizing: content-box
+  display: block
+  align-self: stretch
+  width: auto
+  min-width: 0
+  resize: none
+  overflow: hidden
+  line-height: 1.45
+  min-height: 1.45em
+
 .follow-library-note
   margin: 0 0 12px
   color: var(--follow-muted)
@@ -692,7 +780,7 @@
 
 .follow-stats
   display: grid
-  grid-template-columns: 1fr 1fr 1fr
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr))
   gap: 8px
   margin-bottom: 16px
 
@@ -721,36 +809,128 @@
   margin: 0 0 14px
 
 .follow-actions
-  display: flex
-  flex-direction: row
-  flex-wrap: nowrap
-  justify-content: center
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
   gap: 8px
   margin-bottom: 0
-  overflow-x: auto
+  flex: 0 0 auto
+
+.follow-actions > .follow-actions-span
+  grid-column: 1 / -1
+
+.follow-actions:not(:has(.follow-actions-span)) > .btn:last-child:nth-child(odd)
+  grid-column: 1 / -1
+
+.follow-sheet-footer
+  flex: 0 0 auto
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px))
+
+.follow-sheet-footer .follow-library-note
+  margin: 0 0 12px
+
+.follow-sheet.is-minimised .follow-sheet-footer
+  display: none
+
+.follow-sheet.is-minimised .follow-actions,
+.follow-actions:not(:has(.btn))
+  display: none
 
 .follow-main-btn,
 .follow-secondary-btn
-  flex: 1 1 auto
-  width: auto
-  min-width: min-content
+  min-width: 0
+  width: 100%
   min-height: 52px
   margin-left: 0 !important
   display: inline-flex
   align-items: center
   justify-content: center
-  flex-wrap: nowrap
+  flex-wrap: wrap
   gap: 8px
   font-size: 1.05rem
   border-radius: 999px
-  white-space: nowrap
+  white-space: normal
+  overflow-wrap: anywhere
 
 @media (min-width: 900px)
+  .follow-top
+    left: var(--follow-desktop-panel)
+
+  .follow-style-picker
+    left: calc(var(--follow-desktop-panel) + 12px)
+
+  .follow-bottom
+    inset: 0
+    flex-direction: row-reverse
+    align-items: stretch
+    justify-content: flex-start
+
+  .follow-bottom-chrome
+    flex: 1 1 auto
+    min-width: 0
+    align-self: stretch
+    padding: 0 12px 12px
+
+  .follow-sheet
+    flex: 0 0 var(--follow-desktop-panel)
+    align-self: stretch
+    width: var(--follow-desktop-panel)
+    max-width: var(--follow-desktop-panel)
+    height: 100%
+    max-height: 100%
+    margin: 0
+    border-radius: 0
+    padding: 16px 20px 16px
+    box-shadow: 8px 0 24px rgba(16, 32, 24, 0.14)
+
+  .follow-sheet-handle
+    display: none
+
+  .follow-sheet-heading
+    display: block
+
+  .follow-sheet .thumbnail-heading-frame
+    margin-top: 28px
+
+  .follow-sheet-peek
+    display: none
+
+  .follow-sheet-body-slot,
+  .follow-sheet:not(.is-minimised) .follow-sheet-body-slot,
+  .follow-sheet.is-minimised .follow-sheet-body-slot
+    max-height: none
+    flex: 1 1 auto
+    min-height: 0
+    overflow-y: auto
+
+  .follow-sheet-body
+    overflow: visible
+    padding-bottom: 8px
+
+  .follow-sheet.is-minimised .follow-sheet-footer
+    display: block
+
+  .follow-sheet.is-minimised .follow-actions:has(.btn)
+    display: grid
+
+  .follow-sheet-footer
+    margin-top: auto
+    padding-top: 12px
+    padding-bottom: 0
+    border-top: 1px solid var(--follow-handle)
+
   .follow-actions
-    flex-wrap: nowrap
+    grid-template-columns: minmax(0, 1fr)
+    margin-top: 0
+    padding-top: 0
+
+  .follow-stat
+    align-items: flex-start
+    text-align: left
+
   .follow-main-btn,
   .follow-secondary-btn
-    flex: 0 0 auto
+    min-height: 44px
+    font-size: 1rem
 
 .follow-sheet .follow-secondary-btn
   --bs-btn-color: var(--follow-secondary-ink)
@@ -765,63 +945,29 @@
   color: var(--follow-ink)
 
 .follow-loading
-  margin: 24px 4px
-  font-size: 1.05rem
+  --map-loading-background: var(--follow-bg)
+  --map-loading-colour: var(--follow-ink)
+  --map-loading-accent: #{$ramblers-colour-sunrise}
 
-.follow-alert
-  display: flex
-  align-items: flex-start
-  gap: 10px
-  border-radius: 16px
-  padding: 14px
-  margin-top: 16px
-
-.follow-alert-danger
-  background: #3a1018
-  color: #ffd6de
-
-.follow-alert-warning
-  background: #fff4d6
-  color: #5c4813
-  margin: 0 0 12px
-
-.follow-alert strong
-  display: block
-  margin-bottom: 4px
-
-.follow-alert p
-  margin: 0
-  line-height: 1.4
-
-.follow-alert-body
-  flex: 1
-  min-width: 0
-
-.follow-alert-actions
-  display: flex
-  flex-wrap: wrap
-  gap: 8px
-  margin-top: 12px
-
-@media (min-width: 720px)
-  .follow-alert-choice .follow-alert-copy
-    display: flex
-    align-items: center
-    gap: 16px
-  .follow-alert-choice .follow-alert-copy p
-    flex: 1
-    min-width: 0
-  .follow-alert-choice .follow-alert-actions
-    flex-shrink: 0
-    flex-wrap: nowrap
-    margin-top: 0
+.follow-loading-close
+  position: absolute
+  top: calc(16px + env(safe-area-inset-top, 0px))
+  left: calc(16px + env(safe-area-inset-left, 0px))
+  z-index: 1
 
 .follow-offline-status
+  display: flex
+  align-items: flex-start
+  gap: 8px
   margin: 0 0 10px
   color: var(--follow-offline)
   font-size: 0.8rem
   font-weight: 600
-  text-align: center
+  text-align: left
+
+.follow-offline-status fa-icon
+  flex: 0 0 auto
+  margin-top: 0.15em
 
 .follow-directions-note
   margin: 0 0 10px

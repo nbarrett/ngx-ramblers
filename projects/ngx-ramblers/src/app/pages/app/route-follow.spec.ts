@@ -1,6 +1,22 @@
 import { StoredValue } from "../../models/ui-actions";
-import { RouteFollowMode, RouteFollowPayload, RouteFollowSession, RouteFollowSource } from "../../models/route-follow.model";
+import { AppInstallPlatform, RouteFollowLocationError, RouteFollowMode, RouteFollowPoint, RouteFollowPayload, RouteFollowSession, RouteFollowSheetState, RouteFollowSource } from "../../models/route-follow.model";
 import { RouteFollowComponent } from "./route-follow";
+
+describe("recording GPS messages", () => {
+  it("keeps a waiting message until GPS is ready and does not claim a paused recording is active", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["appShell"] = {platform: () => AppInstallPlatform.IOS} as unknown as typeof view["appShell"];
+    view["progress"] = {mode: RouteFollowMode.RECORDING, locationError: RouteFollowLocationError.ACQUIRING} as typeof view["progress"];
+    expect(view.locationMessage).toContain("Recording is active");
+    expect(view.locationMessage).toContain("Waiting for a GPS location");
+    view["progress"] = {...view["progress"], locationError: RouteFollowLocationError.INACCURATE};
+    expect(view.locationMessage).toContain("your recorded points are kept");
+    view["progress"] = {...view["progress"], locationError: RouteFollowLocationError.NONE};
+    expect(view.locationMessage).toBeNull();
+    view["progress"] = {...view["progress"], mode: RouteFollowMode.PAUSED, locationError: RouteFollowLocationError.ACQUIRING};
+    expect(view.locationMessage).toBeNull();
+  });
+});
 
 describe("route follow compass pointer", () => {
   it("turns with the compass while the route-up map keeps its route bearing", () => {
@@ -127,7 +143,7 @@ describe("route follow failed recording upload", () => {
 
 
 describe("standalone recording restoration", () => {
-  it.each([RouteFollowMode.RECORDING, RouteFollowMode.PAUSED])("restores an empty %s draft without fetching a route or restarting recording", async mode => {
+  it.each([RouteFollowMode.IDLE, RouteFollowMode.RECORDING, RouteFollowMode.PAUSED])("opens an empty %s draft without fetching a route or automatically starting recording", async mode => {
     const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
     view["loadSequence"] = 0;
     view["mapTiles"] = {allowCachedOsTiles: vi.fn()} as unknown as typeof view["mapTiles"];
@@ -145,6 +161,53 @@ describe("standalone recording restoration", () => {
     expect(view["networkPayload"]).not.toHaveBeenCalled();
     expect(view["recordRoute"]).not.toHaveBeenCalled();
     expect(view["usablePayload"](payload)).toBe(true);
+    if (mode === RouteFollowMode.IDLE) {
+      expect(view.sheetMinimised).toBe(true);
+    }
+  });
+});
+
+describe("finishing a recording", () => {
+  it("starts only on request and keeps the naming form hidden with the tray collapsed", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    Object.defineProperty(view, "mobileAccess", {value: {allowed: () => true}});
+    view["payload"] = {source: RouteFollowSource.RECORDING, title: ""} as RouteFollowPayload;
+    view["followService"] = {trackPoints: () => [], startRecording: vi.fn()} as unknown as typeof view["followService"];
+    view["clearEditHandles"] = vi.fn();
+    view["refreshArrows"] = vi.fn();
+    view["redraw"] = vi.fn();
+    view["requestWakeLock"] = vi.fn().mockResolvedValue(null);
+    view.minimiseSheet = vi.fn();
+    view.recordRoute();
+    expect(view["followService"].startRecording).toHaveBeenCalledWith(true);
+    expect(view["recordingDetailsOpen"]).toBe(false);
+    expect(view.minimiseSheet).toHaveBeenCalledOnce();
+    expect(view["payload"].title).toBe("");
+  });
+
+  it("reads background points before pausing and opening the naming fields", async () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["followService"] = {flushRecording: vi.fn().mockResolvedValue(true)} as unknown as typeof view["followService"];
+    view.pause = vi.fn();
+    view.expandSheet = vi.fn();
+    view["persistFollowSession"] = vi.fn();
+    await view.finishRecording();
+    expect(view.pause).toHaveBeenCalledOnce();
+    expect(view["recordingDetailsOpen"]).toBe(true);
+    expect(view.expandSheet).toHaveBeenCalledOnce();
+    expect(view["persistFollowSession"]).toHaveBeenCalledWith(true);
+  });
+
+  it("keeps recording active if background points cannot be read", async () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["followService"] = {flushRecording: vi.fn().mockResolvedValue(false)} as unknown as typeof view["followService"];
+    view["recordingDetailsOpen"] = false;
+    view.pause = vi.fn();
+    view.expandSheet = vi.fn();
+    await view.finishRecording();
+    expect(view.pause).not.toHaveBeenCalled();
+    expect(view["recordingDetailsOpen"]).toBe(false);
+    expect(view["persistError"]).toContain("points are kept");
   });
 });
 
@@ -189,5 +252,141 @@ describe("restricted session restoration", () => {
     expect(view["followService"].restoreRecording).not.toHaveBeenCalled();
     expect(view["requestWakeLock"]).not.toHaveBeenCalled();
     expect(view["persistError"]).toContain("permission");
+  });
+});
+
+describe("desktop follow panel", () => {
+  it("titles the panel Edit route while editing", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["progress"] = {mode: RouteFollowMode.EDITING} as typeof view["progress"];
+    view["payload"] = {title: "Hillside trail", source: RouteFollowSource.OS_MAPS} as RouteFollowPayload;
+    expect(view.sheetHeading()).toBe("Edit route");
+  });
+
+  it("uses the saved name when the route is not being edited", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["progress"] = {mode: RouteFollowMode.IDLE} as typeof view["progress"];
+    view["payload"] = {title: "Hillside trail", source: RouteFollowSource.OS_MAPS} as RouteFollowPayload;
+    expect(view.sheetHeading()).toBe("Hillside trail");
+  });
+
+  it("pads the map for a left-hand panel on a wide screen", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["appShell"] = {platform: () => AppInstallPlatform.OTHER} as unknown as typeof view["appShell"];
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({matches: query === "(min-width: 900px)"}));
+    expect(view["routeFitPadding"]()).toEqual({paddingTopLeft: [408, 80], paddingBottomRight: [56, 56]});
+    window.matchMedia = vi.fn().mockImplementation(() => ({matches: false}));
+    expect(view["routeFitPadding"]()).toEqual({paddingTopLeft: [36, 72], paddingBottomRight: [36, 220]});
+    view["appShell"] = {platform: () => AppInstallPlatform.IOS} as unknown as typeof view["appShell"];
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({matches: query === "(min-width: 900px)"}));
+    expect(view["routeFitPadding"]()).toEqual({paddingTopLeft: [36, 72], paddingBottomRight: [36, 220]});
+  });
+});
+
+
+describe("recording map starting location", () => {
+  function recordingView(points: RouteFollowPoint[] = []) {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["loadSequence"] = 1;
+    view["followService"] = {trackPoints: () => points} as unknown as typeof view["followService"];
+    view["currentLocation"] = {currentPosition: vi.fn().mockResolvedValue({lat: 51.2, lng: 0.3})} as unknown as typeof view["currentLocation"];
+    view["mapTiles"] = {maxZoomForStyle: () => 18} as unknown as typeof view["mapTiles"];
+    view["buildMapOptions"] = vi.fn();
+    return view;
+  }
+
+  it("centres an empty recording on a fresh location before showing its map", async () => {
+    const view = recordingView();
+    const payload = {source: RouteFollowSource.RECORDING} as RouteFollowPayload;
+    await view["prepareMapOptions"](payload);
+    expect(view["currentLocation"].currentPosition).toHaveBeenCalledWith(true);
+    expect(view["restoredMapView"]?.center.lat).toBe(51.2);
+    expect(view["restoredMapView"]?.center.lng).toBe(0.3);
+    expect(view["buildMapOptions"]).toHaveBeenCalledWith(payload, view["restoredMapView"]);
+  });
+
+  it("does not show a fallback map when the current location is unavailable", async () => {
+    const view = recordingView();
+    vi.mocked(view["currentLocation"].currentPosition).mockResolvedValue(null);
+    await view["prepareMapOptions"]({source: RouteFollowSource.RECORDING} as RouteFollowPayload);
+    expect(view["options"]).toBeNull();
+    expect(view["error"]).toContain("current location could not be found");
+    expect(view["buildMapOptions"]).not.toHaveBeenCalled();
+  });
+
+  it("preserves the map of a recording with recovered points", async () => {
+    const view = recordingView([{latitude: 51.2, longitude: 0.3}]);
+    await view["prepareMapOptions"]({source: RouteFollowSource.RECORDING} as RouteFollowPayload);
+    expect(view["currentLocation"].currentPosition).not.toHaveBeenCalled();
+    expect(view["buildMapOptions"]).toHaveBeenCalled();
+  });
+
+  it("ignores a location response after another route has been opened", async () => {
+    const view = recordingView();
+    vi.mocked(view["currentLocation"].currentPosition).mockImplementation(async () => {
+      view["loadSequence"] = 2;
+      return {lat: 51.2, lng: 0.3};
+    });
+    await view["prepareMapOptions"]({source: RouteFollowSource.RECORDING} as RouteFollowPayload);
+    expect(view["buildMapOptions"]).not.toHaveBeenCalled();
+  });
+});
+
+describe("follow sheet handle drag", () => {
+  function handleView(): RouteFollowComponent {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["sheetState"] = RouteFollowSheetState.MINIMISED;
+    view["sheetDrag"] = {active: false, pointerId: -1, startY: 0, lastY: 0, moved: false, target: null};
+    view["persistFollowSession"] = vi.fn();
+    view["refreshMapSize"] = vi.fn();
+    return view;
+  }
+
+  function handleEvent(view: RouteFollowComponent, type: string, clientY: number, pointerId = 1): PointerEvent {
+    const target = document.createElement("button");
+    target.setPointerCapture = vi.fn();
+    target.releasePointerCapture = vi.fn();
+    target.hasPointerCapture = vi.fn().mockReturnValue(type !== "pointerdown");
+    const event = {
+      pointerId,
+      clientY,
+      cancelable: true,
+      preventDefault: vi.fn(),
+      currentTarget: target
+    } as unknown as PointerEvent;
+    if (type === "pointerdown") {
+      view.onSheetHandlePointerDown(event);
+    } else if (type === "pointermove") {
+      view.onSheetPointerMove(event);
+    } else {
+      view.onSheetPointerUp(event);
+    }
+    return event;
+  }
+
+  it("expands when the grab is swiped up", () => {
+    const view = handleView();
+    handleEvent(view, "pointerdown", 400);
+    handleEvent(view, "pointermove", 320);
+    handleEvent(view, "pointerup", 320);
+    expect(view["sheetState"]).toBe(RouteFollowSheetState.EXPANDED);
+  });
+
+  it("minimises when the grab is swiped down", () => {
+    const view = handleView();
+    view["sheetState"] = RouteFollowSheetState.EXPANDED;
+    handleEvent(view, "pointerdown", 200);
+    handleEvent(view, "pointermove", 280);
+    handleEvent(view, "pointerup", 280);
+    expect(view["sheetState"]).toBe(RouteFollowSheetState.MINIMISED);
+  });
+
+  it("does not toggle again from the leftover click after a swipe", () => {
+    const view = handleView();
+    handleEvent(view, "pointerdown", 400);
+    handleEvent(view, "pointermove", 320);
+    handleEvent(view, "pointerup", 320);
+    view.onSheetHandleClick();
+    expect(view["sheetState"]).toBe(RouteFollowSheetState.EXPANDED);
   });
 });

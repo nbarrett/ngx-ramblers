@@ -12,6 +12,12 @@ import { UrlService } from "../url.service";
 describe("RouteFollowPayloadService", () => {
   let service: RouteFollowPayloadService;
 
+  it("leaves the name and description empty for a new recording", () => {
+    const payload = service.recordingPayload("fictional-recording");
+    expect(payload.title).toBe("");
+    expect(payload.description).toBe("");
+  });
+
   const pageWithRoute: PageContent = {
     path: "walks/routes/recommended/barham-and-four-churches-walk",
     rows: [

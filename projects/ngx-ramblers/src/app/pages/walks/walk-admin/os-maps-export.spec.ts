@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { of } from "rxjs";
 import { OsMapsExportPage } from "./os-maps-export";
 import { OsMapsExportService } from "../../../services/maps/os-maps-export.service";
+import { OsMapsRouteListCacheService } from "../../../services/maps/os-maps-route-list-cache.service";
+import { RouteListPreferencesService } from "../../../services/maps/route-list-preferences.service";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -17,7 +19,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upload-audit.service";
 import { StoredValue } from "../../../models/ui-actions";
 import { SerenityFeature } from "../../../models/serenity-feature.model";
-import { OsMapsExportTab, OsMapsListedRoute } from "../../../models/os-maps-export.model";
+import { OsMapsAccountScope, OsMapsExportTab, OsMapsListedRoute } from "../../../models/os-maps-export.model";
 import { OS_MAPS_EXPORT_POLL_INTERVAL_MS, OsMapsExportJobResult, OsMapsExportJobStatus } from "../../../models/os-maps-export.model";
 
 describe("OS Maps export job reconnection", () => {
@@ -40,6 +42,18 @@ describe("OS Maps export job reconnection", () => {
     cancelActive: vi.fn(),
     refresh: vi.fn()
   };
+  const listCache = {
+    snapshot: vi.fn(),
+    save: vi.fn()
+  };
+  const listPreferences = {
+    isFavourite: vi.fn(),
+    isHidden: vi.fn(),
+    toggleFavourite: vi.fn(),
+    hide: vi.fn(),
+    showHidden: vi.fn(),
+    hiddenCount: vi.fn()
+  };
   const state = {page: null as OsMapsExportPage | null};
 
   beforeEach(() => {
@@ -47,10 +61,16 @@ describe("OS Maps export job reconnection", () => {
     vi.resetAllMocks();
     service.listing.mockResolvedValue({listedAt: 0, routes: []});
     service.latestExportResult.mockResolvedValue(queued);
+    listCache.snapshot.mockReturnValue(null);
+    listPreferences.isFavourite.mockReturnValue(false);
+    listPreferences.isHidden.mockReturnValue(false);
+    listPreferences.hiddenCount.mockReturnValue(0);
     TestBed.configureTestingModule({providers: [
       {provide: MemberLoginService, useValue: {loggedInMember: () => ({memberId: "member-admin", walkAdmin: true})}},
       {provide: RouteNearbyService, useValue: {}},
       {provide: OsMapsExportService, useValue: service},
+      {provide: OsMapsRouteListCacheService, useValue: listCache},
+      {provide: RouteListPreferencesService, useValue: listPreferences},
       {provide: LoggerFactory, useValue: {createLogger: () => ({error: vi.fn()})}},
       {provide: ActivatedRoute, useValue: {snapshot: {queryParams: {}}}},
       {provide: SystemConfigService, useValue: {osMapsLoginConfigured: () => true, events: () => of(null)}},
@@ -60,6 +80,7 @@ describe("OS Maps export job reconnection", () => {
         .map(provide => ({provide, useValue: {}}))
     ]});
     TestBed.overrideProvider(UiActionsService, {useValue: {updateQueryParameters: vi.fn(), initialValueFor: () => null}});
+    TestBed.overrideProvider(DateUtilsService, {useValue: {asString: () => "04 Oct 2026 20:57"}});
     state.page = TestBed.runInInjectionContext(() => new OsMapsExportPage());
     state.page.ngOnInit();
   });
@@ -215,5 +236,50 @@ describe("OS Maps export job reconnection", () => {
     state.page.ngOnDestroy();
     await vi.advanceTimersByTimeAsync(OS_MAPS_EXPORT_POLL_INTERVAL_MS);
     expect(service.latestExportResult).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not show No routes loaded yet while the saved listing is still loading", () => {
+    service.listing.mockReturnValue(new Promise(() => {}));
+    state.page.ngOnDestroy();
+    state.page = TestBed.runInInjectionContext(() => new OsMapsExportPage());
+    state.page.ngOnInit();
+    expect(state.page.listingLoading).toBe(true);
+    expect(state.page.emptyMessage()).toBe("Loading saved routes…");
+  });
+
+  it("shows cached routes immediately while the listing request is in flight", () => {
+    const cached = {listedAt: 9, routes: [{id: "cached-route", title: "Hillside Park"} as OsMapsListedRoute]};
+    listCache.snapshot.mockReturnValue(cached);
+    service.listing.mockReturnValue(new Promise(() => {}));
+    state.page.ngOnDestroy();
+    state.page = TestBed.runInInjectionContext(() => new OsMapsExportPage());
+    state.page.ngOnInit();
+    expect(state.page.listing.routes.map(route => route.id)).toEqual(["cached-route"]);
+    expect(state.page.lastLoadedLabel).toBe("04 Oct 2026 20:57");
+    expect(state.page.listingLoading).toBe(false);
+  });
+
+  it("stores the latest listing in the session cache", async () => {
+    await vi.advanceTimersByTimeAsync(0);
+    expect(listCache.save).toHaveBeenCalledWith(OsMapsAccountScope.GROUP, {listedAt: 0, routes: []});
+  });
+
+  it("uses the same favourite key as the app and can hide a route from the list", () => {
+    const route = {id: "1001", title: "Hillside Park", url: "https://explore.osmaps.com/route/1001", createdAt: "", createdAtValue: 1, distanceMetres: 1000, source: "created"} as OsMapsListedRoute;
+    state.page.listing = {listedAt: 1, routes: [route]};
+    expect(state.page.routeKey(route)).toBe("os-maps:1001");
+    listPreferences.isHidden.mockImplementation((key: string) => key === "os-maps:1001");
+    expect(state.page.visibleRoutes()).toEqual([]);
+    state.page.hideRoute(route);
+    expect(listPreferences.hide).toHaveBeenCalledWith("os-maps:1001");
+  });
+
+  it("limits the list to favourites when that filter is on", () => {
+    const favourite = {id: "1001", title: "Hillside Park", url: "https://explore.osmaps.com/route/1001", createdAt: "", createdAtValue: 1, distanceMetres: 1000, source: "created"} as OsMapsListedRoute;
+    const other = {id: "1002", title: "Other", url: "https://explore.osmaps.com/route/1002", createdAt: "", createdAtValue: 1, distanceMetres: 1000, source: "created"} as OsMapsListedRoute;
+    state.page.listing = {listedAt: 1, routes: [favourite, other]};
+    listPreferences.isFavourite.mockImplementation((key: string) => key === "os-maps:1001");
+    state.page.favouritesOnly = true;
+    expect(state.page.visibleRoutes().map(route => route.id)).toEqual(["1001"]);
   });
 });

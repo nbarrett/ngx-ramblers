@@ -3,7 +3,7 @@ import { firstValueFrom } from "rxjs";
 import { isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FileNameData } from "../../models/aws-object.model";
-import { MapRoute, PageContent } from "../../models/content-text.model";
+import { MapMarker, MapRoute, PageContent } from "../../models/content-text.model";
 import { UIDateFormat } from "../../models/date-format.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import {
@@ -19,7 +19,7 @@ import { WalksAndEventsService } from "../walks-and-events/walks-and-events.serv
 import { WalkGpxService } from "../walks/walk-gpx.service";
 import { RouteFollowPayloadService } from "./route-follow-payload.service";
 import { OsMapsExportService } from "./os-maps-export.service";
-import { escapeHtml } from "../../functions/strings";
+import { escapeHtml, toSlug } from "../../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -83,8 +83,26 @@ ${trackPoints}
       if (!imported.routeId) {
         throw new Error("The saved route did not return an identifier. Your recording is kept for retry.");
       } else {
-        return {...payload, ...imported.gpxFile, recordingId: null, source: RouteFollowSource.OS_MAPS, osMapsRouteId: imported.routeId,
-          routeNumber: imported.number || null, points, totalMetres: imported.gpxFile.distanceMetres || 0};
+        const saved = {
+          ...payload,
+          recordingId: null,
+          source: RouteFollowSource.OS_MAPS,
+          osMapsRouteId: imported.routeId,
+          routeNumber: imported.number || null,
+          gpxFile: imported.gpxFile,
+          points,
+          title: payload.title.trim(),
+          description: payload.description || "",
+          totalMetres: imported.gpxFile.distanceMetres || 0,
+          createdDate: imported.gpxFile.createdDate ?? payload.createdDate,
+          createdBy: imported.gpxFile.createdBy ?? payload.createdBy,
+          createdByName: imported.gpxFile.createdByName ?? payload.createdByName,
+          updatedDate: imported.gpxFile.updatedDate ?? payload.updatedDate,
+          updatedBy: imported.gpxFile.updatedBy ?? payload.updatedBy,
+          updatedByName: imported.gpxFile.updatedByName ?? payload.updatedByName
+        };
+        await this.attachToOsMapsRoute(imported.routeId, null, saved, true);
+        return saved;
       }
     }
   }
@@ -94,14 +112,14 @@ ${trackPoints}
       throw new Error("A route needs at least two points before it can be saved.");
     } else {
       const file = this.gpxFile(payload, points);
-      const uploaded = await firstValueFrom(this.walkGpx.uploadGpxFile(file));
-      const gpxFile = uploaded.gpxFile;
+      const uploaded = await firstValueFrom(this.walkGpx.uploadGpxFile(file, payload.title.trim()));
+      const gpxFile = {...uploaded.gpxFile, title: payload.title.trim(), description: payload.description || ""};
       if (payload.source === RouteFollowSource.WALK && payload.walkId) {
         await this.attachToWalk(payload.walkId, gpxFile, payload);
       } else if (payload.source === RouteFollowSource.PAGE && payload.path) {
         await this.attachToPage(payload.path, payload.routeId, payload.title, gpxFile, payload);
       } else if (payload.source === RouteFollowSource.OS_MAPS && payload.osMapsRouteId) {
-        await this.attachToOsMapsRoute(payload.osMapsRouteId, gpxFile, payload);
+        await this.attachToOsMapsRoute(payload.osMapsRouteId, gpxFile, payload, true);
       } else {
         throw new Error("This route cannot be saved back to the site.");
       }
@@ -126,16 +144,20 @@ ${trackPoints}
   private async attachToWalk(walkId: string, gpxFile: FileNameData, payload: RouteFollowPayload): Promise<void> {
     const walk: ExtendedGroupEvent = await this.walksAndEvents.queryById(walkId);
     walk.fields.gpxFile = this.preserveCreationAudit(walk.fields.gpxFile, gpxFile);
+    walk.fields.routeWaypoints = payload.waypoints || [];
     this.applyStyleToWalk(walk, payload);
     await this.walksAndEvents.createOrUpdate(walk);
   }
 
-  private async attachToOsMapsRoute(routeId: string, gpxFile: FileNameData | null, payload: RouteFollowPayload): Promise<void> {
+  private async attachToOsMapsRoute(routeId: string, gpxFile: FileNameData | null, payload: RouteFollowPayload, persistWaypoints = false): Promise<void> {
     await this.osMapsExport.saveImportedRoute(routeId, {
       gpxFile,
       color: payload.color,
       weight: payload.weight,
-      opacity: payload.opacity
+      opacity: payload.opacity,
+      visibility: payload.visibility || null,
+      difficulty: payload.guide?.difficulty || null,
+      ...(persistWaypoints ? {waypoints: payload.waypoints || []} : {})
     });
   }
 
@@ -152,6 +174,12 @@ ${trackPoints}
       throw new Error("This page does not have a map that can hold a route.");
     } else {
       row.map.routes = this.updatedRoutes(row.map.routes || [], routeId, title, gpxFile, payload);
+      if (gpxFile) {
+        row.map.markers = (payload.waypoints || []) as MapMarker[];
+        if (row.routeGuide) {
+          row.routeGuide.title = title;
+        }
+      }
       await this.pageContent.createOrUpdate(page);
     }
   }
@@ -168,7 +196,7 @@ ${trackPoints}
             opacity: payload.opacity,
             visible: route.visible !== false
           };
-          return gpxFile ? {...next, gpxFile: this.preserveCreationAudit(route.gpxFile, gpxFile)} : next;
+          return gpxFile ? {...next, name: title, gpxFile: this.preserveCreationAudit(route.gpxFile, gpxFile)} : next;
         } else {
           return route;
         }
@@ -193,8 +221,8 @@ ${trackPoints}
 
   private gpxFile(payload: RouteFollowPayload, points: RouteFollowPoint[]): File {
     const stamp = this.dateUtils.asString(this.dateUtils.dateTimeNow(), undefined, UIDateFormat.FILE_TIMESTAMP_COMPACT);
-    const slug = payload.walkId || payload.path?.split("/").filter(item => item).pop() || "route";
-    const safe = slug.replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase();
+    const named = toSlug(payload.title || "") || payload.walkId || payload.path?.split("/").filter(item => item).pop() || "route";
+    const safe = named.replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase();
     const name = `${safe || "route"}-${stamp}.gpx`;
     return new File([this.pointsToGpx(points, payload.title || "Recorded route", payload.description || "")], name, {type: "application/gpx+xml"});
   }

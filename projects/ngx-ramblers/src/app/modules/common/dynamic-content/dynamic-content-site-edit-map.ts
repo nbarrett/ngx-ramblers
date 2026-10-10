@@ -30,14 +30,12 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { FormsModule } from "@angular/forms";
 import { MapOverlayConfig, MapOverlayControls } from "../../../shared/components/map-overlay-controls";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
-import { faAdd, faDiamondTurnRight, faEye, faEyeSlash, faListOl, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faEye, faEyeSlash, faListOl, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { RouteFollowPayloadService } from "../../../services/maps/route-follow-payload.service";
 import { routeDirectionsFromPage, routeIntroductionFromPage, waypointsSpacedAlongRoute } from "../../../functions/route-directions";
-import { RouteTurnsService } from "../../../services/maps/route-turns.service";
-import { ServerFileNameData } from "../../../models/aws-object.model";
-import { attachNarrative } from "../../../functions/route-turns";
-import { RouteTurnStepKind, RouteWayNamesSource } from "../../../models/route-follow.model";
-import { RouteWaypointKind } from "../../../models/route-follow.model";
+import { FileNameData } from "../../../models/aws-object.model";
+import { RouteDirectionsChrome, RouteFollowWaypoint, RouteWaypointKind } from "../../../models/route-follow.model";
+import { RouteDirectionsEditor } from "../../../shared/components/route-directions-editor";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { FileUploadService } from "../../../services/file-upload.service";
 import { FileUploader } from "ng2-file-upload";
@@ -205,19 +203,28 @@ import { MapDefaultsService } from "../../../services/maps/map-defaults.service"
             <small class="form-text text-muted">Each step carries a direction that appears while someone is following the route. Steps added here, or generated from the route, appear in the Steps list under the map, where they are edited.</small>
           </div>
           @if (routeWithGpx()) {
-            <div class="mb-3 d-flex flex-wrap gap-2">
-              <app-badge-button [icon]="faDiamondTurnRight" caption="Generate directions from the route" (click)="generateTurnSteps()"/>
+            <div class="mb-3">
+              <app-route-directions-editor [framed]="false"
+                                           [chrome]="RouteDirectionsChrome.GENERATE_ONLY"
+                                           [waypoints]="row.map.markers || []"
+                                           [gpxFile]="routeGpxFile"
+                                           [writtenDirections]="pageDirections()"
+                                           [detailedResult]="true"
+                                           [saveLabel]="'the page'"
+                                           [generateCaption]="'Generate directions from the route'"
+                                           (waypointsChange)="onGeneratedDirections($event)"
+                                           (statusChange)="onDirectionsStatus($event)"/>
               @if (directionsAvailable()) {
-                <app-badge-button [icon]="faListOl" caption="Create waypoints from directions" (click)="createWaypointsFromDirections()"/>
+                <div class="mt-2">
+                  <app-badge-button [icon]="faListOl" caption="Create waypoints from directions" (click)="createWaypointsFromDirections()"/>
+                </div>
+                <small class="form-text text-muted d-block mb-1">Create waypoints from directions instead places one numbered waypoint per numbered direction, spaced evenly along the route as a first guess, for you to drag into place.</small>
+              }
+              <small class="form-text text-muted d-block mb-1">Generate directions reads the shape of the route to find every turn, names the roads and paths from OpenStreetMap where it knows them, and hangs the page's written directions on the nearest turn as notes. It replaces any directions generated before and keeps waypoints you placed yourself. Every direction is a draft: check it, drag it along the route if it sits wrongly, reword or remove it, then save the page.</small>
+              @if (waypointMessage) {
+                <small class="form-text d-block mb-3">{{ waypointMessage }}</small>
               }
             </div>
-            <small class="form-text text-muted d-block mb-1">Generate directions reads the shape of the route to find every turn, names the roads and paths from OpenStreetMap where it knows them, and hangs the page's written directions on the nearest turn as notes. It replaces any directions generated before and keeps waypoints you placed yourself. Every direction is a draft: check it, drag it along the route if it sits wrongly, reword or remove it, then save the page.</small>
-            @if (directionsAvailable()) {
-              <small class="form-text text-muted d-block mb-1">Create waypoints from directions instead places one numbered waypoint per numbered direction, spaced evenly along the route as a first guess, for you to drag into place.</small>
-            }
-            @if (waypointMessage) {
-              <small class="form-text d-block mb-3">{{ waypointMessage }}</small>
-            }
           }
           @if (!row.map.markers?.length) {
             <alert type="warning" class="flex-grow-1">
@@ -291,7 +298,7 @@ import { MapDefaultsService } from "../../../services/maps/map-defaults.service"
 
     }
   `,
-  imports: [FormsModule, MapOverlayControls, BadgeButtonComponent, AlertComponent, FontAwesomeModule, DynamicContentViewMap, MapRouteStylePaletteComponent]
+  imports: [FormsModule, MapOverlayControls, BadgeButtonComponent, AlertComponent, FontAwesomeModule, DynamicContentViewMap, MapRouteStylePaletteComponent, RouteDirectionsEditor]
 })
 export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentSiteEditMap", NgxLoggerLevel.ERROR);
@@ -301,9 +308,8 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
   private fileUploadService = inject(FileUploadService);
   private routeImportService = inject(RouteImportService);
   private payloadService = inject(RouteFollowPayloadService);
-  private routeTurns = inject(RouteTurnsService);
   protected waypointMessage = "";
-  protected readonly faDiamondTurnRight = faDiamondTurnRight;
+  protected readonly RouteDirectionsChrome = RouteDirectionsChrome;
   private cdr = inject(ChangeDetectorRef);
   @ViewChild(DynamicContentViewMap) private mapPreview?: DynamicContentViewMap;
   @ViewChild("globalRouteInput") private globalRouteInput?: ElementRef<HTMLInputElement>;
@@ -828,52 +834,27 @@ export class DynamicContentSiteEditMap implements OnInit, OnDestroy, DoCheck {
     return (this.row?.map?.routes || []).some(route => this.payloadService.routeHasGpx(route));
   }
 
-  async generateTurnSteps(): Promise<void> {
-    const route = (this.row?.map?.routes || []).find(item => this.payloadService.routeHasGpx(item));
-    if (this.row?.map && route?.gpxFile?.awsFileName) {
-      this.waypointMessage = "Reading the route, looking up the way names and finding the places the directions mention…";
-      try {
-        const gpxFile = route.gpxFile as Partial<ServerFileNameData>;
-        const directions = this.pageDirections();
-        const response = await this.routeTurns.turnSteps({gpxFile: {rootFolder: gpxFile.rootFolder, awsFileName: route.gpxFile.awsFileName}, directions});
-        const kept = (this.row.map.markers || []).filter(marker => marker.kind !== RouteWaypointKind.TURN);
-        const generated: MapMarker[] = response.steps.map((step, index) => ({
-          id: this.numberUtils.generateUid(),
-          latitude: step.latitude,
-          longitude: step.longitude,
-          label: String(index + 1),
-          instruction: step.instruction,
-          kind: RouteWaypointKind.TURN,
-          ...(step.modifier ? {turn: step.modifier} : {}),
-          ...(step.wayName ? {wayName: step.wayName} : {})
-        }));
-        const notes = response.notes?.length === generated.length ? response.notes : attachNarrative(directions, generated);
-        generated.forEach((marker, index) => {
-          if (notes[index]) {
-            marker.note = notes[index];
-          }
-        });
-        this.row.map.markers = [...kept, ...generated];
-        const introduction = routeIntroductionFromPage(this.pageContent);
-        if (this.row.routeGuide && !this.row.routeGuide.summary?.trim() && introduction) {
-          this.row.routeGuide.summary = introduction;
-        }
-        const turns = response.steps.filter(step => step.kind === RouteTurnStepKind.TURN).length;
-        const naming = response.namesSource === RouteWayNamesSource.VALHALLA
-          ? `OpenStreetMap knew the way for ${response.namedPointCount} of ${response.pointCount} points on the route`
-          : "the way-name lookup was unavailable, so the directions have no road or path names";
-        const places = response.placesTried ? `; ${response.placesLocated} of ${response.placesTried} place names in the directions were found on the map and used to place the notes` : "";
-        const tracks = (response.trackCount || 1) > 1 ? ` The GPX holds ${response.trackCount} tracks: the steps follow the first, and the others are drawn on the map as alternatives.` : "";
-        this.waypointMessage = `Found ${turns} directions on the route; ${naming}${places}. Check each one, drag any that sit wrongly, then save the page.${tracks}`;
-        this.broadcastChange();
-      } catch (error) {
-        this.waypointMessage = `Could not generate directions: ${error?.error?.message || error?.message || "the server did not respond"}.`;
-      }
-    }
+  get routeGpxFile(): FileNameData | null {
+    return (this.row?.map?.routes || []).find(item => this.payloadService.routeHasGpx(item))?.gpxFile || null;
   }
 
-  private pageDirections(): string[] {
+  pageDirections(): string[] {
     return routeDirectionsFromPage(this.pageContent);
+  }
+
+  onDirectionsStatus(message: string | null): void {
+    this.waypointMessage = message || "";
+  }
+
+  onGeneratedDirections(waypoints: RouteFollowWaypoint[]): void {
+    if (this.row?.map) {
+      this.row.map.markers = waypoints as MapMarker[];
+      const introduction = routeIntroductionFromPage(this.pageContent);
+      if (this.row.routeGuide && !this.row.routeGuide.summary?.trim() && introduction) {
+        this.row.routeGuide.summary = introduction;
+      }
+      this.broadcastChange();
+    }
   }
 
   async createWaypointsFromDirections(): Promise<void> {

@@ -91,6 +91,7 @@ export class RouteFollowPayloadService {
       const title = row.routeGuide?.title || route.name || this.titleFromPath(page.path);
       return {
         ...route.gpxFile,
+        gpxFile: route.gpxFile || null,
         source: RouteFollowSource.PAGE,
         title,
         path: page.path || null,
@@ -113,8 +114,9 @@ export class RouteFollowPayloadService {
     } else {
       return {
         ...walk.fields?.gpxFile,
+        gpxFile: walk.fields?.gpxFile || null,
         source: RouteFollowSource.WALK,
-        title: walk.groupEvent?.title || "Walk",
+        title: walk.fields?.gpxFile?.title || walk.groupEvent?.title || "Walk",
         path: null,
         walkId: eventSlug(walk) || walk.id || null,
         routeId: null,
@@ -176,7 +178,7 @@ export class RouteFollowPayloadService {
 
   recordingPayload(recordingId: string): RouteFollowPayload {
     return {
-      source: RouteFollowSource.RECORDING, recordingId, title: "Recorded route", description: "",
+      source: RouteFollowSource.RECORDING, recordingId, title: "", description: "",
       path: null, walkId: null, routeId: null, ramblersSlug: null, osMapsRouteId: null,
       provider: MapProvider.OS, osStyle: DEFAULT_OS_STYLE, color: PaletteColor.COBALT,
       weight: ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT, opacity: 1, points: [], waypoints: [], totalMetres: 0, guide: null
@@ -271,16 +273,18 @@ export class RouteFollowPayloadService {
         routeNumber: route.number || null,
         ramblersSlug: null,
         osMapsRouteId: route.id,
+        gpxFile: route.gpxFile,
         provider: MapProvider.OS,
         osStyle: DEFAULT_OS_STYLE,
         color: route.routeColor || PaletteColor.COBALT,
         weight: route.routeWeight || ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT,
         opacity: isNumber(route.routeOpacity) ? route.routeOpacity : 1,
         points: parsed.points,
-        waypoints: parsed.waypoints,
+        waypoints: (route.waypoints && route.waypoints.length > 0) ? route.waypoints : parsed.waypoints,
         totalMetres: parsed.totalMetres,
         guide: {
           title: route.title,
+          difficulty: route.difficulty || null,
           distance_miles: route.distanceMetres ? route.distanceMetres / 1609.34 : null
         }
       };
@@ -305,7 +309,7 @@ export class RouteFollowPayloadService {
       return {
         ...walk.fields?.gpxFile,
         source: RouteFollowSource.WALK,
-        title: walk.groupEvent?.title || "Walk",
+        title: walk.fields?.gpxFile?.title || walk.groupEvent?.title || "Walk",
         path: null,
         walkId: eventSlug(walk) || walk.id || null,
         routeId: null,

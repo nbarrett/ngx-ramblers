@@ -5,7 +5,11 @@ import * as authConfig from "../../auth/auth-config";
 import * as member from "../controllers/member";
 import { applyPostSendActionsToMembers, bulkDeleteMembersCascade } from "../controllers/member-bulk-delete";
 import { WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { changeMemberRoutePreference, readMemberRoutePreferences } from "../controllers/member-route-preferences";
 const router = express.Router();
+
+router.get("/route-preferences", authConfig.authenticate(), readMemberRoutePreferences);
+router.patch("/route-preferences", authConfig.authenticate(), changeMemberRoutePreference);
 
 router.post("", authConfig.authenticate(), member.create);
 router.get("/find-one", authConfig.authenticate(), member.findOne);

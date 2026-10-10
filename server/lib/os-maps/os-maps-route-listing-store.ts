@@ -1,4 +1,4 @@
-import { osMapsImportedRoute } from "../mongo/models/os-maps-imported-route";
+import { OsMapsImportedRouteRecord, osMapsImportedRoute } from "../mongo/models/os-maps-imported-route";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { osMapsRouteListing } from "../mongo/models/os-maps-route-listing";
 import { OsMapsListedRoute, OsMapsRouteListing, OsMapsRouteSource } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
@@ -38,26 +38,32 @@ export async function listedImportedOsMapsRoutes(): Promise<OsMapsListedRoute[]>
   const listedIds = new Set(fromListing.map(route => route.id));
   const extras = values(importedById)
     .filter(record => record.gpxFile?.awsFileName && !listedIds.has(record.routeId))
-    .map(record => ({
-      id: record.routeId,
-      ownerMemberId: record.ownerMemberId || null,
-      visibility: record.visibility || null,
-      number: record.number || null,
-      title: record.gpxFile?.title || record.url || record.routeId,
-      url: record.url || "",
-      createdAt: "",
-      createdAtValue: record.gpxFile?.walkedAt || record.importedAt || 0,
-      distanceMetres: record.gpxFile?.distanceMetres || 0,
-      source: OsMapsRouteSource.CREATED,
-      importedAt: record.importedAt,
-      gpxFile: record.gpxFile,
-      routeColor: record.color,
-      routeWeight: record.weight,
-      routeOpacity: record.opacity,
-      walkedAt: record.gpxFile?.walkedAt || null,
-      walkedByName: record.gpxFile?.walkedByName || null
-    }));
+    .map(listedRouteFromImportedRecord);
   return [...fromListing, ...extras].sort((left, right) => (right.importedAt || 0) - (left.importedAt || 0));
+}
+
+export function listedRouteFromImportedRecord(record: OsMapsImportedRouteRecord): OsMapsListedRoute {
+  return {
+    id: record.routeId,
+    ownerMemberId: record.ownerMemberId || null,
+    visibility: record.visibility || null,
+    number: record.number || null,
+    title: record.gpxFile?.title || record.url || record.routeId,
+    url: record.url || "",
+    createdAt: "",
+    createdAtValue: record.gpxFile?.walkedAt || record.importedAt || 0,
+    distanceMetres: record.gpxFile?.distanceMetres || 0,
+    source: OsMapsRouteSource.CREATED,
+    importedAt: record.importedAt,
+    gpxFile: record.gpxFile,
+    routeColor: record.color,
+    routeWeight: record.weight,
+    routeOpacity: record.opacity,
+    walkedAt: record.gpxFile?.walkedAt || null,
+    walkedByName: record.gpxFile?.walkedByName || null,
+    waypoints: record.waypoints || null,
+    difficulty: record.difficulty || null
+  };
 }
 
 export async function removeOsMapsRouteFromApp(routeId: string): Promise<void> {

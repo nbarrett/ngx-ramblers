@@ -2,11 +2,13 @@ import { inject, Injectable } from "@angular/core";
 import { GeoCoordinate, GeoDistanceService } from "./geo-distance.service";
 import { CurrentLocationService } from "./current-location.service";
 import { APP_NEARBY_GPS_TRUST_MILES } from "../../models/route-follow.model";
+import { StringUtilsService } from "../string-utils.service";
 
 @Injectable({providedIn: "root"})
 export class RouteNearbyService {
   private distance = inject(GeoDistanceService);
   private location = inject(CurrentLocationService);
+  private stringUtils = inject(StringUtilsService);
 
   milesAway(from: GeoCoordinate | null, point: GeoCoordinate | null): number | null {
     return from && point ? this.distance.calculateDistanceMiles(from, point) : null;
@@ -31,6 +33,14 @@ export class RouteNearbyService {
   }
 
   label(miles: number | null): string | null {
-    return miles === null ? null : miles < 0.1 ? "Here" : miles < 1 ? "Under a mile away" : miles.toFixed(1) + " miles away";
+    if (miles === null) {
+      return null;
+    } else if (miles < 0.1) {
+      return "Here";
+    } else if (miles < 1) {
+      return "Under a mile away";
+    } else {
+      return this.stringUtils.pluraliseWithCount(Number(miles.toFixed(1)), "mile") + " away";
+    }
   }
 }

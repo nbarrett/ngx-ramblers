@@ -45,7 +45,7 @@ describe("member route permissions", () => {
   });
 
   it("does not expose a private route through a guessed route id", async () => {
-    sandbox.stub(listingStore, "listedImportedOsMapsRoutes").resolves([route]);
+    sandbox.stub(importedStore, "osMapsImportedRouteByNumber").resolves({...route, routeId: route.id, number: 1001});
     const response = {status: sinon.stub(), json: sinon.stub()};
     response.status.returns(response);
     await publicImportedOsMapsRoute({user: other, params: {routeId: route.id}} as unknown as Request, response as unknown as Response);

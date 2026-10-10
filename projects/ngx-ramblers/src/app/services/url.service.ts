@@ -24,7 +24,7 @@ import { FALLBACK_MEDIA } from "../models/walk.model";
 import { isMeetupUrl as isMeetupUrlFn } from "../functions/walks/ramblers-event.mapper";
 import { apexHostFromUrl, hostFromUrl, stagingHostForSiteHref } from "../functions/hosts";
 import { stripTrailingSlash } from "../functions/strings";
-import { nativeWalkingSite } from "../functions/native-walking";
+import { nativeApiUrl, nativeWalkingSite } from "../functions/native-walking";
 
 @Injectable({
   providedIn: "root"
@@ -397,7 +397,7 @@ export class UrlService {
     if (this.isUrlWithId(linkConfig)) {
       return this.publicResourceUrl(linkConfig.area, linkConfig.subArea, linkConfig.id, linkConfig.relative);
     } else {
-      return `${this.publicBaseUrl()}/${this.resourceRelativePathForAWSFileName(linkConfig.name)}`;
+      return new URL(this.resourceRelativePathForAWSFileName(linkConfig.name), `${this.publicBaseUrl()}/`).href;
     }
   }
 
@@ -480,7 +480,7 @@ export class UrlService {
   }
 
   absolutePathForAWSFileName(fileName: string): string {
-    return `${this.baseUrl()}/${this.resourceRelativePathForAWSFileName(fileName)}`;
+    return this.absoluteUrlFor(this.resourceRelativePathForAWSFileName(fileName));
   }
 
   absoluteUrlFor(url: string): string {
@@ -492,7 +492,7 @@ export class UrlService {
   }
 
   resourceRelativePathForAWSFileName(fileName: string): string {
-    return fileName ? fileName.includes(S3_BASE_URL) ? fileName : `${S3_BASE_URL}/${fileName}` : null;
+    return fileName ? nativeApiUrl(fileName.includes(S3_BASE_URL) ? fileName : `${S3_BASE_URL}/${fileName}`) : null;
   }
 
   hasRouteParameter(parameter: string): boolean {

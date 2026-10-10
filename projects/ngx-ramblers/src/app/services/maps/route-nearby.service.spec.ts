@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CurrentLocationService } from "./current-location.service";
 import { GeoDistanceService } from "./geo-distance.service";
 import { RouteNearbyService } from "./route-nearby.service";
+import { StringUtilsService } from "../string-utils.service";
 
 describe("shared route distance filtering", () => {
   const location = {currentPosition: vi.fn()};
@@ -11,7 +12,10 @@ describe("shared route distance filtering", () => {
     vi.resetAllMocks();
     TestBed.configureTestingModule({providers: [
       {provide: CurrentLocationService, useValue: location},
-      {provide: GeoDistanceService, useValue: distance}
+      {provide: GeoDistanceService, useValue: distance},
+      {provide: StringUtilsService, useValue: {
+        pluraliseWithCount: (count: number, singular: string, plural?: string) => `${count} ${count === 1 ? singular : (plural || singular + "s")}`
+      }}
     ]});
   });
   afterEach(() => TestBed.resetTestingModule());
@@ -34,5 +38,12 @@ describe("shared route distance filtering", () => {
     const service = TestBed.inject(RouteNearbyService);
     expect(service.milesAway({latitude: 51, longitude: 0}, null)).toBeNull();
     expect(distance.calculateDistanceMiles).not.toHaveBeenCalled();
+  });
+
+  it("pluralises miles in the away label", () => {
+    const service = TestBed.inject(RouteNearbyService);
+    expect(service.label(1)).toBe("1 mile away");
+    expect(service.label(2)).toBe("2 miles away");
+    expect(service.label(0.05)).toBe("Here");
   });
 });

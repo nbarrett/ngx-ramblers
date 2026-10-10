@@ -51,6 +51,9 @@ export class OsMapsExportService {
     color?: string | null;
     weight?: number | null;
     opacity?: number | null;
+    waypoints?: OsMapsListedRoute["waypoints"];
+    visibility?: OsMapsListedRoute["visibility"];
+    difficulty?: OsMapsListedRoute["difficulty"];
   }): Promise<OsMapsListedRoute> {
     return firstValueFrom(this.http.put<OsMapsListedRoute>(`${this.baseUrl}/routes/${routeId}`, update));
   }

@@ -877,7 +877,8 @@ export class WalkDisplayService {
   }
 
   walkGradeFrom(gradeValue: string): WalkGrade {
-    return WALK_GRADES.find((grade) => grade.description.toLowerCase() === gradeValue?.toLowerCase());
+    const needle = gradeValue?.toLowerCase();
+    return WALK_GRADES.find(grade => grade.description.toLowerCase() === needle || grade.code.toLowerCase() === needle);
   }
 
   isWalkGrade(object: any): object is WalkGrade {
@@ -899,5 +900,7 @@ export class WalkDisplayService {
   public difficulties(): Difficulty[] {
     return WALK_GRADES.map(item => ({code: item.code, description: item.description}));
   }
+
+  public difficultyComparer = (item1: Difficulty, item2: Difficulty): boolean => item1?.code === item2?.code;
 
 }
