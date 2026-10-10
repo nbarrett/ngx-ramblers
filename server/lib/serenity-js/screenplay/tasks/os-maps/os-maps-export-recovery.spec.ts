@@ -36,6 +36,29 @@ describe("OS Maps export recovery", () => {
     expect(counts).toEqual({clicks: 2, listeners: 2});
   });
 
+  it("retries when the export confirmation click fails", async () => {
+    const counts = {clicks: 0, confirms: 0, dismissed: 0};
+    const actor = {attemptsTo: async (...activities) => {
+      activities.forEach(activity => {
+        const description = activity.toString();
+        if (description.includes("clicks Export GPX")) {
+          counts.clicks += 1;
+        } else if (description.includes("waits to see")) {
+          rememberOsMapsExportOutcome(counts.clicks === 1 ? OsMapsExportClickOutcome.CONFIRMATION_SHOWN : OsMapsExportClickOutcome.DOWNLOAD_STARTED);
+        } else if (description.includes("confirms the OS Maps export")) {
+          counts.confirms += 1;
+          if (counts.confirms === 1) {
+            throw new errors.TimeoutError("locator.click: Timeout 10000ms exceeded.");
+          }
+        } else if (description.includes("dismisses any OS Maps")) {
+          counts.dismissed += 1;
+        }
+      });
+    }} as PerformsActivities;
+    await StartOsMapsGpxDownload.now().performAs(actor);
+    expect(counts).toEqual({clicks: 2, confirms: 1, dismissed: 1});
+  });
+
   it("fails explicitly after the bounded click attempts", async () => {
     const counts = {clicks: 0};
     const actor = {attemptsTo: async (...activities) => {
