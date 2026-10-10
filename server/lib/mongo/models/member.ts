@@ -91,6 +91,10 @@ export const memberSchema = new mongoose.Schema({
   fileAdmin: {type: Boolean},
   committee: {type: Boolean},
   profileSettingsConfirmed: {type: Boolean},
+  routePreferences: {type: new mongoose.Schema({
+    favouriteKeys: {type: [String], default: []},
+    hiddenKeys: {type: [String], default: []}
+  }, {_id: false}), select: false},
   profileSettingsConfirmedAt: {type: Number},
   profileSettingsConfirmedBy: {type: String},
   walkChangeNotifications: {type: Boolean},

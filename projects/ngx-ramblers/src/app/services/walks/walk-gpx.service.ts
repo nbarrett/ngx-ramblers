@@ -11,9 +11,12 @@ export class WalkGpxService {
   private distanceValidationService = inject(DistanceValidationService);
   private BASE_URL = "/api/database/walks/gpx";
 
-  uploadGpxFile(file: File): Observable<{ gpxFile: ServerFileNameData }> {
+  uploadGpxFile(file: File, title = ""): Observable<{ gpxFile: ServerFileNameData }> {
     const formData = new FormData();
     formData.append("file", file);
+    if (title) {
+      formData.append("title", title);
+    }
     return this.http.post<{ gpxFile: ServerFileNameData }>(
       `${this.BASE_URL}/upload`,
       formData

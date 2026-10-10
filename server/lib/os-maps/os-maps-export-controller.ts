@@ -4,7 +4,7 @@ import { routesWithWalkReferences } from "./os-maps-route-walks";
 import { removeOsMapsRouteFromApp } from "./os-maps-route-listing-store";
 import { routeContributorFrom } from "../auth/request-member";
 import { Request, Response } from "express";
-import { isArray, isString } from "es-toolkit/compat";
+import { isArray, isObject, isString } from "es-toolkit/compat";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
@@ -13,8 +13,8 @@ import { dispatchOsMapsExport, dispatchOsMapsList } from "../ramblers/os-maps-ex
 import { cancelActiveWorkerQueueJob } from "../ramblers/integration-worker-queue-client";
 import { failOsMapsExportResult, latestOsMapsExportResult, osMapsExportResultByJobId, lastOsMapsExportActivityAt, osMapsExportResultWithActivity } from "./os-maps-export-result-store";
 import { dateTimeNowAsValue } from "../shared/dates";
-import { latestOsMapsRouteListing, listedImportedOsMapsRoutes } from "./os-maps-route-listing-store";
-import { osMapsImportedRouteById, saveOsMapsImportedRoute } from "./os-maps-imported-route-store";
+import { latestOsMapsRouteListing, listedImportedOsMapsRoutes, listedRouteFromImportedRecord } from "./os-maps-route-listing-store";
+import { osMapsImportedRouteById, osMapsImportedRouteByNumber, saveOsMapsImportedRoute } from "./os-maps-imported-route-store";
 
 function actorNameFrom(req: Request): string {
   const user = req.user as Partial<MemberCookie> | undefined;
@@ -50,12 +50,14 @@ export async function listImportedOsMapsRoutes(req: Request, res: Response): Pro
 
 export async function publicImportedOsMapsRoute(req: Request, res: Response): Promise<void> {
   try {
-    const routes = accessibleRoutes(await listedImportedOsMapsRoutes(), req.user as MemberCookie || null);
     const key = req.params.routeId;
     const asNumber = /^\d+$/.test(key) ? Number(key) : null;
+    const record = asNumber !== null ? await osMapsImportedRouteByNumber(asNumber) || await osMapsImportedRouteById(key) : await osMapsImportedRouteById(key);
+    const routes = record?.gpxFile?.awsFileName ? [listedRouteFromImportedRecord(record)] : await listedImportedOsMapsRoutes();
+    const accessible = accessibleRoutes(routes, req.user as MemberCookie || null);
     const route = asNumber !== null
-      ? routes.find(item => item.number === asNumber) || routes.find(item => item.id === key)
-      : routes.find(item => item.id === key);
+      ? accessible.find(item => item.number === asNumber) || accessible.find(item => item.id === key)
+      : accessible.find(item => item.id === key);
     if (!route) {
       res.status(404).json({error: "That imported route was not found"});
     } else {
@@ -142,7 +144,9 @@ export async function updateOsMapsImportedRoute(req: Request, res: Response): Pr
           gpxFile: req.body?.gpxFile || null,
           color: req.body?.color,
           weight: req.body?.weight,
-          opacity: req.body?.opacity
+          opacity: req.body?.opacity,
+          ...(isArray(req.body?.waypoints) ? {waypoints: req.body.waypoints} : {}),
+          ...(req.body?.difficulty === null || isObject(req.body?.difficulty) ? {difficulty: req.body.difficulty} : {})
         }, routeContributorFrom(req));
         res.json(saved);
       }

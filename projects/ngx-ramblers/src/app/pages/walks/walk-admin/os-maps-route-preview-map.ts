@@ -1,49 +1,43 @@
-import { AfterViewInit, Component, ElementRef, inject, Input, NgZone, OnChanges, OnDestroy, SimpleChanges, ViewChild } from "@angular/core";
+import { Component, ElementRef, inject, Input, NgZone, OnChanges, OnDestroy, SimpleChanges, ViewChild } from "@angular/core";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCircleCheck, faMap } from "@fortawesome/free-solid-svg-icons";
-import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { faMap } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import * as L from "leaflet";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { DateUtilsService } from "../../../services/date-utils.service";
 import { GpxParserService } from "../../../services/maps/gpx-parser.service";
 import { RouteFollowPayloadService } from "../../../services/maps/route-follow-payload.service";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
 import { MapZoomService } from "../../../services/maps/map-zoom.service";
-import { MapProvider, OUTDOOR_OS_STYLE } from "../../../models/map.model";
+import { MapProvider, DEFAULT_OS_STYLE } from "../../../models/map.model";
 import { OsMapsListedRoute } from "../../../models/os-maps-export.model";
-import {
-  ROUTE_PREVIEW_MAX_POINTS,
-  ROUTE_PREVIEW_SPACING_METRES,
-  RouteFollowPoint
-} from "../../../models/route-follow.model";
-import { simplifiedRoutePoints } from "../../../functions/route-geometry";
+import { RouteFollowPoint } from "../../../models/route-follow.model";
+import { FileNameData } from "../../../models/aws-object.model";
+import { RouteFollowCacheService } from "../../../services/maps/route-follow-cache.service";
+import { VisibilityObserverDirective } from "../../../notifications/common/visibility-observer.directive";
+import { routeSegments } from "../../../functions/route-geometry";
 
-const previewLineByUrl = new Map<string, L.LatLngExpression[]>();
+const previewLineByUrl = new Map<string, Promise<RouteFollowPoint[]>>();
 const PREVIEW_VIEW_MARGIN = "240px 0px";
 
 @Component({
   selector: "app-os-maps-route-preview-map",
-  imports: [FontAwesomeModule, TooltipDirective],
+  imports: [FontAwesomeModule, VisibilityObserverDirective],
   host: {
     "[class.fill]": "fill"
   },
   template: `
     <div class="os-maps-route-preview" [class.os-maps-route-preview-compact]="compact" [style.background-color]="'#eef1ea'">
-      <div class="os-maps-route-preview-map" #mapContainer></div>
+      <div class="os-maps-route-preview-map" #mapContainer
+           [app-visibility-observer]="route?.id || cacheKey || 'route-preview'"
+           [observeOnce]="false" [rootMargin]="previewViewMargin"
+           (visibilityChange)="onVisibilityChange($event)"></div>
       @if (!hasLine) {
         <div class="os-maps-route-preview-fallback">
           <fa-icon [icon]="faMap" [style.color]="'#54606d'"/>
         </div>
-      }
-      @if (route?.importedAt) {
-        <span class="os-maps-route-preview-badge"
-              [tooltip]="'Imported ' + importedLabel()" container="body">
-          <fa-icon [icon]="faCircleCheck"/>
-        </span>
       }
     </div>
   `,
@@ -56,9 +50,11 @@ const PREVIEW_VIEW_MARGIN = "240px 0px";
       max-width: 100%
 
     :host.fill
+      display: flex
+      flex-direction: column
       width: 100%
-      height: 100%
       min-height: 0
+      align-self: stretch
 
     .os-maps-route-preview
       position: relative
@@ -74,23 +70,13 @@ const PREVIEW_VIEW_MARGIN = "240px 0px";
       max-height: 88px
 
     :host.fill .os-maps-route-preview
-      min-height: inherit
+      flex: 1 1 auto
+      min-height: 72px
       max-height: none
+      height: auto
 
-    .os-maps-route-preview-badge
-      position: absolute
-      top: 4px
-      left: 4px
-      width: 20px
-      height: 20px
-      border-radius: 50%
-      display: flex
-      align-items: center
-      justify-content: center
-      background-color: #2f6f4f
-      color: #ffffff
-      font-size: .7rem
-      box-shadow: 0 1px 2px rgba(0, 0, 0, .35)
+    :host.flush .os-maps-route-preview
+      border-radius: 0
 
     .os-maps-route-preview-map
       width: 100%
@@ -108,18 +94,21 @@ const PREVIEW_VIEW_MARGIN = "240px 0px";
       background-color: #eef1ea
   `]
 })
-export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges, OnDestroy {
+export class OsMapsRoutePreviewMapComponent implements OnChanges, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("OsMapsRoutePreviewMapComponent", NgxLoggerLevel.ERROR);
   private http = inject(HttpClient);
   private gpxParser = inject(GpxParserService);
   private routeFollowPayload = inject(RouteFollowPayloadService);
   private mapTiles = inject(MapTilesService);
   private mapZoom = inject(MapZoomService);
-  private dateUtils = inject(DateUtilsService);
   private zone = inject(NgZone);
+  private followCache = inject(RouteFollowCacheService);
+  protected readonly previewViewMargin = PREVIEW_VIEW_MARGIN;
   @ViewChild("mapContainer", {static: true}) mapContainerRef!: ElementRef<HTMLDivElement>;
   @Input() route: OsMapsListedRoute | null = null;
   @Input() points: RouteFollowPoint[] = [];
+  @Input() gpxFile: FileNameData | null = null;
+  @Input() cacheKey: string | null = null;
   @Input() compact = false;
   fill = false;
 
@@ -127,21 +116,22 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
     this.fill = coerceBooleanProperty(value);
   }
   faMap = faMap;
-  faCircleCheck = faCircleCheck;
   hasLine = false;
   private mapRef: L.Map | null = null;
   private latLngs: L.LatLngExpression[] = [];
+  private previewPoints: RouteFollowPoint[] = [];
+  private loadedSource: string | null = null;
+  private loadingSource: string | null = null;
   private loadedRouteKey: string | null = null;
   private inView = false;
-  private readonly osStyle = OUTDOOR_OS_STYLE;
+  private readonly osStyle = DEFAULT_OS_STYLE;
   private readonly fitPaddingPercent = 0.18;
   private resizeObserver: ResizeObserver | null = null;
-  private visibilityObserver: IntersectionObserver | null = null;
-  private refitWait: ReturnType<typeof setTimeout> | null = null;
+  private refitFrame: number | null = null;
   private loadGeneration = {value: 0};
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ((changes.points || changes.route) && this.inView) {
+    if ((changes.points || changes.route || changes.gpxFile || changes.cacheKey) && this.inView) {
       this.applyGeometry();
     } else if ((changes.fill || changes.compact) && this.mapRef) {
       this.refitRoute();
@@ -156,25 +146,16 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
     const first = this.points[0];
     const last = this.points[this.points.length - 1];
     return [
-      this.routeKey() || "",
+      this.routeKey() || this.cacheKey || "",
+      this.gpxFile?.awsFileName || "",
       String(this.points.length),
       first ? `${first.latitude},${first.longitude}` : "",
       last ? `${last.latitude},${last.longitude}` : ""
     ].join(":");
   }
 
-  importedLabel(): string {
-    return this.route?.importedAt ? this.dateUtils.displayDate(this.route.importedAt) : "";
-  }
-
-  ngAfterViewInit(): void {
-    this.observeVisibility();
-  }
-
   ngOnDestroy(): void {
     this.loadGeneration.value += 1;
-    this.visibilityObserver?.disconnect();
-    this.visibilityObserver = null;
     this.tearDownMap();
   }
 
@@ -199,17 +180,8 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
     };
   }
 
-  private observeVisibility(): void {
-    const element = this.mapContainerRef.nativeElement;
-    if ("IntersectionObserver" in window) {
-      this.visibilityObserver = new IntersectionObserver(entries => {
-        const visible = entries.some(entry => entry.isIntersecting);
-        this.zone.run(() => this.setInView(visible));
-      }, {rootMargin: PREVIEW_VIEW_MARGIN, threshold: 0.01});
-      this.visibilityObserver.observe(element);
-    } else {
-      this.setInView(true);
-    }
+  onVisibilityChange(visible: boolean): void {
+    this.zone.run(() => this.setInView(visible));
   }
 
   private setInView(visible: boolean): void {
@@ -223,27 +195,25 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
 
   private applyGeometry(): void {
     const key = this.geometryKey();
-    const stored = this.route?.gpxFile?.previewPoints || [];
-    const source = this.points.length >= 2 ? this.points : stored;
-    if (key === this.loadedRouteKey) {
-      if (this.latLngs.length >= 2) {
-        this.ensureMap();
-        this.drawIfReady();
-      }
-    } else if (source.length >= 2) {
+    const source = this.points.length >= 2 ? this.points : this.route?.gpxFile?.previewPoints || [];
+    if (key !== this.loadedRouteKey) {
+      this.loadGeneration.value += 1;
       this.loadedRouteKey = key;
-      this.latLngs = simplifiedRoutePoints(source, ROUTE_PREVIEW_SPACING_METRES, ROUTE_PREVIEW_MAX_POINTS)
-        .map(point => [point.latitude, point.longitude]);
-      this.hasLine = this.latLngs.length >= 2;
+      this.loadedSource = null;
+      this.loadingSource = null;
+      this.applyPoints(source);
+    }
+    if (this.hasLine) {
       this.ensureMap();
       this.drawIfReady();
-    } else if (this.route?.gpxFile?.awsFileName) {
-      void this.loadRoute();
-    } else {
-      this.loadedRouteKey = key;
-      this.hasLine = false;
-      this.latLngs = [];
     }
+    void this.loadRoute();
+  }
+
+  private applyPoints(points: RouteFollowPoint[]): void {
+    this.previewPoints = points;
+    this.latLngs = points.map(point => [point.latitude, point.longitude]);
+    this.hasLine = points.length >= 2;
   }
 
   private ensureMap(): void {
@@ -259,9 +229,9 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
   }
 
   private tearDownMap(): void {
-    if (this.refitWait) {
-      clearTimeout(this.refitWait);
-      this.refitWait = null;
+    if (this.refitFrame !== null) {
+      cancelAnimationFrame(this.refitFrame);
+      this.refitFrame = null;
     }
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
@@ -271,29 +241,23 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
 
   private async loadRoute(): Promise<void> {
     const key = this.geometryKey();
-    const url = this.route?.gpxFile ? this.routeFollowPayload.gpxDownloadUrl(this.route.gpxFile) : null;
-    const cached = url ? previewLineByUrl.get(url) : null;
-    this.loadedRouteKey = key;
-    if (cached && cached.length >= 2) {
-      this.latLngs = cached;
-      this.hasLine = true;
-      this.ensureMap();
-      this.drawIfReady();
-    } else if (url) {
-      const generation = this.loadGeneration.value + 1;
-      this.loadGeneration.value = generation;
-      this.hasLine = false;
-      this.latLngs = [];
+    const file = this.gpxFile || this.route?.gpxFile;
+    const url = file ? this.routeFollowPayload.gpxDownloadUrl(file) : null;
+    const source = url || this.cacheKey;
+    if (source && this.loadedSource !== source && this.loadingSource !== source) {
+      const generation = ++this.loadGeneration.value;
+      this.loadingSource = source;
       try {
-        const gpxContent = await firstValueFrom(this.http.get(url, {responseType: "text"}));
+        const request = previewLineByUrl.get(source) || this.fullPoints(url);
+        previewLineByUrl.set(source, request);
+        const points = await request;
+        if (points.length < 2) {
+          previewLineByUrl.delete(source);
+        }
         if (this.loadGeneration.value === generation && this.loadedRouteKey === key) {
-          const parsed = this.gpxParser.parseGpxFile(gpxContent);
-          const track = parsed.tracks[0];
-          if (track && track.points.length >= 2) {
-            this.latLngs = simplifiedRoutePoints(track.points, ROUTE_PREVIEW_SPACING_METRES, ROUTE_PREVIEW_MAX_POINTS)
-              .map(point => [point.latitude, point.longitude]);
-            previewLineByUrl.set(url, this.latLngs);
-            this.hasLine = true;
+          this.loadedSource = source;
+          if (points.length >= 2) {
+            this.applyPoints(points);
             if (this.inView) {
               this.ensureMap();
               this.drawIfReady();
@@ -301,12 +265,20 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
           }
         }
       } catch (error) {
-        this.logger.error("loadRoute failed for route:", this.route?.id, error);
-        if (this.loadedRouteKey === key) {
-          this.loadedRouteKey = null;
+        previewLineByUrl.delete(source);
+        this.logger.error("loadRoute failed for route:", this.route?.id || this.cacheKey, error);
+      } finally {
+        if (this.loadGeneration.value === generation) {
+          this.loadingSource = null;
         }
       }
     }
+  }
+
+  private fullPoints(url: string | null): Promise<RouteFollowPoint[]> {
+    return url
+      ? firstValueFrom(this.http.get(url, {responseType: "text"})).then(content => this.gpxParser.parseGpxFile(content).tracks.flatMap(track => track.points))
+      : this.followCache.payload(this.cacheKey).then(payload => payload?.points || []);
   }
 
   private drawIfReady(): void {
@@ -316,7 +288,8 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
       const style = provider === MapProvider.OS ? this.osStyle : "";
       map.eachLayer(layer => map.removeLayer(layer));
       map.addLayer(this.mapTiles.createBaseLayer(provider, style));
-      const polyline = L.polyline(this.latLngs, {color: this.route?.routeColor || "#2f6f4f", weight: 3});
+      const lines = routeSegments(this.previewPoints).map(segment => segment.map(point => L.latLng(point.latitude, point.longitude)));
+      const polyline = L.polyline(lines, {color: this.route?.routeColor || "#2f6f4f", weight: 3, smoothFactor: 0.5});
       polyline.addTo(map);
       this.refitRoute();
     }
@@ -324,15 +297,16 @@ export class OsMapsRoutePreviewMapComponent implements AfterViewInit, OnChanges,
 
   private refitRoute(): void {
     if (this.mapRef && this.hasLine && this.latLngs.length >= 2) {
-      if (this.refitWait) {
-        clearTimeout(this.refitWait);
+      if (this.refitFrame !== null) {
+        cancelAnimationFrame(this.refitFrame);
       }
       const map = this.mapRef;
       const paddedBounds = L.latLngBounds(this.latLngs).pad(this.fitPaddingPercent);
-      this.refitWait = setTimeout(() => {
-        this.refitWait = null;
-        this.mapZoom.invalidateAndApplyBounds(map, paddedBounds, {maxZoom: map.getMaxZoom()});
-      }, 50);
+      this.refitFrame = requestAnimationFrame(() => {
+        this.refitFrame = null;
+        map.invalidateSize({animate: false});
+        this.mapZoom.applyBoundsToMap(map, paddedBounds, {maxZoom: map.getMaxZoom()});
+      });
     }
   }
 }

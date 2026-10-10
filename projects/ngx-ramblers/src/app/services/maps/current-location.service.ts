@@ -10,13 +10,13 @@ export class CurrentLocationService {
     return !!globalThis.navigator?.geolocation;
   }
 
-  currentPosition(): Promise<LatLngLiteral | null> {
+  currentPosition(fresh = false): Promise<LatLngLiteral | null> {
     return new Promise(resolve => {
       if (this.available()) {
         navigator.geolocation.getCurrentPosition(
           position => this.zone.run(() => resolve({lat: position.coords.latitude, lng: position.coords.longitude})),
           () => this.zone.run(() => resolve(null)),
-          {enableHighAccuracy: false, timeout: CURRENT_LOCATION_TIMEOUT_MS, maximumAge: CURRENT_LOCATION_MAX_AGE_MS}
+          {enableHighAccuracy: fresh, timeout: CURRENT_LOCATION_TIMEOUT_MS, maximumAge: fresh ? 0 : CURRENT_LOCATION_MAX_AGE_MS}
         );
       } else {
         resolve(null);

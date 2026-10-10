@@ -27,7 +27,8 @@ export function uploadWalkGpx(req: Request, res: Response) {
   }
 
   const content = fs.readFileSync(file.path, "utf8");
-  persistGpxContent(file.originalname, content, undefined, routeContributorFrom(req))
+  const title = isString(req.body?.title) ? req.body.title.trim().slice(0, 200) : "";
+  persistGpxContent(file.originalname, content, title || undefined, routeContributorFrom(req))
     .then(fileNameData => {
       debugLog("Upload successful:", fileNameData);
       return res.status(200).json({ gpxFile: fileNameData });
@@ -51,11 +52,11 @@ export async function importWalkGpx(req: Request, res: Response): Promise<void> 
         res.status(400).json({error: "Invalid recording identifier"});
       } else {
         const existing = recordingId ? await osMapsImportedRouteById(`recording-${recordingId}`) : null;
-        if (existing?.gpxFile) {
+        const title = isString(req.body?.title) ? req.body.title.trim().slice(0, 200) : "";
+        if (existing?.gpxFile && (!title || existing.gpxFile.title === title)) {
           res.status(200).json({gpxFile: existing.gpxFile, routeId: existing.routeId, number: existing.number || null});
         } else {
           const content = fs.readFileSync(file.path, "utf8");
-          const title = isString(req.body?.title) ? req.body.title.trim().slice(0, 200) : "";
           const description = isString(req.body?.description) ? req.body.description.trim().slice(0, 10000) : "";
           const gpxFile = await persistGpxContent(file.originalname, content, title || null, routeContributorFrom(req));
           gpxFile.description = description;

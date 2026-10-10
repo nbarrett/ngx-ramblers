@@ -21,6 +21,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faArrowLeft, faCheck, faCircleExclamation, faHouse, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { nativeShareSupported } from "../functions/native-share";
+import { AppPath, walkingAppName } from "../models/route-follow.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 
@@ -46,8 +47,8 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
       <router-outlet/>
       @if (showFloatingNavigation()) {
         <button class="btn btn-primary btn-icon app-floating-navigation" type="button" (click)="navigateFloating()"
-                [attr.aria-label]="floatingBackAvailable() ? 'Back' : 'Home'"
-                [tooltip]="floatingBackAvailable() ? 'Back' : 'Home'">
+                [attr.aria-label]="floatingNavLabel()"
+                [tooltip]="floatingNavLabel()">
           <fa-icon [icon]="floatingBackAvailable() ? faArrowLeft : faHouse"/>
         </button>
       }
@@ -93,25 +94,46 @@ export class ContainerComponent implements OnInit, OnDestroy {
   protected appShellActive = false;
 
   protected showFloatingNavigation(): boolean {
-    const path = this.router.url.split("?")[0];
-    return this.appShell.installed() && path !== "/" && path !== "/home" && !path.startsWith("/app/route");
+    const path = this.currentPath();
+    const followPath = "/" + AppPath.ROOT + "/" + AppPath.ROUTE;
+    return this.appShell.installed() && path !== "/" && path !== "/home" && !path.startsWith(followPath);
   }
 
   protected showFloatingShare(): boolean {
-    return this.appShell.installed() && !this.router.url.split("?")[0].startsWith("/app/route");
+    const followPath = "/" + AppPath.ROOT + "/" + AppPath.ROUTE;
+    return this.appShell.installed() && !this.currentPath().startsWith(followPath);
   }
 
   protected floatingBackAvailable(): boolean {
-    const path = this.router.url.split("?")[0];
-    return path !== "/app" && this.routerHistory.hasAppBackDestination();
+    return !this.onWalkingAppHome() && this.routerHistory.hasAppBackDestination();
+  }
+
+  protected floatingNavLabel(): string {
+    if (this.floatingBackAvailable()) {
+      return "Back";
+    } else if (this.onWalkingAppHome()) {
+      return "Website home";
+    } else {
+      return "Home";
+    }
   }
 
   protected navigateFloating(): void {
     if (this.floatingBackAvailable()) {
       this.routerHistory.navigateBackWithinApp();
+    } else if (this.onWalkingAppHome()) {
+      void this.router.navigateByUrl("/");
     } else {
-      void this.router.navigateByUrl("/app");
+      void this.router.navigateByUrl("/" + AppPath.ROOT);
     }
+  }
+
+  private onWalkingAppHome(): boolean {
+    return this.currentPath() === "/" + AppPath.ROOT;
+  }
+
+  private currentPath(): string {
+    return this.router.url.split("?")[0];
   }
 
   protected async shareCurrentPage(): Promise<void> {
@@ -152,7 +174,7 @@ export class ContainerComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.systemConfigService.events()
       .subscribe((config: SystemConfig) => {
         this.config = config;
-        this.appShell.applyHomeScreenIdentity(config?.group?.shortName || config?.group?.longName);
+        this.appShell.applyHomeScreenIdentity(walkingAppName(config?.group));
       }));
   }
 

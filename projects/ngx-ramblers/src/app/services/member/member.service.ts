@@ -10,6 +10,8 @@ import { MailchimpSubscription } from "../../models/mailchimp.model";
 import {
   DeleteDocumentsRequest,
   Member,
+  MemberRoutePreferences,
+  RoutePreferenceChange,
   MemberApiResponse,
   MemberFilterSelection,
   MemberPrivileges,
@@ -85,6 +87,14 @@ export class MemberService {
 
   changeNotifications(): Observable<MemberApiResponse> {
     return this.memberChanges.asObservable();
+  }
+
+  routePreferences(): Promise<MemberRoutePreferences> {
+    return firstValueFrom(this.http.get<MemberRoutePreferences>(`${this.BASE_URL}/route-preferences`));
+  }
+
+  changeRoutePreference(change: RoutePreferenceChange): Promise<MemberRoutePreferences> {
+    return firstValueFrom(this.http.patch<MemberRoutePreferences>(`${this.BASE_URL}/route-preferences`, change));
   }
 
   deletionNotifications(): Observable<DeletionResponseApiResponse> {

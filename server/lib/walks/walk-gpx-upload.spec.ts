@@ -45,6 +45,40 @@ describe("standalone recording import", () => {
     expect(upload.called).toBe(false);
   });
 
+  it("replaces a filename title when the recording is saved with a name", async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "recording-import-test-"));
+    const filePath = path.join(directory, "recording.gpx");
+    fs.writeFileSync(filePath, "<gpx/>");
+    try {
+      sandbox.stub(routeStore, "osMapsImportedRouteById").resolves({
+        routeId: "recording-fictional-id",
+        number: 3,
+        importedAt: 1,
+        url: "route-20261010-115403",
+        gpxFile: {awsFileName: "old.gpx", title: "route-20261010-115403"}
+      });
+      const upload = sandbox.stub(gpxPersist, "persistGpxContent").resolves({
+        rootFolder: "gpx-routes",
+        originalFileName: "recording.gpx",
+        awsFileName: "saved.gpx",
+        title: "Hillside trail"
+      });
+      const store = sandbox.stub(routeStore, "saveFileImportedGpx").resolves({
+        routeId: "recording-fictional-id",
+        number: 3,
+        importedAt: 1,
+        url: "Hillside trail"
+      });
+      const res = response();
+      await importWalkGpx(request("fictional-id", filePath), res);
+      expect(upload.calledOnce).toBe(true);
+      expect(store.calledOnce).toBe(true);
+      expect((res.json as sinon.SinonStub).firstCall.args[0].gpxFile.title).toBe("Hillside trail");
+    } finally {
+      fs.rmSync(directory, {recursive: true});
+    }
+  });
+
   it("stores the name, description and recording identifier through the shared import", async () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "recording-import-test-"));
     const filePath = path.join(directory, "recording.gpx");

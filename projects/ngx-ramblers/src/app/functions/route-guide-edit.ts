@@ -1,5 +1,5 @@
 import { MapMarker, RouteGuideEntry } from "../models/content-text.model";
-import { RouteFollowPoint, RouteWaypointKind } from "../models/route-follow.model";
+import { RouteFollowPoint, RouteFollowWaypoint, RouteTurnStep, RouteWaypointKind } from "../models/route-follow.model";
 import { cumulativeDistances, pointAlongRoute } from "./route-geometry";
 import { distanceAlongRouteMetres } from "./route-directions";
 import { isAuthoredMarker } from "./map-location-markers";
@@ -30,6 +30,23 @@ export function stepAfter(points: RouteFollowPoint[], entries: RouteGuideEntry[]
   const next = entries[position + 1]?.distanceMetres ?? cumulative[cumulative.length - 1];
   const along = pointAlongRoute(points, cumulative, (from + next) / 2);
   return {id, latitude: along.point.latitude, longitude: along.point.longitude, label: "", instruction: "", kind: RouteWaypointKind.TURN};
+}
+
+export function turnWaypointsFromSteps(steps: RouteTurnStep[], nextId: () => string): RouteFollowWaypoint[] {
+  return steps.map((step, index) => ({
+    id: nextId(),
+    latitude: step.latitude,
+    longitude: step.longitude,
+    label: String(index + 1),
+    instruction: step.instruction,
+    kind: RouteWaypointKind.TURN,
+    ...(step.modifier ? {turn: step.modifier} : {}),
+    ...(step.wayName ? {wayName: step.wayName} : {})
+  }));
+}
+
+export function replacingTurns<T extends {kind?: RouteWaypointKind}>(existing: T[], generated: T[]): T[] {
+  return [...existing.filter(item => item.kind !== RouteWaypointKind.TURN), ...generated];
 }
 
 export function renumberedSteps(markers: MapMarker[], points: RouteFollowPoint[]): MapMarker[] {

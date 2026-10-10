@@ -27,13 +27,14 @@ export class MapControlsStateService {
     let provider: MapProvider;
     if (storedProvider === MapProvider.OS || storedProvider === MapProvider.OSM) {
       provider = storedProvider;
+    } else if (defaults.provider === MapProvider.OS || defaults.provider === MapProvider.OSM) {
+      provider = defaults.provider;
     } else {
       provider = hasKey ? MapProvider.OS : MapProvider.OSM;
     }
 
     if (provider === MapProvider.OS && !hasKey) {
       provider = MapProvider.OSM;
-      this.uiActions.saveValueFor(StoredValue.MAP_PROVIDER, MapProvider.OSM);
     }
 
     const defaultOsStyle = hasKey ? DEFAULT_OS_STYLE : OUTDOOR_OS_STYLE;

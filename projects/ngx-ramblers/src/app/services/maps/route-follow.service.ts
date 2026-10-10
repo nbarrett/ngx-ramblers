@@ -33,6 +33,7 @@ import { cumulativeDistances, projectOnSegment, simplifiedRoutePoints, snapToRou
 import { NativeRouteRecorderService } from "./native-route-recorder.service";
 import { NativeRouteError, NativeRouteFailure, NativeRoutePosition } from "../../models/native-route.model";
 import { generateUid } from "../../functions/numbers";
+import { StringUtilsService } from "../string-utils.service";
 
 @Injectable({
   providedIn: "root"
@@ -40,6 +41,7 @@ import { generateUid } from "../../functions/numbers";
 export class RouteFollowService {
   private geoDistance = inject(GeoDistanceService);
   private nativeRecorder = inject(NativeRouteRecorderService);
+  private stringUtils = inject(StringUtilsService);
   private sessionId: string | null = null;
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowService", NgxLoggerLevel.ERROR);
   private track: RouteFollowPoint[] = [];
@@ -56,6 +58,7 @@ export class RouteFollowService {
   private orientationHandler: ((event: DeviceOrientationEvent) => void) | null = null;
   private recordingGap = false;
   private recordingCandidate: RouteFollowPoint | null = null;
+  private lastRecordingPosition: RouteFollowPoint | null = null;
   private state: RouteFollowProgress = this.emptyProgress();
   private progressSubject = new BehaviorSubject<RouteFollowProgress>(this.state);
   readonly progress$ = this.progressSubject.asObservable();
@@ -66,6 +69,7 @@ export class RouteFollowService {
     this.recordingGap = false;
     this.recordingCandidate = null;
     this.track = points || [];
+    this.lastRecordingPosition = this.track.at(-1) || null;
     this.waypoints = waypoints || [];
     this.cumulativeMetres = this.buildCumulative(this.track);
     this.visitedWaypointIds = new Set<string>();
@@ -94,6 +98,10 @@ export class RouteFollowService {
 
   routeWaypoints(): RouteFollowWaypoint[] {
     return this.waypoints;
+  }
+
+  replaceWaypoints(waypoints: RouteFollowWaypoint[]): void {
+    this.waypoints = waypoints || [];
   }
 
   reverseRoute(): void {
@@ -132,6 +140,7 @@ export class RouteFollowService {
 
   replaceTrack(points: RouteFollowPoint[]): void {
     this.track = points || [];
+    this.lastRecordingPosition = this.track.at(-1) || null;
     this.cumulativeMetres = this.buildCumulative(this.track);
     this.state = {
       ...this.state,
@@ -155,12 +164,14 @@ export class RouteFollowService {
     this.visitedWaypointIds = new Set<string>();
     if (replace) {
       this.track = [];
+      this.lastRecordingPosition = null;
       this.cumulativeMetres = [];
     }
     if (!this.locationSupported()) {
       this.logger.error("startRecording: geolocation is not available");
       this.applyLocationError(RouteFollowLocationError.UNSUPPORTED);
     } else {
+      this.state = {...this.state, locationError: RouteFollowLocationError.ACQUIRING};
       this.applyMode(RouteFollowMode.RECORDING);
       void this.startCompass();
       this.startWatch(replace);
@@ -171,11 +182,13 @@ export class RouteFollowService {
     this.stopPreview();
     this.visitedWaypointIds = new Set(visitedWaypointIds || []);
     this.track = points || [];
+    this.lastRecordingPosition = this.track.at(-1) || null;
     this.cumulativeMetres = this.buildCumulative(this.track);
     if (!this.locationSupported()) {
       this.logger.error("restoreRecording: geolocation is not available");
       this.applyLocationError(RouteFollowLocationError.UNSUPPORTED);
     } else {
+      this.state = {...this.state, locationError: RouteFollowLocationError.ACQUIRING};
       this.applyMode(RouteFollowMode.RECORDING);
       void this.startCompass();
       this.startWatch();
@@ -319,7 +332,8 @@ export class RouteFollowService {
   }
 
   restoreProgress(progress: RouteFollowProgress): void {
-    this.state = {...progress, mode: this.state.mode};
+    this.state = {...progress, mode: this.state.mode,
+      locationError: this.state.mode === RouteFollowMode.RECORDING ? this.state.locationError : progress.locationError};
     this.progressSubject.next(this.state);
   }
 
@@ -446,7 +460,7 @@ export class RouteFollowService {
       return `${Math.round(metres)} m`;
     } else {
       const miles = metres / 1609.34;
-      return `${miles.toFixed(miles >= 10 ? 0 : 1)} mi`;
+      return this.stringUtils.pluraliseWithCount(Number(miles.toFixed(miles >= 10 ? 0 : 1)), "mile");
     }
   }
 
@@ -503,6 +517,7 @@ export class RouteFollowService {
     const accepted = !recording || this.acceptRecordingPosition(current, position.coords.accuracy);
     if (accepted) {
       if (recording) {
+        this.lastRecordingPosition = current;
         this.appendRecordedPoint({...current, breakBefore: this.recordingGap});
         this.recordingGap = false;
         this.recordingCandidate = null;
@@ -516,7 +531,7 @@ export class RouteFollowService {
   }
 
   private acceptRecordingPosition(point: RouteFollowPoint, accuracy: number): boolean {
-    const last = this.track.at(-1);
+    const last = this.lastRecordingPosition;
     const elapsed = last?.recordedAt ? point.recordedAt - last.recordedAt : null;
     const candidateElapsed = this.recordingCandidate?.recordedAt ? point.recordedAt - this.recordingCandidate.recordedAt : null;
     const accurate = isNumber(accuracy) && Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= RECORDING_MAX_ACCURACY_METRES;
@@ -525,7 +540,7 @@ export class RouteFollowService {
       return false;
     } else if (!last || !isNumber(elapsed)) {
       return true;
-    } else if (elapsed > RECORDING_GAP_MS || this.metresBetween(last, point) > accuracy + 10 + elapsed / 1000 * RECORDING_MAX_SPEED_METRES_PER_SECOND) {
+    } else if ((elapsed > RECORDING_GAP_MS && this.metresBetween(last, point) > Math.max(accuracy, ROUTE_FOLLOW_RECORD_MIN_POINT_METRES)) || this.metresBetween(last, point) > accuracy + 10 + elapsed / 1000 * RECORDING_MAX_SPEED_METRES_PER_SECOND) {
       const confirmed = !!this.recordingCandidate && candidateElapsed > 0 && candidateElapsed <= RECORDING_GAP_MS
         && this.metresBetween(this.recordingCandidate, point) <= accuracy + 10 + candidateElapsed / 1000 * RECORDING_MAX_SPEED_METRES_PER_SECOND;
       this.recordingCandidate = point;

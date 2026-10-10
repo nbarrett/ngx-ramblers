@@ -1,4 +1,4 @@
-import { OsMapsListedRoute, OsMapsRouteListFilter, OsMapsRouteSource, osMapsRouteIdFromUrl, osMapsRouteUserNames, osMapsRouteVisible } from "./os-maps-export.model";
+import { OsMapsListedRoute, OsMapsRouteListFilter, OsMapsRouteSource, osMapsRouteIdFromUrl, osMapsRouteUserNames, osMapsRouteVisible, routeAuditCreatedLabel } from "./os-maps-export.model";
 
 describe("os-maps-export helpers", () => {
   const nickWalk: OsMapsListedRoute = {
@@ -48,6 +48,20 @@ describe("os-maps-export helpers", () => {
       walkedByName: "Unknown user",
       gpxFile: {createdByName: "Unknown user"}
     })).toEqual([]);
+  });
+
+  it("labels a walked recording as recorded instead of imported", () => {
+    expect(routeAuditCreatedLabel({id: "recording-fictional-id", url: "Hillside trail"})).toBe("Recorded");
+    expect(routeAuditCreatedLabel({
+      id: "1001",
+      url: "https://explore.osmaps.com/route/1001/hillside-trail",
+      walkedByName: "Alex Reed"
+    })).toBe("Recorded");
+    expect(routeAuditCreatedLabel({
+      id: "1001",
+      url: "https://explore.osmaps.com/route/1001/hillside-trail"
+    })).toBe("Imported");
+    expect(routeAuditCreatedLabel({id: "gpx-hillside-trail", url: "Hillside trail"})).toBe("Saved");
   });
 
   it("filters by walked-by or imported-by user", () => {

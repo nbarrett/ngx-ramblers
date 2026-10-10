@@ -1,5 +1,7 @@
 import { RouteContributor } from "./audit";
 import { FileNameData, ServerFileNameData } from "./aws-object.model";
+import { Difficulty } from "./ramblers-walks-manager";
+import { RouteFollowWaypoint } from "./route-follow.model";
 
 export enum RouteVisibility {
   PRIVATE = "private",
@@ -63,11 +65,18 @@ export interface OsMapsListedRoute extends OsMapsImportContext {
   walkedAt?: number | null;
   walkedByName?: string | null;
   walks?: RouteWalkReference[];
+  waypoints?: RouteFollowWaypoint[] | null;
+  difficulty?: Difficulty | null;
 }
 
 export interface OsMapsRouteListing {
   listedAt: number;
   routes: OsMapsListedRoute[];
+}
+
+export interface OsMapsRouteListSnapshot {
+  memberId: string | null;
+  listings: Partial<Record<OsMapsAccountScope, OsMapsRouteListing>>;
 }
 
 export interface OsMapsRouteFixture {
@@ -188,6 +197,39 @@ export interface NetworkActivityEntry {
 
 export function isOsMapsRouteUrl(url: string): boolean {
   return !!url && url.includes("explore.osmaps.com/route/");
+}
+
+export function isRecordedOsMapsRoute(route: {
+  id?: string | null;
+  osMapsRouteId?: string | null;
+  recordingId?: string | null;
+  walkedByName?: string | null;
+  gpxFile?: {walkedByName?: string | null} | null;
+}): boolean {
+  const id = route.id || route.osMapsRouteId || "";
+  if (id.startsWith("recording-") || !!(route.recordingId)) {
+    return true;
+  } else {
+    return !!(route.walkedByName || route.gpxFile?.walkedByName);
+  }
+}
+
+export function routeAuditCreatedLabel(route: {
+  id?: string | null;
+  osMapsRouteId?: string | null;
+  recordingId?: string | null;
+  url?: string | null;
+  walkedByName?: string | null;
+  gpxFile?: {walkedByName?: string | null} | null;
+}): string {
+  const id = route.id || route.osMapsRouteId || "";
+  if (isRecordedOsMapsRoute(route)) {
+    return "Recorded";
+  } else if (isOsMapsRouteUrl(route.url || "") || /^\d+$/.test(id)) {
+    return "Imported";
+  } else {
+    return "Saved";
+  }
 }
 
 export function osMapsRouteIdFromUrl(url: string): string | null {

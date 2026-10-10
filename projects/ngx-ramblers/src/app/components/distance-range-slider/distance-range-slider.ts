@@ -4,6 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DistanceRange, DistanceUnit } from "../../models/search.model";
+import { StringUtilsService } from "../../services/string-utils.service";
 import { Subject } from "rxjs";
 import { debounceTime } from "rxjs/operators";
 
@@ -16,18 +17,18 @@ import { debounceTime } from "rxjs/operators";
         <label class="form-label mb-0 distance-heading">
           {{ label }}
           @if (singleThumb) {
-            <span class="selected-range">{{ highDisplay }} {{ unitDisplay }}</span>
+            <span class="selected-range">{{ rangeLabel(highValue) }}</span>
           }
         </label>
         @if (!singleThumb) {
           <div class="distance-values">
-            <span class="selected-range">{{ lowDisplay }} - {{ highDisplay }} {{ unitDisplay }}</span>
+            <span class="selected-range">{{ rangeLabel(lowValue) }} - {{ rangeLabel(highValue) }}</span>
           </div>
         }
       </div>
       <div class="range-slider-container pb-0">
         <div class="range-slider-row">
-            <span class="range-edge text-start">{{ minValue }} {{ unitDisplay }}</span>
+            <span class="range-edge text-start">{{ rangeLabel(minValue) }}</span>
             <div class="slider-wrapper">
               @if (!singleThumb) {
                 <input
@@ -51,7 +52,7 @@ import { debounceTime } from "rxjs/operators";
                 <div class="slider-fill" [style.left.%]="fillLeft" [style.width.%]="fillWidth"></div>
               </div>
             </div>
-            <span class="range-edge text-end">{{ maxValue }} {{ unitDisplay }}</span>
+            <span class="range-edge text-end">{{ rangeLabel(maxValue) }}</span>
             <div class="btn-group btn-group-sm ms-2" role="group">
               <button
                 type="button"
@@ -217,6 +218,7 @@ import { debounceTime } from "rxjs/operators";
 export class DistanceRangeSlider implements OnInit, OnChanges, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DistanceRangeSlider", NgxLoggerLevel.OFF);
   private rangeChangeSubject = new Subject<DistanceRange>();
+  private stringUtils = inject(StringUtilsService);
   private rangeChangeSubscription = this.rangeChangeSubject
     .pipe(debounceTime(300))
     .subscribe(range => this.rangeChange.emit(range));
@@ -250,6 +252,7 @@ export class DistanceRangeSlider implements OnInit, OnChanges, OnDestroy {
   @Input() singleThumb = false;
   @Input() label = "Distance";
   @Output() rangeChange = new EventEmitter<DistanceRange>();
+  @Output() rangeInput = new EventEmitter<DistanceRange>();
 
   private pendingRange: DistanceRange | null = null;
   private initialized = false;
@@ -276,16 +279,13 @@ export class DistanceRangeSlider implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  get lowDisplay(): string {
-    return this.lowValue.toFixed(1);
-  }
-
-  get highDisplay(): string {
-    return this.highValue.toFixed(1);
-  }
-
-  get unitDisplay(): string {
-    return this.distanceUnit === DistanceUnit.MILES ? "mi" : "km";
+  rangeLabel(value: number): string {
+    const count = Number(Number(value).toFixed(value % 1 === 0 ? 0 : 1));
+    if (this.distanceUnit === DistanceUnit.MILES) {
+      return this.stringUtils.pluraliseWithCount(count, "mile");
+    } else {
+      return this.stringUtils.pluraliseWithCount(count, "km", "km");
+    }
   }
 
   get fillLeft(): number {
@@ -356,11 +356,13 @@ export class DistanceRangeSlider implements OnInit, OnChanges, OnDestroy {
   }
 
   private emitChange() {
-    this.rangeChangeSubject.next({
+    const range: DistanceRange = {
       min: Number(this.lowValue.toFixed(1)),
       max: Number(this.highValue.toFixed(1)),
       unit: this.distanceUnit
-    });
+    };
+    this.rangeInput.emit(range);
+    this.rangeChangeSubject.next(range);
   }
 
   ngOnDestroy() {

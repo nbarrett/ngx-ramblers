@@ -24,8 +24,24 @@ describe("RouteFollowSaveService", () => {
     }
   };
   const walkGpx = {
-    importGpxFile: vi.fn(() => of({gpxFile: {awsFileName: "saved.gpx", originalFileName: "saved.gpx", distanceMetres: 125}, routeId: "recording-fictional-id"})),
-    uploadGpxFile: () => of({gpxFile: {awsFileName: "gpx-routes/saved.gpx", originalFileName: "saved.gpx"}})
+    importGpxFile: vi.fn(() => of({
+      gpxFile: {
+        awsFileName: "saved.gpx",
+        originalFileName: "route-20261010-115403.gpx",
+        title: "route-20261010-115403",
+        distanceMetres: 125
+      },
+      routeId: "recording-fictional-id",
+      number: 396
+    })),
+    uploadGpxFile: vi.fn(() => of({gpxFile: {awsFileName: "gpx-routes/saved.gpx", originalFileName: "route-20261010-115403.gpx", title: "route-20261010-115403"}}))
+  };
+  const savedImported: {gpxFile?: {title?: string}}[] = [];
+  const osMapsExport = {
+    saveImportedRoute: vi.fn(async (_routeId: string, update: {gpxFile?: {title?: string}}) => {
+      savedImported.push(update);
+      return {};
+    })
   };
 
   beforeEach(() => {
@@ -44,7 +60,7 @@ describe("RouteFollowSaveService", () => {
           isRemoteUrl: () => false,
           resourceRelativePathForAWSFileName: (name: string) => `/api/aws/s3/${name}`
         }},
-        {provide: OsMapsExportService, useValue: {saveImportedRoute: async () => ({})}}
+        {provide: OsMapsExportService, useValue: osMapsExport}
       ]
     });
     service = TestBed.inject(RouteFollowSaveService);
@@ -85,6 +101,9 @@ describe("RouteFollowSaveService", () => {
     expect(saved.source).toBe(RouteFollowSource.OS_MAPS);
     expect(saved.recordingId).toBeNull();
     expect(saved.osMapsRouteId).toBe("recording-fictional-id");
+    expect(saved.title).toBe("Hillside trail");
+    expect(saved.description).toBe("A loop through the woods & fields");
+    expect(saved.routeNumber).toBe(396);
     expect(saved.totalMetres).toBe(125);
     expect(savedWalks.length).toBe(previousWalkCount);
     expect(payload.source).toBe(RouteFollowSource.RECORDING);
@@ -146,5 +165,33 @@ describe("RouteFollowSaveService", () => {
     expect(savedWalks[savedWalks.length - 1].fields.routeColor).toBe("#4c6c3e");
     expect(savedWalks[savedWalks.length - 1].fields.routeWeight).toBe(6);
     expect(savedWalks[savedWalks.length - 1].fields.routeOpacity).toBe(0.8);
+  });
+
+  it("keeps the route name when replacing an imported GPX after an edit", async () => {
+    await service.save({
+      source: RouteFollowSource.OS_MAPS,
+      title: "Hillside trail",
+      description: "A loop through the woods",
+      path: null,
+      walkId: null,
+      routeId: null,
+      ramblersSlug: null,
+      osMapsRouteId: "recording-fictional-id",
+      provider: "os",
+      osStyle: "Leisure_27700",
+      color: "#c21d4b",
+      weight: 8,
+      opacity: 1,
+      points: [],
+      waypoints: [],
+      totalMetres: 0,
+      guide: null
+    }, [
+      {latitude: 51.2, longitude: 1.0},
+      {latitude: 51.21, longitude: 1.01}
+    ]);
+    const uploadArgs = walkGpx.uploadGpxFile.mock.calls.at(-1) as unknown as [File, string];
+    expect(uploadArgs[1]).toBe("Hillside trail");
+    expect(savedImported[savedImported.length - 1].gpxFile?.title).toBe("Hillside trail");
   });
 });

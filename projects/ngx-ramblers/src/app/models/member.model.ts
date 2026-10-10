@@ -13,6 +13,28 @@ export enum ProfileUpdateType {
   PHOTOS_AND_VIDEO = "photos and video"
 }
 
+export enum RoutePreferenceAction {
+  FAVOURITE = "favourite",
+  HIDE = "hide",
+  SHOW_ALL = "show-all",
+  UNFAVOURITE = "unfavourite"
+}
+
+export interface MemberRoutePreferences {
+  favouriteKeys: string[];
+  hiddenKeys: string[];
+}
+
+export interface RoutePreferenceChange {
+  action: RoutePreferenceAction;
+  key: string | null;
+}
+
+export interface CachedMemberRoutePreferences {
+  preferences: MemberRoutePreferences;
+  pending: RoutePreferenceChange[];
+}
+
 export enum MemberChangeStamp {
   PROFILE_SETTINGS = "profile-settings",
   PHOTO_VIDEO_OPT_OUT = "photo-video-opt-out"
@@ -163,6 +185,7 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   passwordResetId?: string;
   mailchimpSegmentIds?: MailchimpSegmentIds;
   profileSettingsConfirmed?: boolean;
+  routePreferences?: MemberRoutePreferences | null;
   profileSettingsConfirmedAt?: number;
   profileSettingsConfirmedBy?: string;
   jointWith?: string;
