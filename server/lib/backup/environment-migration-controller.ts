@@ -1,12 +1,22 @@
 import debug from "debug";
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { isString } from "es-toolkit/compat";
 import { envConfig } from "../env-config/env-config";
 import { createEnvironmentMigrationService } from "./environment-migration-service";
 import { asNumber } from "../../../projects/ngx-ramblers/src/app/functions/numbers";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
+import { booleanOf } from "../shared/string-utils";
 
 const debugLog = debug(envConfig.logNamespace("environment-migration-controller"));
 debugLog.enabled = false;
+
+export function requireEnvironmentMigrationEnabled(_req: Request, res: Response, next: NextFunction): void {
+  if (!booleanOf(process.env[Environment.PLATFORM_ADMIN_ENABLED])) {
+    res.status(403).json({error: "Environment migration is not enabled on this environment"});
+  } else {
+    next();
+  }
+}
 
 function errorMessage(error: any): string {
   return error?.message || "Environment migration request failed";

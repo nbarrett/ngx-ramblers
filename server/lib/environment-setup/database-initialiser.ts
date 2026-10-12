@@ -1,4 +1,5 @@
 import debug from "debug";
+import { indexExistingCollections } from "../mongo/utils/collection-indexes";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { toPairs, keys } from "es-toolkit/compat";
 import { Db, MongoClient } from "mongodb";
@@ -26,7 +27,6 @@ import { seedAdminMenuStructure } from "../mongo/migrations/shared/seed-admin-me
 import { seedDefaultLogoBanner } from "../mongo/migrations/shared/seed-default-banner";
 import { seedMissingDefaultContentText } from "../mongo/migrations/shared/seed-default-content-text";
 import { BannerPictureStore } from "./banner-picture.model";
-import { values } from "es-toolkit/compat";
 import { NEW_ENVIRONMENT_MEMBER_SYNC_POLICY } from "../../../projects/ngx-ramblers/src/app/models/member-sync-policy.model";
 import { recaptchaKeys } from "../config/recaptcha-keys";
 
@@ -119,16 +119,6 @@ export async function validateMongoConnection(params: MongoDbConnectionParams): 
   }
 }
 
-async function ensureCollection(db: Db, collectionName: string): Promise<void> {
-  const collections = await db.listCollections({ name: collectionName }).toArray();
-  if (collections.length === 0) {
-    await db.createCollection(collectionName);
-    debugLog("Created collection:", collectionName);
-  } else {
-    debugLog("Collection already exists:", collectionName);
-  }
-}
-
 async function upsertConfigDocument(db: Db, key: ConfigKey, value: unknown): Promise<void> {
   const collection = db.collection(COLLECTIONS.CONFIG);
   await collection.updateOne(
@@ -158,13 +148,6 @@ export async function initialiseDatabase(
   const { client, db } = await connectToDatabase({ uri, database });
 
   try {
-    reportProgress("Creating collections", SetupStepStatus.Running);
-    const collectionNames = values(COLLECTIONS);
-    for (const collectionName of collectionNames) {
-      await ensureCollection(db, collectionName);
-    }
-    reportProgress("Creating collections", SetupStepStatus.Completed);
-
     reportProgress("Creating SystemConfig", SetupStepStatus.Running);
     const recaptcha = await recaptchaKeys();
     const systemConfigParams: SystemConfigTemplateParams = {
@@ -270,6 +253,7 @@ export async function initialiseDatabase(
     await seedAdminMenuStructure(db, message => debugLog(message));
     reportProgress("Seeding admin menu structure", SetupStepStatus.Completed);
 
+    await indexExistingCollections(db);
     reportProgress("Database initialisation complete", SetupStepStatus.Completed);
     return { passwordResetId };
   } finally {
@@ -485,6 +469,7 @@ export async function seedSampleData(
     await seedAdminMenuStructure(db, message => debugLog(message));
     reportProgress("Seeding admin menu structure", SetupStepStatus.Completed);
 
+    await indexExistingCollections(db);
     reportProgress("Database seeding complete", SetupStepStatus.Completed);
   } finally {
     await client.close();
@@ -508,13 +493,6 @@ export async function reinitialiseDatabase(
 
   try {
     const groupShortName = toGroupShortName(params.groupName);
-
-    reportProgress("Creating collections", SetupStepStatus.Running);
-    const collectionNames = values(COLLECTIONS);
-    for (const collectionName of collectionNames) {
-      await ensureCollection(db, collectionName);
-    }
-    reportProgress("Creating collections", SetupStepStatus.Completed);
 
     reportProgress("Fetching group data from Ramblers API", SetupStepStatus.Running);
     const { groupDetails } = await import("./ramblers-api-client");
@@ -574,6 +552,7 @@ export async function reinitialiseDatabase(
     await seedAdminMenuStructure(db, message => debugLog(message));
     reportProgress("Seeding admin menu structure", SetupStepStatus.Completed);
 
+    await indexExistingCollections(db);
     reportProgress("Database reinitialisation complete", SetupStepStatus.Completed);
   } finally {
     await client.close();

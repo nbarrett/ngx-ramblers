@@ -1,8 +1,11 @@
 import expect from "expect";
+import sinon from "sinon";
+import * as databaseInitialiser from "./database-initialiser";
 import { describe, it } from "mocha";
 import { InboxAliasConnectionStatus } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import {
   awsCredentialsFromSource,
+  cloneSourceDatabase,
   mailboxConnectionSandboxUpdate,
   sandboxWalksManager
 } from "./full-duplicate";
@@ -14,6 +17,41 @@ import {
 } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 
 describe("full-duplicate", () => {
+
+  it("copies populated collections with their indexes and leaves empty collections absent", async () => {
+    const sandbox = sinon.createSandbox();
+    const createCollection = sandbox.stub().resolves();
+    const createIndex = sandbox.stub().resolves();
+    const insertMany = sandbox.stub().resolves();
+    const source = {
+      client: {close: sandbox.stub().resolves()},
+      db: {
+        listCollections: () => ({toArray: async () => [{name: "populated", type: "collection"}, {name: "unused", type: "collection"}]}),
+        collection: (name: string) => ({
+          find: () => ({toArray: async () => name === "populated" ? [{name: "Fictional"}] : []}),
+          indexes: async () => [{name: "name_1", key: {name: 1}, unique: true, v: 2}]
+        })
+      }
+    };
+    const target = {
+      client: {close: sandbox.stub().resolves()},
+      db: {listCollections: () => ({toArray: async () => []}), createCollection, collection: () => ({createIndex, insertMany})}
+    };
+    const connect = sandbox.stub(databaseInitialiser, "connectToDatabase");
+    connect.onFirstCall().resolves(source as never);
+    connect.onSecondCall().resolves(target as never);
+    try {
+      const result = await cloneSourceDatabase({uri: "mongodb://source.example.org", database: "source"}, {uri: "mongodb://target.example.org", database: "target"});
+      expect(result).toEqual({collections: 1, documents: 1});
+      expect(createCollection.args).toEqual([["populated"]]);
+      expect(createIndex.firstCall.args).toEqual([{name: 1}, {name: "name_1", unique: true}]);
+      expect(createIndex.calledBefore(insertMany)).toBe(true);
+      expect(source.client.close.calledOnce).toBe(true);
+      expect(target.client.close.calledOnce).toBe(true);
+    } finally {
+      sandbox.restore();
+    }
+  });
 
   describe("default names and hostnames", () => {
     it("names the sandbox staging.{source}", () => {

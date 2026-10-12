@@ -35,8 +35,9 @@ import { RamblersWalksManagerDateFormat as DateFormat } from "../../../projects/
 import { extractSourceEnvironmentFromBackupName, extractTimestampFromBackupName } from "./backup-paths";
 import { manifestByTimestamp, migrateLiveBucket, siteConfigFor, startS3Backup, startS3Restore } from "./s3-backup-service";
 import { adminConfigFromEnvironment, bucketExists, createS3Client, setupAwsForBucket } from "../environment-setup/aws-setup";
-import { restartCurrentMachine } from "../fly/fly-machines";
+import { restartCurrentMachine, setCurrentMachineSecrets } from "../fly/fly-machines";
 import { FlyTargetApp } from "../../../projects/ngx-ramblers/src/app/models/health.model";
+import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 
 const debugLog = debug(envConfig.logNamespace("environment-migration-service"));
 debugLog.enabled = true;
@@ -145,7 +146,11 @@ export class EnvironmentMigrationService {
     try {
       await this.markExecutionStarted(migrationId);
       await this.updateMigration(migrationId, EnvironmentMigrationStatus.VALIDATING, EnvironmentMigrationPhase.VALIDATE_SOURCE);
-      await this.validateMongoCredentials(sourceMongo, false, migrationId);
+      if (request.backupPath) {
+        debugLog("Skipping live source Mongo validation because a backup path is supplied:", request.backupPath);
+      } else {
+        await this.validateMongoCredentials(sourceMongo, false, migrationId);
+      }
 
       await this.updateMigration(migrationId, EnvironmentMigrationStatus.VALIDATING, EnvironmentMigrationPhase.VALIDATE_TARGET);
       await this.validateMongoCredentials(targetMongo, true, migrationId);
@@ -155,7 +160,9 @@ export class EnvironmentMigrationService {
 
       if (request.dryRun) {
         const liveS3Copies = await this.copyLiveS3IfRequested(migrationId, request, backupConfig, true);
-        const verification = await this.verifyDatabase(sourceMongo, request.environment, backupConfig);
+        const verification = request.backupPath
+          ? { collections: [], totalDocumentCount: 0, keyCollectionCounts: [] }
+          : await this.verifyDatabase(sourceMongo, request.environment, backupConfig);
         await environmentMigration.updateOne(
           { migrationId },
           {
@@ -263,7 +270,11 @@ export class EnvironmentMigrationService {
       throw new Error(`Environment "${migration.environment}" not found in ConfigKey.ENVIRONMENTS`);
     }
     const destinationAws = await this.destinationAwsForRotation(request, migration, currentConfig, matchingEnvironment);
-    const rollbackInfo = this.rotatedRollbackInfo(migration, matchingEnvironment, destinationAws);
+    const previousAws = {...currentConfig.aws, ...matchingEnvironment.aws};
+    if (destinationAws && (!previousAws.accessKeyId || !previousAws.secretAccessKey || !previousAws.bucket || !previousAws.region)) {
+      throw new Error("The source AWS credentials, bucket and region must be configured before cutover so a failed rotation can be restored safely.");
+    }
+    const rollbackInfo = this.rotatedRollbackInfo(migration, {...matchingEnvironment, aws: previousAws}, destinationAws);
     const updatedEnvironments = environments.map(environmentConfig => environmentConfig.environment === migration.environment
       ? {
         ...environmentConfig,
@@ -277,31 +288,90 @@ export class EnvironmentMigrationService {
       }
       : environmentConfig);
 
-    await configController.createOrUpdateKey(ConfigKey.ENVIRONMENTS, {
-      ...currentConfig,
-      environments: updatedEnvironments
-    });
-
-    await environmentMigration.updateOne(
-      { migrationId: request.migrationId },
-      {
-        $set: {
-          status: EnvironmentMigrationStatus.ROTATED,
-          phase: EnvironmentMigrationPhase.ROTATE_CREDENTIALS,
-          rotatedAt: dateTimeNow().toJSDate(),
-          endTime: dateTimeNow().toJSDate(),
-          heartbeatAt: dateTimeNow().toJSDate(),
-          rollbackInfo,
-          requestedBy: request.user || migration.requestedBy
+    const previousMongo = this.requiredTargetMongo(matchingEnvironment.mongo as EnvironmentMigrationMongoTarget);
+    const previousSecrets = this.flyCutoverSecrets(previousMongo, previousAws);
+    await environmentMigration.updateOne({migrationId: request.migrationId}, {$set: {rollbackInfo}});
+    const cutover = {configUpdateAttempted: false};
+    try {
+      const secretsResult = await setCurrentMachineSecrets(this.flyCutoverSecrets(targetMongo, destinationAws), FlyTargetApp.ENVIRONMENT, migration.environment);
+      if (!secretsResult.ok) {
+        throw new Error(secretsResult.error || "Fly secrets were not updated for cutover");
+      } else {
+        const restartResult = await restartCurrentMachine(FlyTargetApp.ENVIRONMENT, migration.environment);
+        if (!restartResult.ok) {
+          throw new Error(restartResult.error || "Fly machine did not restart after secrets update");
+        } else {
+          cutover.configUpdateAttempted = true;
+          await configController.createOrUpdateKey(ConfigKey.ENVIRONMENTS, {...currentConfig, environments: updatedEnvironments});
+          await environmentMigration.updateOne(
+            {migrationId: request.migrationId},
+            {$set: {
+              status: EnvironmentMigrationStatus.ROTATED,
+              phase: EnvironmentMigrationPhase.ROTATE_CREDENTIALS,
+              rotatedAt: dateTimeNow().toJSDate(),
+              endTime: dateTimeNow().toJSDate(),
+              heartbeatAt: dateTimeNow().toJSDate(),
+              rollbackInfo,
+              requestedBy: request.user || migration.requestedBy
+            }}
+          );
+          return this.requiredMigration(request.migrationId);
         }
       }
-    );
+    } catch (error) {
+      try {
+        await this.restorePreviousCutover(migration.environment, previousSecrets, cutover.configUpdateAttempted ? currentConfig : null);
+        await environmentMigration.updateOne({migrationId: request.migrationId}, {$set: {
+          status: EnvironmentMigrationStatus.READY_FOR_CUTOVER,
+          phase: EnvironmentMigrationPhase.ROTATE_CREDENTIALS,
+          rollbackInfo,
+          error: error?.message || "Cutover failed",
+          heartbeatAt: dateTimeNow().toJSDate()
+        }});
+      } catch (rollbackError) {
+        const message = `Cutover failed: ${error?.message || error}. Previous credentials could not be fully restored: ${rollbackError?.message || rollbackError}`;
+        await environmentMigration.updateOne({migrationId: request.migrationId}, {$set: {
+          status: EnvironmentMigrationStatus.FAILED,
+          rollbackInfo,
+          error: message,
+          heartbeatAt: dateTimeNow().toJSDate()
+        }});
+        throw new Error(message);
+      }
+      throw error;
+    }
+  }
 
-    await restartCurrentMachine(FlyTargetApp.ENVIRONMENT, migration.environment).catch(error => {
-      debugLog("restart after rotate:", error?.message || error);
-    });
+  private async restorePreviousCutover(environment: string, secrets: Record<string, string>, config: EnvironmentsConfig | null): Promise<void> {
+    const restored = await setCurrentMachineSecrets(secrets, FlyTargetApp.ENVIRONMENT, environment);
+    if (!restored.ok) {
+      throw new Error(restored.error || "Previous Fly secrets were not restored");
+    } else {
+      const restarted = await restartCurrentMachine(FlyTargetApp.ENVIRONMENT, environment);
+      if (!restarted.ok) {
+        throw new Error(restarted.error || "Fly did not restart with the previous credentials");
+      } else if (config) {
+        await configController.createOrUpdateKey(ConfigKey.ENVIRONMENTS, config);
+      }
+    }
+  }
 
-    return this.requiredMigration(request.migrationId);
+  private flyCutoverSecrets(targetMongo: EnvironmentMigrationMongoTarget, destinationAws: AwsConfig | null): Record<string, string> {
+    const secrets: Record<string, string> = {
+      [Environment.MONGODB_URI]: buildMongoUri({
+        cluster: targetMongo.cluster,
+        username: targetMongo.username,
+        password: targetMongo.password,
+        database: targetMongo.db
+      })
+    };
+    if (destinationAws?.accessKeyId && destinationAws.secretAccessKey && destinationAws.bucket && destinationAws.region) {
+      secrets[Environment.AWS_ACCESS_KEY_ID] = destinationAws.accessKeyId;
+      secrets[Environment.AWS_SECRET_ACCESS_KEY] = destinationAws.secretAccessKey;
+      secrets[Environment.AWS_BUCKET] = destinationAws.bucket;
+      secrets[Environment.AWS_REGION] = destinationAws.region;
+    }
+    return secrets;
   }
 
   private sourceMongoFor(backupConfig: EnvironmentsConfig, environmentName: string): EnvironmentMigrationMongoTarget {
@@ -640,11 +710,23 @@ export class EnvironmentMigrationService {
   private async materialiseBackupPath(backupPath: string, dbName: string, migrationId: string): Promise<string> {
     if (backupPath.startsWith("s3://")) {
       return this.downloadS3Backup(backupPath, dbName, migrationId);
-    }
-    if (path.isAbsolute(backupPath)) {
+    } else if (path.isAbsolute(backupPath)) {
       return backupPath;
+    } else {
+      const localPath = path.join(this.dumpBaseDir, backupPath);
+      try {
+        await fs.access(localPath);
+        return localPath;
+      } catch {
+        const backupConfig = await configuredBackup();
+        const bucket = backupConfig.aws?.bucket;
+        if (!bucket) {
+          throw new Error(`Backup ${backupPath} is not on disk and no S3 backup bucket is configured`);
+        } else {
+          return this.downloadS3Backup(`s3://${bucket}/${backupPath}`, dbName, migrationId);
+        }
+      }
     }
-    return path.join(this.dumpBaseDir, backupPath);
   }
 
   private async downloadS3Backup(backupPath: string, dbName: string, migrationId: string): Promise<string> {

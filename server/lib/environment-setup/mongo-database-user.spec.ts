@@ -51,6 +51,13 @@ describe("createEnvironmentMongoUser", () => {
     expect(JSON.parse(init.body as string).password).toBe(created.password);
   });
 
+  it("keeps an existing user's password when provisioning a migration target", async () => {
+    const fetchStub = sandboxState.sandbox.stub(globalThis, "fetch").resolves(atlasResponse(409, {errorCode: "USER_ALREADY_EXISTS"}));
+    await expect(createEnvironmentMongoUser(atlas, "ngx-ramblers-new-group", "new-group", false)).rejects.toThrow("USER_ALREADY_EXISTS");
+    expect(fetchStub.callCount).toBe(1);
+    expect(fetchStub.firstCall.args[1].method).toBe("POST");
+  });
+
   it("explains what to set up when there is no Atlas API key, and never shows a password", async () => {
     await expect(createEnvironmentMongoUser({projectId: "project-1"}, "ngx-ramblers-new-group", "new-group")).rejects.toThrow("MongoDB Atlas API access is not set up");
     await expect(createEnvironmentMongoUser({publicKey: "p", privateKey: "k"}, "ngx-ramblers-new-group", "new-group")).rejects.toThrow("The platform has no MongoDB Atlas project ID");

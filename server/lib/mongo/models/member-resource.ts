@@ -1,3 +1,4 @@
+import { lazyCollectionIndexes } from "../utils/collection-indexes";
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
 
@@ -23,5 +24,7 @@ const memberResourceSchema = new mongoose.Schema({
 }, { collection: "memberResources" });
 
 memberResourceSchema.plugin(uniqueValidator);
+
+lazyCollectionIndexes(memberResourceSchema);
 
 export default mongoose.model("member-resource", memberResourceSchema);

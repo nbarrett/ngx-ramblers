@@ -16,31 +16,27 @@ export interface MongoUriParseResult {
   selector: "app-mongo-uri-input",
   imports: [FormsModule, FontAwesomeModule],
   template: `
-    <div class="row mb-2">
-      <div class="col-md-8">
-        <label for="mongo-connection-string">Connection String (paste full URI to auto-populate)</label>
-        <input [(ngModel)]="connectionString"
-               type="text"
-               class="form-control"
-               id="mongo-connection-string"
-               autocomplete="off"
-               placeholder="mongodb+srv://user:password@cluster.mongodb.net/database"
-               (paste)="onPaste($event)"
-               (ngModelChange)="handleParse()">
-      </div>
-      <div class="col-md-4 d-flex align-items-end">
-        @if (parsed) {
-          <span class="text-success mb-2">
-            <fa-icon [icon]="faCheck" class="me-1"></fa-icon>
-            Parsed successfully
-          </span>
-        } @else if (connectionString && !parsed) {
-          <span class="text-warning mb-2">
-            <fa-icon [icon]="faExclamationTriangle" class="me-1"></fa-icon>
-            Could not parse URI
-          </span>
-        }
-      </div>
+    <div class="mb-2">
+      <label class="form-label" for="mongo-connection-string">Connection string</label>
+      <input [(ngModel)]="connectionString"
+             type="text"
+             class="form-control"
+             id="mongo-connection-string"
+             autocomplete="off"
+             placeholder="mongodb+srv://user:password@cluster.mongodb.net/database"
+             (paste)="onPaste($event)"
+             (ngModelChange)="handleParse()">
+      @if (parsed) {
+        <div class="text-success small mt-1">
+          <fa-icon [icon]="faCheck" class="me-1"></fa-icon>
+          Parsed successfully
+        </div>
+      } @else if (connectionString && !parsed) {
+        <div class="text-warning small mt-1">
+          <fa-icon [icon]="faExclamationTriangle" class="me-1"></fa-icon>
+          Could not parse URI
+        </div>
+      }
     </div>
   `
 })
