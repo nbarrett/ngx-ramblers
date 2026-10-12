@@ -20,6 +20,7 @@ import { SelectAllHeaderComponent } from "./select-all-header";
     <ng-select
       [items]="displayItems"
       [multiple]="multiple"
+      [disabled]="disabled"
       [closeOnSelect]="!multiple"
       [searchable]="true"
       [searchFn]="environmentSearch"
@@ -68,6 +69,7 @@ export class EnvironmentSelectComponent {
   get items(): EnvironmentInfo[] { return this._items; }
 
   @Input() multiple = false;
+  @Input() disabled = false;
   @Input() showSelectAllHeader = false;
   @Input() placeholder?: string;
   @Input() label?: string;

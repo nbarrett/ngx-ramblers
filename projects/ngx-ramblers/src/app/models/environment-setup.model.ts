@@ -379,7 +379,8 @@ export enum ConsoleAccessUrlIconKey {
   BUSINESS = "business",
   REPOSITORIES = "repositories",
   ACTIONS = "actions",
-  HOME = "home"
+  HOME = "home",
+  DATABASE = "database"
 }
 
 export interface ConsoleAccessUrlInfo {
@@ -387,6 +388,39 @@ export interface ConsoleAccessUrlInfo {
   urlTemplate: string;
   iconKey?: ConsoleAccessUrlIconKey;
 }
+
+export const MONGODB_ATLAS_CONSOLE_URLS: ConsoleAccessUrlInfo[] = [
+  {
+    label: "Project overview",
+    urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/overview?automateSecurity=true",
+    iconKey: ConsoleAccessUrlIconKey.OVERVIEW
+  },
+  {
+    label: "Network access list",
+    urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/security/network/accessList",
+    iconKey: ConsoleAccessUrlIconKey.NETWORK
+  },
+  {
+    label: "Database users",
+    urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/security/database/users",
+    iconKey: ConsoleAccessUrlIconKey.USERS
+  },
+  {
+    label: "API keys",
+    urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/access/apiKeys",
+    iconKey: ConsoleAccessUrlIconKey.CREDENTIALS
+  },
+  {
+    label: "Cluster",
+    urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/clusters/detail/{clusterName}",
+    iconKey: ConsoleAccessUrlIconKey.DASHBOARD
+  },
+  {
+    label: "Collections",
+    urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/explorer/{clusterName}/{database}",
+    iconKey: ConsoleAccessUrlIconKey.DATABASE
+  }
+]
 
 export interface ConsoleAccessResolvedUrlInfo {
   label: string;

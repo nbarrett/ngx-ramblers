@@ -1,8 +1,7 @@
 import { createHash, randomBytes } from "crypto";
-import { AtlasApiAccess, AtlasResponse } from "./atlas-admin-api.model";
+import { AtlasApiAccess, AtlasApiVersion, AtlasResponse } from "./atlas-admin-api.model";
 
 const ATLAS_API = "https://cloud.mongodb.com/api/atlas/v2";
-const ATLAS_MEDIA_TYPE = "application/vnd.atlas.2023-01-01+json";
 
 function md5(value: string): string {
   return createHash("md5").update(value).digest("hex");
@@ -25,9 +24,10 @@ export function atlasDigestAuthorisation(challenge: string, method: string, uri:
   ].join(", ");
 }
 
-export async function atlasRequest<T>(atlas: AtlasApiAccess, method: string, path: string, body?: unknown): Promise<AtlasResponse<T>> {
+export async function atlasRequest<T>(atlas: AtlasApiAccess, method: string, path: string, body?: unknown, version: AtlasApiVersion = AtlasApiVersion.DEFAULT): Promise<AtlasResponse<T>> {
   const url = `${ATLAS_API}${path}`;
-  const init = {method, headers: {Accept: ATLAS_MEDIA_TYPE, "Content-Type": ATLAS_MEDIA_TYPE}, body: body ? JSON.stringify(body) : undefined};
+  const mediaType = `application/vnd.atlas.${version}+json`;
+  const init = {method, headers: {Accept: mediaType, "Content-Type": "application/json"}, body: body ? JSON.stringify(body) : undefined};
   const challenge = await fetch(url, init);
   const authenticateHeader = challenge.headers.get("www-authenticate") || "";
   const response = challenge.status === 401 && authenticateHeader.startsWith("Digest")

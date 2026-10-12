@@ -26,6 +26,7 @@ export async function createAtlasClusterRequest(req: Request, res: Response): Pr
     const body = req.body || {};
     const request: AtlasClusterCreateRequest = {
       name: body.name,
+      separateProject: body.separateProject === true,
       tier: body.tier || AtlasClusterTier.M0,
       region: body.region || AtlasAwsRegion.EU_WEST_2,
       setAsDefault: body.setAsDefault === true,

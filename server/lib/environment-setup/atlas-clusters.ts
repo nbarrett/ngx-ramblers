@@ -18,28 +18,14 @@ import {
   atlasTierFromInstanceSize,
   clusterCapacity
 } from "../../../projects/ngx-ramblers/src/app/models/atlas-cluster.model";
-import { AtlasConfig, EnvironmentsConfig, MongoConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { AtlasConfig, ConsoleAccessService, EnvironmentsConfig, MongoConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { atlasRequest } from "./atlas-admin-api";
-import { AtlasApiAccess, AtlasError } from "./atlas-admin-api.model";
+import { AtlasAccessList, AtlasApiAccess, AtlasApiVersion, AtlasClusterDescription, AtlasClusterList, AtlasError } from "./atlas-admin-api.model";
+import { atlasProjectForCluster } from "./atlas-projects";
 import { platformAtlasAccess } from "./mongo-database-user";
 
 const debugLog = debug(envConfig.logNamespace("atlas-clusters"));
 debugLog.enabled = true;
-
-interface AtlasClusterDescription {
-  name?: string;
-  stateName?: string;
-  connectionStrings?: {standardSrv?: string};
-  replicationSpecs?: {regionConfigs?: {electableSpecs?: {instanceSize?: string}; providerName?: string; backingProviderName?: string; regionName?: string}[]}[];
-}
-
-interface AtlasClusterList {
-  results?: AtlasClusterDescription[];
-}
-
-interface AtlasAccessList {
-  results?: {cidrBlock?: string; ipAddress?: string; comment?: string}[];
-}
 
 export function clusterHostFromSrv(standardSrv: string): string {
   const withUser = extractClusterFromUri(standardSrv);
@@ -123,6 +109,8 @@ async function environmentRows(config: EnvironmentsConfig): Promise<AtlasCluster
     const row: AtlasClusterEnvironmentRow = {
       environment: environment.environment,
       cluster: mongo.cluster || "",
+      clusterName: "",
+      projectId: environment.consoleAccess?.[ConsoleAccessService.MONGODB_ATLAS]?.identifiers?.projectId || "",
       database: mongo.db || "",
       username: mongo.username || "",
       collections: null,
@@ -157,6 +145,7 @@ function rollupClusters(
     if (host) {
       byHost.set(host, {
         name: cluster.name || host,
+        projectId: cluster.groupId,
         host,
         instanceSize: instanceSizeFrom(cluster),
         region: regionFrom(cluster),
@@ -201,7 +190,7 @@ function rollupClusters(
   });
   return Array.from(byHost.values()).map(cluster => {
     const capacity = clusterCapacity(cluster.instanceSize, cluster.collectionCount, cluster.indexCount, cluster.databaseCount);
-    return {...cluster, canAddEnvironment: capacity.canAdd, limitHeadline: capacity.headline};
+    return {...cluster, environmentNames: rows.filter(row => row.cluster === cluster.host).map(row => row.environment).sort().join(", "), canAddEnvironment: capacity.canAdd, limitHeadline: capacity.headline};
   }).sort((left, right) => left.host.localeCompare(right.host));
 }
 
@@ -222,7 +211,13 @@ export async function atlasClusterView(): Promise<AtlasClusterView> {
   if (!projectId || !keysConfigured) {
     atlasState.error = "Add the Atlas project ID and API keys, then you can create clusters in this project.";
   } else {
-    const listed = await atlasRequest<AtlasClusterList & AtlasError>(atlas, "GET", `/groups/${projectId}/clusters?itemsPerPage=100`);
+    const projectIds = Array.from(new Set([projectId, ...(config.atlas?.managedProjects || []).map(project => project.projectId)]));
+    const responses = await Promise.all(projectIds.map(async id => {
+      const response = await atlasRequest<AtlasClusterList & AtlasError>({...atlas, projectId: id}, "GET", `/groups/${id}/clusters?itemsPerPage=100`, null, AtlasApiVersion.CLUSTERS);
+      return {...response, body: {...response.body, results: (response.body?.results || []).map(cluster => ({...cluster, groupId: id}))}};
+    }));
+    const failed = responses.find(response => response.status >= 300);
+    const listed = failed || {status: 200, body: {results: responses.flatMap(response => response.body.results)}};
     if (listed.status >= 300) {
       atlasState.error = listed.body?.detail || listed.body?.reason || `Atlas returned ${listed.status}`;
     } else {
@@ -242,6 +237,14 @@ export async function atlasClusterView(): Promise<AtlasClusterView> {
   const registrationCluster = defaultCluster || template?.mongo?.cluster || "";
   const registration = clusters.find(cluster => cluster.host === registrationCluster);
   const registrationBlocked = !!registration && !registration.canAddEnvironment;
+  const environments = rows.map(row => {
+    const cluster = clusters.find(candidate => candidate.host === row.cluster);
+    return {
+      ...row,
+      projectId: cluster?.projectId || row.projectId || "",
+      clusterName: cluster?.inProvisioningProject ? cluster.name : (row.clusterName || "")
+    };
+  }).sort((left, right) => left.environment.localeCompare(right.environment));
   return {
     projectId,
     defaultCluster,
@@ -250,7 +253,7 @@ export async function atlasClusterView(): Promise<AtlasClusterView> {
     atlasError: atlasState.error,
     networkAccess: atlasState.networkAccess,
     clusters,
-    environments: rows.sort((left, right) => left.environment.localeCompare(right.environment)),
+    environments,
     registrationCluster,
     registrationBlocked,
     registrationBlockReason: registrationBlocked ? registration.limitHeadline : null
@@ -297,22 +300,29 @@ export async function createAtlasCluster(request: AtlasClusterCreateRequest): Pr
     throw new Error("Enter a cluster name. Use letters, numbers and hyphens only.");
   } else if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/.test(request.name.trim())) {
     throw new Error("Cluster names must start with a letter or number, use only letters, numbers and hyphens, and be at most 64 characters.");
-  } else if (![AtlasClusterTier.M0, AtlasClusterTier.M10, AtlasClusterTier.M20, AtlasClusterTier.M30].includes(request.tier)) {
-    throw new Error("Choose M0, M10, M20 or M30.");
+  } else if (![AtlasClusterTier.M0, AtlasClusterTier.FLEX, AtlasClusterTier.M10, AtlasClusterTier.M20, AtlasClusterTier.M30].includes(request.tier)) {
+    throw new Error("Choose M0, Flex, M10, M20 or M30.");
   } else {
     const name = request.name.trim();
-    const region = request.region || AtlasAwsRegion.EU_WEST_2;
+    const region = request.region || AtlasAwsRegion.EU_WEST_1;
+    if (![AtlasAwsRegion.EU_WEST_1, AtlasAwsRegion.EU_WEST_2].includes(region)) {
+      throw new Error("Choose AWS Ireland or London.");
+    } else if (request.tier === AtlasClusterTier.M0 && region === AtlasAwsRegion.EU_WEST_2) {
+      throw new Error("Atlas does not offer a free M0 in AWS London. Choose Ireland.");
+    }
+    const targetAtlas = request.separateProject ? await atlasProjectForCluster(atlas, name) : atlas;
     const created = await atlasRequest<AtlasClusterDescription & AtlasError>(
-      atlas,
+      targetAtlas,
       "POST",
-      `/groups/${atlas.projectId}/clusters`,
-      atlasClusterCreateBody(name, request.tier, region)
+      `/groups/${targetAtlas.projectId}/clusters`,
+      atlasClusterCreateBody(name, request.tier, region),
+      AtlasApiVersion.CLUSTERS
     );
     if (created.status >= 300) {
       throw atlasFailure("create the cluster", created.status, created.body);
     } else {
       if (request.allowAllNetworkAccess) {
-        await allowAllAtlasNetworkAccess(atlas);
+        await allowAllAtlasNetworkAccess(targetAtlas);
       }
       const host = clusterHostFromSrv(created.body?.connectionStrings?.standardSrv || "");
       if (request.setAsDefault && host) {
