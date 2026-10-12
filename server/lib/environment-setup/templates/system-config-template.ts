@@ -17,6 +17,7 @@ import { RamblersApiConfig } from "../types";
 import { ramblersNationalUrl } from "../../../../projects/ngx-ramblers/src/app/functions/hosts";
 import { toGroupShortName } from "../database-initialiser";
 import { CopiedAssets, CopiedImage } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { PRIVACY_POLICY_PATH } from "./sample-data/page-content-templates";
 
 export type { CopiedAssets };
 
@@ -112,7 +113,7 @@ export function createSystemConfig(params: SystemConfigTemplateParams): SystemCo
       ],
       legals: [
         { title: "Cookie Policy", href: "https://www.ramblers.org.uk/about-us/use-cookies" },
-        { title: "Privacy Policy", href: "privacy-policy" }
+        { title: "Privacy Policy", href: PRIVACY_POLICY_PATH }
       ],
       pages: [],
       appDownloads: {
