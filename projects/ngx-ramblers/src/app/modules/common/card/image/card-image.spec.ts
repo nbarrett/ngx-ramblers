@@ -36,4 +36,16 @@ describe("CardImageComponent focal point frame", () => {
     expect(image.style.transform).toBe("scale(1.4)");
     expect(image.style.transformOrigin).toBe("50% 50%");
   });
+
+  it("does not round all four corners when noBorderRadius is set", () => {
+    const fixture = TestBed.createComponent(CardImageComponent);
+    fixture.componentInstance.imageSource = "https://example.com/lunch.jpg";
+    fixture.componentInstance.height = 250;
+    fixture.componentInstance.focalPoint = {x: 50, y: 50, zoom: 1.4};
+    fixture.componentInstance.noBorderRadius = true;
+    fixture.detectChanges();
+    const wrapper = fixture.nativeElement.querySelector(".card-image-focal-wrapper") as HTMLElement;
+    expect(wrapper.style.borderRadius).toBe("");
+    expect(wrapper.classList.contains("card-img-top")).toBe(true);
+  });
 });

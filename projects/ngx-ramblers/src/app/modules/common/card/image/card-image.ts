@@ -47,7 +47,7 @@ const FIXED_CARD_IMAGE_HEIGHT = 200;
       }
       <ng-template #imageContent>
         @if (hasFocalPoint()) {
-          <div class="card-image-focal-wrapper" [ngStyle]="focalPointWrapperStyles()">
+          <div class="card-image-focal-wrapper card-img-top" [ngStyle]="focalPointWrapperStyles()">
             <img class="card-img-top card-img-focal"
                  (load)="imageLoaded($event)"
                  (error)="imageError($event)"

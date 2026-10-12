@@ -65,13 +65,15 @@ import { CardImageComponent } from "./card-image";
     @if (!mapFallbackActive() && display.displayImage(displayedWalk.walk)) {
       @if (imageNavigationEnabled) {
         <a [href]="navigationUrl()" class="d-block">
-          <app-card-image [imageSource]="basicMedia?.url"
+          <app-card-image noBorderRadius
+                          [imageSource]="basicMedia?.url"
                           [alt]="basicMedia?.alt"
                           [height]="determineHeight()"
                           [focalPoint]="eventFocalPoint()"/>
         </a>
       } @else {
-        <app-card-image [imageSource]="basicMedia?.url"
+        <app-card-image noBorderRadius
+                        [imageSource]="basicMedia?.url"
                         [alt]="basicMedia?.alt"
                         [height]="determineHeight()"
                         [focalPoint]="eventFocalPoint()"/>
