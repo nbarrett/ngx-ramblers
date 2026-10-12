@@ -97,7 +97,8 @@ describe("environment-migration-service", () => {
       sandbox.stub(configController, "queryKey").resolves({ value: { environments: [previousEnvironment] } } as any);
       const createOrUpdateKey = sandbox.stub(configController, "createOrUpdateKey").resolves({} as any);
       const bucketExists = sandbox.stub(awsSetup, "bucketExists").resolves(true);
-      sandbox.stub(flyMachines, "restartCurrentMachine").resolves({} as any);
+      sandbox.stub(flyMachines, "setCurrentMachineSecrets").resolves({ ok: true });
+      sandbox.stub(flyMachines, "restartCurrentMachine").resolves({ ok: true });
       const service = new EnvironmentMigrationService();
       sandbox.stub(service as any, "validateMongoCredentials").resolves();
       const scopedAwsCredentials = sandbox.stub(service as any, "scopedAwsCredentials").resolves({ bucket: "old-bucket", region: "eu-west-2", accessKeyId: "SCOPEDKEY", secretAccessKey: "scoped-secret" });
@@ -149,6 +150,56 @@ describe("environment-migration-service", () => {
       expect(rotatedSet.rollbackInfo.oldAws).toEqual({ bucket: "old-bucket", region: "eu-west-2", accessKeyId: "OLDKEY" });
       expect(rotatedSet.rollbackInfo.targetAws).toEqual(auditedAws);
       expect(rotatedSet.rollbackInfo.oldMongo).toEqual({ cluster: "old", db: "source", username: "source", uriSummary: "source@old/source" });
+    });
+
+    it("does not mark the migration rotated when Fly secrets are not updated", async () => {
+      const { service, createOrUpdateKey, updateOne } = stubRotation(readyMigration(auditedAws));
+      (flyMachines.setCurrentMachineSecrets as sinon.SinonStub).onFirstCall().resolves({ ok: false, error: "Fly secrets update failed: 401" });
+
+      await expect(service.rotateCredentials({
+        migrationId: "environment-migration-2026-09-16-10-00-00-staging",
+        confirmEnvironment: "staging",
+        targetMongo,
+        targetAws: { bucket: "destination-bucket", region: "eu-west-2", accessKeyId: "NEWKEY", secretAccessKey: "new-secret" }
+      })).rejects.toThrow(/Fly secrets update failed/);
+      expect(createOrUpdateKey.called).toEqual(false);
+      expect(updateOne.lastCall.args[1].$set.status).toEqual(EnvironmentMigrationStatus.READY_FOR_CUTOVER);
+      expect(updateOne.lastCall.args[1].$set.rollbackInfo.oldMongo.cluster).toBe("old");
+    });
+
+    it("restores the source secrets when the target restart fails without changing platform configuration", async () => {
+      const {service, createOrUpdateKey, updateOne} = stubRotation(readyMigration(null));
+      (flyMachines.restartCurrentMachine as sinon.SinonStub).onFirstCall().resolves({ok: false, error: "Restart failed"});
+      await expect(service.rotateCredentials({migrationId: "migration", confirmEnvironment: "staging", targetMongo})).rejects.toThrow("Restart failed");
+      expect(createOrUpdateKey.called).toBe(false);
+      const secrets = (flyMachines.setCurrentMachineSecrets as sinon.SinonStub).secondCall.args[0];
+      expect(secrets.MONGODB_URI).toContain("source:source-password@old");
+      expect(secrets.AWS_ACCESS_KEY_ID).toBe("OLDKEY");
+      expect(updateOne.lastCall.args[1].$set.status).toBe(EnvironmentMigrationStatus.READY_FOR_CUTOVER);
+      expect(updateOne.lastCall.args[1].$set.rollbackInfo.oldMongo.cluster).toBe("old");
+    });
+
+    it("restores platform configuration if saving the cutover audit fails", async () => {
+      const {service, createOrUpdateKey, updateOne} = stubRotation(readyMigration(null));
+      updateOne.onCall(2).rejects(new Error("Audit failed"));
+      await expect(service.rotateCredentials({migrationId: "migration", confirmEnvironment: "staging", targetMongo})).rejects.toThrow("Audit failed");
+      expect(createOrUpdateKey.secondCall.args[1].environments[0]).toEqual(previousEnvironment);
+      expect(updateOne.lastCall.args[1].$set.rollbackInfo.oldMongo.cluster).toBe("old");
+    });
+
+    it("restores the source configuration when a platform write reports a failure", async () => {
+      const {service, createOrUpdateKey} = stubRotation(readyMigration(null));
+      createOrUpdateKey.onFirstCall().rejects(new Error("Configuration acknowledgement lost"));
+      await expect(service.rotateCredentials({migrationId: "migration", confirmEnvironment: "staging", targetMongo})).rejects.toThrow("acknowledgement lost");
+      expect(createOrUpdateKey.secondCall.args[1].environments[0]).toEqual(previousEnvironment);
+    });
+
+    it("records an incomplete rollback as failed and retains the original rollback identity", async () => {
+      const {service, updateOne} = stubRotation(readyMigration(null));
+      (flyMachines.setCurrentMachineSecrets as sinon.SinonStub).resolves({ok: false, error: "Secrets unavailable"});
+      await expect(service.rotateCredentials({migrationId: "migration", confirmEnvironment: "staging", targetMongo})).rejects.toThrow("could not be fully restored");
+      expect(updateOne.lastCall.args[1].$set.status).toBe(EnvironmentMigrationStatus.FAILED);
+      expect(updateOne.lastCall.args[1].$set.rollbackInfo.oldMongo.cluster).toBe("old");
     });
 
     it("keeps bucket-scoped rotation for a snapshot migration that has no destination account", async () => {

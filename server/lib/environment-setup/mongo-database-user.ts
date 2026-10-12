@@ -2,15 +2,12 @@ import { randomBytes } from "crypto";
 import { MongoClient } from "mongodb";
 import { buildMongoUri } from "../shared/mongodb-uri";
 import { atlasRequest } from "./atlas-admin-api";
-import { AtlasApiAccess, AtlasError } from "./atlas-admin-api.model";
+import { AtlasApiAccess, AtlasError, CreatedEnvironmentMongoUser } from "./atlas-admin-api.model";
 import { registrationSettings } from "../site-registration/registration-store";
 import { configuredEnvironments } from "../environments/environments-config";
 import { ConsoleAccessService } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 
-export interface CreatedEnvironmentMongoUser {
-  username: string;
-  password: string;
-}
+export { CreatedEnvironmentMongoUser } from "./atlas-admin-api.model";
 
 export function environmentDatabaseUserName(environmentName: string): string {
   const sanitised = (environmentName || "group").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "").toLowerCase();
@@ -49,7 +46,7 @@ function atlasFailure(action: string, username: string, status: number, error: A
   return new Error(`MongoDB Atlas would not ${action} the database user ${username} (${status}${error?.errorCode ? ` ${error.errorCode}` : ""}): ${error?.detail || error?.reason || "no detail given"}`);
 }
 
-export async function createEnvironmentMongoUser(atlas: AtlasApiAccess, database: string, environmentName: string): Promise<CreatedEnvironmentMongoUser> {
+export async function createEnvironmentMongoUser(atlas: AtlasApiAccess, database: string, environmentName: string, resetExistingPassword = true): Promise<CreatedEnvironmentMongoUser> {
   if (!atlas?.projectId) {
     throw new Error("The platform has no MongoDB Atlas project ID, so the new site cannot be given its own database user. Add it under Environment management → MongoDB Atlas, then retry.");
   } else if (!atlas?.publicKey || !atlas?.privateKey) {
@@ -60,7 +57,7 @@ export async function createEnvironmentMongoUser(atlas: AtlasApiAccess, database
     const roles = [{databaseName: database, roleName: "readWrite"}, {databaseName: database, roleName: "dbAdmin"}];
     const users = `/groups/${atlas.projectId}/databaseUsers`;
     const created = await atlasRequest<AtlasError>(atlas, "POST", users, {databaseName: "admin", groupId: atlas.projectId, username, password, roles});
-    const updated = created.status === 409
+    const updated = created.status === 409 && resetExistingPassword
       ? await atlasRequest<AtlasError>(atlas, "PATCH", `${users}/admin/${encodeURIComponent(username)}`, {password, roles})
       : null;
     if (updated && updated.status >= 300) {

@@ -93,6 +93,8 @@ export async function connect(debug?: debug.Debugger): Promise<boolean> {
       debugConnect("Connection error:", err);
       connected = false;
     });
+    mongoose.set("autoCreate", false);
+    mongoose.set("autoIndex", false);
     await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 30000,
@@ -101,7 +103,9 @@ export async function connect(debug?: debug.Debugger): Promise<boolean> {
       maxPoolSize: 10,
       minPoolSize: 2,
       maxIdleTimeMS: 45000,
-      ssl: true
+      ssl: true,
+      autoCreate: false,
+      autoIndex: false
     });
     return true;
   } catch (error) {

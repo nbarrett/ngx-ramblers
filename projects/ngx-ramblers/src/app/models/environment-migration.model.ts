@@ -43,6 +43,11 @@ export interface EnvironmentMigrationMongoTarget {
   password: string;
 }
 
+export interface EnvironmentMigrationMongoProvisionRequest {
+  environment: string;
+  cluster: string;
+}
+
 export interface EnvironmentMigrationAwsTarget {
   bucket: string;
   region: string;

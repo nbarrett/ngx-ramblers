@@ -1,9 +1,12 @@
 import debug from "debug";
+import { toPairs } from "es-toolkit/compat";
 import { envConfig } from "../env-config/env-config";
 import { FlyMachineSummary, FlyRestartResult } from "./fly.model";
 import { FlyMachineState, FlyTargetApp } from "../../../projects/ngx-ramblers/src/app/models/health.model";
 import { flyRuntimeConfig } from "./fly-runtime-config";
 import { flyAuthorizationHeader, MACHINES_API_BASE, missingFlyConfig } from "./fly-env";
+
+const FLY_GRAPHQL_API = "https://api.fly.io/graphql";
 
 const debugLog = debug(envConfig.logNamespace("fly:machines"));
 debugLog.enabled = true;
@@ -62,6 +65,57 @@ export async function currentMachineState(target: FlyTargetApp = FlyTargetApp.EN
   } catch (error) {
     debugLog("Machine state query failed:", error);
     return { available: false, error: error?.message || "Fly machine state query failed" };
+  }
+}
+
+export async function setCurrentMachineSecrets(
+  secrets: Record<string, string>,
+  target: FlyTargetApp = FlyTargetApp.ENVIRONMENT,
+  environmentName: string | null = null
+): Promise<FlyRestartResult> {
+  const { apiToken, appName } = await flyRuntimeConfig(target, environmentName);
+  const missing = missingFlyConfig({ FLY_API_TOKEN: apiToken, FLY_APP_NAME: appName });
+  if (missing) {
+    return { ok: false, error: `Fly secrets are not configured for this environment (missing ${missing})` };
+  } else {
+    const secretList = toPairs(secrets)
+      .filter(([, value]) => !!value)
+      .map(([key, value]) => ({ key, value }));
+    if (!secretList.length) {
+      return { ok: false, error: "No Fly secrets were supplied for cutover" };
+    } else {
+      debugLog(`Setting ${secretList.length} Fly secrets on ${appName}: ${secretList.map(entry => entry.key).join(", ")}`);
+      try {
+        const response = await fetch(FLY_GRAPHQL_API, {
+          method: "POST",
+          headers: {
+            Authorization: flyAuthorizationHeader(apiToken),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            query: "mutation($input: SetSecretsInput!) { setSecrets(input: $input) { release { version } } }",
+            variables: { input: { appId: appName, secrets: secretList } }
+          })
+        });
+        const body = await response.json();
+        if (!response.ok) {
+          debugLog(`Fly secrets update failed: ${response.status}`);
+          return { ok: false, error: `Fly secrets update failed: ${response.status}` };
+        } else if (body?.errors?.length) {
+          const message = body.errors[0]?.message || "GraphQL error";
+          debugLog(`Fly secrets update failed: ${message}`);
+          return { ok: false, error: `Fly secrets update failed: ${message}` };
+        } else if (!body?.data?.setSecrets?.release?.version) {
+          return {ok: false, error: "Fly did not confirm a secrets release for cutover"};
+        } else {
+          debugLog(`Fly secrets updated on ${appName}`);
+          return { ok: true };
+        }
+      } catch (error) {
+        debugLog("Fly secrets request failed:", error);
+        return { ok: false, error: error?.message || "Fly secrets request failed" };
+      }
+    }
   }
 }
 

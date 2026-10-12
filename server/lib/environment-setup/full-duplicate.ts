@@ -1,4 +1,5 @@
 import debug from "debug";
+import { copyCollectionIndexes } from "../mongo/utils/collection-indexes";
 import { Db } from "mongodb";
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
@@ -149,21 +150,27 @@ export async function cloneSourceDatabase(
       debugLog("Cloning %d collections from %s to %s", collections.length, source.database, target.database);
       const totals = await collections.reduce<Promise<{ collections: number; documents: number }>>(async (previous, collection) => {
         const progress = await previous;
-        report(`Copying collection ${collection.name}`);
         const documents = await sourceConnection.db.collection(collection.name).find().toArray();
-        await targetConnection.db.createCollection(collection.name);
-        const batches = documentBatches(documents);
-        await batches.reduce<Promise<void>>(async (written, batch) => {
-          await written;
-          if (batch.length > 0) {
-            await targetConnection.db.collection(collection.name).insertMany(batch);
-          }
-        }, Promise.resolve());
-        debugLog("Cloned %d documents into %s.%s", documents.length, target.database, collection.name);
-        return {
-          collections: progress.collections + 1,
-          documents: progress.documents + documents.length
-        };
+        if (documents.length === 0) {
+          debugLog("Skipping empty collection %s", collection.name);
+          return progress;
+        } else {
+          report(`Copying collection ${collection.name}`);
+          await targetConnection.db.createCollection(collection.name);
+          await copyCollectionIndexes(sourceConnection.db.collection(collection.name), targetConnection.db.collection(collection.name));
+          const batches = documentBatches(documents);
+          await batches.reduce<Promise<void>>(async (written, batch) => {
+            await written;
+            if (batch.length > 0) {
+              await targetConnection.db.collection(collection.name).insertMany(batch);
+            }
+          }, Promise.resolve());
+          debugLog("Cloned %d documents into %s.%s", documents.length, target.database, collection.name);
+          return {
+            collections: progress.collections + 1,
+            documents: progress.documents + documents.length
+          };
+        }
       }, Promise.resolve({ collections: 0, documents: 0 }));
       return totals;
     }

@@ -1,3 +1,4 @@
+import { lazyCollectionIndexes } from "../utils/collection-indexes";
 import mongoose from "mongoose";
 import uniqueValidator from "mongoose-unique-validator";
 
@@ -42,5 +43,7 @@ const committeeFileSchema = new mongoose.Schema({
 }, { collection: "committeeFiles" });
 
 committeeFileSchema.plugin(uniqueValidator);
+
+lazyCollectionIndexes(committeeFileSchema);
 
 export default mongoose.model("committee-file", committeeFileSchema);

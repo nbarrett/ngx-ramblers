@@ -3,7 +3,17 @@ import { Component, inject, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faExclamationTriangle, faRotate, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCircleCheck,
+  faCircleExclamation,
+  faClipboardCheck,
+  faDatabase,
+  faKey,
+  faList,
+  faRotate,
+  faSpinner,
+  faUserPlus
+} from "@fortawesome/free-solid-svg-icons";
 import { kebabCase } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
@@ -89,6 +99,18 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
       border-color: var(--ramblers-colour-sunrise, #f9b104)
       background-color: var(--ramblers-colour-sunrise, #f9b104)
 
+    .plan-columns
+      align-items: stretch
+
+    .plan-columns > [class^="col-"]
+      display: flex
+
+    .plan-columns .thumbnail-heading-frame
+      flex: 1 1 auto
+      width: 100%
+      margin-top: 1.5rem
+      margin-bottom: 0
+
     .result-panel
       border: 1px solid rgba(155, 200, 171, 0.35)
       border-radius: 8px
@@ -104,27 +126,31 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
           <form (ngSubmit)="plan()" autocomplete="off" class="img-thumbnail thumbnail-admin-edit mt-3">
             <div class="row thumbnail-heading-frame">
               <div class="thumbnail-heading">Migration Plan</div>
-              <div class="col-12">
-                <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
-                  <fa-icon [icon]="faExclamationTriangle" size="lg"/>
-                  <span><strong>Cutover Safety</strong> — Verify the target restore before rotating credentials. Cutover only happens when you press Rotate Credentials.</span>
+              <div class="col-12 mt-3 mb-1">
+                <div class="alert alert-warning d-flex align-items-center mb-0" role="alert">
+                  <fa-icon [icon]="faCircleExclamation" class="me-2"/>
+                  <div>
+                    <strong>Cutover safety</strong>
+                    <div class="mt-1">Check the target restore before rotating credentials. Cutover only happens when you press Rotate Credentials.</div>
+                  </div>
                 </div>
               </div>
               <div class="col-12">
-                <div class="row align-items-stretch">
-                  <div class="col-lg-6 d-flex">
-                    <div class="row thumbnail-heading-frame flex-fill">
+                <div class="row plan-columns">
+              <div class="col-lg-6">
+                    <div class="row thumbnail-heading-frame">
                       <div class="thumbnail-heading">Source and Backup</div>
-                      <div class="mb-3">
+                      <div class="col-12 mb-3">
                         <app-environment-select
                           label="Environment"
                           [items]="environmentsWithMongo"
+                          [disabled]="busy"
                           [(selectedName)]="request.environment"
                           (selectedNameChange)="onEnvironmentChange()"
                           placeholder="Select environment..."></app-environment-select>
                       </div>
 
-                      <div class="mb-3">
+                      <div class="col-12 mb-3">
                         <label class="form-label me-3">Backup Source</label>
                         <div class="form-check form-check-inline">
                           <input class="form-check-input" type="radio" id="migrationSourceS3" name="migrationBackupSource"
@@ -140,7 +166,7 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
                         </div>
                       </div>
 
-                      <div class="mb-3">
+                      <div class="col-12 mb-3">
                         <app-backup-select
                           label="Backup to Restore"
                           [items]="backups"
@@ -151,7 +177,7 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
                           placeholder="Select backup..."></app-backup-select>
                       </div>
 
-                      <div class="d-flex flex-wrap gap-4 mb-3">
+                      <div class="col-12 d-flex flex-wrap gap-4 mb-3">
                         <div class="form-check">
                           <input type="checkbox" class="form-check-input"
                                  [ngModel]="request.mode === EnvironmentMigrationMode.MONGO_AND_S3"
@@ -179,20 +205,27 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div class="col-lg-6 d-flex">
-                    <div class="row thumbnail-heading-frame flex-fill">
-                      <div class="thumbnail-heading d-flex align-items-center gap-3">
-                        <app-vendor-brand-mark serviceId="mongodbAtlas" [sizePx]="30"/>
+              </div>
+              <div class="col-lg-6">
+                    <div class="row thumbnail-heading-frame">
+                      <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
+                        <app-vendor-brand-mark serviceId="mongodbAtlas" [sizePx]="26"/>
                         <span>Target MongoDB</span>
                       </div>
-                      <app-mongo-uri-input (parsedUri)="onMongoUriParsed($event)"/>
-                      <div class="row">
+                      <div class="col-12">
+                        <app-mongo-uri-input (parsedUri)="onMongoUriParsed($event)"/>
+                      </div>
+                      @if (environmentsConfig?.atlas?.defaultCluster) {
+                        <div class="col-12 mb-3">
+                          <button type="button" class="btn btn-quiet" [disabled]="busy" (click)="useDefaultMongoCluster()">
+                            <fa-icon [icon]="faDatabase" class="me-1"/>Use default cluster for new sites
+                          </button>
+                        </div>
+                      }
                         <div class="col-12 mb-2">
                           <label class="form-label" for="target-cluster">Cluster</label>
                           <input id="target-cluster" class="form-control" name="targetCluster"
-                                 [(ngModel)]="request.targetMongo.cluster" placeholder="ngx-ramblers.0svhxsk" autocomplete="off" required>
+                                 [(ngModel)]="request.targetMongo.cluster" placeholder="group-sites.abc123" autocomplete="off" required>
                         </div>
                         <div class="col-12 mb-2">
                           <label class="form-label" for="target-db">Database</label>
@@ -217,52 +250,64 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
                                             autocomplete="new-password">
                           </app-secret-input>
                         </div>
+                      <div class="col-12 mb-3">
+                        <button type="button" class="btn btn-primary" [disabled]="busy || !request.environment || !request.targetMongo.cluster || !!request.targetMongo.username || !!request.targetMongo.password"
+                                (click)="provisionMongoTarget()">
+                          @if (busyAction === "provision") {
+                            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
+                          } @else {
+                            <fa-icon [icon]="faUserPlus" class="me-1"/>
+                          }
+                          Create database user in Atlas
+                        </button>
+                        <p class="small mt-2 mb-0">Creates a user restricted to the selected environment's database on the target cluster. Existing users are kept. Save the target credentials before leaving this page. Restore and cutover are separate actions.</p>
+                      </div>
+                    </div>
+              </div>
+                </div>
+              </div>
+            @if (liveCopyRequested()) {
+              <div class="col-12">
+                <div class="row thumbnail-heading-frame">
+                  <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
+                    <app-vendor-brand-mark serviceId="aws" [sizePx]="26"/>
+                    <span>Destination AWS</span>
+                  </div>
+                  <div class="col-12">
+                    <div class="row">
+                      <div class="col-md-6 mb-2">
+                        <label class="form-label" for="target-bucket">Bucket</label>
+                        <input id="target-bucket" class="form-control" name="targetBucket"
+                               [(ngModel)]="request.targetAws.bucket" placeholder="ngx-ramblers-group" autocomplete="off">
+                      </div>
+                      <div class="col-md-6 mb-2">
+                        <label class="form-label" for="target-region">Region</label>
+                        <input id="target-region" class="form-control" name="targetRegion"
+                               [(ngModel)]="request.targetAws.region" [placeholder]="AWS_DEFAULTS.REGION" autocomplete="off">
+                      </div>
+                      <div class="col-md-6 mb-2">
+                        <label class="form-label" for="target-access-key">Access key ID</label>
+                        <app-secret-input [(ngModel)]="request.targetAws.accessKeyId"
+                                          name="targetAccessKeyId"
+                                          id="target-access-key"
+                                          [size]="InputSize.SM"
+                                          autocomplete="off">
+                        </app-secret-input>
+                      </div>
+                      <div class="col-md-6 mb-2">
+                        <label class="form-label" for="target-secret-key">Secret access key</label>
+                        <app-secret-input [(ngModel)]="request.targetAws.secretAccessKey"
+                                          name="targetSecretAccessKey"
+                                          id="target-secret-key"
+                                          [size]="InputSize.SM"
+                                          autocomplete="new-password">
+                        </app-secret-input>
                       </div>
                     </div>
                   </div>
                 </div>
-                @if (liveCopyRequested()) {
-                  <div class="row mt-3">
-                    <div class="col-12">
-                      <div class="row thumbnail-heading-frame">
-                        <div class="thumbnail-heading d-flex align-items-center gap-3">
-                          <app-vendor-brand-mark serviceId="aws" [sizePx]="30"/>
-                          <span>Destination AWS</span>
-                        </div>
-                        <div class="col-md-6 mb-2">
-                          <label class="form-label" for="target-bucket">Bucket</label>
-                          <input id="target-bucket" class="form-control" name="targetBucket"
-                                 [(ngModel)]="request.targetAws.bucket" placeholder="ngx-ramblers-group" autocomplete="off">
-                        </div>
-                        <div class="col-md-6 mb-2">
-                          <label class="form-label" for="target-region">Region</label>
-                          <input id="target-region" class="form-control" name="targetRegion"
-                                 [(ngModel)]="request.targetAws.region" [placeholder]="AWS_DEFAULTS.REGION" autocomplete="off">
-                        </div>
-                        <div class="col-md-6 mb-2">
-                          <label class="form-label" for="target-access-key">Access key ID</label>
-                          <app-secret-input [(ngModel)]="request.targetAws.accessKeyId"
-                                            name="targetAccessKeyId"
-                                            id="target-access-key"
-                                            [size]="InputSize.SM"
-                                            autocomplete="off">
-                          </app-secret-input>
-                        </div>
-                        <div class="col-md-6 mb-2">
-                          <label class="form-label" for="target-secret-key">Secret access key</label>
-                          <app-secret-input [(ngModel)]="request.targetAws.secretAccessKey"
-                                            name="targetSecretAccessKey"
-                                            id="target-secret-key"
-                                            [size]="InputSize.SM"
-                                            autocomplete="new-password">
-                          </app-secret-input>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                }
               </div>
-
+            }
             <div class="col-12">
               <div class="row mt-3">
                 <div class="col-lg-6">
@@ -278,50 +323,62 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
               <div class="d-flex flex-wrap gap-2 mt-3">
                 <button type="submit" class="btn btn-primary" [disabled]="busy || !formReady()">
                   @if (busyAction === "plan") {
-                    <fa-icon [icon]="faSpinner" animation="spin"/> Validating
+                    <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
                   } @else {
-                    Validate Plan
+                    <fa-icon [icon]="faClipboardCheck" class="me-1"/>
                   }
+                  {{ busyAction === "plan" ? "Validating" : "Validate Plan" }}
                 </button>
                 <button type="button" class="btn btn-warning" [disabled]="busy || !formReady() || !confirmationReady()"
                         (click)="execute(false)">
                   @if (busyAction === "execute") {
-                    <fa-icon [icon]="faSpinner" animation="spin"/> Restoring
+                    <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
                   } @else {
-                    Restore with Drop
+                    <fa-icon [icon]="faDatabase" class="me-1"/>
                   }
+                  {{ busyAction === "execute" ? "Restoring" : "Restore with Drop" }}
                 </button>
                 <button type="button" class="btn btn-danger" [disabled]="busy || !canRotate()"
                         (click)="rotate()">
                   @if (busyAction === "rotate") {
-                    <fa-icon [icon]="faSpinner" animation="spin"/> Rotating
+                    <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
                   } @else {
-                    Rotate Credentials
+                    <fa-icon [icon]="faKey" class="me-1"/>
                   }
+                  {{ busyAction === "rotate" ? "Rotating" : "Rotate Credentials" }}
                 </button>
               </div>
             </div>
             @if (error) {
               <div class="col-12">
-                <div class="alert alert-danger d-flex align-items-center gap-2 mt-3 mb-0" role="alert">
-                  <fa-icon [icon]="faExclamationTriangle" size="lg"/>
-                  <span><strong>Migration Failed</strong> — {{ error }}</span>
+                <div class="alert alert-danger d-flex align-items-start mt-3 mb-0" role="alert">
+                  <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                  <div>
+                    <strong>Migration failed</strong>
+                    <div>{{ error }}</div>
+                  </div>
                 </div>
               </div>
             }
             @if (success) {
               <div class="col-12">
-                <div class="alert alert-success mt-3 mb-0" role="alert"><strong>Success</strong> — {{ success }}</div>
+                <div class="alert alert-success d-flex align-items-start mt-3 mb-0" role="alert">
+                  <fa-icon [icon]="faCircleCheck" class="me-2 mt-1"/>
+                  <div>
+                    <strong>Success</strong>
+                    <div>{{ success }}</div>
+                  </div>
+                </div>
               </div>
             }
             @if (request.mode === EnvironmentMigrationMode.MONGO_AND_S3) {
               <div class="col-12">
-                <div class="alert alert-warning d-flex align-items-start gap-2 w-100 mt-3 mb-0" role="alert">
-                  <fa-icon [icon]="faExclamationTriangle" class="mt-1"/>
-                  <span>
-                    <strong>S3 Scope</strong> —
-                    {{ s3RestoreScopeSummary() }}
-                  </span>
+                <div class="alert alert-warning d-flex align-items-start mt-3 mb-0" role="alert">
+                  <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                  <div>
+                    <strong>S3 restore</strong>
+                    <div>{{ s3RestoreScopeSummary() }}</div>
+                  </div>
                 </div>
               </div>
             }
@@ -336,9 +393,12 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
             @if (selectedMigration) {
               <p><span class="status-pill" [ngClass]="statusClass(selectedMigration.status)">{{ selectedMigration.status }}</span> {{ selectedMigration.phase }}</p>
               @if (selectedMigration.status === EnvironmentMigrationStatus.ORPHANED) {
-                <div class="alert alert-warning d-flex align-items-center gap-2" role="alert">
-                  <fa-icon [icon]="faExclamationTriangle" size="lg"/>
-                  <span><strong>Interrupted</strong> — This migration was interrupted by a server restart. Inspect the target database and restart explicitly with fresh target credentials.</span>
+                <div class="alert alert-warning d-flex align-items-start" role="alert">
+                  <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                  <div>
+                    <strong>Interrupted</strong>
+                    <div>This migration was interrupted by a server restart. Inspect the target database and restart with fresh target credentials.</div>
+                  </div>
                 </div>
               }
               <dl class="row">
@@ -395,8 +455,8 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
              (selectTab)="selectTab(EnvironmentMigrationTab.HISTORY)"
              [heading]="EnvironmentMigrationTab.HISTORY">
           <div class="d-flex justify-content-end mt-3 mb-2">
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="loadHistory()" [disabled]="busy">
-              <fa-icon [icon]="faRotate"/> Refresh
+            <button type="button" class="btn btn-quiet" (click)="loadHistory()" [disabled]="busy">
+              <fa-icon [icon]="faRotate" class="me-1"/>Refresh
             </button>
           </div>
           <app-sortable-table
@@ -414,7 +474,9 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
               <span class="status-pill" [ngClass]="statusClass(migration.status)">{{ migration.status }}</span>
             </ng-template>
             <ng-template appSortableTableCell="actions" let-migration>
-              <button class="btn btn-sm table-action-button" type="button" (click)="selectMigration(migration)">Select</button>
+              <button class="btn btn-sm table-action-button" type="button" (click)="selectMigration(migration)">
+                <fa-icon [icon]="faList" class="me-1"/>Select
+              </button>
             </ng-template>
           </app-sortable-table>
         </tab>
@@ -438,9 +500,15 @@ export class EnvironmentMigrationComponent implements OnInit {
   protected readonly InputSize = InputSize;
   protected readonly AWS_DEFAULTS = AWS_DEFAULTS;
   protected readonly DESCENDING = DESCENDING;
-  protected readonly faExclamationTriangle = faExclamationTriangle;
+  protected readonly faCircleExclamation = faCircleExclamation;
+  protected readonly faCircleCheck = faCircleCheck;
+  protected readonly faClipboardCheck = faClipboardCheck;
+  protected readonly faDatabase = faDatabase;
+  protected readonly faKey = faKey;
+  protected readonly faList = faList;
   protected readonly faRotate = faRotate;
   protected readonly faSpinner = faSpinner;
+  protected readonly faUserPlus = faUserPlus;
 
   environments: EnvironmentInfo[] = [];
   environmentsWithMongo: EnvironmentInfo[] = [];
@@ -545,6 +613,9 @@ export class EnvironmentMigrationComponent implements OnInit {
   async loadEnvironmentConfig(): Promise<void> {
     try {
       this.environmentsConfig = await firstValueFrom(this.environmentConfigService.events());
+      if (!this.request.targetMongo.cluster) {
+        this.request.targetMongo.cluster = this.environmentsConfig?.atlas?.defaultCluster || "";
+      }
     } catch (error: any) {
       this.logger.error("Failed to load environment config:", error);
       this.environmentsConfig = null;
@@ -564,15 +635,38 @@ export class EnvironmentMigrationComponent implements OnInit {
 
   onEnvironmentChange(): void {
     const environment = this.environments.find(candidate => candidate.name === this.request.environment);
-    if (environment?.database && !this.request.targetMongo.db) {
-      this.request.targetMongo.db = environment.database;
-    }
+    this.request.targetMongo = {...this.request.targetMongo, db: environment?.database || "", username: "", password: ""};
+    this.request.confirmEnvironment = "";
+    this.selectedMigration = null;
     this.sourceEnvironment = this.request.environment;
     this.selectedBackupForRestore = null;
     this.selectedS3Manifest = null;
     this.applyBackupFilter();
     this.updateS3Preview();
     this.loadHistory();
+  }
+
+  useDefaultMongoCluster(): void {
+    this.request.targetMongo = {...this.request.targetMongo, cluster: this.environmentsConfig?.atlas?.defaultCluster || "", username: "", password: ""};
+    this.selectedMigration = null;
+  }
+
+  async provisionMongoTarget(): Promise<void> {
+    this.busy = true;
+    this.busyAction = "provision";
+    this.error = "";
+    this.success = "";
+    try {
+      this.request.targetMongo = await firstValueFrom(this.migrationService.provisionMongoTarget({environment: this.request.environment, cluster: this.request.targetMongo.cluster}));
+      this.selectedMigration = null;
+      this.success = "The target database user has been created. Save these credentials, then validate the migration plan before restoring.";
+    } catch (error) {
+      this.logger.error("Failed to provision migration database user:", error);
+      this.error = this.extractErrorMessage(error, "Could not create the target database user");
+    } finally {
+      this.busy = false;
+      this.busyAction = "";
+    }
   }
 
   onBackupSourceChange(source: BackupLocation): void {

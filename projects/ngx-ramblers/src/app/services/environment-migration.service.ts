@@ -5,6 +5,8 @@ import { Observable } from "rxjs";
 import { Logger, LoggerFactory } from "./logger-factory.service";
 import {
   EnvironmentMigrationAudit,
+  EnvironmentMigrationMongoProvisionRequest,
+  EnvironmentMigrationMongoTarget,
   EnvironmentMigrationRequest,
   EnvironmentMigrationRotationRequest
 } from "../models/environment-migration.model";
@@ -16,6 +18,10 @@ export class EnvironmentMigrationService {
   private logger: Logger = inject(LoggerFactory).createLogger("EnvironmentMigrationService", NgxLoggerLevel.ERROR);
   private http = inject(HttpClient);
   private BASE_URL = "api/environment-migration";
+
+  provisionMongoTarget(request: EnvironmentMigrationMongoProvisionRequest): Observable<EnvironmentMigrationMongoTarget> {
+    return this.http.post<EnvironmentMigrationMongoTarget>(`${this.BASE_URL}/mongo/provision`, request);
+  }
 
   private safeRequestSummary(request: EnvironmentMigrationRequest | EnvironmentMigrationRotationRequest): object {
     return {

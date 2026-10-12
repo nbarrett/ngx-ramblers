@@ -1,3 +1,4 @@
+import { lazyCollectionIndexes } from "../utils/collection-indexes";
 import mongoose from "mongoose";
 import { values } from "es-toolkit/compat";
 
@@ -58,5 +59,7 @@ export interface SpatialFeature extends mongoose.Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+lazyCollectionIndexes(spatialFeatureSchema);
 
 export const SpatialFeatureModel = mongoose.model<SpatialFeature>("SpatialFeature", spatialFeatureSchema);
