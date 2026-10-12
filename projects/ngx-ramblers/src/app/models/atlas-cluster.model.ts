@@ -1,3 +1,18 @@
+export enum AtlasClusterSortField {
+  NAME = "name",
+  HOST = "host",
+  SIZE = "instanceSize",
+  ENVIRONMENTS = "environmentNames",
+  COLLECTIONS = "collectionCount"
+}
+
+export enum AtlasEnvironmentSortField {
+  ENVIRONMENT = "environment",
+  CLUSTER = "cluster",
+  DATABASE = "database",
+  COLLECTIONS = "collections"
+}
+
 export enum AtlasClusterTier {
   M0 = "M0",
   M10 = "M10",
@@ -8,6 +23,7 @@ export enum AtlasClusterTier {
 }
 
 export enum AtlasAwsRegion {
+  EU_WEST_1 = "EU_WEST_1",
   EU_WEST_2 = "EU_WEST_2"
 }
 
@@ -44,6 +60,8 @@ export interface AtlasNetworkAccessEntry {
 export interface AtlasClusterEnvironmentRow {
   environment: string;
   cluster: string;
+  clusterName?: string;
+  projectId?: string;
   database: string;
   username: string;
   collections: number | null;
@@ -52,6 +70,7 @@ export interface AtlasClusterEnvironmentRow {
 }
 
 export interface AtlasClusterRow {
+  projectId?: string;
   name: string;
   host: string;
   instanceSize: AtlasClusterTier;
@@ -60,6 +79,7 @@ export interface AtlasClusterRow {
   inProvisioningProject: boolean;
   isDefault: boolean;
   environmentCount: number;
+  environmentNames?: string;
   collectionCount: number;
   indexCount: number;
   databaseCount: number;
@@ -82,6 +102,7 @@ export interface AtlasClusterView {
 }
 
 export interface AtlasClusterCreateRequest {
+  separateProject?: boolean;
   name: string;
   tier: AtlasClusterTier;
   region: AtlasAwsRegion;

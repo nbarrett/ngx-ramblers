@@ -30,7 +30,13 @@ export interface FlyioConfig {
   previous?: FlyioPreviousCredentials;
 }
 
+export interface AtlasManagedProject {
+  projectId: string;
+  name: string;
+}
+
 export interface AtlasConfig {
+  managedProjects?: AtlasManagedProject[];
   publicKey?: string;
   privateKey?: string;
   projectId?: string;

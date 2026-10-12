@@ -4,7 +4,6 @@ import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { keys } from "es-toolkit/compat";
-import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
   faBoxArchive,
   faBriefcase,
@@ -44,7 +43,6 @@ import {
   ConsoleAccessResolvedUrlInfo,
   ConsoleAccessServiceInfo,
   ConsoleAccessTableRow,
-  ConsoleAccessUrlIconKey,
   ConsoleSharedIdentifierGroup,
   EstateRebuildCaptureFormat,
   EstateRebuildCaptureSummary,
@@ -75,6 +73,7 @@ import {
 } from "../../../modules/common/sortable-table/sortable-table.model";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { VendorBrandMarkComponent } from "../../../modules/common/vendor-brand-mark/vendor-brand-mark.component";
+import { ConsoleAccessLinksComponent } from "../../../modules/common/console-access-links/console-access-links";
 import {
   VendorSystemSelectComponent
 } from "../../../modules/common/vendor-system-select/vendor-system-select.component";
@@ -641,19 +640,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                               </label>
                             }
                           </div>
-                          <div class="console-table-links">
-                            @for (link of resolvedUrlsForSharedGroup(group); track link.url) {
-                              <a [href]="link.url"
-                                 target="_blank"
-                                 rel="noopener noreferrer"
-                                 class="console-table-link"
-                                 [tooltip]="link.label"
-                                 container="body">
-                                <fa-icon [icon]="linkIcon(link)"></fa-icon>
-                                <span class="console-table-link-text">{{ link.label }}</span>
-                              </a>
-                            }
-                          </div>
+                          <app-console-access-links [links]="resolvedUrlsForSharedGroup(group)" [showEmpty]="false"/>
                         </div>
                       }
                     </div>
@@ -762,22 +749,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                         }
                       </ng-template>
                       <ng-template appSortableTableCell="links" let-row>
-                        <div class="console-table-links">
-                          @for (link of resolvedUrlsFor(row); track link.url) {
-                            <a [href]="link.url"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="console-table-link"
-                               [tooltip]="link.label"
-                               container="body">
-                              <fa-icon [icon]="linkIcon(link)"></fa-icon>
-                              <span class="console-table-link-text">{{ link.label }}</span>
-                            </a>
-                          }
-                          @if (!resolvedUrlsFor(row).length) {
-                            <span class="text-muted">—</span>
-                          }
-                        </div>
+                        <app-console-access-links [links]="resolvedUrlsFor(row)"/>
                       </ng-template>
                       <ng-template appSortableTableCell="actions" let-row>
                         <button type="button"
@@ -802,16 +774,7 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
                           <span>{{ row.serviceName }}</span>
                           <span class="console-card-env">{{ row.environmentLabel }}</span>
                           <span class="console-card-heading-actions">
-                            @for (link of resolvedUrlsFor(row); track link.url) {
-                              <a [href]="link.url"
-                                 target="_blank"
-                                 rel="noopener noreferrer"
-                                 class="btn btn-quiet btn-sm console-copy-btn"
-                                 [tooltip]="link.label"
-                                 container="body">
-                                <fa-icon [icon]="linkIcon(link)" size="xs"></fa-icon>
-                              </a>
-                            }
+                            <app-console-access-links [links]="resolvedUrlsFor(row)" [showEmpty]="false"/>
                             <button type="button"
                                     class="btn btn-quiet btn-sm console-copy-btn"
                                     (click)="copyAllForRow(row)"
@@ -978,7 +941,8 @@ const AUDIT_SECTION_DEFAULT_SORT: Record<AuditSectionTab, string> = {
     SortableTableComponent,
     SortableTableCellDirective,
     VendorBrandMarkComponent,
-    VendorSystemSelectComponent
+    VendorSystemSelectComponent,
+    ConsoleAccessLinksComponent
   ]
 })
 export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
@@ -1125,26 +1089,6 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
   protected readonly faTableList = faTableList;
   protected readonly faCircleCheck = faCircleCheck;
-  private readonly consoleLinkIcons: Record<ConsoleAccessUrlIconKey, IconDefinition> = {
-    [ConsoleAccessUrlIconKey.OVERVIEW]: faFolderOpen,
-    [ConsoleAccessUrlIconKey.NETWORK]: faShieldHalved,
-    [ConsoleAccessUrlIconKey.USERS]: faUserLock,
-    [ConsoleAccessUrlIconKey.DASHBOARD]: faDesktop,
-    [ConsoleAccessUrlIconKey.METRICS]: faChartLine,
-    [ConsoleAccessUrlIconKey.SECRETS]: faKey,
-    [ConsoleAccessUrlIconKey.ORGANISATION]: faBuilding,
-    [ConsoleAccessUrlIconKey.CONSOLE]: faDesktop,
-    [ConsoleAccessUrlIconKey.BUCKET]: faBoxArchive,
-    [ConsoleAccessUrlIconKey.ACCOUNT]: faUser,
-    [ConsoleAccessUrlIconKey.ZONE]: faGlobe,
-    [ConsoleAccessUrlIconKey.DNS]: faServer,
-    [ConsoleAccessUrlIconKey.APIS]: faPlug,
-    [ConsoleAccessUrlIconKey.CREDENTIALS]: faIdCard,
-    [ConsoleAccessUrlIconKey.BUSINESS]: faBriefcase,
-    [ConsoleAccessUrlIconKey.REPOSITORIES]: faBoxArchive,
-    [ConsoleAccessUrlIconKey.ACTIONS]: faPlay,
-    [ConsoleAccessUrlIconKey.HOME]: faHouse
-  };
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly allChoice = EstateRebuildDownloadChoice.ALL;
   protected readonly xlsxChoice = EstateRebuildDownloadChoice.XLSX;
@@ -2004,14 +1948,6 @@ export class EstateRebuildCaptureComponent implements OnInit, OnDestroy {
       identifiers: group.identifiers,
       urls: group.urls
     });
-  }
-
-  linkIcon(link: ConsoleAccessResolvedUrlInfo): IconDefinition {
-    if (link.iconKey && this.consoleLinkIcons[link.iconKey]) {
-      return this.consoleLinkIcons[link.iconKey];
-    } else {
-      return faExternalLinkAlt;
-    }
   }
 
   copyAllForRow(row: ConsoleAccessTableRow): void {

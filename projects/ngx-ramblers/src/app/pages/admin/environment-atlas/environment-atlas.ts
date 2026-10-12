@@ -2,11 +2,14 @@ import { Component, inject, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCircleExclamation, faExternalLinkAlt, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faCircleExclamation, faExternalLinkAlt, faFloppyDisk, faKey, faPlus, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgxLoggerLevel } from "ngx-logger";
 import {
   AtlasAwsRegion,
   AtlasClusterCreateRequest,
+  AtlasClusterSortField,
+  AtlasEnvironmentSortField,
   AtlasClusterEnvironmentRow,
   AtlasClusterRow,
   AtlasClusterState,
@@ -23,38 +26,51 @@ import { SortableTableAlignment, SortableTableColumn, SortableTableSortState } f
 import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
 import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
 import { VendorBrandMarkComponent } from "../../../modules/common/vendor-brand-mark/vendor-brand-mark.component";
+import { ConsoleAccessLinksComponent } from "../../../modules/common/console-access-links/console-access-links";
+import { ConsoleAccessUrlIconKey, MONGODB_ATLAS_CONSOLE_URLS } from "../../../models/environment-setup.model";
+import { resolveConsoleUrls } from "../../../functions/console-access-urls";
 import { PageComponent } from "../../../page/page.component";
 import { EnvironmentSetupService } from "../../../services/environment-setup/environment-setup.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 
-enum AtlasClusterSortField {
-  NAME = "name",
-  HOST = "host",
-  SIZE = "instanceSize",
-  ENVIRONMENTS = "environmentCount",
-  COLLECTIONS = "collectionCount"
-}
-
-enum AtlasEnvironmentSortField {
-  ENVIRONMENT = "environment",
-  CLUSTER = "cluster",
-  DATABASE = "database",
-  COLLECTIONS = "collections"
-}
-
 @Component({
   selector: "app-environment-atlas",
   imports: [
     FormsModule,
+    TooltipDirective,
     FontAwesomeModule,
     RouterLink,
     PageComponent,
     SortableTableComponent,
     SortableTableCellDirective,
-    VendorBrandMarkComponent
+    VendorBrandMarkComponent,
+    ConsoleAccessLinksComponent
   ],
+  styles: [`
+    .atlas-action-links
+      display: flex
+      flex-direction: row
+      flex-wrap: wrap
+      align-items: center
+      gap: 0.35rem 0.85rem
+    .atlas-action-link
+      display: inline-flex
+      align-items: center
+      gap: 0.4rem
+      padding: 0
+      border: 0
+      background: none
+      color: inherit
+      font-size: inherit
+      line-height: 1.35
+      white-space: nowrap
+      cursor: pointer
+    .atlas-action-link:disabled
+      opacity: 0.55
+      cursor: not-allowed
+  `],
   template: `
     <app-page autoTitle pageTitle="MongoDB Atlas">
       @if (notifyTarget.showAlert && notifyTarget.alert) {
@@ -115,13 +131,24 @@ enum AtlasEnvironmentSortField {
                    placeholder="host prefix without .mongodb.net">
           </div>
         </div>
-        <div class="d-flex flex-wrap gap-2 mt-2">
-          <button type="button" class="btn btn-primary" [disabled]="saving" (click)="saveProvisioning()">Save project and default cluster</button>
-          <a class="btn btn-quiet" [routerLink]="'/' + AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP"
-             [queryParams]="environmentSetupGlobalQueryParams">API keys</a>
+        <div class="atlas-action-links mt-2">
+          <button type="button" class="atlas-action-link" [disabled]="saving" (click)="saveProvisioning()">
+            @if (saving) {
+              <fa-icon [icon]="faSpinner" animation="spin"/>
+            } @else {
+              <fa-icon [icon]="faFloppyDisk"/>
+            }
+            <span>Save</span>
+          </button>
+          <a class="atlas-action-link" [routerLink]="'/' + AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP"
+             [queryParams]="environmentSetupGlobalQueryParams">
+            <fa-icon [icon]="faKey"/>
+            <span>API keys</span>
+          </a>
           @if (projectId) {
-            <a class="btn btn-quiet" [href]="'https://cloud.mongodb.com/v2/' + projectId + '#/overview'" target="_blank" rel="noopener">
-              <fa-icon [icon]="faExternalLinkAlt" class="me-1"/>Atlas project
+            <a class="atlas-action-link" [href]="'https://cloud.mongodb.com/v2/' + projectId + '#/overview'" target="_blank" rel="noopener">
+              <fa-icon [icon]="faExternalLinkAlt"/>
+              <span>Atlas project</span>
             </a>
           }
         </div>
@@ -146,7 +173,7 @@ enum AtlasEnvironmentSortField {
       </div>
       <div class="row thumbnail-heading-frame mb-4">
         <div class="thumbnail-heading">Create cluster</div>
-        <p class="mb-3">London (<code>eu-west-2</code>) only. A free M0 is one cluster per project and stops at 500 collections across every database, which is why registration is failing on the current shared cluster. For live groups use M20. Nothing is created in Atlas until you press Create cluster.</p>
+        <p class="mb-3">Choose AWS Ireland for a free M0, or London for a dedicated tier. Atlas permits one M0 per project; choose a separate project for each group site. Start with a free M0 to prove cluster creation, credential storage and environment migration. Check storage and collection capacity before moving existing sites. You can upgrade or move databases later. Dedicated tiers require Atlas billing. Nothing is created in Atlas until you press Create cluster.</p>
         <div class="row">
           <div class="col-md-4 mb-2">
             <label class="form-label" for="new-cluster-name">Name</label>
@@ -157,6 +184,7 @@ enum AtlasEnvironmentSortField {
             <label class="form-label" for="new-cluster-tier">Tier</label>
             <select id="new-cluster-tier" class="form-control" name="newClusterTier" [(ngModel)]="createRequest.tier">
               <option [value]="AtlasClusterTier.M0">M0 free (proof only, 500 collections)</option>
+              <option [value]="AtlasClusterTier.FLEX">Flex ($8–30/month, 500 collections)</option>
               <option [value]="AtlasClusterTier.M10">M10 dedicated</option>
               <option [value]="AtlasClusterTier.M20">M20 dedicated (live groups)</option>
               <option [value]="AtlasClusterTier.M30">M30 dedicated</option>
@@ -164,14 +192,21 @@ enum AtlasEnvironmentSortField {
           </div>
           <div class="col-md-4 mb-2">
             <label class="form-label">Region</label>
-            <input class="form-control" [value]="'AWS London (' + AtlasAwsRegion.EU_WEST_2 + ')'" disabled>
+            <select class="form-control" name="clusterRegion" [(ngModel)]="createRequest.region">
+              <option [value]="AtlasAwsRegion.EU_WEST_1">AWS Ireland (EU_WEST_1)</option>
+              <option [value]="AtlasAwsRegion.EU_WEST_2">AWS London (EU_WEST_2)</option>
+            </select>
           </div>
         </div>
-        <div class="form-check mt-2">
+        <div class="form-check ms-4 mt-2">
+          <input class="form-check-input" type="checkbox" id="separate-project" name="separateProject" [(ngModel)]="createRequest.separateProject">
+          <label class="form-check-label" for="separate-project">Create in a separate Atlas project (Organisation Project Creator required)</label>
+        </div>
+        <div class="form-check ms-4 mt-2">
           <input class="form-check-input" type="checkbox" id="set-as-default" name="setAsDefault" [(ngModel)]="createRequest.setAsDefault">
           <label class="form-check-label" for="set-as-default">Set as the default cluster for new sites once Atlas gives us a hostname</label>
         </div>
-        <div class="form-check mt-2">
+        <div class="form-check ms-4 mt-2">
           <input class="form-check-input" type="checkbox" id="allow-network" name="allowAllNetworkAccess" [(ngModel)]="createRequest.allowAllNetworkAccess">
           <label class="form-check-label" for="allow-network">Allow connections from anywhere (needed for Fly)</label>
         </div>
@@ -197,34 +232,31 @@ enum AtlasEnvironmentSortField {
           <ng-template [appSortableTableCell]="AtlasClusterSortField.NAME" let-row>
             {{ row.name }}
             @if (row.isDefault) {
-              <span class="badge bg-success ms-1">Default for new sites</span>
+              <span class="badge-mintcake ms-1">Default for new sites</span>
             }
             @if (!row.inProvisioningProject) {
-              <span class="badge bg-secondary ms-1">Not in this project</span>
+              <span class="badge-cloudy ms-1">External project</span>
             }
+            <app-console-access-links [links]="clusterConsoleLinks(row)" [showEmpty]="false"/>
           </ng-template>
           <ng-template [appSortableTableCell]="AtlasClusterSortField.HOST" let-row>
             <code>{{ row.host }}</code>
           </ng-template>
           <ng-template [appSortableTableCell]="AtlasClusterSortField.SIZE" let-row>
-            {{ row.instanceSize }}
-            @if (row.region) {
-              <span class="text-muted"> {{ row.region }}</span>
-            }
-            @if (row.stateName !== AtlasClusterState.UNKNOWN && row.stateName !== AtlasClusterState.IDLE) {
-              <span class="text-muted"> ({{ row.stateName }})</span>
-            }
+            <span [tooltip]="row.region + ' ' + row.stateName">{{ row.instanceSize === AtlasClusterTier.UNKNOWN ? "—" : row.instanceSize }}</span>
           </ng-template>
           <ng-template [appSortableTableCell]="AtlasClusterSortField.ENVIRONMENTS" let-row>
-            {{ row.environmentCount }}
+            {{ row.environmentNames || "—" }}
           </ng-template>
           <ng-template [appSortableTableCell]="AtlasClusterSortField.COLLECTIONS" let-row>
-            {{ row.collectionCount }}
-            <div class="small" [class.text-danger]="!row.canAddEnvironment">{{ row.limitHeadline }}</div>
+            <span [tooltip]="row.limitHeadline" [class.text-danger]="!row.canAddEnvironment">{{ row.collectionCount }}</span>
+            @if (!row.canAddEnvironment) {
+              <fa-icon [icon]="faCircleExclamation" class="text-danger ms-1" [tooltip]="row.limitHeadline"/>
+            }
           </ng-template>
           <ng-template [appSortableTableCell]="'actions'" let-row>
             @if (row.host && !row.isDefault) {
-              <button type="button" class="btn btn-primary btn-sm" [disabled]="saving" (click)="setDefaultCluster(row.host)">Use for new sites</button>
+              <button type="button" class="btn btn-primary btn-icon" tooltip="Use for new sites" aria-label="Use for new sites" [disabled]="saving" (click)="setDefaultCluster(row.host)"><fa-icon [icon]="faPlus"/></button>
             }
           </ng-template>
         </app-sortable-table>
@@ -253,6 +285,7 @@ enum AtlasEnvironmentSortField {
           </ng-template>
           <ng-template [appSortableTableCell]="AtlasEnvironmentSortField.DATABASE" let-row>
             {{ row.database }}
+            <app-console-access-links [links]="environmentConsoleLinks(row)" [showEmpty]="false"/>
           </ng-template>
           <ng-template [appSortableTableCell]="AtlasEnvironmentSortField.COLLECTIONS" let-row>
             @if (row.error) {
@@ -276,8 +309,11 @@ export class EnvironmentAtlasComponent implements OnInit {
   public notifyTarget: AlertTarget = {};
 
   protected readonly faSpinner = faSpinner;
+  protected readonly faPlus = faPlus;
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
+  protected readonly faFloppyDisk = faFloppyDisk;
+  protected readonly faKey = faKey;
   protected readonly AdminPlatformPath = AdminPlatformPath;
   protected readonly environmentSetupGlobalQueryParams = {[StoredValue.TAB]: toKebabCase(EnvironmentSetupTab.SETTINGS), [StoredValue.SUB_TAB]: EnvironmentSettingsSubTab.GLOBAL};
   protected readonly AtlasClusterTier = AtlasClusterTier;
@@ -298,27 +334,28 @@ export class EnvironmentAtlasComponent implements OnInit {
   environmentSortKey = AtlasEnvironmentSortField.ENVIRONMENT;
   environmentSortDirection = ASCENDING;
   createRequest: AtlasClusterCreateRequest = {
-    name: "ngx-ramblers-nonprod",
+    name: "group-sites",
     tier: AtlasClusterTier.M0,
-    region: AtlasAwsRegion.EU_WEST_2,
+    region: AtlasAwsRegion.EU_WEST_1,
+    separateProject: true,
     setAsDefault: true,
     allowAllNetworkAccess: true
   };
 
   clusterColumns: SortableTableColumn<AtlasClusterRow>[] = [
-    {key: AtlasClusterSortField.NAME, label: "Cluster", sortKey: AtlasClusterSortField.NAME},
-    {key: AtlasClusterSortField.HOST, label: "Host", sortKey: AtlasClusterSortField.HOST},
-    {key: AtlasClusterSortField.SIZE, label: "Size", sortKey: AtlasClusterSortField.SIZE},
-    {key: AtlasClusterSortField.ENVIRONMENTS, label: "Sites", sortKey: AtlasClusterSortField.ENVIRONMENTS, align: SortableTableAlignment.RIGHT},
-    {key: AtlasClusterSortField.COLLECTIONS, label: "Collections", sortKey: AtlasClusterSortField.COLLECTIONS},
-    {key: "actions", label: ""}
+    {key: AtlasClusterSortField.NAME, label: "Cluster", sortKey: AtlasClusterSortField.NAME, cellClass: "text-nowrap"},
+    {key: AtlasClusterSortField.HOST, label: "Host", sortKey: AtlasClusterSortField.HOST, cellClass: "text-nowrap"},
+    {key: AtlasClusterSortField.SIZE, label: "Size", sortKey: AtlasClusterSortField.SIZE, cellClass: "text-nowrap"},
+    {key: AtlasClusterSortField.ENVIRONMENTS, label: "Sites", sortKey: AtlasClusterSortField.ENVIRONMENTS},
+    {key: AtlasClusterSortField.COLLECTIONS, label: "Collections", sortKey: AtlasClusterSortField.COLLECTIONS, align: SortableTableAlignment.RIGHT, cellClass: "text-nowrap"},
+    {key: "actions", label: "", cellClass: "text-nowrap"}
   ];
 
   environmentColumns: SortableTableColumn<AtlasClusterEnvironmentRow>[] = [
     {key: AtlasEnvironmentSortField.ENVIRONMENT, label: "Environment", sortKey: AtlasEnvironmentSortField.ENVIRONMENT},
     {key: AtlasEnvironmentSortField.CLUSTER, label: "Cluster", sortKey: AtlasEnvironmentSortField.CLUSTER},
     {key: AtlasEnvironmentSortField.DATABASE, label: "Database", sortKey: AtlasEnvironmentSortField.DATABASE},
-    {key: AtlasEnvironmentSortField.COLLECTIONS, label: "Usage", sortKey: AtlasEnvironmentSortField.COLLECTIONS, align: SortableTableAlignment.RIGHT}
+    {key: AtlasEnvironmentSortField.COLLECTIONS, label: "Usage", sortKey: AtlasEnvironmentSortField.COLLECTIONS, align: SortableTableAlignment.RIGHT, cellClass: "text-nowrap"}
   ];
 
   ngOnInit() {
@@ -333,6 +370,27 @@ export class EnvironmentAtlasComponent implements OnInit {
 
   trackCluster = (_index: number, row: AtlasClusterRow) => row.host || row.name;
   trackEnvironment = (_index: number, row: AtlasClusterEnvironmentRow) => row.environment;
+
+  clusterConsoleLinks(row: AtlasClusterRow) {
+    return this.atlasRowLinks({
+      projectId: row.projectId || "",
+      clusterName: row.inProvisioningProject ? row.name : "",
+      database: ""
+    });
+  }
+
+  environmentConsoleLinks(row: AtlasClusterEnvironmentRow) {
+    return this.atlasRowLinks({
+      projectId: row.projectId || "",
+      clusterName: row.clusterName || "",
+      database: row.database || ""
+    });
+  }
+
+  private atlasRowLinks(identifiers: {projectId: string; clusterName: string; database: string}) {
+    return resolveConsoleUrls(MONGODB_ATLAS_CONSOLE_URLS, identifiers).filter(link =>
+      link.iconKey === ConsoleAccessUrlIconKey.DASHBOARD || link.iconKey === ConsoleAccessUrlIconKey.DATABASE);
+  }
 
   async load() {
     this.loading = true;
@@ -378,7 +436,7 @@ export class EnvironmentAtlasComponent implements OnInit {
       const result = await this.environmentSetupService.createAtlasCluster({
         ...this.createRequest,
         name: this.createRequest.name.trim(),
-        region: AtlasAwsRegion.EU_WEST_2
+        region: this.createRequest.region
       });
       this.notify.success({title: "Cluster requested", message: result.message});
       await this.load();

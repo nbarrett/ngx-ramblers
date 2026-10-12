@@ -4,7 +4,8 @@ import {
   ConsoleAccessService,
   EnvironmentConsoleAccess
 } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
-import { ConsoleAccessUrlIconKey } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { ConsoleAccessUrlIconKey, MONGODB_ATLAS_CONSOLE_URLS } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
+import { resolveConsoleUrls as resolveConsoleUrlTemplates } from "../../../projects/ngx-ramblers/src/app/functions/console-access-urls";
 import {
   EstateRebuildFieldLayer,
   EstateRebuildFieldSource,
@@ -56,30 +57,11 @@ export const CONSOLE_ACCESS_SERVICES: ConsoleAccessServiceDefinition[] = [
     function: "Human login to cloud.mongodb.com for this site’s project — not the app database user. Per environment.",
     scope: EstateRebuildSystemScope.PER_SITE,
     identifiers: [
-      {key: "projectId", label: "Project ID", placeholder: "e.g. 0123456789abcdef01234567"}
+      {key: "projectId", label: "Project ID", placeholder: "e.g. 0123456789abcdef01234567"},
+      {key: "clusterName", label: "Cluster name", placeholder: "e.g. ngx-ramblers-nonprod"},
+      {key: "database", label: "Database", placeholder: "e.g. ngx-ramblers-your-group"}
     ],
-    urls: [
-      {
-        label: "Project overview",
-        urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/overview?automateSecurity=true",
-        iconKey: ConsoleAccessUrlIconKey.OVERVIEW
-      },
-      {
-        label: "Network access list",
-        urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/security/network/accessList",
-        iconKey: ConsoleAccessUrlIconKey.NETWORK
-      },
-      {
-        label: "Database users",
-        urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/security/database/users",
-        iconKey: ConsoleAccessUrlIconKey.USERS
-      },
-      {
-        label: "API keys",
-        urlTemplate: "https://cloud.mongodb.com/v2/{projectId}#/access/apiKeys",
-        iconKey: ConsoleAccessUrlIconKey.CREDENTIALS
-      }
-    ]
+    urls: MONGODB_ATLAS_CONSOLE_URLS
   },
   {
     serviceId: ConsoleAccessService.FLY_IO,
@@ -271,38 +253,11 @@ function platformApplies(scope: EstateRebuildSystemScope): boolean {
     || scope === EstateRebuildSystemScope.PER_SITE_AND_PLATFORM;
 }
 
-function templateFullyResolved(urlTemplate: string, identifiers: Record<string, string>): string | null {
-  const placeholders: string[] = urlTemplate.match(/\{([a-zA-Z0-9_]+)\}/g) || [];
-  const missing = placeholders.some(token => {
-    const key = token.slice(1, -1);
-    return !identifiers[key];
-  });
-  if (missing) {
-    return null;
-  } else {
-    return placeholders.reduce((url: string, token: string) => {
-      const key = token.slice(1, -1);
-      return url.split(token).join(encodeURIComponent(identifiers[key]));
-    }, urlTemplate);
-  }
-}
-
 export function resolveConsoleUrls(
   service: ConsoleAccessServiceDefinition,
   identifiers: Record<string, string> | undefined
 ): ConsoleAccessResolvedUrl[] {
-  const values = identifiers || {};
-  return service.urls.reduce((acc: ConsoleAccessResolvedUrl[], template) => {
-    const url = templateFullyResolved(template.urlTemplate, values);
-    if (url) {
-      acc.push({
-        label: template.label,
-        url,
-        iconKey: template.iconKey || null
-      });
-    }
-    return acc;
-  }, []);
+  return resolveConsoleUrlTemplates(service.urls, identifiers);
 }
 
 export function consoleAccessSiteFields(): EstateRebuildSiteFieldDefinition[] {

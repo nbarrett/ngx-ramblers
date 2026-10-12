@@ -1,9 +1,47 @@
 import expect from "expect";
-import { describe, it } from "mocha";
+import sinon from "sinon";
+import { afterEach, describe, it } from "mocha";
 import { AtlasAwsRegion, AtlasClusterTier, clusterCapacity } from "../../../projects/ngx-ramblers/src/app/models/atlas-cluster.model";
-import { atlasClusterCreateBody, clusterHostFromSrv, registrationMongoCluster } from "./atlas-clusters";
+import { atlasClusterCreateBody, clusterHostFromSrv, createAtlasCluster, registrationMongoCluster } from "./atlas-clusters";
+import * as environmentsConfig from "../environments/environments-config";
+import * as registrationStore from "../site-registration/registration-store";
+import * as mongoDatabaseUser from "./mongo-database-user";
 
 describe("atlas-clusters", () => {
+  const sandbox = sinon.createSandbox();
+
+  afterEach(() => sandbox.restore());
+
+  [AtlasClusterTier.M0, AtlasClusterTier.M20].forEach(tier => {
+    it(`creates and lists a ${tier} cluster using the API version that supports regionConfigs`, async () => {
+      sandbox.stub(environmentsConfig, "configuredEnvironments").resolves({environments: []});
+      sandbox.stub(registrationStore, "registrationSettings").resolves({sourceEnvironmentName: "template"} as never);
+      sandbox.stub(mongoDatabaseUser, "platformAtlasAccess").resolves({projectId: "project-1", publicKey: "public-key", privateKey: "private-key"});
+      const cluster = {
+        name: "group-sites",
+        stateName: "CREATING",
+        connectionStrings: {standardSrv: "mongodb+srv://group-sites.abc123.mongodb.net"},
+        replicationSpecs: [{regionConfigs: [{electableSpecs: {instanceSize: tier}, regionName: "EU_WEST_2"}]}]
+      };
+      const fetchStub = sandbox.stub(globalThis, "fetch");
+      fetchStub.onCall(0).resolves(new Response("{}", {status: 401, headers: {"www-authenticate": "Digest realm=\"Atlas\", nonce=\"nonce\", qop=\"auth\""}}));
+      fetchStub.onCall(1).resolves(new Response(JSON.stringify(cluster), {status: 201}));
+      fetchStub.onCall(2).resolves(new Response(JSON.stringify({results: [cluster]}), {status: 200}));
+      fetchStub.onCall(3).resolves(new Response(JSON.stringify({results: []}), {status: 200}));
+
+      const result = await createAtlasCluster({name: "group-sites", tier, region: AtlasAwsRegion.EU_WEST_1, setAsDefault: false, allowAllNetworkAccess: false});
+
+      const [url, init] = fetchStub.secondCall.args as [string, RequestInit];
+      expect(url).toBe("https://cloud.mongodb.com/api/atlas/v2/groups/project-1/clusters");
+      expect(init.headers).toMatchObject({Accept: "application/vnd.atlas.2023-02-01+json", "Content-Type": "application/json"});
+      expect((init.headers as Record<string, string>).Authorization).toContain("Digest username=\"public-key\"");
+      expect(JSON.parse(init.body as string).replicationSpecs[0].regionConfigs[0].electableSpecs.instanceSize).toBe(tier);
+      expect((fetchStub.getCall(2).args[1].headers as Record<string, string>).Accept).toBe("application/vnd.atlas.2023-02-01+json");
+      expect((fetchStub.getCall(3).args[1].headers as Record<string, string>).Accept).toBe("application/vnd.atlas.2023-01-01+json");
+      expect(result.cluster).toMatchObject({name: "group-sites", host: "group-sites.abc123", instanceSize: tier, stateName: "CREATING"});
+    });
+  });
+
   it("reads the host prefix from an SRV string with no user", () => {
     expect(clusterHostFromSrv("mongodb+srv://ngx-ramblers-nonprod.abc123.mongodb.net")).toBe("ngx-ramblers-nonprod.abc123");
     expect(clusterHostFromSrv("mongodb+srv://ngx-ramblers-nonprod.abc123.mongodb.net/")).toBe("ngx-ramblers-nonprod.abc123");
