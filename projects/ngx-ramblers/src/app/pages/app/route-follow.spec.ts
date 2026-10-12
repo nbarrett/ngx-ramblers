@@ -44,7 +44,6 @@ describe("route follow local restoration", () => {
     view["applyLoaded"] = vi.fn().mockImplementation(async () => {
       view["progress"] = {mode: RouteFollowMode.FOLLOWING} as typeof view["progress"];
     });
-    view["revealIdleSheet"] = vi.fn();
     const first = view["load"](null, null, "first-walk", null, null);
     const second = view["load"](null, null, "second-walk", null, null);
     const payload = {walkId: "second-walk", points: [{latitude: 51, longitude: 0}, {latitude: 51.001, longitude: 0.001}]} as RouteFollowPayload;
@@ -65,7 +64,6 @@ describe("route follow local restoration", () => {
     view["applyLoaded"] = vi.fn().mockImplementation(async () => {
       view["progress"] = {mode} as typeof view["progress"];
     });
-    view["revealIdleSheet"] = vi.fn();
     view["networkPayload"] = vi.fn();
     await view["load"](null, null, "fictional-walk", null, null);
     expect(view["applyLoaded"]).toHaveBeenCalledWith(payload);
@@ -100,6 +98,30 @@ describe("route follow interrupted sessions", () => {
     view.closeFollow();
     expect(view["confirmingRecordingDiscard"]).toBe(true);
     expect(view["followService"].stop).not.toHaveBeenCalled();
+  });
+
+  it("confirms discard through the existing controls without closing the route", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["discardAndClose"] = false;
+    view["confirmingRecordingDiscard"] = true;
+    view.cancelEdit = vi.fn();
+    view.closeFollow = vi.fn();
+    view.confirmRecordingDiscard();
+    expect(view["confirmingRecordingDiscard"]).toBe(false);
+    expect(view.cancelEdit).toHaveBeenCalledWith(true);
+    expect(view.closeFollow).not.toHaveBeenCalled();
+  });
+
+  it("closes only after confirming a close that discards a recording", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["discardAndClose"] = true;
+    view["confirmingRecordingDiscard"] = true;
+    view.cancelEdit = vi.fn();
+    view.closeFollow = vi.fn();
+    view.confirmRecordingDiscard();
+    expect(view["confirmingRecordingDiscard"]).toBe(false);
+    expect(view.closeFollow).toHaveBeenCalledWith(true);
+    expect(view.cancelEdit).not.toHaveBeenCalled();
   });
 
   it("reports a failed checkpoint while keeping the current session", () => {
@@ -153,7 +175,6 @@ describe("standalone recording restoration", () => {
     view["applyLoaded"] = vi.fn().mockImplementation(async () => {
       view["progress"] = {mode} as typeof view["progress"];
     });
-    view["revealIdleSheet"] = vi.fn();
     view["networkPayload"] = vi.fn();
     view["recordRoute"] = vi.fn();
     await view["load"](null, null, null, null, null, 0, [], "fictional-id");
@@ -288,7 +309,7 @@ describe("recording map starting location", () => {
   function recordingView(points: RouteFollowPoint[] = []) {
     const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
     view["loadSequence"] = 1;
-    view["followService"] = {trackPoints: () => points} as unknown as typeof view["followService"];
+    view["followService"] = {trackPoints: () => points, applyPosition: vi.fn()} as unknown as typeof view["followService"];
     view["currentLocation"] = {currentPosition: vi.fn().mockResolvedValue({lat: 51.2, lng: 0.3})} as unknown as typeof view["currentLocation"];
     view["mapTiles"] = {maxZoomForStyle: () => 18} as unknown as typeof view["mapTiles"];
     view["buildMapOptions"] = vi.fn();
@@ -300,6 +321,7 @@ describe("recording map starting location", () => {
     const payload = {source: RouteFollowSource.RECORDING} as RouteFollowPayload;
     await view["prepareMapOptions"](payload);
     expect(view["currentLocation"].currentPosition).toHaveBeenCalledWith(true);
+    expect(view["followService"].applyPosition).toHaveBeenCalledWith({latitude: 51.2, longitude: 0.3}, null, null);
     expect(view["restoredMapView"]?.center.lat).toBe(51.2);
     expect(view["restoredMapView"]?.center.lng).toBe(0.3);
     expect(view["buildMapOptions"]).toHaveBeenCalledWith(payload, view["restoredMapView"]);
@@ -329,6 +351,7 @@ describe("recording map starting location", () => {
     });
     await view["prepareMapOptions"]({source: RouteFollowSource.RECORDING} as RouteFollowPayload);
     expect(view["buildMapOptions"]).not.toHaveBeenCalled();
+    expect(view["followService"].applyPosition).not.toHaveBeenCalled();
   });
 });
 
@@ -388,5 +411,74 @@ describe("follow sheet handle drag", () => {
     handleEvent(view, "pointerup", 320);
     view.onSheetHandleClick();
     expect(view["sheetState"]).toBe(RouteFollowSheetState.EXPANDED);
+  });
+});
+
+describe("opening a route", () => {
+  it("starts with the drawer collapsed even if the previous route was expanded", async () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["loadSequence"] = 0;
+    view["sheetState"] = RouteFollowSheetState.EXPANDED;
+    view["mapTiles"] = {allowCachedOsTiles: vi.fn()} as unknown as typeof view["mapTiles"];
+    view["followService"] = {stop: vi.fn()} as unknown as typeof view["followService"];
+    const payload = {routeId: "fictional-route", points: [{latitude: 51, longitude: 0}, {latitude: 51.001, longitude: 0.001}]} as RouteFollowPayload;
+    view["cachedPayload"] = vi.fn().mockResolvedValue(payload);
+    view["applyLoaded"] = vi.fn().mockResolvedValue(null);
+    await view["load"]("fictional-route", "fictional-route", null, null, null);
+    expect(view["applyLoaded"]).toHaveBeenCalledWith(payload);
+    expect(view.sheetMinimised).toBe(true);
+  });
+});
+
+describe("centring on the current location", () => {
+  function locationView() {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["loadSequence"] = 1;
+    view["currentLocation"] = {currentPosition: vi.fn().mockResolvedValue({lat: 51.2, lng: 0.3})} as unknown as typeof view["currentLocation"];
+    view["mapRef"] = {setView: vi.fn(), getZoom: () => 16} as unknown as typeof view["mapRef"];
+    view["followService"] = {applyPosition: vi.fn()} as unknown as typeof view["followService"];
+    return view;
+  }
+
+  it("shows the centred state while following a known position and clears it after dragging", () => {
+    const view = locationView();
+    view["progress"] = {position: {latitude: 51.2, longitude: 0.3}} as typeof view["progress"];
+    view["followUser"] = true;
+    expect(view["currentLocationCentred"]()).toBe(true);
+    view["followUser"] = false;
+    expect(view["currentLocationCentred"]()).toBe(false);
+    view["followUser"] = true;
+    view["progress"] = null;
+    expect(view["currentLocationCentred"]()).toBe(false);
+  });
+
+  it("uses a fresh GPS position rather than the route start", async () => {
+    const view = locationView();
+    view["payload"] = {points: [{latitude: 52, longitude: 1}]} as RouteFollowPayload;
+    await view.recenter();
+    expect(view["currentLocation"].currentPosition).toHaveBeenCalledWith(true);
+    expect(view["mapRef"].setView).toHaveBeenCalledWith([51.2, 0.3], 16, {animate: false});
+    expect(view["followService"].applyPosition).toHaveBeenCalledWith({latitude: 51.2, longitude: 0.3}, null, null);
+    expect(view["followUser"]).toBe(true);
+    expect(view["locatingPosition"]).toBe(false);
+  });
+
+  it("reports missing location without pretending the route start is the user", async () => {
+    const view = locationView();
+    vi.mocked(view["currentLocation"].currentPosition).mockResolvedValue(null);
+    await view.recenter();
+    expect(view["mapRef"].setView).not.toHaveBeenCalled();
+    expect(view["persistError"]).toContain("current location could not be found");
+  });
+
+  it("ignores a GPS response after switching routes", async () => {
+    const view = locationView();
+    vi.mocked(view["currentLocation"].currentPosition).mockImplementation(async () => {
+      view["loadSequence"] = 2;
+      return {lat: 51.2, lng: 0.3};
+    });
+    await view.recenter();
+    expect(view["mapRef"].setView).not.toHaveBeenCalled();
+    expect(view["followService"].applyPosition).not.toHaveBeenCalled();
   });
 });

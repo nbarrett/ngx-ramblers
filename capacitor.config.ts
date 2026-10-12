@@ -2,7 +2,7 @@ import { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "org.ngxramblers.walking",
-  appName: "Ramblers",
+  appName: "NGX Ramblers",
   webDir: "dist/ngx-mobile",
   android: {
     path: "mobile/android",

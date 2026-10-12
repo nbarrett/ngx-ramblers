@@ -1,3 +1,4 @@
+import { DistanceUnit } from "../../models/walk.model";
 import { routeVisibleToMember } from "../../functions/route-access";
 import { generateUid } from "../../functions/numbers";
 import { MobileAppAccessService } from "../../services/maps/mobile-app-access.service";
@@ -14,7 +15,7 @@ import { RouteVisibility, routeAuditCreatedLabel } from "../../models/os-maps-ex
 import { downloadBlob } from "../../functions/file-download";
 import { FormsModule } from "@angular/forms";
 import { CdkTextareaAutosize } from "@angular/cdk/text-field";
-import { afterNextRender, Component, HostListener, inject, Injector, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { afterNextRender, Component, ElementRef, HostListener, inject, Injector, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { turnRotationDegrees } from "../../functions/route-turns";
 import { nearestPointIndex, cumulativeDistances, snapToRoute } from "../../functions/route-geometry";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -140,25 +141,12 @@ import { UiActionsService } from "../../services/ui-actions.service";
 import { EPSG_27700_PROJ4, MapProjectionCode } from "../../common/maps/map-projection.constants";
 import proj4 from "proj4";
 import { MapLoadingOverlay } from "../../shared/components/map-loading-overlay";
-import { DraggableModalComponent } from "../../modules/common/draggable-modal/draggable-modal";
 import { RouterHistoryService } from "../../services/router-history.service";
 
 @Component({
   selector: "app-route-follow",
   template: `
     <div class="follow-app">
-          @if (confirmingRecordingDiscard) {
-            <app-draggable-modal [open]="true" [showCloseButton]="false" contentWidth="min(480px, 95vw)"
-                                 (closed)="confirmingRecordingDiscard = false">
-              <span modalTitle>Keep your recording?</span>
-              <div modalBody>
-                <p>Your route has not been saved yet. You can return to it, or discard the points collected so far.</p>
-                <p class="mb-0">Discarding cannot be undone.</p>
-              </div>
-              <button modalFooter type="button" class="btn btn-primary" (click)="confirmingRecordingDiscard = false">Keep recording</button>
-              <button modalFooter type="button" class="btn btn-quiet" (click)="confirmRecordingDiscard()">Discard recording</button>
-            </app-draggable-modal>
-          }
       @if (error) {
         <div class="follow-status">
           <div class="follow-top-actions">
@@ -247,7 +235,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 <div class="follow-tape-grid">{{ gridReference }}</div>
               }
             </div>
-            @if (directionsOnMap && instructionWaypoint && instructionText) {
+            @if (directionsOnMap && instructionWaypoint && instructionText && progress && progress.mode !== RouteFollowMode.IDLE && progress.mode !== RouteFollowMode.EDITING) {
               <div class="follow-instruction">
                 <div class="follow-instruction-number" [style.background]="markerColour" [style.color]="'#ffffff'">
                   @if (instructionWaypoint.turn) {
@@ -278,7 +266,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
         </div>
         @if (showDirections) {
           <div class="follow-style-scrim" (click)="closeDirections()"></div>
-          <div class="follow-style-picker" role="dialog" aria-label="Directions">
+          <div class="follow-style-picker follow-directions-picker" role="dialog" aria-label="Directions">
             <div class="follow-style-picker-head">
               <h2>Directions</h2>
               <div class="follow-style-picker-head-actions">
@@ -298,7 +286,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
             </div>
             @if (directedWaypoints.length) {
               <p class="follow-directions-note">Tap a step to see it on the map, or step through with the arrows. Your position keeps tracking underneath.</p>
-              <ol class="follow-directions-list follow-directions-steps">
+              <ol #directionsList class="follow-directions-list follow-directions-steps">
                 @for (waypoint of directedWaypoints; track waypoint.id; let index = $index) {
                   <li class="follow-directions-step" [class.active]="waypoint === browsedWaypoint" (click)="browseWaypoint(waypoint)">
                     <span class="follow-directions-number" [style.background]="markerColour" [style.color]="'#ffffff'">
@@ -404,11 +392,11 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 </button>
               }
             </div>
-            @if (directedWaypoints.length) {
+            @if (payload?.waypoints?.length) {
               <div class="form-check form-switch follow-option-switch">
                 <input class="form-check-input" type="checkbox" role="switch" id="follow-directions-on-map"
                        [checked]="directionsOnMap" (change)="toggleDirectionsOnMap()">
-                <label class="form-check-label" for="follow-directions-on-map">Show the current step at the top of the map</label>
+                <label class="form-check-label" for="follow-directions-on-map">Show directions at the top of the map</label>
               </div>
               <div class="form-check form-switch follow-option-switch">
                 <input class="form-check-input" type="checkbox" role="switch" id="follow-step-pins-on-map"
@@ -499,7 +487,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
                   <fa-icon [icon]="faListOl"/>
                 </button>
               }
-              @if (directedWaypoints.length) {
+              @if (payload?.waypoints?.length) {
                 <button class="follow-tool" type="button" [class.is-active]="directionsOnMap"
                         (click)="toggleDirectionsOnMap()"
                         [tooltip]="currentStepLabel()" [isDisabled]="!tooltipsEnabled"
@@ -515,10 +503,10 @@ import { RouterHistoryService } from "../../services/router-history.service";
                       aria-label="Map style">
                 <fa-icon [icon]="faLayerGroup"/>
               </button>
-              <button class="follow-tool" type="button" [class.is-active]="!followUser" (click)="recenter()"
-                      tooltip="Recentre on me" [isDisabled]="!tooltipsEnabled"
+              <button class="follow-tool" type="button" [class.is-active]="currentLocationCentred()" (click)="recenter()" [disabled]="locatingPosition"
+                      [tooltip]="locatingPosition ? 'Finding your location' : 'Centre on my location'" [isDisabled]="!tooltipsEnabled"
                       placement="left" container=".follow-app"
-                      aria-label="Recentre on me">
+                      [attr.aria-label]="locatingPosition ? 'Finding your location' : 'Centre on my location'" [attr.aria-pressed]="currentLocationCentred()">
                 <fa-icon [icon]="faLocationArrow"/>
               </button>
             </div>
@@ -537,11 +525,11 @@ import { RouterHistoryService } from "../../services/router-history.service";
           </button>
           <h2 class="follow-sheet-heading">{{ sheetHeading() }}</h2>
           @if (payload?.source === RouteFollowSource.RECORDING && progress?.mode === RouteFollowMode.IDLE) {
-            <button class="btn btn-primary follow-recording-tray" type="button" (click)="recordRoute()">
-              <fa-icon [icon]="faCircle"/> Start recording
+            <button class="btn btn-primary follow-main-btn follow-recording-tray" type="button" (click)="recordRoute()">
+              <fa-icon [icon]="faCircle" class="follow-recording-indicator is-ready"/> Start recording
             </button>
-          } @else if (recordingSession && !recordingDetailsOpen) {
-            <button class="btn btn-quiet follow-recording-tray" type="button" (click)="onSheetHandleClick()"
+          } @else if (recordingSession && !recordingDetailsOpen && sheetMinimised && !followPanelWide) {
+            <button class="btn follow-main-btn follow-recording-tray" [class.btn-primary]="progress?.mode === RouteFollowMode.RECORDING" [class.btn-quiet]="progress?.mode !== RouteFollowMode.RECORDING" type="button" (click)="onSheetHandleClick()"
                     [attr.aria-expanded]="!sheetMinimised" aria-label="Recording controls">
               <fa-icon [icon]="faCircle" class="follow-recording-indicator"
                        [class.is-recording]="progress?.mode === RouteFollowMode.RECORDING"/>
@@ -567,7 +555,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
                   <strong>{{ remainingTime }}</strong>
                 </div>
               }
-              @if (hasElevation) {
+              @if (hasElevation && sheetMinimised) {
                 <div class="follow-peek-stat">
                   <span>Elevation</span>
                   <strong>{{ currentElevation }}</strong>
@@ -575,6 +563,12 @@ import { RouterHistoryService } from "../../services/router-history.service";
               }
             </div>
           </div>
+          }
+          @if (sheetMinimised && !followPanelWide && hasLine && payload?.source !== RouteFollowSource.RECORDING && !recordingSession && progress?.mode !== RouteFollowMode.EDITING) {
+            <button class="btn btn-primary follow-main-btn follow-recording-tray" type="button" (click)="onPeekAction($event)" [disabled]="savingRoute">
+              <fa-icon [icon]="startControlIcon()"/>
+              {{ startControlLabel() }}
+            </button>
           }
           <div class="follow-sheet-body-slot">
           <div class="follow-sheet-body">
@@ -637,10 +631,10 @@ import { RouterHistoryService } from "../../services/router-history.service";
           @if (loginPrompt) {
             <p class="follow-library-note">Editing and recording are for walk leaders and admins. <a [href]="loginUrl()">Log in</a> to see those options here.</p>
           }
-          @if (hasLine && progress?.mode !== RouteFollowMode.EDITING) {
+          @if ((hasLine || recordingSession) && progress?.mode !== RouteFollowMode.EDITING) {
             <div class="follow-stats">
               <div class="follow-stat">
-                <span>{{ recordingSession ? "Distance recorded" : "Remaining distance" }}</span>
+                <span aria-live="polite">{{ recordingSession ? (progress?.mode === RouteFollowMode.PAUSED ? "Recorded · paused" : "Distance recorded") : "Remaining distance" }}</span>
                 <strong>{{ remainingDistance }}</strong>
               </div>
               <div class="follow-stat">
@@ -667,7 +661,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
                                  (pointSelect)="browseWaypoint($event)"/>
           }
           @if (payload && showingRouteDetails() && (showFollowExtras() || editingRouteDetails())) {
-            <div class="thumbnail-heading-frame thumbnail-heading-frame-compact">
+            <div class="thumbnail-heading-frame">
               <div class="thumbnail-heading">{{ payload.source === RouteFollowSource.RECORDING ? "Save your recording" : "Route details" }}</div>
               <div class="follow-route-details">
                 @if (showFollowExtras() && payload.source !== RouteFollowSource.RECORDING) {
@@ -733,9 +727,19 @@ import { RouterHistoryService } from "../../services/router-history.service";
           @if (thinningPrompt) {
             <p class="follow-library-note">This line has {{ thinningPromptCount }} points, which is a lot to edit. Reducing the density would keep about {{ thinningPromptSuggested }} points.</p>
           }
+          @if (confirmingRecordingDiscard) {
+            <div class="alert alert-warning d-flex align-items-start" role="alert">
+              <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+              <div><strong class="d-block">Discard this recording?</strong>Discarding deletes this unsaved recording and cannot be undone.</div>
+            </div>
+          }
           <div class="follow-actions">
+            @if (confirmingRecordingDiscard) {
+              <button class="btn btn-primary follow-main-btn" type="button" (click)="confirmingRecordingDiscard = false">Back to recording</button>
+              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="confirmRecordingDiscard()">Confirm discard</button>
+            } @else {
             @if (!followPanelWide && payload && hasLine && !recordingSession) {
-              <button class="btn btn-primary follow-main-btn follow-actions-span" type="button" (click)="toggleFollowExtraSettings()">
+              <button class="btn btn-primary follow-main-btn" [class.follow-actions-span]="progress?.mode === RouteFollowMode.EDITING" type="button" (click)="toggleFollowExtraSettings()">
                 {{ followExtraSettings ? "Hide additional settings" : "Additional settings" }}
               </button>
             }
@@ -789,7 +793,12 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 Discard
               </button>
               <button class="btn btn-primary follow-main-btn" type="button" (click)="payload?.source === RouteFollowSource.RECORDING && !recordingDetailsOpen ? finishRecording() : saveRoute()" [disabled]="savingRoute || !hasLine">
-                <fa-icon [icon]="faFloppyDisk"/>
+                @if (payload?.source === RouteFollowSource.RECORDING && !recordingDetailsOpen) {
+                  <fa-icon [icon]="faCircle" class="follow-recording-indicator" aria-hidden="true"
+                           [class.is-recording]="progress?.mode === RouteFollowMode.RECORDING"/>
+                } @else {
+                  <fa-icon [icon]="faFloppyDisk"/>
+                }
                 {{ savingRoute ? "Saving" : payload?.source === RouteFollowSource.RECORDING && !recordingDetailsOpen ? "Stop recording" : "Save route" }}
               </button>
             } @else if (!thinningPrompt && (progress?.mode === RouteFollowMode.FOLLOWING || progress?.mode === RouteFollowMode.PAUSED || progress?.mode === RouteFollowMode.PREVIEW)) {
@@ -829,6 +838,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
               <fa-icon [icon]="faXmark"/>
               Close
             </button>
+            }
           </div>
           </div>
         </section>
@@ -837,7 +847,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
     </div>
   `,
   styleUrls: ["./route-follow.sass"],
-  imports: [CdkTextareaAutosize, DraggableModalComponent, MapLoadingOverlay, RouteAuditComponent, RouteElevationComponent, RouteDirectionsEditor, WalkGradeSelect, WalkGradingComponent, FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
+  imports: [CdkTextareaAutosize, MapLoadingOverlay, RouteAuditComponent, RouteElevationComponent, RouteDirectionsEditor, WalkGradeSelect, WalkGradingComponent, FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
 })
 export class RouteFollowComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowComponent", NgxLoggerLevel.ERROR);
@@ -902,6 +912,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected options: L.MapOptions | null = null;
   protected layers: L.Layer[] = [];
   protected followUser = true;
+  protected locatingPosition = false;
   protected showPreview = false;
   protected tooltipsEnabled = false;
   protected offlineStatus: RouteFollowOfflineStatus = RouteFollowOfflineStatus.NEEDS_NETWORK;
@@ -987,7 +998,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly previewSpeedMax = ROUTE_FOLLOW_PREVIEW_SPEED_MAX;
   protected showStylePicker = false;
   protected showDirections = false;
-  protected directionsOnMap = true;
+  protected directionsOnMap = false;
   protected stepPinsOnMap = true;
   protected pointerSize = FollowPointerSize.MEDIUM;
   protected readonly pointerSizeChoices = FOLLOW_POINTER_SIZES;
@@ -1026,6 +1037,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected confirmingRecordingDiscard = false;
   protected recordingDetailsOpen = false;
 
+  @ViewChild("directionsList") private directionsList: ElementRef<HTMLOListElement> | null = null;
+
   @ViewChild("recordingName", {read: CdkTextareaAutosize}) set recordingNameAutosizeInput(autosize: CdkTextareaAutosize | null) {
     this.recordingNameAutosize = autosize;
     this.fitRecordingName();
@@ -1040,7 +1053,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.refreshTape();
     this.appearance = this.appShell.appearance();
     this.progressPaint = routeFollowProgressPaintFrom(this.uiActions.initialValueFor(StoredValue.FOLLOW_PROGRESS_PAINT, RouteFollowProgressPaint.COLOUR_WALKED));
-    this.directionsOnMap = this.uiActions.initialBooleanValueFor(StoredValue.FOLLOW_DIRECTIONS_ON_MAP, true);
+    this.directionsOnMap = this.uiActions.initialBooleanValueFor(StoredValue.FOLLOW_DIRECTIONS_ON_MAP, false);
     this.stepPinsOnMap = this.uiActions.initialBooleanValueFor(StoredValue.FOLLOW_STEP_PINS_ON_MAP, true);
     this.pointerSize = followPointerSizeFrom(this.uiActions.initialValueFor(StoredValue.FOLLOW_POINTER_SIZE, FollowPointerSize.MEDIUM));
     this.followService.setPreviewSpeed(this.previewSpeed);
@@ -1156,7 +1169,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (!this.hasLine && !this.progress?.position) {
       return "—";
     } else {
-      return this.followService.formatDistance(this.recordingSession ? this.followService.totalMetres() : (this.progress?.remainingMetres ?? this.payload?.totalMetres ?? 0));
+      return this.followService.formatDistance(
+        this.recordingSession ? this.followService.totalMetres() : (this.progress?.remainingMetres ?? this.payload?.totalMetres ?? 0),
+        this.recordingSession ? DistanceUnit.FEET : DistanceUnit.METRES);
     }
   }
 
@@ -1334,9 +1349,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         this.headingUp = false;
       });
     });
-    map.on("dragstart", () => {
+    map.on("dragstart", () => this.zone.run(() => {
       this.followUser = false;
-    });
+    }));
     map.on("zoom move", () => this.zone.run(() => this.refreshHud()));
     map.on("moveend zoomend", () => this.zone.run(() => this.persistFollowSession(true)));
     if (!this.headingUp) {
@@ -1423,6 +1438,11 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     const target = Math.min(Math.max(this.browsedIndex + offset, 0), waypoints.length - 1);
     if (waypoints[target]) {
       this.browseWaypoint(waypoints[target]);
+      const list = this.directionsList?.nativeElement;
+      const row = list?.children.item(target) as HTMLElement | null;
+      if (list && row) {
+        list.scrollTo({top: row.offsetTop - list.offsetTop, behavior: "auto"});
+      }
     }
   }
 
@@ -1452,7 +1472,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   currentStepLabel(): string {
-    return this.directionsOnMap ? "Hide the current step" : "Show the current step";
+    return this.directionsOnMap ? "Hide directions on the map" : "Show directions on the map";
   }
 
   closeDirections(): void {
@@ -1765,12 +1785,6 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.sheetState = RouteFollowSheetState.EXPANDED;
     this.persistFollowSession(true);
     this.refreshMapSize();
-  }
-
-  private revealIdleSheet(): void {
-    if (this.payload?.source !== RouteFollowSource.RECORDING && !isLiveFollowMode(this.progress?.mode) && this.sheetMinimised) {
-      this.expandSheet();
-    }
   }
 
   private refreshMapSize(): void {
@@ -2622,11 +2636,28 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.editGroup.clearLayers();
   }
 
-  recenter(): void {
-    this.followUser = true;
-    const position = this.progress?.position || this.payload?.points?.[0] || this.payload?.waypoints?.[0];
-    if (this.mapRef && position) {
-      this.mapRef.setView([position.latitude, position.longitude], this.mapRef.getZoom());
+  protected currentLocationCentred(): boolean {
+    return !!(this.followUser && this.mapRef && this.progress?.position);
+  }
+
+  async recenter(): Promise<void> {
+    const sequence = this.loadSequence;
+    this.locatingPosition = true;
+    const knownPosition = this.progress?.position;
+    if (this.mapRef && knownPosition) {
+      this.followUser = true;
+      this.mapRef.setView([knownPosition.latitude, knownPosition.longitude], this.mapRef.getZoom(), {animate: false});
+    }
+    const position = await this.currentLocation.currentPosition(true);
+    if (sequence === this.loadSequence) {
+      this.locatingPosition = false;
+      if (position && this.mapRef) {
+        this.followUser = true;
+        this.followService.applyPosition({latitude: position.lat, longitude: position.lng}, this.progress?.heading ?? null, null);
+        this.mapRef.setView([position.lat, position.lng], this.mapRef.getZoom(), {animate: false});
+      } else if (!knownPosition) {
+        this.persistError = "Your current location could not be found. Check location access and try again.";
+      }
     }
   }
 
@@ -2793,6 +2824,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.restoredMapView = null;
     this.via = via;
     this.followExtraSettings = false;
+    this.locatingPosition = false;
+    this.sheetState = RouteFollowSheetState.MINIMISED;
     this.loading = true;
     this.error = null;
     this.recordingDetailsOpen = false;
@@ -2827,7 +2860,6 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     } finally {
       if (sequence === this.loadSequence) {
         this.loading = false;
-        this.revealIdleSheet();
       }
     }
   }
@@ -2999,6 +3031,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         this.error = "Your current location could not be found. Allow location access for this app and try opening Record route again";
       } else {
         if (position) {
+          this.followService.applyPosition({latitude: position.lat, longitude: position.lng}, null, null);
           this.restoredMapView = {
             center: L.latLng(position.lat, position.lng),
             zoom: this.mapTiles.maxZoomForStyle(this.mapProvider, this.osStyle) - 2

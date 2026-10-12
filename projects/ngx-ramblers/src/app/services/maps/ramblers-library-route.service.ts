@@ -1,3 +1,4 @@
+import { nativeWalkingStorageKey } from "../../functions/native-walking";
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { firstValueFrom } from "rxjs";
@@ -46,7 +47,7 @@ export class RamblersLibraryRouteService {
 
   private recentRoutes(): RamblersLibraryRoute[] {
     try {
-      const raw = localStorage.getItem(RECENT_KEY);
+      const raw = localStorage.getItem(nativeWalkingStorageKey(RECENT_KEY));
       const parsed = raw ? JSON.parse(raw) : [];
       return isArray(parsed) ? parsed : [];
     } catch (error) {
@@ -57,7 +58,7 @@ export class RamblersLibraryRouteService {
 
   private writeRecent(routes: RamblersLibraryRoute[]): void {
     try {
-      localStorage.setItem(RECENT_KEY, JSON.stringify(routes));
+      localStorage.setItem(nativeWalkingStorageKey(RECENT_KEY), JSON.stringify(routes));
     } catch (error) {
       this.logger.error("writeRecent failed", error);
     }

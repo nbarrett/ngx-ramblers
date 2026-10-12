@@ -34,6 +34,7 @@ import { NativeRouteRecorderService } from "./native-route-recorder.service";
 import { NativeRouteError, NativeRouteFailure, NativeRoutePosition } from "../../models/native-route.model";
 import { generateUid } from "../../functions/numbers";
 import { StringUtilsService } from "../string-utils.service";
+import { DistanceUnit, FEET_PER_METRE, KM_PER_MILE } from "../../models/walk.model";
 
 @Injectable({
   providedIn: "root"
@@ -453,14 +454,19 @@ export class RouteFollowService {
     return reached[0]?.waypoint || null;
   }
 
-  formatDistance(metres: number | null): string {
+  formatDistance(metres: number | null, shortDistanceUnit = DistanceUnit.METRES): string {
+    const milesInMetres = KM_PER_MILE * 1000;
+    const shortDistanceLimit = shortDistanceUnit === DistanceUnit.FEET ? milesInMetres / 4 : 1000;
     if (!isNumber(metres) || metres < 0) {
       return "";
-    } else if (metres < 1000) {
-      return `${Math.round(metres)} m`;
+    } else if (metres < shortDistanceLimit) {
+      return shortDistanceUnit === DistanceUnit.FEET
+        ? `${Math.round(metres * FEET_PER_METRE)} ft`
+        : `${Math.round(metres)} m`;
     } else {
-      const miles = metres / 1609.34;
-      return this.stringUtils.pluraliseWithCount(Number(miles.toFixed(miles >= 10 ? 0 : 1)), "mile");
+      const miles = metres / milesInMetres;
+      const decimals = miles >= 10 ? 0 : shortDistanceUnit === DistanceUnit.FEET && miles < 1 ? 2 : 1;
+      return this.stringUtils.pluraliseWithCount(Number(miles.toFixed(decimals)), "mile");
     }
   }
 

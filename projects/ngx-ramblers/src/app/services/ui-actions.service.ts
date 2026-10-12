@@ -1,3 +1,4 @@
+import { nativeWalkingStorageKey } from "../functions/native-walking";
 import { inject, Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -48,9 +49,15 @@ export class UiActionsService {
     return alias ? allowedValues.find(value => value === alias || kebabCase(value) === alias) || null : null;
   }
 
+  private storageKey(parameter: string): string {
+    return [StoredValue.FOLLOW_SESSION, StoredValue.APP_FAVOURITE_ROUTES, StoredValue.APP_HIDDEN_ROUTES].some(key => key === parameter)
+      ? nativeWalkingStorageKey(parameter)
+      : parameter;
+  }
+
   private storedValue(parameter: string): string | null {
     try {
-      return localStorage.getItem(parameter);
+      return localStorage.getItem(this.storageKey(parameter));
     } catch (error) {
       this.logger.warn("local storage unavailable when reading", parameter, error);
       return null;
@@ -80,7 +87,7 @@ export class UiActionsService {
       try {
         const storedValue: string = isObject(value) ? JSON.stringify(value) : value?.toString();
         this.logger.debug("saving value for:", key, "as:", storedValue);
-        localStorage.setItem(key, storedValue);
+        localStorage.setItem(this.storageKey(key), storedValue);
         return true;
       } catch (error) {
         this.logger.warn("local storage unavailable when saving", parameter, error);
@@ -95,7 +102,7 @@ export class UiActionsService {
   removeItemFor(parameter: string) {
     this.logger.debug("removing value for:", parameter);
     try {
-      localStorage.removeItem(parameter);
+      localStorage.removeItem(this.storageKey(parameter));
     } catch (error) {
       this.logger.warn("local storage unavailable when removing", parameter, error);
     }

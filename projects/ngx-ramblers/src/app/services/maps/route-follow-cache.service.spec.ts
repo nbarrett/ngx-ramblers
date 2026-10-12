@@ -1,3 +1,6 @@
+import { Capacitor } from "@capacitor/core";
+import { saveNativeWalkingSite } from "../../functions/native-walking";
+import { StoredValue } from "../../models/ui-actions";
 import { RouteFollowCacheService } from "./route-follow-cache.service";
 import { CachedFollowRoute, RouteFollowOfflineStatus, RouteFollowPayload } from "../../models/route-follow.model";
 
@@ -59,6 +62,55 @@ describe("RouteFollowCacheService recovery", () => {
       expect(result.total).toBe(1);
     } finally {
       vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("group route database isolation", () => {
+  it("opens separate databases when the selected native group changes", async () => {
+    const platform = vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    const opened: string[] = [];
+    const requests: IDBOpenDBRequest[] = [];
+    vi.stubGlobal("indexedDB", {open: (name: string) => {
+      opened.push(name);
+      const request = {result: {name}, onsuccess: null as (() => void) | null};
+      requests.push(request as unknown as IDBOpenDBRequest);
+      return request;
+    }});
+    try {
+      const cache = Object.create(RouteFollowCacheService.prototype) as RouteFollowCacheService;
+      saveNativeWalkingSite("https://first.example.org.uk");
+      const first = cache["database"]();
+      requests[0].onsuccess.call(requests[0], new Event("success"));
+      await first;
+      saveNativeWalkingSite("https://second.example.org.uk");
+      const second = cache["database"]();
+      requests[1].onsuccess.call(requests[1], new Event("success"));
+      await second;
+      expect(opened).toEqual(["ngx-follow:https://first.example.org.uk", "ngx-follow:https://second.example.org.uk"]);
+    } finally {
+      window.localStorage.removeItem(StoredValue.APP_SITE_ORIGIN);
+      platform.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("recovering earlier cached maps", () => {
+  it("keeps newer scoped data when an earlier map has the same key", async () => {
+    const platform = vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    saveNativeWalkingSite("https://first.example.org.uk");
+    try {
+      const cache = Object.create(RouteFollowCacheService.prototype) as RouteFollowCacheService;
+      const record = {key: "walk:fictional-walk", payload: {title: "Earlier map"}} as CachedFollowRoute;
+      cache["allRoutes"] = vi.fn().mockResolvedValue([record]);
+      cache["memberLogin"] = {loggedInMember: () => null} as unknown as typeof cache["memberLogin"];
+      cache["putRoute"] = vi.fn();
+      expect(await cache.restoreLegacyRoutes([record.key], "https://first.example.org.uk")).toEqual([record.key]);
+      expect(cache["putRoute"]).not.toHaveBeenCalled();
+    } finally {
+      platform.mockRestore();
+      window.localStorage.removeItem(StoredValue.APP_SITE_ORIGIN);
     }
   });
 });

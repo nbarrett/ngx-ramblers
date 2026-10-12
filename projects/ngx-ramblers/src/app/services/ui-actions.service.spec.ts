@@ -1,3 +1,5 @@
+import { Capacitor } from "@capacitor/core";
+import { saveNativeWalkingSite } from "../functions/native-walking";
 import { TestBed } from "@angular/core/testing";
 import { provideRouter } from "@angular/router";
 import { keys } from "es-toolkit/compat";
@@ -38,6 +40,21 @@ describe("UiActionsService", () => {
     });
 
     afterEach(() => vi.unstubAllGlobals());
+
+    it("keeps walking sessions and anonymous favourites separate for each native group", () => {
+        vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+        saveNativeWalkingSite("https://first.example.org.uk");
+        service.saveValueFor(StoredValue.FOLLOW_SESSION, {recordingId: "first-draft"});
+        service.saveValueFor(StoredValue.APP_FAVOURITE_ROUTES, ["first-route"]);
+        saveNativeWalkingSite("https://second.example.org.uk");
+        expect(service.itemExistsFor(StoredValue.FOLLOW_SESSION)).toBe(false);
+        expect(service.initialObjectValueFor(StoredValue.APP_FAVOURITE_ROUTES, [])).toEqual([]);
+        service.saveValueFor(StoredValue.FOLLOW_SESSION, {recordingId: "second-draft"});
+        service.removeItemFor(StoredValue.FOLLOW_SESSION);
+        saveNativeWalkingSite("https://first.example.org.uk");
+        expect(service.initialObjectValueFor(StoredValue.FOLLOW_SESSION, null)).toEqual({recordingId: "first-draft"});
+        expect(service.initialObjectValueFor(StoredValue.APP_FAVOURITE_ROUTES, [])).toEqual(["first-route"]);
+    });
 
     it("returns stored values when present", () => {
         storage["test-key"] = "stored";
