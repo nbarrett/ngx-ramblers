@@ -1,9 +1,14 @@
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { AppInstallPlatform } from "../projects/ngx-ramblers/src/app/models/route-follow.model";
 
 const requestedSite = process.env.MOBILE_SITE_URL;
 const directoryUrl = process.env.MOBILE_DIRECTORY_URL || requestedSite;
+const requestedPlatform = process.env.MOBILE_PLATFORM;
+if (requestedPlatform && ![AppInstallPlatform.IOS, AppInstallPlatform.ANDROID].includes(requestedPlatform as AppInstallPlatform)) {
+  throw new Error("MOBILE_PLATFORM must be ios or android when supplied.");
+}
 if (!directoryUrl || new URL(directoryUrl).protocol !== "https:" || new URL(directoryUrl).origin !== directoryUrl.replace(/\/$/, "")) {
   throw new Error("MOBILE_DIRECTORY_URL must be an HTTPS origin for the public area and group directory.");
 }
@@ -22,4 +27,4 @@ const indexPath = resolve(mobileDirectory, "index.html");
 const bakedSite = requestedSite ? `window.ngxNativeSiteUrl=${JSON.stringify(new URL(requestedSite).origin)};` : "";
 const nativeSetup = `<script>window.ngxNativeDirectoryUrl=${JSON.stringify(new URL(directoryUrl).origin)};${bakedSite}const savedWalkingUrl=localStorage.getItem("app-last-url");history.replaceState(null,"",savedWalkingUrl&&/^\\/app(?:\\/|\\?|$)/.test(savedWalkingUrl)?savedWalkingUrl:"/app");</script>`;
 writeFileSync(indexPath, readFileSync(indexPath, "utf8").replace("<head>", "<head>" + nativeSetup));
-execFileSync("npx", ["cap", "sync"], {stdio: "inherit"});
+execFileSync("npx", requestedPlatform ? ["cap", "sync", requestedPlatform] : ["cap", "sync"], {stdio: "inherit"});

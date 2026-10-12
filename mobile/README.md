@@ -20,9 +20,37 @@ Browsers restrict location updates when a document is hidden. Installing a websi
 
 ## What you need to do next
 
-For the first trial, a maintainer needs to prepare a build for the website you want to use, install it on an iPhone and an Android phone, and run the outdoor recording check below. Signing and public distribution are separate steps after that trial. The builds checked during development used a placeholder website address and are not ready to use against a real group website.
+The app is generic: walkers select an area, optionally a group, or a test website at runtime. Run the outdoor recording check below on real iPhone and Android devices before public distribution.
 
-Walkers do not need Xcode, Android Studio or a development computer. Once a native build has been distributed, they install it from the supplied installation route, open it and sign in to the configured group website using their existing account.
+Walkers do not need Xcode, Android Studio or a development computer. They install the distributed app, choose a site and sign in using their existing account.
+
+## Automated builds and pilot releases
+
+`build-and-release-mobile.yml` runs automatically after the main website workflow succeeds for a push to `main`. It checks out that workflow's exact source revision, prepares the generic mobile bundle once, and builds iOS and Android in parallel. No developer workstation is used. A manual dispatch is available for retrying a release from `main`.
+
+The workflow tests the native journals and retains an iOS simulator archive and an unsigned Android bundle. Pilot uploads are disabled by default while account and signing setup is incomplete; the workflow summary explicitly reports that only the build ran. Enable each platform's upload independently after its credentials are configured. Enabled uploads check all required credentials and fail on missing configuration or a genuine upload error. The iPhone job signs and uploads to App Store Connect, waits for Apple to validate it, and assigns that exact build to the configured pilot group through the API. The Android job signs and uploads to Google Play's internal testing track. Public store review and release are separate from these pilot uploads.
+
+One-time repository variables:
+
+- `MOBILE_IOS_PUBLISH_ENABLED`: set to `true` after Apple signing and API credentials are configured. Unset or any other value builds without uploading.
+- `MOBILE_ANDROID_PUBLISH_ENABLED`: set to `true` after Google account setup, initial upload and signing/API credentials are configured. Unset or any other value builds without uploading.
+- `MOBILE_DIRECTORY_URL`: public HTTPS origin providing the initial area/group lookup, not a selected group website.
+- `APPLE_TEAM_ID`: Apple Developer team identifier.
+- `APP_STORE_CONNECT_APP_ID`: application record identifier in App Store Connect.
+- `TESTFLIGHT_GROUP_ID`: existing pilot group identifier. This workflow does not create testers or broaden their account roles.
+
+One-time repository secrets:
+
+- `APPLE_CERTIFICATE_BASE64`: base64-encoded Apple Distribution certificate and private key exported as a `.p12`.
+- `APPLE_CERTIFICATE_PASSWORD`: export password for that `.p12`.
+- `APPLE_PROFILE_BASE64`: base64-encoded App Store provisioning profile for the application identifier.
+- `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_PRIVATE_KEY`: App Store Connect API credentials, with the private key supplied as PEM text.
+- `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`: the Android upload signing key and its passwords. Keep the same signing identity for subsequent releases.
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`: service-account JSON authorised to upload releases for this app in Play Console. Google account verification, initial app setup and the initial Play upload must be completed before API publishing is available.
+
+Signing material stays in secrets and temporary runner files, never in the repository or build artifacts. The workflow cleans up temporary keys. Apple certificates and provisioning profiles need renewal before expiry; Google and Apple account verification or agreements are account setup, not recurring build steps.
+
+Both platforms use a build number derived from the native workflow run number and attempt (`run_number * 100 + run_attempt`). A rerun therefore gets a new number. Source SHA is included in artifact names and workflow summaries. The app remains version `1.0` until a deliberate version change; website Docker tags have their own numbering.
 
 The native application is a separate installation, so do not assume that the browser app's sign-in, unsaved recording or downloaded routes and maps will transfer. Saved routes on the website are accessed through the same group account. Download anything needed offline again inside the native app before walking.
 

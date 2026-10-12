@@ -1,0 +1,226 @@
+name: Build and release native apps
+
+on:
+  workflow_run:
+    workflows: ["Deploy and Build Docker Image and Deploy to Fly.io"]
+    branches: ["main"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-release-main
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "24.14.0"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  MOBILE_DIRECTORY_URL: ${{ vars.MOBILE_DIRECTORY_URL }}
+  MOBILE_SITE_URL: ""
+  SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-24.04
+    outputs:
+      build_number: ${{ steps.version.outputs.build_number }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - name: Record source and native build number
+        id: version
+        run: |
+          echo "build_number=$((GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))" >> "$GITHUB_OUTPUT"
+          echo "Native source: $SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Validate directory configuration
+        run: test -n "$MOBILE_DIRECTORY_URL" || { echo "::error::Set repository variable MOBILE_DIRECTORY_URL to the public directory service origin."; exit 1; }
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Test pilot API distribution
+        run: npx ts-node --project tsconfig.tools.json tools/mobile-testflight.test.ts
+      - name: Prepare generic mobile bundle
+        env:
+          MOBILE_PLATFORM: android
+        run: npm run mobile:prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-web-${{ env.SOURCE_SHA }}
+          path: dist/ngx-mobile
+          if-no-files-found: error
+          retention-days: 7
+
+  ios:
+    needs: prepare
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      MOBILE_BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      PUBLISH_ENABLED: ${{ vars.MOBILE_IOS_PUBLISH_ENABLED == 'true' }}
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_PROFILE_BASE64: ${{ secrets.APPLE_PROFILE_BASE64 }}
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      APP_STORE_CONNECT_APP_ID: ${{ vars.APP_STORE_CONNECT_APP_ID }}
+      TESTFLIGHT_GROUP_ID: ${{ vars.TESTFLIGHT_GROUP_ID }}
+    steps:
+      - name: Select Xcode 26
+        run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: mobile-web-${{ env.SOURCE_SHA }}
+          path: dist/ngx-mobile
+      - run: npx cap sync ios
+      - name: Test native recording journal
+        run: |
+          xcrun swiftc -parse-as-library mobile/ios/App/App/Recording/RoutePositionStore.swift mobile/tests/route-position-store.swift -o "$RUNNER_TEMP/route-position-store-check"
+          "$RUNNER_TEMP/route-position-store-check"
+      - name: Build simulator app
+        run: xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/ios-simulator" CURRENT_PROJECT_VERSION="$MOBILE_BUILD_NUMBER" CODE_SIGNING_ALLOWED=NO build
+      - name: Package simulator app with executable permissions
+        run: tar -czf "$RUNNER_TEMP/ios-simulator.tar.gz" -C "$RUNNER_TEMP/ios-simulator/Build/Products/Release-iphonesimulator" App.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-${{ env.SOURCE_SHA }}
+          path: ${{ runner.temp }}/ios-simulator.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+      - name: Validate Apple distribution credentials
+        if: env.PUBLISH_ENABLED == 'true'
+        run: |
+          test -n "$APPLE_TEAM_ID" && test -n "$APPLE_CERTIFICATE_BASE64" && test -n "$APPLE_PROFILE_BASE64" && test -n "$APP_STORE_CONNECT_KEY_ID" && test -n "$APP_STORE_CONNECT_ISSUER_ID" && test -n "$APP_STORE_CONNECT_PRIVATE_KEY" && test -n "$APP_STORE_CONNECT_APP_ID" && test -n "$TESTFLIGHT_GROUP_ID" || { echo "::error::Apple signing and App Store Connect credentials are missing. See mobile/README.md."; exit 1; }
+      - name: Install signing identity and provisioning profile
+        if: env.PUBLISH_ENABLED == 'true'
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/mobile-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          printf '%s' "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$RUNNER_TEMP/signing.p12"
+          printf '%s' "$APPLE_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/app.mobileprovision"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/signing.p12" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          security cms -D -i "$RUNNER_TEMP/app.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/app.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+          echo "APPLE_PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/apple-keys"
+          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY" > "$RUNNER_TEMP/apple-keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8"
+      - name: Archive and upload to App Store Connect
+        if: env.PUBLISH_ENABLED == 'true'
+        run: |
+          xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CURRENT_PROJECT_VERSION="$MOBILE_BUILD_NUMBER" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER="$APPLE_PROFILE_UUID" archive
+          node -e 'const fs = require("node:fs"); fs.writeFileSync(process.env.RUNNER_TEMP + "/export.plist", `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>method</key><string>app-store-connect</string><key>destination</key><string>upload</string><key>teamID</key><string>${process.env.APPLE_TEAM_ID}</string><key>signingStyle</key><string>manual</string><key>provisioningProfiles</key><dict><key>org.ngxramblers.walking</key><string>${process.env.APPLE_PROFILE_UUID}</string></dict><key>manageAppVersionAndBuildNumber</key><false/></dict></plist>`);'
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportPath "$RUNNER_TEMP/ios-export" -exportOptionsPlist "$RUNNER_TEMP/export.plist" -authenticationKeyPath "$RUNNER_TEMP/apple-keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8" -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+      - name: Wait for Apple validation and assign build to pilot group
+        if: env.PUBLISH_ENABLED == 'true'
+        run: npx ts-node --project tsconfig.tools.json tools/mobile-testflight.ts
+      - name: Record pilot release result
+        if: env.PUBLISH_ENABLED == 'true'
+        run: echo "Uploaded native build $MOBILE_BUILD_NUMBER from $SOURCE_SHA and assigned it to the configured TestFlight pilot group." >> "$GITHUB_STEP_SUMMARY"
+      - name: Explain disabled pilot upload
+        if: env.PUBLISH_ENABLED != 'true'
+        run: echo "Native build passed. Pilot upload is disabled until signing and store setup are complete. See mobile/README.md." >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary signing material
+        if: always()
+        run: |
+          if test -f "$RUNNER_TEMP/mobile-signing.keychain-db"; then security delete-keychain "$RUNNER_TEMP/mobile-signing.keychain-db"; fi
+          rm -f "$RUNNER_TEMP/signing.p12" "$RUNNER_TEMP/app.mobileprovision" "$RUNNER_TEMP/profile.plist"
+          rm -rf "$RUNNER_TEMP/apple-keys"
+
+  android:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      MOBILE_BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      PUBLISH_ENABLED: ${{ vars.MOBILE_ANDROID_PUBLISH_ENABLED == 'true' }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install Android SDK 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: actions/download-artifact@v4
+        with:
+          name: mobile-web-${{ env.SOURCE_SHA }}
+          path: dist/ngx-mobile
+      - run: npx cap sync android
+      - name: Test and build Android app
+        working-directory: mobile/android
+        run: ./gradlew testDebugUnitTest bundleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-unsigned-${{ env.SOURCE_SHA }}
+          path: mobile/android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 14
+      - name: Validate Google distribution credentials
+        if: env.PUBLISH_ENABLED == 'true'
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" && test -n "$ANDROID_KEYSTORE_PASSWORD" && test -n "$ANDROID_KEY_ALIAS" && test -n "$ANDROID_KEY_PASSWORD" && test -n "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" || { echo "::error::Android signing and Google Play credentials are missing. See mobile/README.md."; exit 1; }
+      - name: Install Android signing key
+        if: env.PUBLISH_ENABLED == 'true'
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mobile-upload.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/mobile-upload.jks" >> "$GITHUB_ENV"
+      - name: Build signed bundle
+        if: env.PUBLISH_ENABLED == 'true'
+        working-directory: mobile/android
+        run: ./gradlew bundleRelease
+      - uses: actions/upload-artifact@v4
+        if: env.PUBLISH_ENABLED == 'true'
+        with:
+          name: android-signed-${{ env.SOURCE_SHA }}
+          path: mobile/android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload to Google Play internal testing
+        if: env.PUBLISH_ENABLED == 'true'
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: org.ngxramblers.walking
+          releaseFiles: mobile/android/app/build/outputs/bundle/release/*.aab
+          track: internal
+          status: completed
+          releaseName: ${{ env.MOBILE_BUILD_NUMBER }}-${{ env.SOURCE_SHA }}
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/mobile-upload.jks"
