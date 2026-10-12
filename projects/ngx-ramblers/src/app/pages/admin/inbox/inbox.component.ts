@@ -1,3 +1,4 @@
+import { ButtonDropdownPlacement } from "../../../models/button-dropdown.model";
 import {EmailCompositionListComponent} from "../../../modules/common/email-compositions/email-composition-list.component";
 import {InboxMessageComponent} from "./inbox-message.component";
 import {InboxLayoutService} from "../../../services/inbox/inbox-layout.service";
@@ -69,10 +70,11 @@ import { UIDateFormat } from "../../../models/date-format.model";
 import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
 import { CommitteeReferenceData } from "../../../services/committee/committee-reference-data";
 import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
+import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-config";
 
 @Component({
   selector: "app-inbox",
-  providers: [InboxLayoutService, InboxMessageRenderingService, InboxConversationsService],
+  providers: [InboxLayoutService, InboxMessageRenderingService, InboxConversationsService, ...DELAYED_TOOLTIP_PROVIDERS],
   imports: [EmailCompositionListComponent, InboxMessageComponent, CommonModule, FormsModule, FontAwesomeModule, PageComponent, DatePipe, TooltipDirective, BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective, ResizerComponent, RouterLink, MaximisablePanelComponent, InboxOrphanedThreadsComponent, CommitteeUnassignedRolesComponent, SectionToggle, ThumbnailHeadingFrameComponent],
   styleUrls: ["./inbox.component.sass"],
   template: `
@@ -334,7 +336,8 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                   @for (alias of aliases; track alias.id || alias.roleEmail) {
                     <button class="inbox-nav-node inbox-nav-child" type="button"
                             [class.active]="selectedMailboxView === alias.roleType"
-                            [tooltip]="aliasLabel(alias)" placement="left" container="body" [adaptivePosition]="false"
+                            [tooltip]="aliasLabel(alias)"
+                            [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
                             (click)="selectMailboxView(alias.roleType)">
                       <fa-icon [icon]="faEnvelope" class="inbox-nav-node-icon"/>
                       <span class="inbox-nav-label">{{ aliasDisplayLabel(alias) }}</span>
@@ -381,20 +384,20 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                         <div class="inbox-nav-folder-confirm">
                           <button class="inbox-nav-folder-confirm-keep" type="button"
                                   tooltip="Remove the folder, leave the mail in Inbox"
-                                  placement="left" container="body" [adaptivePosition]="false"
+                                        [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
                                   (click)="confirmDeleteUserFolder(folder, InboxFolderDeleteContents.INBOX)">
                             <fa-icon [icon]="faInbox"/> Keep mail
                           </button>
                           <button class="inbox-nav-folder-confirm-delete" type="button"
                                   tooltip="Remove the folder and the mail"
-                                  placement="left" container="body" [adaptivePosition]="false"
+                                        [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
                                   (click)="confirmDeleteUserFolder(folder, InboxFolderDeleteContents.DELETED)">
                             <fa-icon [icon]="faTrash"/> Delete mail
                           </button>
                           <button class="inbox-nav-folder-confirm-cancel" type="button"
                                   aria-label="Cancel"
                                   tooltip="Cancel"
-                                  placement="left" container="body" [adaptivePosition]="false"
+                                        [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
                                   (click)="cancelDeleteUserFolder()">
                             <fa-icon [icon]="faXmark"/>
                           </button>
@@ -405,7 +408,7 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                                 [class.inbox-nav-drop-target]="dropTargetView === inboxUserFolderView(folder)"
                                 [attr.data-drop-folder]="folder.id"
                                 [tooltip]="'Click and hold to rename'"
-                                placement="left" container="body" [adaptivePosition]="false"
+                                    [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
                                 (click)="selectMailboxView(inboxUserFolderView(folder))"
                                 (pointerdown)="onFolderPointerDown($event, folder)"
                                 (pointermove)="onFolderPointerMove($event)"
@@ -423,7 +426,7 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                         <button class="inbox-nav-folder-delete" type="button"
                                 aria-label="Delete folder"
                                 tooltip="Delete folder"
-                                placement="left" container="body" [adaptivePosition]="false"
+                                    [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
                                 (click)="startDeleteUserFolder(folder); $event.stopPropagation()">
                           <fa-icon [icon]="faTrash"/>
                         </button>
@@ -437,7 +440,8 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                              (keydown.escape)="cancelCreateFolder()">
                       <button class="inbox-nav-folder-add" type="submit" [disabled]="!newFolderName.trim() || busy"
-                              aria-label="Add folder" tooltip="Add folder" placement="left" container="body" [adaptivePosition]="false">
+                              aria-label="Add folder" tooltip="Add folder"
+                                [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false">
                         <fa-icon [icon]="faPlus"/>
                       </button>
                     </form>
@@ -1039,6 +1043,14 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get foldersUnreadCount(): number {
     return this.userFolders.reduce((total, folder) => total + (folder.unreadCount || 0), 0);
+  }
+
+  get inboxNavTooltipPlacement(): ButtonDropdownPlacement {
+    if (this.layout.panel?.maximised || this.route.snapshot.queryParams[StoredValue.MAXIMISE] === "true") {
+      return ButtonDropdownPlacement.RIGHT;
+    } else {
+      return ButtonDropdownPlacement.LEFT;
+    }
   }
 
   get listMailboxUserFolderId(): string | null {
