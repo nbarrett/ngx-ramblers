@@ -1,5 +1,6 @@
 import { decodeHtmlEntities } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import debug from "debug";
+import { DateTime } from "luxon";
 import mongoose from "mongoose";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import {
@@ -8,7 +9,7 @@ import {
   GroupEvent,
   InputSource
 } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
-import { Contact, RamblersEventType } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { Contact, DateFormat, RamblersEventType } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { EventField, GroupEventField, LinkSource } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import {
   isMeetupUrl,
@@ -169,6 +170,34 @@ export async function cleanupDuplicatesByRamblersId(models: WalksManagerSyncMode
 
   debugLog(`Cleanup complete: removed ${stats.duplicatesRemoved} duplicates across ${stats.ramblersIdsProcessed} groupEvent.id values`);
   return stats;
+}
+
+export async function deleteStaleWalksManagerCache(
+  config: SystemConfig,
+  dateFrom: DateTime,
+  dateTo: DateTime,
+  eventTypes: RamblersEventType[],
+  retainedRamblersIds: string[],
+  models: WalksManagerSyncModels = defaultWalksManagerSyncModels()
+): Promise<number> {
+  const groupCode = config?.group?.groupCode;
+  if (!groupCode || eventTypes.length === 0) {
+    debugLog("Skipping stale cache removal: group code or event types missing");
+    return 0;
+  } else {
+    const fromDay = dateFrom.toFormat(DateFormat.WALKS_MANAGER_API);
+    const untilDay = dateTo.plus({days: 1}).toFormat(DateFormat.WALKS_MANAGER_API);
+    const deleteResult = await models.extendedGroupEvent.deleteMany({
+      [EventField.INPUT_SOURCE]: InputSource.WALKS_MANAGER_CACHE,
+      [GroupEventField.ITEM_TYPE]: {$in: eventTypes},
+      [GroupEventField.GROUP_CODE]: groupCode,
+      [GroupEventField.START_DATE]: {$gte: fromDay, $lt: untilDay},
+      [GroupEventField.ID]: {$nin: retainedRamblersIds, $ne: null}
+    }).exec();
+    const deletedCount = deleteResult.deletedCount || 0;
+    debugLog(`Removed ${deletedCount} stale Walks Manager cache events between ${fromDay} and ${untilDay}`);
+    return deletedCount;
+  }
 }
 
 export async function cacheEventsWithStats(config: SystemConfig, events: GroupEvent[], inputSource: InputSource, models: WalksManagerSyncModels = defaultWalksManagerSyncModels()): Promise<CacheStats> {

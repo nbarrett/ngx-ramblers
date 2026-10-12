@@ -3,7 +3,8 @@ import { DateTime } from "luxon";
 import WebSocket from "ws";
 import {
   DateFormat,
-  RamblersEventsApiResponse
+  RamblersEventsApiResponse,
+  RamblersGroupEventsRawApiResponse
 } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { envConfig } from "../env-config/env-config";
@@ -15,13 +16,13 @@ import {
 import { EventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { dateTimeFromIso, dateTimeFromJsDate, dateTimeNow, dateTimeNowAsValue } from "../shared/dates";
-import { cacheEventsWithStats, cleanupDuplicatesByRamblersId } from "./walks-manager-cache";
-import { WalksManagerSyncModels } from "./walks-manager.model";
+import { cacheEventsWithStats, cleanupDuplicatesByRamblersId, deleteStaleWalksManagerCache } from "./walks-manager-cache";
+import { SyncOptions, SyncResult, WalksManagerSyncModels } from "./walks-manager.model";
 import { defaultWalksManagerSyncModels } from "./walks-manager-sync-models";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import * as requestDefaults from "../ramblers/request-defaults";
-import { isEmpty, isNumber, isString } from "es-toolkit/compat";
+import { isArray, isEmpty, isNumber, isString } from "es-toolkit/compat";
 import { walksManagerSyncEventTypes } from "../../../projects/ngx-ramblers/src/app/functions/walks/walks-manager-sync-config";
 import { runWithRetries } from "../shared/run-with-retries";
 
@@ -30,6 +31,18 @@ const CHUNK_ATTEMPTS = 3;
 const CHUNK_RETRY_BACKOFF_MS = 2000;
 
 debugLog.enabled = false;
+
+export function checkedSyncPage(apiResponse: RamblersEventsApiResponse, offset: number, limit: number): RamblersGroupEventsRawApiResponse {
+  const page = apiResponse.response;
+  const total = page?.summary?.total;
+  if (apiResponse.apiStatusCode !== 200 || !isArray(page?.data) || !isNumber(total) || !Number.isInteger(total) || total < 0) {
+    throw new Error("Walks Manager returned an unsuccessful or invalid events response; cached walks have been retained.");
+  } else if (page.summary.offset !== offset || page.summary.count !== page.data.length || page.data.length !== Math.min(limit, Math.max(total - offset, 0)) || page.data.some(event => !event.id)) {
+    throw new Error("Walks Manager returned an incomplete events page; cached walks have been retained.");
+  } else {
+    return page;
+  }
+}
 
 function sendProgress(ws: WebSocket | null, percent: number, message: string, onProgress?: (percent: number, message: string) => void): void {
   if (onProgress) {
@@ -74,22 +87,6 @@ function sendError(ws: WebSocket | null, message: string): void {
       debugLog("Failed to send error:", error);
     }
   }
-}
-
-export interface SyncOptions {
-  fullSync?: boolean;
-  dateFrom?: DateTime;
-  dateTo?: DateTime;
-  onProgress?: (percent: number, message: string) => void;
-}
-
-export interface SyncResult {
-  added: number;
-  updated: number;
-  deleted: number;
-  errors: string[];
-  lastSyncedAt: number;
-  totalProcessed: number;
 }
 
 export async function syncWalksManagerData(
@@ -144,13 +141,14 @@ export async function syncWalksManagerData(
     debugLog("Syncing for group code:", groupCode);
 
     reportProgress(2, "Cleaning up duplicates...");
+    const retainedRamblersIds = new Set<string>();
     const cleanupStats = await cleanupDuplicatesByRamblersId(models);
     if (cleanupStats.duplicatesRemoved > 0) {
       debugLog(`Cleanup removed ${cleanupStats.duplicatesRemoved} duplicate walks across ${cleanupStats.ramblersIdsProcessed} groupEvent.id values`);
       cleanupStats.details.forEach(detail => {
         debugLog(`  groupEvent.id ${detail.groupEventId}: kept ${detail.keptDocId}, deleted [${detail.deletedDocIds.join(", ")}]`);
       });
-      result.deleted = cleanupStats.duplicatesRemoved;
+      result.deleted += cleanupStats.duplicatesRemoved;
     }
 
     reportProgress(5, "Sync starting");
@@ -198,8 +196,9 @@ export async function syncWalksManagerData(
         debug: debugLog
       }) as RamblersEventsApiResponse;
 
-      const pageData = apiResponse.response?.data || [];
-      const totalInChunk = apiResponse.response?.summary?.total || 0;
+      const page = checkedSyncPage(apiResponse, offset, limit);
+      const pageData = page.data;
+      const totalInChunk = page.summary.total;
 
       debugLog(`Received ${pageData.length} events, ${totalInChunk} total in date range`);
 
@@ -234,6 +233,7 @@ export async function syncWalksManagerData(
             }
           });
           const uniqueEvents = Array.from(uniqueEventsMap.values());
+          uniqueEvents.forEach(event => retainedRamblersIds.add(event.id));
 
           const duplicatesFiltered = allEventsInChunk.length - uniqueEvents.length;
           if (duplicatesFiltered > 0) {
@@ -265,7 +265,22 @@ export async function syncWalksManagerData(
 
     await processChunk(dateFrom, 0);
 
-    debugLog(`Sync completed: ${result.added} added, ${result.updated} updated from ${result.totalProcessed} total events`);
+    if (result.errors.length === 0) {
+      reportProgress(95, "Removing walks no longer in Walks Manager...");
+      const staleDeleted = await deleteStaleWalksManagerCache(
+        config,
+        dateFrom,
+        dateTo,
+        eventTypes,
+        Array.from(retainedRamblersIds),
+        models
+      );
+      result.deleted += staleDeleted;
+    } else {
+      debugLog("Skipping stale cache removal because one or more chunks failed");
+    }
+
+    debugLog(`Sync completed: ${result.added} added, ${result.updated} updated, ${result.deleted} deleted from ${result.totalProcessed} total events`);
     reportProgress(100, "Sync complete");
     sendComplete(ws, {
       ...result,
