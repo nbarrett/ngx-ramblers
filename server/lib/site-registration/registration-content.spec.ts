@@ -339,6 +339,18 @@ describe("site registration migration config", () => {
     expect(sourceFidelityGaps(source, target)).toEqual([]);
   });
 
+  it("does not fail source fidelity when Contact Us has intro copy and no officer names", () => {
+    const source = {path: "https://group.example/contact.htm", title: "Contact us", segments: [
+      {text: "The Ramblers' Example Group If you have any queries about a particular walk, please contact the walk leader."},
+      {text: "If you have any urgent queries, you may telephone our chairman."},
+      {text: "chair@group.example.org.uk"}
+    ]};
+    const target = {path: "contact-us", rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [
+      {columns: 12, contentText: "# Contact Us"}
+    ]}]};
+    expect(sourceFidelityGaps(source, target)).toEqual([]);
+  });
+
   it("treats an area contact list with towns in brackets as role cards", () => {
     const source = {path: "https://www.group.example/contact/", title: "Contact", segments: [
       {text: "The following officers were elected at the AGM on 14 February. To send an email, simply click on the officer’s name."},
