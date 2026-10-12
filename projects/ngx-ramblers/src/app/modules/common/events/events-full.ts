@@ -1,4 +1,4 @@
-import { WalkProgrammeCalendarComponent } from "../../../pages/walks/walk-programme-calendar/walk-programme-calendar";
+import { WalksAdminSegment, walksFeaturePath } from "../../../models/walks-route-paths.model";
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { Location } from "@angular/common";
@@ -68,7 +68,7 @@ import { environment } from "../../../../environments/environment";
                 <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn me-0"
                         dropdownToggle type="button">
                   <fa-icon
-                    [icon]="walkListView === WalkListView.CALENDAR ? faCalendarDays : walkListView === WalkListView.CARDS ? faImages : (walkListView === WalkListView.TABLE ? faTableCells : faWalking)"/>
+                    [icon]="walkListView === WalkListView.CARDS ? faImages : (walkListView === WalkListView.TABLE ? faTableCells : faWalking)"/>
                   <span class="ms-2">{{ stringUtils.asTitle(walkListView) }} View</span>
                   <span class="caret"></span>
                 </button>
@@ -92,9 +92,8 @@ import { environment } from "../../../../environments/environment";
                     }
                   </a></li>
                   @if (showCalendarView()) {
-                    <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.CALENDAR)" class="dropdown-item d-flex align-items-center">
+                    <li role="menuitem"><a role="button" (click)="openAreaCalendar()" class="dropdown-item d-flex align-items-center">
                       <fa-icon [icon]="faCalendarDays" class="me-2"/>Calendar View
-                      @if (walkListView === WalkListView.CALENDAR) { <fa-icon [icon]="faCheck" class="ms-auto ps-3"/> }
                     </a></li>
                   }
                   <li class="dropdown-divider" [class.d-none]="!display.memberCanCreateWalk()"></li>
@@ -113,15 +112,12 @@ import { environment } from "../../../../environments/environment";
               }
             </div>
           </div>
-          @if (walkListView !== WalkListView.MAP && walkListView !== WalkListView.CALENDAR && pageCount > 1) {
+          @if (walkListView !== WalkListView.MAP && pageCount > 1) {
             <ng-container *ngTemplateOutlet="paginationControls"/>
           }
         </app-walks-search>
         @if (showDiagnostics) {
           <pre class="bg-dark text-light p-3 rounded mb-2 mt-2" style="font-size: 0.8rem; max-height: 300px; overflow: auto;">{{ debugCriteria() | json }}</pre>
-        }
-        @if (walkListView === WalkListView.CALENDAR) {
-          <app-walk-programme-calendar [embedded]="true" [readOnly]="true" [displayedWalks]="filteredWalks"/>
         }
         @if (walkListView === WalkListView.CARDS) {
           <app-walk-card-list [currentPageWalks]="currentPageWalks"/>
@@ -152,7 +148,7 @@ import { environment } from "../../../../environments/environment";
       </div>
     </ng-template>
   `,
-  imports: [WalkProgrammeCalendarComponent,WalkSearch, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective,
+  imports: [WalkSearch, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective,
     PaginationComponent, FormsModule, WalkCardListComponent, WalksMapView, WalkViewComponent, EventTableView, JsonPipe, NgTemplateOutlet]
 })
 export class EventsFull implements OnInit, OnDestroy {
@@ -271,7 +267,9 @@ export class EventsFull implements OnInit, OnDestroy {
         if (!isNull(sort)) {
           this.filterParameters.ascending = sort !== "false";
         }
-        if (view === "cards" || view === "table" || view === "map") {
+        if (view === WalkListView.CALENDAR) {
+          void this.openAreaCalendar();
+        } else if (view === "cards" || view === "table" || view === "map") {
           this.updateViewAndPagination(view as WalkListView);
           this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, this.walkListView);
         }
@@ -306,7 +304,7 @@ export class EventsFull implements OnInit, OnDestroy {
     }));
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.defaultWalkListView = systemConfig.group.defaultWalkListView;
-      this.updateViewAndPagination(this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, systemConfig.group.defaultWalkListView) as WalkListView);
+      this.applyListView(this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, systemConfig.group.defaultWalkListView) as WalkListView);
     }));
     this.walksConfig = this.walksConfigService.walksConfig() ?? this.walksConfigService.default();
     this.subscriptions.push(this.walksConfigService.events().subscribe(config => this.walksConfig = config));
@@ -521,7 +519,7 @@ export class EventsFull implements OnInit, OnDestroy {
       if (this.walkListView === WalkListView.MAP) {
         dataQueryOptions.select = MAP_VIEW_SELECT;
         dataQueryOptions.limit = MAP_VIEW_MAX_EVENTS;
-      } else if (this.walkListView === WalkListView.CALENDAR || clientSidePagination) {
+      } else if (clientSidePagination) {
         dataQueryOptions.select = PUBLIC_GROUP_EVENT_SELECT;
         dataQueryOptions.limit = MAP_VIEW_MAX_EVENTS;
       } else {
@@ -659,13 +657,29 @@ export class EventsFull implements OnInit, OnDestroy {
     }
   }
 
+  openAreaCalendar(): Promise<boolean> {
+    return this.router.navigate(["/" + walksFeaturePath(this.display.walksArea(), WalksAdminSegment.CALENDAR)], {queryParamsHandling: "preserve"});
+  }
+
   switchToView(walkListView: WalkListView) {
-    this.updateViewAndPagination(walkListView);
-    this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, walkListView);
-    if (this.queryParamsActive) {
-      this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW)]: this.stringUtils.kebabCase(walkListView)});
+    if (walkListView === WalkListView.CALENDAR) {
+      void this.openAreaCalendar();
+    } else {
+      this.updateViewAndPagination(walkListView);
+      this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, walkListView);
+      if (this.queryParamsActive) {
+        this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW)]: this.stringUtils.kebabCase(walkListView)});
+      }
+      this.performServerSideSearch();
     }
-    this.performServerSideSearch();
+  }
+
+  private applyListView(nextView: WalkListView) {
+    if (nextView === WalkListView.CALENDAR) {
+      this.updateViewAndPagination(this.defaultWalkListView === WalkListView.CALENDAR ? WalkListView.CARDS : this.defaultWalkListView);
+    } else {
+      this.updateViewAndPagination(nextView);
+    }
   }
 
   private updateViewAndPagination(nextView: WalkListView) {
@@ -712,6 +726,6 @@ export class EventsFull implements OnInit, OnDestroy {
     this.pageNumber = 1;
     this.storedAdvancedSearchCriteria = null;
     this.advancedSearchCriteria = null;
-    this.updateViewAndPagination(this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, this.defaultWalkListView) as WalkListView);
+    this.applyListView(this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, this.defaultWalkListView) as WalkListView);
   }
 }

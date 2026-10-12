@@ -14,6 +14,15 @@ export const DEFAULT_WALKS_AREA = "walks";
 export const WALKS_ADMIN_SEGMENT = "admin";
 export const WALKS_LEADER_SEGMENT = "my-walks";
 export const WALKS_ADD_WALK_SEGMENT = "add-walk";
+export const WALKS_ADD_SEGMENT = "add";
+export const WALKS_AREA_FEATURE_SEGMENTS: string[] = [
+  WALKS_ADMIN_SEGMENT,
+  WALKS_LEADER_SEGMENT,
+  WALKS_ADD_WALK_SEGMENT,
+  WALKS_ADD_SEGMENT,
+  WalksAdminSegment.CALENDAR,
+  WalksAdminSegment.ROUTES,
+];
 export const WALKS_HOW_TO_DOCUMENTATION_URL = "https://www.ngx-ramblers.org.uk/how-to/committee/walks";
 export const ROUTES_HOW_TO_IMPORT_URL = "https://www.ngx-ramblers.org.uk/how-to/committee/routes/import-from-os-maps";
 export const EXPENSES_HOW_TO_DOCUMENTATION_URL = "https://www.ngx-ramblers.org.uk/how-to/committee/expenses";
@@ -28,4 +37,8 @@ export function walksAdminPath(area: string, segment?: WalksAdminSegment): strin
 
 export function walksLeaderPath(area: string): string {
   return [walksAreaOrDefault(area), WALKS_LEADER_SEGMENT].join("/");
+}
+
+export function walksFeaturePath(area: string, segment: string): string {
+  return [walksAreaOrDefault(area), segment].join("/");
 }

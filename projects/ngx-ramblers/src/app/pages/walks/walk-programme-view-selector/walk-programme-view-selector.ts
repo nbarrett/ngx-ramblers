@@ -3,7 +3,7 @@ import { Router } from "@angular/router";
 import { faCalendarDays, faCloudArrowUp, faListCheck, faMap, faMapLocationDot, faPersonHiking, faUserShield } from "@fortawesome/free-solid-svg-icons";
 import { PROGRAMME_VIEWS, ProgrammeViewKey } from "../../../models/walk-programme.model";
 import { SectionToggleTab } from "../../../models/section-toggle.model";
-import { WALKS_ADMIN_SEGMENT, WALKS_LEADER_SEGMENT, walksAdminPath, walksLeaderPath, WalksAdminSegment } from "../../../models/walks-route-paths.model";
+import { WALKS_ADMIN_SEGMENT, WALKS_LEADER_SEGMENT, walksAdminPath, walksFeaturePath, walksLeaderPath, WalksAdminSegment } from "../../../models/walks-route-paths.model";
 import { SectionToggle } from "../../../shared/components/section-toggle";
 import { UrlService } from "../../../services/url.service";
 import { WalkDisplayService } from "../walk-display.service";
@@ -103,7 +103,7 @@ export class WalkProgrammeViewSelector {
     this.display.rememberReturnUrl();
     const area = this.display.walksArea();
     if (segment === WalksAdminSegment.ROUTES || segment === WalksAdminSegment.CALENDAR) {
-      return this.router.navigate(["/" + area, segment], {queryParamsHandling: "preserve"});
+      return this.router.navigate(["/" + walksFeaturePath(area, segment)], {queryParamsHandling: "preserve"});
     } else if (segment === WALKS_LEADER_SEGMENT) {
       return this.router.navigate(["/" + walksLeaderPath(area)], {queryParamsHandling: "preserve"});
     } else if (segment === WALKS_ADMIN_SEGMENT) {
