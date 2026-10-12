@@ -28,15 +28,17 @@
                                description="Expenses help"/>
         </div>
       </div>
-      <hr class="my-3"/>
-      <div class="row align-items-start">
-        <div class="col-sm-3 d-flex flex-column text-center">
-          <app-vendor-brand-mark class="unity-expense-help-mark" brandKey="unityTrustBank" [wide]="true"/>
+      @if (display.allowAdminFunctions()) {
+        <hr class="my-3"/>
+        <div class="row align-items-start">
+          <div class="col-sm-3 d-flex flex-column text-center">
+            <app-vendor-brand-mark class="unity-expense-help-mark" brandKey="unityTrustBank" [wide]="true"/>
+          </div>
+          <div class="col-sm-9">
+            <app-unity-expense-guidance [mode]="UnityExpenseGuidanceMode.OVERVIEW"/>
+          </div>
         </div>
-        <div class="col-sm-9">
-          <app-unity-expense-guidance [mode]="UnityExpenseGuidanceMode.OVERVIEW"/>
-        </div>
-      </div>
+      }
     </div>
     @if (notifyTarget.showAlert) {
       <div
@@ -107,7 +109,7 @@
               @for (expenseClaim of expenseClaims; track expenseClaim.id) {
                 <div>
                   @if (expenseClaim) {
-                    <div class="row" (mouseenter)="selectFirstItem(expenseClaim)">
+                    <div class="row mb-3" (mouseenter)="selectFirstItem(expenseClaim)">
                       <div class="col-sm-7">
                         <app-sortable-table
                           [columns]="expenseItemColumns"
