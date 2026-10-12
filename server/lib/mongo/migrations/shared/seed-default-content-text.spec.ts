@@ -34,6 +34,13 @@ describe("default content catalog", () => {
     expect(/ekwg|pang valley|mailchimp/i.test(expenses?.text || "")).toBe(false);
   });
 
+  it("explains the 2026 HMRC mileage rate on committee expenses help", () => {
+    const expensesHelp = DEFAULT_CONTENT_ENTRIES.find(entry => entry.name === "committee-expenses-help");
+    expect(expensesHelp?.text).toContain("HMRC change in mileage rate");
+    expect(expensesHelp?.text).toContain("55p");
+    expect(expensesHelp?.text).toContain("finance@ramblers.org.uk");
+  });
+
   it("keeps social events intro generic", () => {
     const social = DEFAULT_CONTENT_ENTRIES.find(entry => entry.name === "socialEventsInformation");
     expect(/covid|ekwg|east kent/i.test(social?.text || "")).toBe(false);

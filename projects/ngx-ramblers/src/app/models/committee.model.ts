@@ -15,7 +15,7 @@ export interface GroupEventType {
   area: string;
   description: string;
 }
-export const DEFAULT_COST_PER_MILE = 0.28;
+export const DEFAULT_COST_PER_MILE = 0.55;
 
 export const uploadGroupEventType: GroupEventType = {
   area: "upload",

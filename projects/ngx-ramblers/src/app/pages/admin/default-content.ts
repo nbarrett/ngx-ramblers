@@ -68,6 +68,18 @@ export const MAIL_SETTINGS_ACCOUNT_SETTINGS: ContentText = {
   text: MAIL_SETTINGS_ACCOUNT_PROFILE_HELP_TEXT
 };
 
+export const COMMITTEE_EXPENSES_HELP: ContentText = {
+  category: "admin",
+  name: "committee-expenses-help",
+  text:
+    "When creating [expense claims](/admin/profile/expenses) and mileage allowance is chosen as the expense type, the item cost is based on the mileage multiplied by the Cost Per Mile. On this screen, you can change the Cost Per Mile (in £) for future expense claims.\n\n" +
+    "**HMRC change in mileage rate**\n\n" +
+    "At the end of May 2026, HMRC increased the mileage rate from 45p to 55p per mile. This has been retrospectively applied to the beginning of the 2026/27 tax year (effective from 6 April 2026).\n\n" +
+    "We are aware that some Groups and Areas choose to pay lower than the HMRC prescribed rate. As such, the revised HMRC rate of 55p should be used as a guide, with Groups and Areas exercising their own discretion when determining an appropriate local rate.\n\n" +
+    "We want volunteering to be inclusive and we believe that anyone who volunteers should have the opportunity to claim back a reasonable level of out-of-pocket expenses.\n\n" +
+    "If you have any questions on mileage rates, get in touch with us at [finance@ramblers.org.uk](mailto:finance@ramblers.org.uk)."
+};
+
 export const COMMITTEE_OUTBOUND_EMAIL_HELP: ContentText = {
   name: "committee-outbound-email-help",
   category: "admin",
@@ -274,11 +286,7 @@ export const DEFAULT_CONTENT_ENTRIES: ContentText[] = [
     name: "committee-file-types-help",
     text: "* Enter below any file types that are to be referenced and attached as files in the Committee Pages. \n* The Visible by Public controls the visibility of items depending on whether a member is logged in. "
   },
-  {
-    category: "admin",
-    name: "committee-expenses-help",
-    text: "When creating [expense claims](/admin/profile/expenses) and mileage allowance is chosen as the expense type, the item cost is based on the mileage multiplied by the Cost Per Mile. On this screen, it's possible to change the Cost Per Mile (in £) for future expense claims."
-  },
+  COMMITTEE_EXPENSES_HELP,
   {
     category: "admin",
     name: "committee-roles-help",
