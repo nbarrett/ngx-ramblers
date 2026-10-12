@@ -6,6 +6,8 @@ import {
   AdvancedSearchFieldType,
   ADVANCED_SEARCH_CRITERIA_FIELDS,
   DateDirection,
+  DateRangePresetLabel,
+  isUnboundedDateRangeLabel,
   PRESET_MATCH_THRESHOLD_MS,
   resolvePresetByLabel,
   SavedSearchCriteria,
@@ -18,13 +20,19 @@ import { DateUtilsService } from "../../services/date-utils.service";
 
 const DATE_STORED_VALUES: Set<StoredValue> = new Set([StoredValue.DATE_FROM, StoredValue.DATE_TO]);
 
-function parseDateOrNumber(value: string): number | undefined {
+function parseDateOrNumber(value: string, endOfDay = false): number | undefined {
   const numeric = Number(value);
-  if (!Number.isNaN(numeric)) {
+  if (!Number.isNaN(numeric) && !value.includes("-")) {
     return numeric;
+  } else {
+    const dateOnly = DateTime.fromFormat(value, UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES, {zone: "Europe/London"});
+    if (dateOnly.isValid) {
+      return (endOfDay ? dateOnly.endOf("day") : dateOnly.startOf("day")).toMillis();
+    } else {
+      const parsedDate = DateTime.fromISO(value, {zone: "Europe/London"});
+      return parsedDate.isValid ? parsedDate.toMillis() : undefined;
+    }
   }
-  const parsedDate = Date.parse(value);
-  return Number.isNaN(parsedDate) ? undefined : parsedDate;
 }
 
 export function advancedSearchCriteriaFromParams(params: ParamMap, stringUtils: StringUtilsService, leaderOptions: WalkLeaderOption[] = []): AdvancedSearchCriteria | null {
@@ -87,15 +95,15 @@ export function advancedSearchCriteriaFromParams(params: ParamMap, stringUtils: 
     }
 
     if (DATE_STORED_VALUES.has(field.storedValue)) {
-      const parsedDate = parseDateOrNumber(rawValue);
+      const parsedDate = parseDateOrNumber(rawValue, field.storedValue === StoredValue.DATE_TO);
       if (isNumber(parsedDate)) {
         assignValue(field.key, parsedDate as AdvancedSearchCriteria[keyof AdvancedSearchCriteria]);
       }
-      return;
-    }
-    const parsed = Number(rawValue);
-    if (!Number.isNaN(parsed)) {
-      assignValue(field.key, parsed as AdvancedSearchCriteria[keyof AdvancedSearchCriteria]);
+    } else {
+      const parsed = Number(rawValue);
+      if (!Number.isNaN(parsed)) {
+        assignValue(field.key, parsed as AdvancedSearchCriteria[keyof AdvancedSearchCriteria]);
+      }
     }
   });
 
@@ -135,7 +143,7 @@ export function advancedCriteriaQueryParams(criteria: AdvancedSearchCriteria | n
     } else if (field.type === AdvancedSearchFieldType.STRING) {
       params[queryKey] = value && String(value).trim().length > 0 ? String(value) : null;
     } else if (DATE_STORED_VALUES.has(field.storedValue) && isNumber(value)) {
-      params[queryKey] = dateUtils.isoDateTime(value);
+      params[queryKey] = dateUtils.asString(value, undefined, UIDateFormat.YEAR_MONTH_DAY_WITH_DASHES);
     } else if (isUndefined(value) || value === null || Number.isNaN(value as number)) {
       params[queryKey] = null;
     } else {
@@ -182,16 +190,21 @@ function presetLabelMatchesCriteria(presetLabel: string, criteria: AdvancedSearc
 
 export function advancedSearchSummary(criteria: AdvancedSearchCriteria | null | undefined, stringUtils: StringUtilsService, dateUtils: DateUtilsService, presetLabel?: string, ascending?: boolean): string {
   if (!criteria || !hasAdvancedCriteria(criteria)) {
-    if (ascending === false) {
+    if (presetLabel === DateRangePresetLabel.ALL_TIME) {
+      return DateRangePresetLabel.ALL_TIME;
+    } else if (ascending === false) {
       return "date descending";
+    } else {
+      return "";
     }
-    return "";
   }
   const parts: string[] = [];
   if (criteria.dateFrom || criteria.dateTo) {
-    if (presetLabel && !presetLabel.startsWith("All ") && presetLabelMatchesCriteria(presetLabel, criteria, stringUtils)) {
+    if (presetLabel === DateRangePresetLabel.ALL_TIME) {
       parts.push(presetLabel);
-    } else if (!presetLabel?.startsWith("All ")) {
+    } else if (presetLabel && !isUnboundedDateRangeLabel(presetLabel) && presetLabelMatchesCriteria(presetLabel, criteria, stringUtils)) {
+      parts.push(presetLabel);
+    } else if (!presetLabel || !isUnboundedDateRangeLabel(presetLabel)) {
       parts.push(dateRangeSummary(criteria, dateUtils));
     }
   }

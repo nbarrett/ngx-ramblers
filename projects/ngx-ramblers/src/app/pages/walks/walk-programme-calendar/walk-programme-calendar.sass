@@ -70,6 +70,10 @@
   flex-direction: column
   gap: var(--space-2)
 
+:host-context(app-events-full) .calendar-sticky.sticky-toolbar
+  top: 6.75rem
+  z-index: 1029
+
 .calendar-grid-header
   display: grid
   grid-template-columns: repeat(7, minmax(0, 1fr))
@@ -129,7 +133,13 @@
     background: rgba(15, 23, 42, 0.03)
     .cell-date
       color: rgba(15, 23, 42, 0.3)
-  &.weekend:not(.outside)
+  &.out-of-range
+    background: rgba(15, 23, 42, 0.04)
+    pointer-events: none
+    opacity: 0.45
+    .cell-date
+      color: rgba(15, 23, 42, 0.3)
+  &.weekend:not(.outside):not(.out-of-range)
     background: rgba(155, 200, 171, 0.08)
   &.today
     border-color: $ramblers-colour-sunrise

@@ -4,7 +4,7 @@ import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom } from "rxjs";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-import { WalkProgrammeSummaryRequest, WalkProgrammeSummaryResponse } from "../../models/walk-programme.model";
+import { EventsInRangeParameters, WalkProgrammeSummaryRequest, WalkProgrammeSummaryResponse } from "../../models/walk-programme.model";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventField, EventStartDateAscending, GroupEventField } from "../../models/walk.model";
 import { RamblersEventType } from "../../models/ramblers-walks-manager";
@@ -14,12 +14,6 @@ import { ExtendedGroupEventQueryService } from "./extended-group-event-query.ser
 import { DateUtilsService } from "../date-utils.service";
 import { DateTime } from "luxon";
 import { DateRangeBounds } from "../../models/walk-programme.model";
-
-export interface EventsInRangeParameters {
-  dateFrom: number;
-  dateTo: number;
-  walksOnly: boolean;
-}
 
 @Injectable({
   providedIn: "root"
@@ -87,7 +81,7 @@ export class WalkProgrammeService {
       ...(parameters.walksOnly ? {[GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK} : {})
     };
     const dataQueryOptions: DataQueryOptions = {
-      criteria,
+      criteria: parameters.criteria ? {$and: [criteria, parameters.criteria]} : criteria,
       select: this.CALENDAR_SELECT,
       sort: EventStartDateAscending,
       limit: this.CALENDAR_MAX_EVENTS

@@ -92,6 +92,11 @@ export interface CalendarWeek {
   days: CalendarDay[];
 }
 
+export interface CalendarMonthSummary {
+  eventCount: number;
+  periodTitle: string;
+}
+
 export interface CalendarEntry {
   id: string;
   displayedWalk?: import("./walk.model").DisplayedWalk;
@@ -291,4 +296,11 @@ export enum OutlookCalendarPlatform {
   MAC = "mac",
   WINDOWS_NEW = "windows-new",
   WINDOWS_CLASSIC = "windows-classic"
+}
+
+export interface EventsInRangeParameters {
+  dateFrom: number;
+  dateTo: number;
+  walksOnly: boolean;
+  criteria?: object;
 }

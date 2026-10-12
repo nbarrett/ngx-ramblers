@@ -2,6 +2,7 @@
   <li class="navigation">
     <a (click)="unToggleMenu()" [ngClass]="{'active' : isOnPage(page)} "
        [routerLink]="'/' + page.href"
+       [queryParams]="{}"
        [textContent]="page.title" title="{{page.title}}"></a>
   </li>
 }
