@@ -1,29 +1,20 @@
 import { MemberLoginService } from "../member/member-login.service";
 import { inject, Injectable } from "@angular/core";
-import { ExtendedGroupEvent } from "../../models/group-event.model";
-import { OsMapsListedRoute } from "../../models/os-maps-export.model";
-import { RouteFollowOfflineStatus, RouteFollowPoint, RouteFollowSummary } from "../../models/route-follow.model";
+import { AppHomeListSnapshot } from "../../models/app-home-list-cache.model";
+import { nativeWalkingStorageKey } from "../../functions/native-walking";
 import { StoredValue } from "../../models/ui-actions";
-
-export interface AppHomeListSnapshot {
-  routes: RouteFollowSummary[];
-  walks: ExtendedGroupEvent[];
-  websiteMapKeys: string[];
-  importedOsMapsByKey: Record<string, OsMapsListedRoute>;
-  previewPoints: Record<string, RouteFollowPoint[]>;
-  offlineByKey: Record<string, RouteFollowOfflineStatus>;
-}
 
 @Injectable({
   providedIn: "root"
 })
 export class AppHomeListCacheService {
   private memberLogin = inject(MemberLoginService);
+  private memoryStorageKey: string | null = null;
   private memoryMemberId: string | null = null;
   private memory: AppHomeListSnapshot | null = null;
 
   snapshot(): AppHomeListSnapshot | null {
-    if (this.memory && this.memoryMemberId === (this.memberLogin.loggedInMember()?.memberId || null)) {
+    if (this.memory && this.memoryStorageKey === nativeWalkingStorageKey(StoredValue.APP_HOME_LIST_CACHE) && this.memoryMemberId === (this.memberLogin.loggedInMember()?.memberId || null)) {
       return this.memory;
     } else {
       return this.readStored();
@@ -31,6 +22,7 @@ export class AppHomeListCacheService {
   }
 
   save(snapshot: AppHomeListSnapshot): void {
+    this.memoryStorageKey = nativeWalkingStorageKey(StoredValue.APP_HOME_LIST_CACHE);
     this.memoryMemberId = this.memberLogin.loggedInMember()?.memberId || null;
     this.memory = snapshot;
     try {
@@ -42,7 +34,7 @@ export class AppHomeListCacheService {
         importedOsMapsByKey: snapshot.importedOsMapsByKey,
         previewPoints: snapshot.previewPoints
       };
-      window.sessionStorage.setItem(StoredValue.APP_HOME_LIST_CACHE, JSON.stringify(stored));
+      window.sessionStorage.setItem(this.memoryStorageKey, JSON.stringify(stored));
     } catch {
       this.memory = snapshot;
     }
@@ -50,7 +42,7 @@ export class AppHomeListCacheService {
 
   private readStored(): AppHomeListSnapshot | null {
     try {
-      const raw = window.sessionStorage.getItem(StoredValue.APP_HOME_LIST_CACHE);
+      const raw = window.sessionStorage.getItem(nativeWalkingStorageKey(StoredValue.APP_HOME_LIST_CACHE));
       if (!raw) {
         return null;
       } else {

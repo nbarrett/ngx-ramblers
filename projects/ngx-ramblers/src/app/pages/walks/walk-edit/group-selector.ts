@@ -19,7 +19,7 @@ import { sortBy } from "../../../functions/arrays";
   template: `
     <ng-template #select>
       <ng-select id="group-select"
-                 [appendTo]="'body'"
+                 [appendTo]="appendTo"
                  [dropdownPosition]="dropdownPosition"
                  [items]="availableGroups"
                  bindLabel="ngSelectAttributes.label"
@@ -58,6 +58,7 @@ export class GroupSelector implements OnInit, OnChanges {
   @Output() groupChanged: EventEmitter<RamblersGroupsApiResponse | null> = new EventEmitter();
   @Output() areaChanged: EventEmitter<RamblersGroupsApiResponse> = new EventEmitter();
   @Input() disabled!: boolean;
+  @Input() appendTo: string | null = "body";
   @Input() dropdownPosition: DropdownPosition = "bottom";
 
   async ngOnInit() {

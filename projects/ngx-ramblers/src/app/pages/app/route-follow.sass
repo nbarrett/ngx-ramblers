@@ -128,6 +128,8 @@
     display: none
 
 .follow-top.has-banner .follow-instruction
+  grid-column: 1 / -1
+  grid-row: 3
   flex: 1 1 100%
 
 .follow-hud
@@ -585,13 +587,16 @@
   background: var(--follow-panel)
   color: var(--follow-ink)
   border-radius: 22px 22px 0 0
-  padding: 0 16px 0
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))
   box-shadow: 0 -12px 32px rgba(16, 32, 24, 0.12)
   overflow: hidden
   display: flex
   flex-direction: column
   justify-content: flex-start
   flex: 0 0 auto
+
+.follow-sheet.is-minimised
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px))
 
 .follow-sheet-heading
   display: none
@@ -631,21 +636,31 @@
   justify-content: center
   gap: var(--space-3)
   min-height: 48px
-  margin-bottom: var(--space-3)
+  margin-bottom: 0
   flex-shrink: 0
 
 .follow-recording-indicator
+  display: inline-flex
+  flex: 0 0 auto
+  border-radius: 50%
   color: var(--follow-muted)
 
+.follow-recording-indicator.is-ready
+  color: $confirm-initial
+
 .follow-recording-indicator.is-recording
-  color: $ramblers-colour-sunrise
+  color: $confirm-initial
   animation: recording-pulse 1.6s ease-in-out infinite
 
 @keyframes recording-pulse
   0%, 100%
     opacity: 1
+    transform: scale(1)
+    box-shadow: 0 0 0 0 rgba($confirm-initial, 0.4)
   50%
-    opacity: 0.35
+    opacity: 0.55
+    transform: scale(0.85)
+    box-shadow: 0 0 0 6px rgba($confirm-initial, 0)
 
 @media (prefers-reduced-motion: reduce)
   .follow-recording-indicator.is-recording
@@ -677,15 +692,19 @@
   cursor: pointer
 
 .follow-peek-stats
-  display: flex
-  align-items: flex-end
-  gap: 18px
+  display: grid
+  grid-auto-flow: column
+  grid-auto-columns: minmax(0, 1fr)
+  align-items: end
+  gap: var(--space-3)
+  width: 100%
   min-width: 0
 
 .follow-peek-stat
   display: flex
   flex-direction: column
-  align-items: flex-start
+  align-items: center
+  text-align: center
   min-width: 0
 
 .follow-peek-stat span
@@ -821,9 +840,13 @@
 .follow-actions:not(:has(.follow-actions-span)) > .btn:last-child:nth-child(odd)
   grid-column: 1 / -1
 
+.follow-sheet .alert
+  --bs-alert-border-radius: 22px
+  border-color: transparent
+  padding: var(--space-4)
+
 .follow-sheet-footer
   flex: 0 0 auto
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px))
 
 .follow-sheet-footer .follow-library-note
   margin: 0 0 12px
@@ -1045,3 +1068,19 @@
   flex-direction: column
   gap: 4px
   min-width: 0
+
+.follow-directions-picker
+  display: flex
+  flex-direction: column
+  overflow: hidden
+
+.follow-directions-picker > .follow-style-picker-head,
+.follow-directions-picker > .follow-directions-note
+  flex: 0 0 auto
+
+.follow-directions-picker > .follow-directions-list
+  flex: 1 1 auto
+  min-height: 0
+  overflow-y: auto
+  overscroll-behavior: contain
+  -webkit-overflow-scrolling: touch

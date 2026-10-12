@@ -1,3 +1,4 @@
+import { RamblersGroupsApiResponse } from "../../models/ramblers-walks-manager";
 import { AppHomeComponent } from "./app-home";
 import { AppHomeView, RouteFollowMode, RouteFollowSession, RouteFollowSummary } from "../../models/route-follow.model";
 import { StoredValue } from "../../models/ui-actions";
@@ -106,5 +107,57 @@ describe("walking app header counts", () => {
     const component = withCounts();
     expect(component.milesLabel(1)).toBe("1 mile");
     expect(component.milesLabel(7.1)).toBe("7.1 miles");
+  });
+});
+
+describe("mobile area and website selection", () => {
+  const area = {group_code: "HS", external_url: "https://area.example.org.uk"} as RamblersGroupsApiResponse;
+  const group = {group_code: "HS01", external_url: "https://group.example.org.uk"} as RamblersGroupsApiResponse;
+
+  function chooser() {
+    const view = Object.create(AppHomeComponent.prototype) as AppHomeComponent;
+    view["siteUrlEntry"] = false;
+    view["nativeSite"] = {check: vi.fn().mockResolvedValue({}), connect: vi.fn().mockRejectedValue(new Error("Test connection"))} as unknown as typeof view["nativeSite"];
+    view.siteAreaChanged({areaCode: "HS", areaName: "Hillside Area"});
+    return view;
+  }
+
+  it("checks an area website without requiring a group", async () => {
+    const view = chooser();
+    await view.siteDirectoryAreaChanged(area);
+    expect(view["nativeSite"].check).toHaveBeenCalledWith(area.external_url, "HS");
+    expect(view["siteGroupCode"]).toBe("");
+    expect(view["siteChecked"]).toBe(true);
+    await view.connectGroupSite();
+    expect(view["nativeSite"].connect).toHaveBeenCalledWith(area.external_url, "HS");
+  });
+
+  it("uses the group website when selected and returns to the area when cleared", async () => {
+    const view = chooser();
+    await view.siteDirectoryAreaChanged(area);
+    await view.siteGroupChanged(group);
+    expect(view["siteUrlDraft"]).toBe(group.external_url);
+    await view.siteGroupChanged(null);
+    expect(view["siteUrlDraft"]).toBe(area.external_url);
+    expect(view["siteChecked"]).toBe(true);
+  });
+
+  it("connects a directly entered testing URL without an area or group identity", async () => {
+    const view = chooser();
+    await view.siteDirectoryAreaChanged(area);
+    view.toggleSiteWebsiteEntry();
+    view.siteWebsiteChanged("https://staging.example.org.uk");
+    await view.connectGroupSite();
+    expect(view["nativeSite"].connect).toHaveBeenCalledWith("https://staging.example.org.uk", null);
+    expect(view["siteAreaCode"]).toBe("");
+    expect(view["siteGroupCode"]).toBe("");
+  });
+
+  it("ignores an area response after selecting a different area", async () => {
+    const view = chooser();
+    view.siteAreaChanged({areaCode: "VP", areaName: "Valley Park"});
+    await view.siteDirectoryAreaChanged(area);
+    expect(view["nativeSite"].check).not.toHaveBeenCalled();
+    expect(view["siteUrlDraft"]).toBe("");
   });
 });

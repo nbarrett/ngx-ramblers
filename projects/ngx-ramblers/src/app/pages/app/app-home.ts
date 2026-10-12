@@ -1,3 +1,5 @@
+import { LegacyWalkingRecoveryState } from "../../models/legacy-walking-recovery.model";
+import { LegacyWalkingRecoveryService } from "../../services/maps/legacy-walking-recovery.service";
 import { RouteNearbyService } from "../../services/maps/route-nearby.service";
 import { VersionCheckService } from "../../services/version-check.service";
 import { uniqBy } from "es-toolkit/compat";
@@ -13,7 +15,7 @@ import { NgSelectModule } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription, take } from "rxjs";
-import { faArrowLeft, faCalendarDay, faCheck, faCircle, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faShareNodes, faSliders, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faCalendarDay, faCheck, faCircle, faCircleCheck, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faShareNodes, faSliders, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { PageContentType } from "../../models/content-text.model";
@@ -38,6 +40,11 @@ import {
   RouteFollowSource,
   RouteFollowSummary
 } from "../../models/route-follow.model";
+import { AreaSelector } from "../walks/walk-edit/area-selector";
+import { GroupSelector } from "../walks/walk-edit/group-selector";
+import { RamblersGroupsApiResponse } from "../../models/ramblers-walks-manager";
+import { AvailableArea } from "../../models/system.model";
+import { WALKS_HOW_TO_DOCUMENTATION_URL } from "../../models/walks-route-paths.model";
 import { SystemConfig } from "../../models/system.model";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { DateUtilsService } from "../../services/date-utils.service";
@@ -71,6 +78,7 @@ import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { LoginModalComponent } from "../login/login-modal/login-modal.component";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { nativeApiUrl } from "../../functions/native-walking";
+import { NativeSiteService } from "../../services/maps/native-site.service";
 import { AuthService } from "../../auth/auth.service";
 import { VisibilityObserverDirective } from "../../notifications/common/visibility-observer.directive";
 import { PullToRefreshComponent } from "../../modules/common/pull-to-refresh/pull-to-refresh";
@@ -81,7 +89,46 @@ const MAP_LIST_BATCH_SIZE = 20;
 @Component({
   selector: "app-home",
   template: `
-    <div #homeScroll class="app-home container">
+    <div #homeScroll class="app-home container" [class.app-home-choosing-site]="choosingSite">
+      @if (choosingSite) {
+        <section class="app-home-site" aria-label="Choose your area or group">
+          <div class="app-home-welcome-brand bg-white text-dark rounded p-2 mb-3 d-flex align-items-center justify-content-center gap-2">
+            <img class="app-home-logo" src="favicon.svg" alt="" width="36" height="36">
+            <strong>NGX Ramblers</strong>
+          </div>
+          <p>Access NGX walks, maps and route recording with a real mobile experience. It is endorsed by Ramblers and is separate from the main Ramblers app. <a [href]="ngxRamblersWebsite" target="_blank" rel="noopener noreferrer">Find out more about NGX Ramblers</a>.</p>
+          <h1>Choose your area or group</h1>
+          <p>Choose an area, optionally a group, or enter an NGX website. We'll remember your choice.</p>
+          @if (siteUrlEntry) {
+            <label for="app-site-url">NGX website</label>
+            <input id="app-site-url" type="url" class="form-control" inputmode="url" autocapitalize="none" autocomplete="url"
+                   spellcheck="false" placeholder="https://group.example.org.uk" [ngModel]="siteUrlDraft" (ngModelChange)="siteWebsiteChanged($event)">
+          } @else {
+            <app-area-selector id="walking-app-area" label="Area" [areaCode]="siteAreaCode" [disabled]="connectingSite" (areaChanged)="siteAreaChanged($event)"/>
+            @if (siteAreaCode) {
+              <app-group-selector [appendTo]="null" label="Group (optional)" [areaCode]="siteAreaCode" [groupCode]="siteGroupCode" [disabled]="connectingSite"
+                                  (areaChanged)="siteDirectoryAreaChanged($event)" (groupChanged)="siteGroupChanged($event)"/>
+            }
+          }
+          @if (checkingSite) {
+            <p role="status">Checking whether this website uses NGX Ramblers…</p>
+          }
+          @if (siteError) {
+            <div class="alert alert-warning d-flex align-items-start" role="alert">
+              <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+              <div><strong class="d-block">Unable to connect</strong>{{ siteError }}</div>
+            </div>
+          }
+          <div class="d-flex flex-column gap-2">
+            <button class="btn btn-primary" type="button" (click)="connectGroupSite()" [disabled]="connectingSite || checkingSite || !siteUrlDraft || (!siteUrlEntry && !siteChecked)">
+              {{ connectingSite ? "Checking" : "Continue" }}
+            </button>
+            <button class="btn btn-quiet" type="button" (click)="toggleSiteWebsiteEntry()" [disabled]="connectingSite">
+              {{ siteUrlEntry ? "Choose an area or group instead" : "Enter a website instead" }}
+            </button>
+          </div>
+        </section>
+      } @else {
       <div class="app-home-chrome">
         <app-pull-to-refresh #listRefresh [refreshAction]="refreshRoutes" [allowLinkPull]="true" [inline]="true"/>
       <div class="app-home-header">
@@ -179,6 +226,13 @@ const MAP_LIST_BATCH_SIZE = 20;
         }
       }
       </div>
+      @if (!customising && (legacyRecovery.routes.length || legacyRecovery.session)) {
+        <div class="alert alert-warning d-flex align-items-start gap-2" role="status">
+          <fa-icon [icon]="faCircleExclamation"/>
+          <div><strong class="d-block">Earlier saved data is available</strong>Recover saved maps or an unfinished recording into the correct website through Customise.</div>
+          <button class="btn btn-primary" type="button" (click)="toggleCustomising()">Recover</button>
+        </div>
+      }
       @if (!customising && view === AppHomeView.MAPS && layout.savedRoutes) {
         <input #gpxInput class="d-none" type="file" accept=".gpx,application/gpx+xml"
                ng2FileSelect [uploader]="gpxUploader">
@@ -189,33 +243,88 @@ const MAP_LIST_BATCH_SIZE = 20;
 
       @if (customising) {
         <section id="app-home-customise" class="app-home-customise" [attr.aria-label]="'Choose what appears in ' + groupName">
-          <div class="app-home-customise-heading">
-            <h2>What each view shows</h2>
-          </div>
-          <p class="app-home-key">Maps come from the group's website. You can also import a GPX from this phone; that saves it to the group so others can follow it too.</p>
+          <div class="thumbnail-heading-frame">
+          <div class="thumbnail-heading">Views</div>
           <label class="app-home-customise-item">
             <input type="checkbox" [checked]="layout.savedRoutes" (change)="setLayout('savedRoutes', $event)">
             <span>
               <strong>Maps</strong>
-              <span>Maps come from imported routes, scheduled walks and recorded routes. Signed-in favourites and hidden maps are saved with your member profile. Hiding changes your own list; the route stays on the site.</span>
+              <span>Shared routes, GPX imports and recordings.</span>
             </span>
           </label>
           <label class="app-home-customise-item">
             <input type="checkbox" [checked]="layout.upcomingWalks" (change)="setLayout('upcomingWalks', $event)">
             <span>
               <strong>Upcoming walks</strong>
-              <span>The group's published programme. Walks with a GPX can be followed from here.</span>
+              <span>The group's published walk programme.</span>
             </span>
           </label>
           @if (listPreferences.hiddenCount()) {
             <button class="btn btn-quiet" type="button" (click)="showHiddenMaps()">{{ listPreferences.hiddenMapsActionLabel() }}</button>
           }
+          </div>
+          <div class="thumbnail-heading-frame">
+          <div class="thumbnail-heading">App</div>
+          <div class="d-flex gap-2">
           <button class="btn btn-quiet" type="button" (click)="versionCheck.reloadNow()" [disabled]="!navigatorOnline() || !!activeSession">
             Update app
           </button>
-          <p class="app-home-meta">Download the latest app version when connected and after finishing your saved walking session.</p>
-          <h2>Appearance</h2>
+          @if (nativeSite.origin()) {
+            <button class="btn btn-quiet" type="button" (click)="changeGroupSite()" [disabled]="!!activeSession">
+              Change group
+            </button>
+          }
+          </div>
+          <p class="mt-2">Update after finishing your walk.</p>
+          @if (nativeSite.origin()) {
+            <p class="mb-0">{{ nativeSite.origin() }} · Changing group signs you out.</p>
+          }
+          </div>
+          @if (legacyRecovery.routes.length || legacyRecovery.session || legacyMessage || legacyError) {
+            <div class="thumbnail-heading-frame">
+              <div class="thumbnail-heading">Recover saved data</div>
+              <p>Restore only earlier data belonging to {{ groupName }}.</p>
+              @if (legacyRecovery.routes.length) {
+                <label for="legacy-walking-maps">Saved maps</label>
+                <ng-select labelForId="legacy-walking-maps" [items]="legacyRecovery.routes" bindLabel="title" bindValue="key"
+                           [multiple]="true" [disabled]="legacyBusy" [(ngModel)]="legacySelectedKeys"/>
+              }
+              @if (legacyRecovery.session) {
+                <label class="app-home-customise-item my-2">
+                  <input type="checkbox" [(ngModel)]="legacyRestoreSession" [disabled]="legacyBusy">
+                  <span>Unfinished: {{ legacyRecovery.session.payload?.title || "Saved walking session" }}</span>
+                </label>
+              }
+              @if (legacyMessage) {
+                <div class="alert alert-success d-flex align-items-start" role="status">
+                  <fa-icon [icon]="faCircleCheck" class="me-2 mt-1"/>
+                  <div><strong class="d-block">Data restored</strong>{{ legacyMessage }}</div>
+                </div>
+              }
+              @if (legacyError) {
+                <div class="alert alert-warning d-flex align-items-start" role="alert">
+                  <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                  <div><strong class="d-block">Recovery not completed</strong>{{ legacyError }}</div>
+                </div>
+              }
+              @if (legacyConfirm) {
+                <div class="alert alert-warning d-flex align-items-start mt-2" role="alert">
+                  <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                  <div><strong class="d-block">Restore to this site?</strong>Confirm it belongs to {{ nativeSite.origin() }}. Original copies are kept.</div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-primary" type="button" (click)="restoreLegacyWalkingData()" [disabled]="legacyBusy">{{ legacyBusy ? "Restoring…" : "Confirm restore" }}</button>
+                  <button class="btn btn-quiet" type="button" (click)="legacyConfirm = false" [disabled]="legacyBusy">Cancel</button>
+                </div>
+              } @else if (legacyRecovery.routes.length || legacyRecovery.session) {
+                <button class="btn btn-primary mt-2" type="button" (click)="legacyConfirm = true" [disabled]="!legacySelectedKeys.length && !legacyRestoreSession">Restore selected data</button>
+              }
+            </div>
+          }
+          <div class="thumbnail-heading-frame">
+          <div class="thumbnail-heading">Appearance</div>
           <ng-container *ngTemplateOutlet="appearanceControls"/>
+          </div>
         </section>
       }
 
@@ -421,6 +530,7 @@ const MAP_LIST_BATCH_SIZE = 20;
         <ng-container *ngTemplateOutlet="appearanceControls"/>
       </section>
       }
+      }
     </div>
     <ng-template #appearanceControls>
       <div class="app-home-appearance" role="group" aria-label="Appearance">
@@ -449,7 +559,7 @@ const MAP_LIST_BATCH_SIZE = 20;
     </ng-template>
   `,
   styleUrls: ["./app-home.sass"],
-  imports: [NgSelectModule, PullToRefreshComponent, VisibilityObserverDirective, RouterLink, FormsModule, FontAwesomeModule, RouteAuditComponent, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, TooltipModule, DistanceRangeSlider, NgTemplateOutlet, FileUploadModule, RouteMapActionsComponent]
+  imports: [AreaSelector, GroupSelector, NgSelectModule, PullToRefreshComponent, VisibilityObserverDirective, RouterLink, FormsModule, FontAwesomeModule, RouteAuditComponent, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, TooltipModule, DistanceRangeSlider, NgTemplateOutlet, FileUploadModule, RouteMapActionsComponent]
 })
 export class AppHomeComponent implements OnInit, OnDestroy {
   protected readonly refreshRoutes = async (): Promise<void> => {
@@ -474,6 +584,26 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   private followService = inject(RouteFollowService);
   private activatedRoute = inject(ActivatedRoute);
   private uiActions = inject(UiActionsService);
+  protected nativeSite = inject(NativeSiteService);
+  private legacyRecoveryService = inject(LegacyWalkingRecoveryService);
+  protected legacyRecovery: LegacyWalkingRecoveryState = {routes: [], session: null};
+  protected legacySelectedKeys: string[] = [];
+  protected legacyRestoreSession = false;
+  protected legacyConfirm = false;
+  protected legacyBusy = false;
+  protected legacyError: string | null = null;
+  protected legacyMessage: string | null = null;
+  protected choosingSite = false;
+  protected connectingSite = false;
+  protected ngxRamblersWebsite = new URL(WALKS_HOW_TO_DOCUMENTATION_URL).origin;
+  protected siteUrlDraft = "";
+  protected siteUrlEntry = false;
+  private siteDirectoryArea: RamblersGroupsApiResponse | null = null;
+  protected siteAreaCode = "";
+  protected siteGroupCode = "";
+  protected checkingSite = false;
+  protected siteChecked = false;
+  protected siteError: string | null = null;
   protected display = inject(WalkDisplayService);
   private mediaQueryService = inject(MediaQueryService);
   protected payloadService = inject(RouteFollowPayloadService);
@@ -530,6 +660,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected readonly faCheck = faCheck;
   protected readonly faCircle = faCircle;
   protected readonly faCircleHalfStroke = faCircleHalfStroke;
+  protected readonly faCircleCheck = faCircleCheck;
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly faEyeSlash = faEyeSlash;
@@ -567,7 +698,116 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     }
   }
 
+  siteAreaChanged(area: AvailableArea | null): void {
+    this.siteDirectoryArea = null;
+    this.siteAreaCode = area?.areaCode || "";
+    this.siteGroupCode = "";
+    this.siteUrlDraft = "";
+    this.siteError = null;
+    this.checkingSite = false;
+    this.siteChecked = false;
+  }
+
+  async siteDirectoryAreaChanged(area: RamblersGroupsApiResponse): Promise<void> {
+    if (area.group_code === this.siteAreaCode && !this.siteUrlEntry) {
+      this.siteDirectoryArea = area;
+      if (!this.siteGroupCode) {
+        await this.siteGroupChanged(null);
+      }
+    }
+  }
+
+  siteWebsiteChanged(url: string): void {
+    this.siteUrlDraft = url;
+    this.siteError = null;
+    this.siteChecked = false;
+  }
+
+  toggleSiteWebsiteEntry(): void {
+    this.siteUrlEntry = !this.siteUrlEntry;
+    this.siteAreaChanged(null);
+  }
+
+  async siteGroupChanged(group: RamblersGroupsApiResponse | null): Promise<void> {
+    this.siteGroupCode = group?.group_code || "";
+    const selected = group || this.siteDirectoryArea;
+    this.siteUrlDraft = selected?.external_url || "";
+    this.siteChecked = false;
+    this.checkingSite = false;
+    this.siteError = null;
+    const code = selected?.group_code || "";
+    const url = this.siteUrlDraft;
+    if (selected && !url) {
+      this.siteError = "This area or group has no website listed. Choose another or enter its NGX website directly.";
+    } else if (selected) {
+      this.checkingSite = true;
+      try {
+        await this.nativeSite.check(url, code);
+        if (!this.siteUrlEntry && this.siteUrlDraft === url && (this.siteGroupCode || this.siteAreaCode) === code) {
+          this.siteChecked = true;
+        }
+      } catch (error) {
+        if (!this.siteUrlEntry && this.siteUrlDraft === url && (this.siteGroupCode || this.siteAreaCode) === code) {
+          this.siteError = error instanceof Error ? error.message : "Could not check this website.";
+        }
+      } finally {
+        if (!this.siteUrlEntry && this.siteUrlDraft === url && (this.siteGroupCode || this.siteAreaCode) === code) {
+          this.checkingSite = false;
+        }
+      }
+    }
+  }
+
+  async connectGroupSite(): Promise<void> {
+    this.connectingSite = true;
+    this.siteError = null;
+    try {
+      await this.nativeSite.connect(this.siteUrlDraft, this.siteUrlEntry ? null : this.siteGroupCode || this.siteAreaCode || null);
+      window.location.reload();
+    } catch (error) {
+      this.siteError = error instanceof Error ? error.message : "Could not reach that website.";
+      this.connectingSite = false;
+    }
+  }
+
+  private async loadLegacyWalkingData(): Promise<void> {
+    try {
+      this.legacyRecovery = await this.legacyRecoveryService.available();
+    } catch (error) {
+      this.logger.warn("Earlier saved walking data could not be listed", error);
+      this.legacyError = "Earlier saved data could not be read. Try reopening the app; the originals are still on this device.";
+    }
+  }
+
+  async restoreLegacyWalkingData(): Promise<void> {
+    this.legacyBusy = true;
+    this.legacyError = null;
+    try {
+      await this.legacyRecoveryService.restore(this.legacySelectedKeys, this.legacyRestoreSession);
+      this.legacyConfirm = false;
+      this.legacySelectedKeys = [];
+      this.legacyRestoreSession = false;
+      this.legacyMessage = "The selected data is available on this website. The original copies have been kept.";
+      this.activeSession = this.activeFollowSession();
+      await this.loadLegacyWalkingData();
+      await this.load();
+    } catch (error) {
+      this.legacyError = error instanceof Error ? error.message : "The saved data could not be restored.";
+    } finally {
+      this.legacyBusy = false;
+    }
+  }
+
+  changeGroupSite(): void {
+    this.nativeSite.clear();
+    window.location.reload();
+  }
+
   ngOnInit(): void {
+    this.choosingSite = this.nativeSite.needsChooser();
+    if (this.choosingSite) {
+      this.loading = false;
+    } else {
     void this.listPreferences.refresh();
     this.layout = {...this.layout, ...this.uiActions.initialObjectValueFor<Partial<AppHomeLayout>>(StoredValue.APP_HOME_LAYOUT, {})};
     this.view = this.activatedRoute.snapshot.queryParamMap.get(StoredValue.TAB) === AppHomeView.UPCOMING ? AppHomeView.UPCOMING : AppHomeView.MAPS;
@@ -622,9 +862,11 @@ export class AppHomeComponent implements OnInit, OnDestroy {
       }
     };
     this.activeSession = this.activeFollowSession();
+    void this.loadLegacyWalkingData();
     const coldLaunch = !this.router.lastSuccessfulNavigation()?.previousNavigation;
     if (!coldLaunch || !this.resumeActiveFollowSession()) {
       void this.load();
+    }
     }
   }
 

@@ -33,12 +33,12 @@ Use Node 24 and the repository's installed dependencies. iPhone builds require a
 From the repository root:
 
 ```sh
-MOBILE_SITE_URL="https://group.example.org.uk" npm run mobile:prepare
+MOBILE_DIRECTORY_URL="https://directory.example.org.uk" npm run mobile:prepare
 ```
 
-Replace the example with the HTTPS origin of the website that the phone app should connect to. Use the website address without a path or query string. This setting tells the native app where to sign in, load website data and save routes. It does not create or deploy that website.
+The store app is generic. On first open the walker selects an area, optionally a group, or enters an NGX website. The selected group website is stored on the phone and can be changed from Customise → Change group. Optional `MOBILE_SITE_URL="https://group.example.org.uk"` still bakes a default for a local sideload only; do not use it for an App Store or Play build.
 
-The command builds the existing Angular frontend, puts a separate copy in `dist/ngx-mobile`, and copies that bundle into both native projects. The configured website address is kept in ignored build assets. There is currently one website per build, with no website picker. Both projects use the application identifier `org.ngxramblers.walking`; preparing another website does not create a separately installable app identity.
+The command builds the existing Angular frontend, puts a separate copy in `dist/ngx-mobile`, and copies that bundle into both native projects. Both projects use the application identifier `org.ngxramblers.walking`.
 
 ### Install on your own iPhone for testing
 
@@ -85,7 +85,7 @@ For iPhone testing, create a signed archive in Xcode, upload it to App Store Con
 
 For Android, an APK can be supplied for a controlled device trial. Public Play Store distribution requires a signed release app bundle and a Play Console release. Keep signing credentials outside this repository and retain the release signing identity for future updates.
 
-The native projects, source code and build commands exist. This session did not set up store listings, distribution accounts, release signing or an automatic native release workflow. These are the additional release tasks needed to make installation straightforward for members.
+There is one generic app (`org.ngxramblers.walking`), with one store listing for all groups. Store distribution requires developer accounts, release signing and completed store listings.
 
 ## How future updates work
 
@@ -124,3 +124,9 @@ xcrun swiftc -parse-as-library mobile/ios/App/App/Recording/RoutePositionStore.s
 ```
 
 For the development history, verified results and remaining release work, see [the session handover](../non-vcs/session-handover-mobile-background-recording-2026-10-05.md).
+
+The native build requires `MOBILE_DIRECTORY_URL`, the HTTPS origin of an NGX site serving the public area and group lookup APIs. It supplies directory choices before a group is selected; it does not select the walker’s group. The first-launch screen reuses the area and group selectors and fills the website from the selected group’s external website. Continue checks that the website supports this app. Areas and groups without a compatible NGX website cannot be connected. Direct website entry supports testing a site before its final domain is ready.
+
+Directory lookup and the selected group backend are separate. Use a public directory service for a store build; a test build may point its directory at a reachable HTTPS staging site. The selected backend origin is checked and retained, so a sideload using staging does not switch to its configured public website. The directory’s group website suggestions are the public external URLs published by the Ramblers directory; use direct website entry or `MOBILE_SITE_URL` for a local sideload targeting another environment.
+
+Earlier native app versions stored maps and recordings without a website identity. Those originals are retained separately. On the mobile home page, open Customise → Recover earlier saved data, select the maps or unfinished recording that belong to the current website, and confirm the website assignment. Recovery preserves newer scoped data and the original copies; opening or changing a group never assigns legacy data automatically.

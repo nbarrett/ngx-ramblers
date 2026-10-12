@@ -18,6 +18,9 @@ import { DateUtilsService } from "../date-utils.service";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 
+import { LegacyWalkingRoute } from "../../models/legacy-walking-recovery.model";
+import { nativeWalkingSite, nativeWalkingStorageKey } from "../../functions/native-walking";
+
 const DB_NAME = "ngx-follow";
 const DB_VERSION = 1;
 const ROUTES_STORE = "routes";
@@ -30,6 +33,7 @@ export class RouteFollowCacheService {
   private memberLogin = inject(MemberLoginService);
   private dateUtils = inject(DateUtilsService);
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowCacheService", NgxLoggerLevel.ERROR);
+  private dbName: string | null = null;
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   keyForPayload(payload: RouteFollowPayload): string | null {
@@ -152,6 +156,34 @@ export class RouteFollowCacheService {
     });
   }
 
+  async legacyRoutes(): Promise<LegacyWalkingRoute[]> {
+    if (nativeWalkingSite()) {
+      const records = await this.allRoutes(DB_NAME);
+      const member = this.memberLogin.loggedInMember();
+      return records.filter(record => routeVisibleToMember(record.payload, member)).map(record => ({...this.summaryFrom(record), key: record.key}));
+    } else {
+      return [];
+    }
+  }
+
+  async restoreLegacyRoutes(keys: string[], site: string): Promise<string[]> {
+    const records = await this.allRoutes(DB_NAME);
+    const currentKeys = new Set((await this.allRoutes()).map(record => record.key));
+    const member = this.memberLogin.loggedInMember();
+    const selected = records.filter(record => keys.includes(record.key) && routeVisibleToMember(record.payload, member));
+    return selected.reduce<Promise<string[]>>(async (pending, record) => {
+      const restored = await pending;
+      if (nativeWalkingSite() !== site) {
+        throw new Error("The selected website changed during recovery. Try again on the correct site.");
+      } else {
+        if (!currentKeys.has(record.key)) {
+          await this.putRoute(record);
+        }
+        return [...restored, record.key];
+      }
+    }, Promise.resolve([]));
+  }
+
   private summaryFrom(record: CachedFollowRoute): RouteFollowSummary {
     return {
       source: record.payload.source,
@@ -220,8 +252,8 @@ export class RouteFollowCacheService {
     return result;
   }
 
-  private async allRoutes(): Promise<CachedFollowRoute[]> {
-    const db = await this.database();
+  private async allRoutes(dbName = nativeWalkingStorageKey(DB_NAME)): Promise<CachedFollowRoute[]> {
+    const db = await this.database(dbName);
     return new Promise((resolve, reject) => {
       const request = db.transaction(ROUTES_STORE, "readonly").objectStore(ROUTES_STORE).getAll();
       request.onsuccess = () => resolve(isArray(request.result) ? request.result as CachedFollowRoute[] : []);
@@ -240,10 +272,11 @@ export class RouteFollowCacheService {
     });
   }
 
-  private database(): Promise<IDBDatabase> {
-    if (this.dbPromise) {
+  private database(dbName = nativeWalkingStorageKey(DB_NAME)): Promise<IDBDatabase> {
+    if (this.dbPromise && this.dbName === dbName) {
       return this.dbPromise;
     } else {
+      this.dbName = dbName;
       this.dbPromise = new Promise((resolve, reject) => {
         const settle = (outcome: () => void) => {
           window.clearTimeout(timer);
@@ -255,7 +288,7 @@ export class RouteFollowCacheService {
         });
         const timer = window.setTimeout(() => fail(new Error("Route cache did not open in time")), DB_OPEN_TIMEOUT_MS);
         try {
-          const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+          const request = window.indexedDB.open(dbName, DB_VERSION);
           request.onupgradeneeded = () => {
             const db = request.result;
             if (!db.objectStoreNames.contains(ROUTES_STORE)) {

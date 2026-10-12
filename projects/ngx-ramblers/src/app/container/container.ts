@@ -9,6 +9,7 @@ import { FooterComponent } from "../footer/footer";
 import { DataPopulationService } from "../pages/admin/data-population.service";
 import { VersionCheckService } from "../services/version-check.service";
 import { CanonicalLinkService } from "../services/canonical-link.service";
+import { NativeSiteService } from "../services/maps/native-site.service";
 import { AppShellService } from "../services/maps/app-shell.service";
 import { UrlService } from "../services/url.service";
 import { RejoinMeetingBannerComponent } from "../pages/video-meetings/rejoin-meeting-banner";
@@ -83,6 +84,7 @@ export class ContainerComponent implements OnInit, OnDestroy {
   private versionCheckService = inject(VersionCheckService);
   private canonicalLinkService = inject(CanonicalLinkService);
   protected appShell = inject(AppShellService);
+  private nativeSite = inject(NativeSiteService);
   private urlService = inject(UrlService);
   private subscriptions: Subscription[] = [];
 
@@ -96,12 +98,12 @@ export class ContainerComponent implements OnInit, OnDestroy {
   protected showFloatingNavigation(): boolean {
     const path = this.currentPath();
     const followPath = "/" + AppPath.ROOT + "/" + AppPath.ROUTE;
-    return this.appShell.installed() && path !== "/" && path !== "/home" && !path.startsWith(followPath);
+    return !this.nativeSite.needsChooser() && this.appShell.installed() && path !== "/" && path !== "/home" && !path.startsWith(followPath);
   }
 
   protected showFloatingShare(): boolean {
     const followPath = "/" + AppPath.ROOT + "/" + AppPath.ROUTE;
-    return this.appShell.installed() && !this.currentPath().startsWith(followPath);
+    return !this.nativeSite.needsChooser() && this.appShell.installed() && !this.currentPath().startsWith(followPath);
   }
 
   protected floatingBackAvailable(): boolean {

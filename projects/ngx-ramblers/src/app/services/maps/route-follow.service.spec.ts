@@ -1,3 +1,4 @@
+import { DistanceUnit, KM_PER_MILE } from "../../models/walk.model";
 import { TestBed } from "@angular/core/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { appAppearanceFromStored, AppAppearance, followCacheKey, followRouteCommands, followRouteNumberFromParam, isLiveFollowMode, RouteFollowLocationError, RouteFollowMode, RouteFollowReturnDirection, RouteWaypointKind } from "../../models/route-follow.model";
@@ -269,6 +270,14 @@ describe("RouteFollowService", () => {
   it("formats short distances in metres and longer ones in miles", () => {
     expect(service.formatDistance(80)).toBe("80 m");
     expect(service.formatDistance(3200)).toContain("mile");
+  });
+
+  it("formats recording distance in feet until a quarter mile, then miles", () => {
+    expect(service.formatDistance(0, DistanceUnit.FEET)).toBe("0 ft");
+    expect(service.formatDistance(80, DistanceUnit.FEET)).toBe("262 ft");
+    expect(service.formatDistance(KM_PER_MILE * 250 - 1, DistanceUnit.FEET)).toBe("1317 ft");
+    expect(service.formatDistance(KM_PER_MILE * 250, DistanceUnit.FEET)).toBe("0.25 miles");
+    expect(service.formatDistance(KM_PER_MILE * 1000, DistanceUnit.FEET)).toBe("1 mile");
   });
 
   it("formats durations under and over an hour", () => {

@@ -157,27 +157,34 @@
 .app-home-customise
   display: flex
   flex-direction: column
-  gap: 12px
-  margin-top: 20px
+  gap: var(--space-2)
+  margin-top: 0
+  font-size: 0.9rem
+  line-height: 1.35
 
-.app-home-customise-heading
-  display: flex
-  align-items: center
-  justify-content: space-between
-  gap: 12px
+.app-home-customise p
+  margin: 0 0 var(--space-2)
+  font-size: inherit
+  color: var(--app-muted)
 
-.app-home-customise-heading .btn
-  flex-shrink: 0
-  white-space: nowrap
+.app-home-customise .thumbnail-heading-frame
+  margin: var(--space-4) 0 0
 
-.app-home-customise h2
-  font-size: 1.05rem
-  margin: 0
+.app-home-customise .thumbnail-heading
+  font-size: 1rem
+
+.app-home-customise .thumbnail-heading-frame .btn
+  min-height: 40px
+  border-radius: 999px
+  font-size: 0.9rem
 
 .app-home-customise label
   display: flex
   align-items: flex-start
   gap: 12px
+  min-height: 0
+
+.app-home-customise label.app-home-customise-item
   min-height: 44px
 
 .app-home-customise-item span
@@ -593,3 +600,59 @@
 
 .app-home-map-list
   margin-top: 0
+
+.app-home-site
+  padding-top: 24px
+  max-width: 28rem
+
+.app-home-site h1
+  margin: 0 0 12px
+  font-size: 1.6rem
+
+.app-home-site p
+  color: var(--app-muted)
+  margin: 0 0 16px
+
+.app-home-site .form-control
+  margin-bottom: 16px
+
+.app-home-site .btn
+  width: 100%
+  min-height: 52px
+  border-radius: 999px
+
+.app-home-welcome-brand
+  width: 100%
+
+.app-home-welcome-brand strong
+  font-size: clamp(1.4rem, 6vw, 2.3rem)
+
+.app-home-welcome-brand .app-home-logo
+  max-height: 49px
+  width: 45px
+  height: 49px
+
+.app-home.app-home-choosing-site
+  padding-bottom: env(safe-area-inset-bottom, 0px)
+  overflow-y: visible
+
+.app-home-choosing-site .app-home-site
+  padding-top: 12px
+  margin: 0 auto
+
+.app-home-choosing-site .app-home-site p
+  margin-bottom: 10px
+
+.app-home-choosing-site .app-home-site h1
+  margin-bottom: 8px
+
+.app-home-choosing-site .app-home-site .form-control
+  margin-bottom: 10px
+
+.app-home-customise .thumbnail-heading-frame,
+.app-home-customise .thumbnail-heading
+  background-color: var(--app-bg)
+  color: var(--app-ink)
+
+.app-home-customise .thumbnail-heading-frame
+  border-color: var(--app-input-border)
