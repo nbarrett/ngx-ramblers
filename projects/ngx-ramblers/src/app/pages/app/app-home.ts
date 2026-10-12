@@ -226,13 +226,6 @@ const MAP_LIST_BATCH_SIZE = 20;
         }
       }
       </div>
-      @if (!customising && (legacyRecovery.routes.length || legacyRecovery.session)) {
-        <div class="alert alert-warning d-flex align-items-start gap-2" role="status">
-          <fa-icon [icon]="faCircleExclamation"/>
-          <div><strong class="d-block">Earlier saved data is available</strong>Recover saved maps or an unfinished recording into the correct website through Customise.</div>
-          <button class="btn btn-primary" type="button" (click)="toggleCustomising()">Recover</button>
-        </div>
-      }
       @if (!customising && view === AppHomeView.MAPS && layout.savedRoutes) {
         <input #gpxInput class="d-none" type="file" accept=".gpx,application/gpx+xml"
                ng2FileSelect [uploader]="gpxUploader">
