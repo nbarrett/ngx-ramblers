@@ -13,7 +13,9 @@ import {
   AdvancedSearchPreset,
   CUSTOM_PRESET_LABEL,
   DateRangeDirection,
+  DateRangePresetLabel,
   DateRangeUnit,
+  isUnboundedDateRangeLabel,
   DistanceRange,
   DistanceUnit,
   LocationMethod,
@@ -762,18 +764,21 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       ? this.presetRanges.find(item => item.label === this.selectedPresetLabel)
       : null;
     if (isNumber(candidate?.from) && isNumber(candidate?.to)) {
-      if (activePreset && !this.selectedPresetLabel.startsWith("All ")) {
+      if (activePreset && !isUnboundedDateRangeLabel(this.selectedPresetLabel)) {
         const presetRange = activePreset.range();
         if (this.dateRangeIsMuchWider(candidate as SearchDateRange, presetRange)) {
           return presetRange;
+        } else {
+          return candidate as SearchDateRange;
         }
+      } else {
+        return candidate as SearchDateRange;
       }
-      return candidate as SearchDateRange;
-    }
-    if (activePreset) {
+    } else if (activePreset) {
       return activePreset.range();
+    } else {
+      return undefined;
     }
-    return undefined;
   }
 
   private dateRangeIsMuchWider(candidate: SearchDateRange, expected: SearchDateRange): boolean {
@@ -1526,7 +1531,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
       this.selectedPresetLabel = undefined;
       return;
     }
-    const allTimePreset = this.presetRanges.find(p => p.label === "All Time");
+    const allTimePreset = this.presetRanges.find(p => p.label === DateRangePresetLabel.ALL_TIME);
     this.selectedPresetLabel = allTimePreset ? allTimePreset.label : this.presetRanges[0].label;
   }
 
@@ -1630,7 +1635,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
   }
 
   private applyFilterRangePreset(emit: boolean) {
-    const allTimePreset = this.presetRanges.find(p => p.label === "All Time");
+    const allTimePreset = this.presetRanges.find(p => p.label === DateRangePresetLabel.ALL_TIME);
     if (allTimePreset) {
       this.setRangeFromPreset(allTimePreset, emit);
     } else if (this.presetRanges.length > 0) {
@@ -1736,7 +1741,7 @@ export class AdvancedSearchPane implements OnInit, OnDestroy {
 
   private allTimePreset(): AdvancedSearchPreset {
     return {
-      label: "All Time",
+      label: DateRangePresetLabel.ALL_TIME,
       range: () => ({
         from: this.minDate.toMillis(),
         to: this.maxDate.toMillis()

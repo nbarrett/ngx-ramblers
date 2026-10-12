@@ -131,6 +131,8 @@ export interface FilterStateEvent {
   ascending: boolean;
   presetLabel?: string;
   savedCriteria: SavedSearchCriteria | null;
+  rangeFrom?: number | null;
+  rangeTo?: number | null;
 }
 
 export enum AdvancedSearchFieldType {
@@ -186,7 +188,27 @@ export enum DateRangeUnit {
   YEARS = "years"
 }
 
-export const ALL_FUTURE_DATES_LABEL = "All Future Dates";
+export enum DateRangePresetLabel {
+  ALL_PAST_DATES = "All Past Dates",
+  ALL_FUTURE_DATES = "All Future Dates",
+  ALL_TIME = "All Time",
+  NEXT_3_MONTHS = "Next 3 Months",
+  NEXT_6_MONTHS = "Next 6 Months",
+  NEXT_7_DAYS = "Next 7 Days",
+  NEXT_30_DAYS = "Next 30 Days",
+  PAST_2_YEARS = "Past 2 Years",
+  PAST_3_MONTHS = "Past 3 Months",
+  PAST_6_MONTHS = "Past 6 Months",
+  PAST_7_DAYS = "Past 7 Days",
+  PAST_30_DAYS = "Past 30 Days",
+  PAST_YEAR = "Past Year"
+}
+
+export function isUnboundedDateRangeLabel(label: string): boolean {
+  return label === DateRangePresetLabel.ALL_TIME
+    || label === DateRangePresetLabel.ALL_FUTURE_DATES
+    || label === DateRangePresetLabel.ALL_PAST_DATES;
+}
 
 export enum DateRangeDirection {
   FUTURE = "future",
@@ -294,16 +316,16 @@ export function createAllTimePreset(label: string, minDate: DateTime, maxDate: D
 
 export function allRelativePresets(): AdvancedSearchPreset[] {
   return [
-    createFuturePreset("Next 7 Days", { days: 7 }),
-    createFuturePreset("Next 30 Days", { days: 30 }),
-    createFuturePreset("Next 3 Months", { months: 3 }),
-    createFuturePreset("Next 6 Months", { months: 6 }),
-    createPastPreset("Past 7 Days", { days: 7 }),
-    createPastPreset("Past 30 Days", { days: 30 }),
-    createPastPreset("Past 3 Months", { months: 3 }),
-    createPastPreset("Past 6 Months", { months: 6 }),
-    createPastPreset("Past Year", { years: 1 }),
-    createPastPreset("Past 2 Years", { years: 2 })
+    createFuturePreset(DateRangePresetLabel.NEXT_7_DAYS, { days: 7 }),
+    createFuturePreset(DateRangePresetLabel.NEXT_30_DAYS, { days: 30 }),
+    createFuturePreset(DateRangePresetLabel.NEXT_3_MONTHS, { months: 3 }),
+    createFuturePreset(DateRangePresetLabel.NEXT_6_MONTHS, { months: 6 }),
+    createPastPreset(DateRangePresetLabel.PAST_7_DAYS, { days: 7 }),
+    createPastPreset(DateRangePresetLabel.PAST_30_DAYS, { days: 30 }),
+    createPastPreset(DateRangePresetLabel.PAST_3_MONTHS, { months: 3 }),
+    createPastPreset(DateRangePresetLabel.PAST_6_MONTHS, { months: 6 }),
+    createPastPreset(DateRangePresetLabel.PAST_YEAR, { years: 1 }),
+    createPastPreset(DateRangePresetLabel.PAST_2_YEARS, { years: 2 })
   ];
 }
 
@@ -313,31 +335,31 @@ export function resolvePresetByLabel(kebabLabel: string, stringUtils: { kebabCas
 
 export function createFuturePresetRanges(minDate: DateTime, maxDate: DateTime): AdvancedSearchPreset[] {
   return [
-    createFuturePreset("Next 7 Days", { days: 7 }),
-    createFuturePreset("Next 30 Days", { days: 30 }),
-    createFuturePreset("Next 3 Months", { months: 3 }),
-    createFuturePreset("Next 6 Months", { months: 6 }),
-    createAllTimePreset(ALL_FUTURE_DATES_LABEL, DateTime.local().startOf("day"), maxDate)
+    createFuturePreset(DateRangePresetLabel.NEXT_7_DAYS, { days: 7 }),
+    createFuturePreset(DateRangePresetLabel.NEXT_30_DAYS, { days: 30 }),
+    createFuturePreset(DateRangePresetLabel.NEXT_3_MONTHS, { months: 3 }),
+    createFuturePreset(DateRangePresetLabel.NEXT_6_MONTHS, { months: 6 }),
+    createAllTimePreset(DateRangePresetLabel.ALL_FUTURE_DATES, DateTime.local().startOf("day"), maxDate)
   ];
 }
 
 export function createPastPresetRanges(minDate: DateTime, maxDate: DateTime): AdvancedSearchPreset[] {
   return [
-    createPastPreset("Past 7 Days", { days: 7 }),
-    createPastPreset("Past 30 Days", { days: 30 }),
-    createPastPreset("Past 3 Months", { months: 3 }),
-    createPastPreset("Past 6 Months", { months: 6 }),
-    createAllTimePreset("All Past Dates", minDate, DateTime.local().startOf("day"))
+    createPastPreset(DateRangePresetLabel.PAST_7_DAYS, { days: 7 }),
+    createPastPreset(DateRangePresetLabel.PAST_30_DAYS, { days: 30 }),
+    createPastPreset(DateRangePresetLabel.PAST_3_MONTHS, { months: 3 }),
+    createPastPreset(DateRangePresetLabel.PAST_6_MONTHS, { months: 6 }),
+    createAllTimePreset(DateRangePresetLabel.ALL_PAST_DATES, minDate, DateTime.local().startOf("day"))
   ];
 }
 
 export function createAllWalksPresetRanges(minDate: DateTime, maxDate: DateTime): AdvancedSearchPreset[] {
   return [
-    createPastPreset("Past 30 Days", { days: 30 }),
-    createPastPreset("Past Year", { years: 1 }),
-    createFuturePreset("Next 30 Days", { days: 30 }),
-    createFuturePreset("Next 6 Months", { months: 6 }),
-    createAllTimePreset("All Time", minDate, maxDate)
+    createPastPreset(DateRangePresetLabel.PAST_30_DAYS, { days: 30 }),
+    createPastPreset(DateRangePresetLabel.PAST_YEAR, { years: 1 }),
+    createFuturePreset(DateRangePresetLabel.NEXT_30_DAYS, { days: 30 }),
+    createFuturePreset(DateRangePresetLabel.NEXT_6_MONTHS, { months: 6 }),
+    createAllTimePreset(DateRangePresetLabel.ALL_TIME, minDate, maxDate)
   ];
 }
 
@@ -368,5 +390,5 @@ export function presetRangesFor(direction: DateRangeDirection, minDate: DateTime
 }
 
 export function defaultProgrammeRange(maxDate: DateTime, dateTimeNowNoTime: DateTime): SearchDateRange {
-  return createAllTimePreset(ALL_FUTURE_DATES_LABEL, dateTimeNowNoTime, maxDate || dateTimeNowNoTime).range();
+  return createAllTimePreset(DateRangePresetLabel.ALL_FUTURE_DATES, dateTimeNowNoTime, maxDate || dateTimeNowNoTime).range();
 }

@@ -1,10 +1,28 @@
-import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, inject, Input, OnDestroy, OnInit, Output, OnChanges, SimpleChanges } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  EventEmitter,
+  inject,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChanges
+} from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
-import { NgTemplateOutlet, Location } from "@angular/common";
+import { Location, NgTemplateOutlet } from "@angular/common";
 import { CdkDrag, CdkDragDrop, CdkDropList, CdkDropListGroup } from "@angular/cdk/drag-drop";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowLeft, faChevronLeft, faChevronRight, faTrash, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowLeft,
+  faChevronLeft,
+  faChevronRight,
+  faTrash,
+  faTriangleExclamation
+} from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { chunk, first, last, uniq } from "es-toolkit/compat";
@@ -16,13 +34,13 @@ import { CalendarColourBy } from "../../../models/walks-config.model";
 import {
   CalendarDay,
   CalendarEntry,
+  CalendarMonthSummary,
   CalendarViewMode,
   CalendarWeek,
   COMMITTEE_EVENT_CALENDAR_COLOUR,
   displayedWalkProgrammeStatus,
   GROUP_EVENT_CALENDAR_COLOUR,
   programmeStatusDescriptor,
-  PROGRAMME_STATUS_DESCRIPTORS,
   programmeStatusDescriptorsFor
 } from "../../../models/walk-programme.model";
 import { DisplayedWalk, EventType } from "../../../models/walk.model";
@@ -30,7 +48,6 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { walkLeaderDisplayName } from "../../../functions/walks/walk-leader-fields";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
-import { PathSegment } from "../../../models/content-text.model";
 import { WalkProgrammeService } from "../../../services/walks-and-events/walk-programme.service";
 import { ScrollPositionService } from "../../../services/scroll-position.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
@@ -42,7 +59,7 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { BroadcastService } from "../../../services/broadcast-service";
-import { NotifierService, AlertInstance } from "../../../services/notifier.service";
+import { AlertInstance, NotifierService } from "../../../services/notifier.service";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { CommitteeFileService } from "../../../services/committee/committee-file.service";
@@ -89,11 +106,11 @@ const LEADER_GRADE_PALETTE: string[] = [
         <div class="calendar-sticky sticky-toolbar">
         <div class="calendar-toolbar">
           <div class="calendar-nav">
-            <button type="button" class="btn btn-sm btn-quiet" (click)="previous()">
+            <button type="button" class="btn btn-sm btn-quiet" [disabled]="!canGoPrevious()" (click)="previous()">
               <fa-icon [icon]="faChevronLeft"/>
             </button>
-            <button type="button" class="btn btn-sm btn-quiet" (click)="today()">Today</button>
-            <button type="button" class="btn btn-sm btn-quiet" (click)="next()">
+            <button type="button" class="btn btn-sm btn-quiet" [disabled]="!todayInRange()" (click)="today()">Today</button>
+            <button type="button" class="btn btn-sm btn-quiet" [disabled]="!canGoNext()" (click)="next()">
               <fa-icon [icon]="faChevronRight"/>
             </button>
             <span class="calendar-title">{{ periodTitle() }}</span>
@@ -146,7 +163,8 @@ const LEADER_GRADE_PALETTE: string[] = [
               @for (day of week.days; track day.value) {
                 <div class="calendar-cell" [class.outside]="!day.inCurrentPeriod" [class.today]="day.isToday"
                      [class.suggested]="day.value === suggestedDate"
-                     [class.weekend]="day.isWeekend" [class.selectable]="selectMode" (click)="onCellClick(day)"
+                     [class.out-of-range]="dayOutsideRange(day)"
+                     [class.weekend]="day.isWeekend" [class.selectable]="selectMode && !dayOutsideRange(day)" (click)="onCellClick(day)"
                      cdkDropList [cdkDropListData]="day"
                      [cdkDropListDisabled]="!dragEnabled()" (cdkDropListDropped)="onDrop($event)">
                   <div class="cell-date">{{ day.dayOfMonth }}</div>
@@ -189,9 +207,13 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy, OnChan
   @Input() embedded = false;
   @Input() readOnly = false;
   @Input() displayedWalks: DisplayedWalk[] | null = null;
+  @Input() criteria: object | null = null;
+  @Input() constrainFrom: number | null = null;
+  @Input() constrainTo: number | null = null;
   @Input() selectMode = false;
   @Input() includeCommitteeEvents = false;
   @Output() dateSelected = new EventEmitter<number>();
+  @Output() monthLoaded = new EventEmitter<CalendarMonthSummary>();
   @Output() committeeEventSelected = new EventEmitter<CalendarEntry>();
   @Output() committeeEventDeleted = new EventEmitter<CalendarEntry>();
   protected readonly faTrash = faTrash;
@@ -257,7 +279,10 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy, OnChan
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes.displayedWalks && this.notify) {
+    if ((changes.displayedWalks || changes.criteria || changes.constrainFrom || changes.constrainTo) && this.notify) {
+      if (changes.constrainFrom || changes.constrainTo) {
+        this.clampAnchorToRange();
+      }
       void this.reload();
     }
   }
@@ -281,6 +306,7 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy, OnChan
     this.viewMode = viewParam === CalendarViewMode.WEEK ? CalendarViewMode.WEEK : CalendarViewMode.MONTH;
     this.colourBy = this.validColourBy(colourParam) || this.walksConfigService.walksConfig()?.calendarDefaultColourBy || CalendarColourBy.STATUS;
     this.anchor = dateParam ? this.dateUtils.asValueNoTime(dateParam) : this.dateUtils.dateTimeNowNoTime().valueOf();
+    this.clampAnchorToRange();
     this.walksOnly = walksOnlyParam === "true";
     if (this.selectMode) {
       this.suggestedDate = dateParam ? this.dateUtils.asValueNoTime(dateParam) : null;
@@ -306,21 +332,34 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy, OnChan
     const start = this.rangeStart();
     const end = this.rangeEnd();
     try {
-      const events = this.displayedWalks ? this.displayedWalks.map(displayed => displayed.walk) : await this.walkProgrammeService.eventsInRange({
-        dateFrom: start.valueOf(),
-        dateTo: end.endOf("day").valueOf(),
-        walksOnly: this.walksOnly || this.display.walkPopulationWalksManager()
-      });
-      const fromValue = start.valueOf();
-      const toValue = end.endOf("day").valueOf();
-      const committeeFiles = await this.committeeFilesInRange(fromValue, toValue);
+      const monthStart = start.valueOf();
+      const monthEnd = end.endOf("day").valueOf();
+      const fromValue = this.constrainFrom && this.constrainFrom > monthStart ? this.constrainFrom : monthStart;
+      const toValue = this.constrainTo && this.constrainTo < monthEnd ? this.constrainTo : monthEnd;
+      let events: ExtendedGroupEvent[] = [];
+      if (fromValue > toValue) {
+        events = [];
+      } else if (this.displayedWalks) {
+        events = this.displayedWalks.map(displayed => displayed.walk);
+      } else {
+        events = await this.walkProgrammeService.eventsInRange({
+          dateFrom: fromValue,
+          dateTo: toValue,
+          walksOnly: this.walksOnly || this.display.walkPopulationWalksManager(),
+          criteria: this.criteria
+        });
+      }
+      const committeeFiles = await this.committeeFilesInRange(monthStart, monthEnd);
       if (requestId === this.reloadRequestId) {
-        this.buildDays(start.valueOf(), end.valueOf(), events.filter(event => !this.display.walkHiddenFromPublic(event)), committeeFiles);
+        const visibleEvents = events.filter(event => !this.display.walkHiddenFromPublic(event));
+        this.buildDays(start.valueOf(), end.valueOf(), visibleEvents, committeeFiles);
+        this.emitMonthLoaded();
       }
     } catch (error) {
       this.logger.error("reload:error", error);
       if (requestId === this.reloadRequestId) {
         this.buildDays(start.valueOf(), end.valueOf(), [], []);
+        this.emitMonthLoaded();
       }
     }
     if (requestId === this.reloadRequestId) {
@@ -567,8 +606,19 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy, OnChan
   }
 
   onCellClick(day: CalendarDay) {
-    if (this.selectMode) {
+    if (this.selectMode && !this.dayOutsideRange(day)) {
       this.dateSelected.emit(day.value);
+    }
+  }
+
+  dayOutsideRange(day: CalendarDay): boolean {
+    if (!this.constrainFrom && !this.constrainTo) {
+      return false;
+    } else {
+      const dayStart = this.dateUtils.asValueNoTime(day.value);
+      const beforeFrom = this.constrainFrom && dayStart < this.dateUtils.asValueNoTime(this.constrainFrom);
+      const afterTo = this.constrainTo && dayStart > this.dateUtils.asValueNoTime(this.constrainTo);
+      return !!(beforeFrom || afterTo);
     }
   }
 
@@ -594,21 +644,77 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy, OnChan
     return this.dateUtils.asString(this.anchor, null, "MMMM yyyy");
   }
 
+  private emitMonthLoaded() {
+    const eventCount = this.days
+      .filter(day => day.inCurrentPeriod)
+      .reduce((sum, day) => sum + day.entries.filter(entry => !entry.isCommitteeEvent).length, 0);
+    this.monthLoaded.emit({eventCount, periodTitle: this.periodTitle()});
+  }
+
   previous() {
-    this.shiftAnchor(-1);
+    if (this.canGoPrevious()) {
+      this.shiftAnchor(-1);
+    }
   }
 
   next() {
-    this.shiftAnchor(1);
+    if (this.canGoNext()) {
+      this.shiftAnchor(1);
+    }
+  }
+
+  canGoPrevious(): boolean {
+    return this.periodOverlapsRange(this.shiftedAnchor(-1));
+  }
+
+  canGoNext(): boolean {
+    return this.periodOverlapsRange(this.shiftedAnchor(1));
+  }
+
+  todayInRange(): boolean {
+    return this.periodOverlapsRange(this.dateUtils.dateTimeNowNoTime().valueOf());
+  }
+
+  private shiftedAnchor(direction: number): number {
+    const delta = this.viewMode === CalendarViewMode.WEEK ? {weeks: direction} : {months: direction};
+    return this.dateUtils.asDateTime(this.anchor).plus(delta).valueOf();
+  }
+
+  private periodOverlapsRange(anchor: number): boolean {
+    if (!this.constrainFrom && !this.constrainTo) {
+      return true;
+    } else {
+      const periodStart = this.viewMode === CalendarViewMode.WEEK
+        ? this.dateUtils.asDateTime(anchor).startOf("week").valueOf()
+        : this.dateUtils.asDateTime(anchor).startOf("month").valueOf();
+      const periodEnd = this.viewMode === CalendarViewMode.WEEK
+        ? this.dateUtils.asDateTime(anchor).endOf("week").endOf("day").valueOf()
+        : this.dateUtils.asDateTime(anchor).endOf("month").endOf("day").valueOf();
+      const rangeStart = this.constrainFrom || periodStart;
+      const rangeEnd = this.constrainTo || periodEnd;
+      return periodEnd >= rangeStart && periodStart <= rangeEnd;
+    }
+  }
+
+  private clampAnchorToRange() {
+    if (!this.periodOverlapsRange(this.anchor)) {
+      const fallback = this.constrainFrom || this.constrainTo || this.dateUtils.dateTimeNowNoTime().valueOf();
+      this.anchor = this.dateUtils.asValueNoTime(fallback);
+      void this.storeAnchor(this.anchor);
+    }
   }
 
   private shiftAnchor(direction: number) {
-    const shifted = this.dateUtils.asDateTime(this.anchor).plus({months: direction});
-    this.storeAnchor(shifted.valueOf());
+    const shifted = this.shiftedAnchor(direction);
+    if (this.periodOverlapsRange(shifted)) {
+      this.storeAnchor(shifted);
+    }
   }
 
   today() {
-    this.storeAnchor(this.dateUtils.dateTimeNowNoTime().valueOf());
+    if (this.todayInRange()) {
+      this.storeAnchor(this.dateUtils.dateTimeNowNoTime().valueOf());
+    }
   }
 
   showDate(value: number): void {
@@ -622,12 +728,14 @@ export class WalkProgrammeCalendarComponent implements OnInit, OnDestroy, OnChan
 
   private storeAnchor(value: number): Promise<boolean> {
     const date = this.dateUtils.asString(value, null, this.dateUtils.formats.yearMonthDayWithDashes);
-    if (this.uiActions.queryParameter(StoredValue.CALENDAR_DATE) === date) {
+    const today = this.dateUtils.asString(this.dateUtils.dateTimeNowNoTime().valueOf(), null, this.dateUtils.formats.yearMonthDayWithDashes);
+    const dateParam = date === today ? null : date;
+    if (this.uiActions.queryParameter(StoredValue.CALENDAR_DATE) === dateParam) {
       return Promise.resolve(true);
     } else {
       this.scrollPosition.retain();
       return this.uiActions.updateQueryParameters({
-        [StoredValue.CALENDAR_DATE]: date
+        [StoredValue.CALENDAR_DATE]: dateParam
       });
     }
   }

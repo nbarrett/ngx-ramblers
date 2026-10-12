@@ -1,9 +1,9 @@
-import { WalksAdminSegment, walksFeaturePath } from "../../../models/walks-route-paths.model";
+import { WalkProgrammeCalendarComponent } from "../../../pages/walks/walk-programme-calendar/walk-programme-calendar";
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
 import { Location } from "@angular/common";
 import { range } from "es-toolkit";
-import { toPairs, isArray, isNull, isUndefined } from "es-toolkit/compat";
+import { toPairs, isArray, isNull, isUndefined, keys } from "es-toolkit/compat";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
@@ -18,6 +18,7 @@ import { DeviceSize } from "../../../models/page.model";
 import { EventPopulation } from "../../../models/system.model";
 import { DisplayedWalk, EventEventField, EventField, GroupEventField, PUBLIC_GROUP_EVENT_SELECT, WalkListView, WalkViewMode } from "../../../models/walk.model";
 import { EventsData } from "../../../models/group-events.model";
+import { CalendarMonthSummary } from "../../../models/walk-programme.model";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -33,13 +34,13 @@ import { quickSearchCriteria } from "../../../functions/walks/quick-search";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { WalksConfig } from "../../../models/walks-config.model";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
-import { StoredValue } from "../../../models/ui-actions";
+import { StoredValue, StoredValueQueryParameters } from "../../../models/ui-actions";
 import { WalkSearch } from "../../../pages/walks/walk-search/walk-search";
 import { WalkCardListComponent } from "../../../pages/walks/walk-view/walk-card-list";
 import { WalksMapView } from "../../../pages/walks/walk-list/walks-map-view";
 import { WalkViewComponent } from "../../../pages/walks/walk-view/walk-view";
 import { EventTableView } from "./event-table-view";
-import { AdvancedSearchCriteria, DEFAULT_FILTER_PARAMETERS, FilterParameters, FilterStateEvent, resolvePresetByLabel } from "../../../models/search.model";
+import { AdvancedSearchCriteria, DateRangePresetLabel, DEFAULT_FILTER_PARAMETERS, FilterParameters, FilterStateEvent, resolvePresetByLabel } from "../../../models/search.model";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { InputSource } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
@@ -64,15 +65,15 @@ import { environment } from "../../../../environments/environment";
                           (filterStateChange)="onFilterStateChange($event)">
           <div view-selector>
             <div class="d-flex gap-2">
-              <div class="btn-group mb-0 btn-group-custom w-100 w-md-auto" dropdown>
+              <div class="btn-group mb-0 btn-group-custom w-100 w-md-auto" dropdown container="body" placement="bottom left">
                 <button aria-controls="dropdown-animated" class="dropdown-toggle btn pager-btn me-0"
                         dropdownToggle type="button">
                   <fa-icon
-                    [icon]="walkListView === WalkListView.CARDS ? faImages : (walkListView === WalkListView.TABLE ? faTableCells : faWalking)"/>
+                    [icon]="walkListView === WalkListView.CALENDAR ? faCalendarDays : walkListView === WalkListView.CARDS ? faImages : (walkListView === WalkListView.TABLE ? faTableCells : faWalking)"/>
                   <span class="ms-2">{{ stringUtils.asTitle(walkListView) }} View</span>
                   <span class="caret"></span>
                 </button>
-                <ul *dropdownMenu class="dropdown-menu" id="dropdown-animated" role="menu">
+                <ul *dropdownMenu class="dropdown-menu walk-list-view-menu" id="dropdown-animated" role="menu">
                   <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.CARDS)" class="dropdown-item d-flex align-items-center">
                     <fa-icon [icon]="faImages" class="me-2"/>{{ stringUtils.asTitle(WalkListView.CARDS) }} View
                     @if (walkListView === WalkListView.CARDS) {
@@ -81,7 +82,7 @@ import { environment } from "../../../../environments/environment";
                   </a></li>
                   <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.TABLE)" class="dropdown-item d-flex align-items-center">
                     <fa-icon [icon]="faTableCells" class="me-2"/>{{ stringUtils.asTitle(WalkListView.TABLE) }} View
-                    @if (!walkListView || walkListView === WalkListView.TABLE) {
+                    @if (walkListView === WalkListView.TABLE) {
                       <fa-icon [icon]="faCheck" class="ms-auto ps-3"/>
                     }
                   </a></li>
@@ -92,8 +93,11 @@ import { environment } from "../../../../environments/environment";
                     }
                   </a></li>
                   @if (showCalendarView()) {
-                    <li role="menuitem"><a role="button" (click)="openAreaCalendar()" class="dropdown-item d-flex align-items-center">
+                    <li role="menuitem"><a role="button" (click)="switchToView(WalkListView.CALENDAR)" class="dropdown-item d-flex align-items-center">
                       <fa-icon [icon]="faCalendarDays" class="me-2"/>Calendar View
+                      @if (walkListView === WalkListView.CALENDAR) {
+                        <fa-icon [icon]="faCheck" class="ms-auto ps-3"/>
+                      }
                     </a></li>
                   }
                   <li class="dropdown-divider" [class.d-none]="!display.memberCanCreateWalk()"></li>
@@ -112,12 +116,17 @@ import { environment } from "../../../../environments/environment";
               }
             </div>
           </div>
-          @if (walkListView !== WalkListView.MAP && pageCount > 1) {
+          @if (walkListView !== WalkListView.MAP && walkListView !== WalkListView.CALENDAR && pageCount > 1) {
             <ng-container *ngTemplateOutlet="paginationControls"/>
           }
         </app-walks-search>
         @if (showDiagnostics) {
           <pre class="bg-dark text-light p-3 rounded mb-2 mt-2" style="font-size: 0.8rem; max-height: 300px; overflow: auto;">{{ debugCriteria() | json }}</pre>
+        }
+        @if (walkListView === WalkListView.CALENDAR) {
+          <app-walk-programme-calendar [embedded]="true" [readOnly]="true"
+                                       [criteria]="calendarCriteria" [constrainFrom]="calendarConstrainFrom" [constrainTo]="calendarConstrainTo"
+                                       (monthLoaded)="onCalendarMonthLoaded($event)"/>
         }
         @if (walkListView === WalkListView.CARDS) {
           <app-walk-card-list [currentPageWalks]="currentPageWalks"/>
@@ -132,7 +141,7 @@ import { environment } from "../../../../environments/environment";
             </div>
           }
         }
-        @if (!walkListView || walkListView === WalkListView.TABLE) {
+        @if (walkListView === WalkListView.TABLE) {
           <app-event-table-view [currentPageEvents]="currentPageWalks"/>
         }
         
@@ -148,7 +157,7 @@ import { environment } from "../../../../environments/environment";
       </div>
     </ng-template>
   `,
-  imports: [WalkSearch, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective,
+  imports: [WalkProgrammeCalendarComponent, WalkSearch, BsDropdownDirective, BsDropdownToggleDirective, FontAwesomeModule, BsDropdownMenuDirective,
     PaginationComponent, FormsModule, WalkCardListComponent, WalksMapView, WalkViewComponent, EventTableView, JsonPipe, NgTemplateOutlet]
 })
 export class EventsFull implements OnInit, OnDestroy {
@@ -208,7 +217,10 @@ export class EventsFull implements OnInit, OnDestroy {
       this.logger.info("eventsData changed:", nextKey, "eventsInitialised:", this.eventsInitialised);
       this.applyEventsDataConfig();
       if (this.eventsInitialised) {
-        this.pageNumber = 1;
+        const pageFromUrl = this.route.snapshot.queryParamMap.get(this.stringUtils.kebabCase(StoredValue.PAGE));
+        if (!pageFromUrl) {
+          this.pageNumber = 1;
+        }
         this.performServerSideSearch();
       }
     }
@@ -228,12 +240,15 @@ export class EventsFull implements OnInit, OnDestroy {
   private lastNonMapPageNumber = 1;
   private searchCounter = 0;
   private latestSearchId = 0;
+  public calendarCriteria: object | null = null;
+  public calendarConstrainFrom: number | null = null;
+  public calendarConstrainTo: number | null = null;
   public mapSelected: DisplayedWalk | null = null;
   public paginationTotalItems = 0;
   private isInitializing = true;
   private queryParamsActive = false;
   private subscriptions: Subscription[] = [];
-  protected walkListView: WalkListView;
+  protected walkListView: WalkListView = WalkListView.CARDS;
   public storedAdvancedSearchCriteria: AdvancedSearchCriteria | null = null;
   public showDiagnostics = false;
   private defaultWalkListView: WalkListView = WalkListView.CARDS;
@@ -252,8 +267,11 @@ export class EventsFull implements OnInit, OnDestroy {
       const page = params.get(this.stringUtils.kebabCase(StoredValue.PAGE));
       const advancedSearch = params.get(this.stringUtils.kebabCase(StoredValue.ADVANCED_SEARCH));
       const dateRangePreset = params.get(this.stringUtils.kebabCase(StoredValue.DATE_RANGE_PRESET));
+      const calendarDate = params.get(this.stringUtils.kebabCase(StoredValue.CALENDAR_DATE));
+      const calendarView = params.get(this.stringUtils.kebabCase(StoredValue.CALENDAR_VIEW));
+      const calendarColour = params.get(this.stringUtils.kebabCase(StoredValue.CALENDAR_COLOUR_BY));
       const advancedCriteria = advancedSearchCriteriaFromParams(params, this.stringUtils);
-      const hasQueryState = [q, type, sort, view, page, advancedSearch, dateRangePreset].some(value => !isNull(value)) || !!advancedCriteria;
+      const hasQueryState = [q, type, sort, view, page, advancedSearch, dateRangePreset, calendarDate, calendarView, calendarColour].some(value => !isNull(value)) || !!advancedCriteria;
       this.queryParamsActive = hasQueryState;
       if (!hasQueryState) {
         this.resetQueryDrivenState();
@@ -267,11 +285,12 @@ export class EventsFull implements OnInit, OnDestroy {
         if (!isNull(sort)) {
           this.filterParameters.ascending = sort !== "false";
         }
-        if (view === WalkListView.CALENDAR) {
-          void this.openAreaCalendar();
-        } else if (view === "cards" || view === "table" || view === "map") {
-          this.updateViewAndPagination(view as WalkListView);
-          this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, this.walkListView);
+        const allowedViews: WalkListView[] = [WalkListView.CARDS, WalkListView.TABLE, WalkListView.MAP, WalkListView.CALENDAR];
+        const resolvedView = allowedViews.find(item => item === view) || WalkListView.CARDS;
+        this.updateViewAndPagination(resolvedView);
+        this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, this.walkListView);
+        if (!view) {
+          this.replaceQueryParams({[StoredValue.WALK_LIST_VIEW]: WalkListView.CARDS});
         }
         if (page) {
           const pageNum = asNumber(page);
@@ -304,7 +323,9 @@ export class EventsFull implements OnInit, OnDestroy {
     }));
     this.subscriptions.push(this.systemConfigService.events().subscribe(systemConfig => {
       this.defaultWalkListView = systemConfig.group.defaultWalkListView;
-      this.applyListView(this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, systemConfig.group.defaultWalkListView) as WalkListView);
+      if (!this.queryParamsActive) {
+        this.updateViewAndPagination(this.defaultWalkListView);
+      }
     }));
     this.walksConfig = this.walksConfigService.walksConfig() ?? this.walksConfigService.default();
     this.subscriptions.push(this.walksConfigService.events().subscribe(config => this.walksConfig = config));
@@ -392,26 +413,25 @@ export class EventsFull implements OnInit, OnDestroy {
 
   onAdvancedSearch(criteria: AdvancedSearchCriteria) {
     const nextCriteria = hasAdvancedCriteria(criteria) ? criteria : null;
-    const criteriaChanged = JSON.stringify(this.advancedSearchCriteria) !== JSON.stringify(nextCriteria);
-    const shouldResetPage = !this.isInitializing && criteriaChanged;
     this.storedAdvancedSearchCriteria = nextCriteria;
     this.advancedSearchCriteria = this.advancedSearchAllowed() ? nextCriteria : null;
-    this.logger.info("onAdvancedSearch: criteriaChanged:", criteriaChanged, "shouldResetPage:", shouldResetPage, "queryParamsActive:", this.queryParamsActive, "nextCriteria:", nextCriteria);
-    if (shouldResetPage) {
-      this.pageNumber = 1;
-      if (this.queryParamsActive) {
-        const criteriaParams = advancedCriteriaQueryParams(nextCriteria, this.stringUtils, this.dateUtils);
-        this.replaceQueryParams({
-          [this.stringUtils.kebabCase(StoredValue.PAGE)]: 1,
-          ...criteriaParams
-        });
-      }
-    }
+    this.logger.info("onAdvancedSearch: queryParamsActive:", this.queryParamsActive, "nextCriteria:", nextCriteria);
     this.performServerSideSearch();
+  }
+
+  onCalendarMonthLoaded(summary: CalendarMonthSummary) {
+    this.serverSideTotalItems = summary.eventCount;
+    this.pageCount = 1;
+    this.pages = [1];
+    const totalOnly = this.stringUtils.pluraliseWithCount(summary.eventCount, "event");
+    this.notify.progress(`Showing ${totalOnly}${EM_DASH_WITH_SPACES}${summary.periodTitle}`);
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, true));
   }
 
   onFilterStateChange(event: FilterStateEvent) {
     this.selectedPresetLabel = event.presetLabel;
+    this.calendarConstrainFrom = event.rangeFrom ?? null;
+    this.calendarConstrainTo = event.rangeTo ?? null;
     if (this.eventsData) {
       this.eventsData.filterCriteria = event.filterCriteria;
       this.eventsData.sortOrder = event.ascending ? SortOrder.DATE_ASCENDING : SortOrder.DATE_DESCENDING;
@@ -469,22 +489,28 @@ export class EventsFull implements OnInit, OnDestroy {
       }
       let dateFrom = baseFrom;
       let dateTo = baseTo;
-      if (this.advancedSearchCriteria?.dateFrom) {
-        const advFrom = this.dateUtils.asDateTime(this.advancedSearchCriteria.dateFrom);
+      const allTimeSelected = this.selectedPresetLabel === DateRangePresetLabel.ALL_TIME;
+      const presetFrom = this.advancedSearchCriteria?.dateFrom ? this.dateUtils.asDateTime(this.advancedSearchCriteria.dateFrom) : null;
+      const presetTo = this.advancedSearchCriteria?.dateTo ? this.dateUtils.asDateTime(this.advancedSearchCriteria.dateTo) : null;
+      if (allTimeSelected) {
+        dateFrom = null;
+        dateTo = null;
+      } else if (presetFrom) {
         if (baseFrom) {
-          dateFrom = advFrom > baseFrom ? advFrom : baseFrom;
-        } else if (!baseTo || advFrom < baseTo) {
-          dateFrom = advFrom;
+          dateFrom = presetFrom > baseFrom ? presetFrom : baseFrom;
+        } else if (!baseTo || presetFrom < baseTo) {
+          dateFrom = presetFrom;
         }
       }
-      if (this.advancedSearchCriteria?.dateTo) {
-        const advTo = this.dateUtils.asDateTime(this.advancedSearchCriteria.dateTo);
+      if (!allTimeSelected && presetTo) {
         if (baseTo) {
-          dateTo = advTo < baseTo ? advTo : baseTo;
-        } else if (!baseFrom || advTo > baseFrom) {
-          dateTo = advTo;
+          dateTo = presetTo < baseTo ? presetTo : baseTo;
+        } else if (!baseFrom || presetTo > baseFrom) {
+          dateTo = presetTo;
         }
       }
+      this.calendarConstrainFrom = allTimeSelected ? (presetFrom ? presetFrom.valueOf() : null) : (dateFrom ? dateFrom.valueOf() : null);
+      this.calendarConstrainTo = allTimeSelected ? (presetTo ? presetTo.valueOf() : null) : (dateTo ? dateTo.valueOf() : null);
       if (dateFrom || dateTo) {
         const dateCriteria: any = {};
         if (dateFrom) {
@@ -505,8 +531,9 @@ export class EventsFull implements OnInit, OnDestroy {
         walkPopulationLocal: this.display.walkPopulationLocal(),
         logger: this.logger
       });
-      criteriaParts.push(...advancedCriteria);
-      const criteria = criteriaParts.length === 0 ? {} : (criteriaParts.length === 1 ? criteriaParts[0] : {$and: criteriaParts});
+      criteriaParts.push(...advancedCriteria.filter(part => part && keys(part).length > 0));
+      const populatedCriteria = criteriaParts.filter(part => part && keys(part).length > 0);
+      const criteria = populatedCriteria.length === 0 ? {} : (populatedCriteria.length === 1 ? populatedCriteria[0] : {$and: populatedCriteria});
       const sortAscending = this.uiActionsService.booleanOf(this.filterParameters.ascending);
       const sort = sortAscending
         ? {[GroupEventField.START_DATE]: 1}
@@ -515,6 +542,15 @@ export class EventsFull implements OnInit, OnDestroy {
       if (!this.memberLoginService.memberLoggedIn()) {
         await this.walksConfigService.walksConfigLoaded();
       }
+      if (this.walkListView === WalkListView.CALENDAR) {
+        this.calendarCriteria = criteria;
+        this.filteredWalks = [];
+        this.currentPageWalks = [];
+        this.serverSideTotalItems = 0;
+        this.pageCount = 1;
+        this.pages = [1];
+        this.notify.clearBusy();
+      } else {
       const clientSidePagination = this.walkListView !== WalkListView.MAP && this.display.publicVisibilityFilteringActive();
       if (this.walkListView === WalkListView.MAP) {
         dataQueryOptions.select = MAP_VIEW_SELECT;
@@ -540,10 +576,10 @@ export class EventsFull implements OnInit, OnDestroy {
         if (clientSidePagination) {
           this.serverSideTotalItems = displayedWalks.length;
           const pageCount = Math.max(1, Math.ceil(displayedWalks.length / this.pageSize));
-          if (this.pageNumber > pageCount) {
-            this.pageNumber = 1;
+          if (displayedWalks.length > 0 && this.pageNumber > pageCount) {
+            this.pageNumber = pageCount;
             if (this.queryParamsActive) {
-              this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: 1});
+              this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: this.pageNumber});
             }
           }
           const startIndex = (this.pageNumber - 1) * this.pageSize;
@@ -551,25 +587,36 @@ export class EventsFull implements OnInit, OnDestroy {
         } else {
           this.serverSideTotalItems = response.pagination?.total || events.length || 0;
           const totalPages = Math.ceil(this.serverSideTotalItems / this.pageSize);
-          if (events.length === 0 && totalPages > 0 && this.pageNumber > totalPages) {
-            this.pageNumber = 1;
+          if (this.serverSideTotalItems > 0 && this.pageNumber > totalPages) {
+            this.pageNumber = totalPages;
             if (this.queryParamsActive) {
-              this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: 1});
+              this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: this.pageNumber});
             }
             this.notify.clearBusy();
-            return this.performServerSideSearch();
+            await this.performServerSideSearch();
+          } else {
+            this.currentPageWalks = displayedWalks;
+            this.updatePaginationStatus();
+            if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0 && this.walkListView !== WalkListView.TABLE) {
+              const firstWalk = this.currentPageWalks[0].walk;
+              if (this.display.walkDetailsComplete(firstWalk)) {
+                this.display.toggleExpandedViewFor(firstWalk, WalkViewMode.VIEW_SINGLE);
+              }
+            }
           }
-          this.currentPageWalks = displayedWalks;
         }
-        this.updatePaginationStatus();
-        if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0 && this.walkListView !== WalkListView.TABLE) {
-          const firstWalk = this.currentPageWalks[0].walk;
-          if (this.display.walkDetailsComplete(firstWalk)) {
-            this.display.toggleExpandedViewFor(firstWalk, WalkViewMode.VIEW_SINGLE);
+        if (clientSidePagination) {
+          this.updatePaginationStatus();
+          if (this.currentPageWalks.length > 0 && this.display.expandedWalks.length === 0 && this.walkListView !== WalkListView.TABLE) {
+            const firstWalk = this.currentPageWalks[0].walk;
+            if (this.display.walkDetailsComplete(firstWalk)) {
+              this.display.toggleExpandedViewFor(firstWalk, WalkViewMode.VIEW_SINGLE);
+            }
           }
         }
       }
       this.notify.clearBusy();
+      }
     } catch (error) {
       if (thisSearchId === this.latestSearchId) {
         this.logger.error("performServerSideSearch failed:", error);
@@ -586,17 +633,17 @@ export class EventsFull implements OnInit, OnDestroy {
   private updatePaginationStatus() {
     const totalItems = this.serverSideTotalItems;
     this.paginationTotalItems = totalItems;
-    if (this.walkListView === WalkListView.MAP) {
+    if (this.walkListView === WalkListView.MAP || this.walkListView === WalkListView.CALENDAR) {
       this.pageCount = 1;
       this.pageNumber = 1;
       this.pages = [1];
       this.currentPageWalks = this.filteredWalks;
     } else {
       this.pageCount = Math.ceil(totalItems / this.pageSize);
-      if (this.pageNumber > this.pageCount && this.pageCount > 0) {
-        this.pageNumber = 1;
+      if (totalItems > 0 && this.pageNumber > this.pageCount && this.pageCount > 0) {
+        this.pageNumber = this.pageCount;
         if (this.queryParamsActive) {
-          this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: 1});
+          this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.PAGE)]: this.pageNumber});
         }
       }
       this.pages = range(1, this.pageCount + 1);
@@ -611,11 +658,11 @@ export class EventsFull implements OnInit, OnDestroy {
     const filterSummary = advancedSearchSummary(this.advancedSearchCriteria, this.stringUtils, this.dateUtils, this.selectedPresetLabel, this.filterParameters.ascending);
     const filterSuffix = filterSummary ? `${EM_DASH_WITH_SPACES}${filterSummary}` : "";
     const noResultsMessage = `${noResultsBase}${filterSuffix}`;
-    const alertMessage = this.walkListView === WalkListView.MAP
+    const alertMessage = this.walkListView === WalkListView.MAP || this.walkListView === WalkListView.CALENDAR
       ? (this.filteredWalks?.length ? `Showing ${totalOnly}${filterSuffix}` : noResultsMessage)
       : (hasEvents ? (this.pageCount <= 1 ? `${totalOnly}${filterSuffix}` : `${offset} to ${toNumber} of ${totalOnly}${pageIndicator ? EM_DASH_WITH_SPACES + pageIndicator : ""}${filterSuffix}`) : noResultsMessage);
     this.notify.progress(alertMessage);
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pageCount > 1 || this.walkListView === WalkListView.MAP));
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pageCount > 1 || this.walkListView === WalkListView.MAP || this.walkListView === WalkListView.CALENDAR));
   }
 
   refreshEvents(_event?: any): void {
@@ -657,29 +704,12 @@ export class EventsFull implements OnInit, OnDestroy {
     }
   }
 
-  openAreaCalendar(): Promise<boolean> {
-    return this.router.navigate(["/" + walksFeaturePath(this.display.walksArea(), WalksAdminSegment.CALENDAR)], {queryParamsHandling: "preserve"});
-  }
-
   switchToView(walkListView: WalkListView) {
-    if (walkListView === WalkListView.CALENDAR) {
-      void this.openAreaCalendar();
-    } else {
-      this.updateViewAndPagination(walkListView);
-      this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, walkListView);
-      if (this.queryParamsActive) {
-        this.replaceQueryParams({[this.stringUtils.kebabCase(StoredValue.WALK_LIST_VIEW)]: this.stringUtils.kebabCase(walkListView)});
-      }
-      this.performServerSideSearch();
-    }
-  }
-
-  private applyListView(nextView: WalkListView) {
-    if (nextView === WalkListView.CALENDAR) {
-      this.updateViewAndPagination(this.defaultWalkListView === WalkListView.CALENDAR ? WalkListView.CARDS : this.defaultWalkListView);
-    } else {
-      this.updateViewAndPagination(nextView);
-    }
+    this.updateViewAndPagination(walkListView);
+    this.uiActionsService.saveValueFor(StoredValue.WALK_LIST_VIEW, walkListView);
+    this.queryParamsActive = true;
+    this.replaceQueryParams({[StoredValue.WALK_LIST_VIEW]: walkListView});
+    this.performServerSideSearch();
   }
 
   private updateViewAndPagination(nextView: WalkListView) {
@@ -710,15 +740,7 @@ export class EventsFull implements OnInit, OnDestroy {
 
   private replaceQueryParams(params: Record<string, string | number | null>) {
     this.logger.info("replaceQueryParams called with:", params, "queryParamsActive:", this.queryParamsActive);
-    const currentTree = this.router.parseUrl(this.location.path());
-    const merged = {...currentTree.queryParams, ...params};
-    const queryParams = Object.fromEntries(toPairs(merged).filter(([, v]) => v !== null && !isUndefined(v)));
-    const urlTree = this.router.createUrlTree([], {
-      relativeTo: this.route,
-      queryParams,
-      fragment: this.route.snapshot.fragment
-    });
-    this.location.replaceState(this.router.serializeUrl(urlTree));
+    void this.uiActionsService.updateQueryParameters(params as StoredValueQueryParameters);
   }
 
   private resetQueryDrivenState() {
@@ -726,6 +748,7 @@ export class EventsFull implements OnInit, OnDestroy {
     this.pageNumber = 1;
     this.storedAdvancedSearchCriteria = null;
     this.advancedSearchCriteria = null;
-    this.applyListView(this.uiActionsService.initialValueFor(StoredValue.WALK_LIST_VIEW, this.defaultWalkListView) as WalkListView);
+    this.selectedPresetLabel = null;
+    this.updateViewAndPagination(this.defaultWalkListView);
   }
 }
