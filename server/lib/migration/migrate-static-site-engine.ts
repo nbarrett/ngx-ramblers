@@ -214,8 +214,12 @@ export function sourceFidelityGaps(source: ScrapedPage, target: PageContent, ima
   const targetImages = new Set(columns.map(column => column.imageSource).filter(Boolean));
   const markdown = (source.segments || []).map(segment => segment.text || "").join("\n");
   const contacts = isContactUsPage(target) ? registrationCommitteeCandidatesFromMarkdown(markdown) : [];
-  if (contacts.length > 0) {
-    return contacts.filter(candidate => !targetText.includes(fidelityText(candidate.name))).map(candidate => `contact ${candidate.name}`);
+  if (isContactUsPage(target)) {
+    if (contacts.length > 0) {
+      return contacts.filter(candidate => !targetText.includes(fidelityText(candidate.name))).map(candidate => `contact ${candidate.name}`);
+    } else {
+      return [];
+    }
   } else {
     const missingText = source.segments.map(segment => fidelityText(segment.text)).filter(Boolean)
       .filter(text => !targetText.includes(text)).map((text, index) => `text block ${index + 1}: ${text.slice(0, 80)}`);
