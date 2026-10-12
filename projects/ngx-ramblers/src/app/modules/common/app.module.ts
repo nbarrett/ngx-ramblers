@@ -26,6 +26,7 @@ import { PaginationModule } from "ngx-bootstrap/pagination";
 import { PopoverModule } from "ngx-bootstrap/popover";
 import { TabsModule } from "ngx-bootstrap/tabs";
 import { TooltipConfig, TooltipModule } from "ngx-bootstrap/tooltip";
+import { tooltipConfig } from "./tooltip-config";
 import { TypeaheadModule } from "ngx-bootstrap/typeahead";
 import { ImageCropperModule } from "ngx-image-cropper";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
@@ -132,7 +133,7 @@ import { ViewAsService } from "../../services/member/view-as.service";
   ],
   providers: [
     provideHttpClient(withInterceptorsFromDi()),
-    {provide: TooltipConfig, useFactory: () => Object.assign(new TooltipConfig(), {container: "body"})},
+    {provide: TooltipConfig, useFactory: () => tooltipConfig()},
     AuditDeltaChangedItemsPipePipe,
     AuditDeltaValuePipe,
     BroadcastService,

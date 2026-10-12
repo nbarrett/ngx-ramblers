@@ -1,4 +1,4 @@
-import { Component, Input, output } from "@angular/core";
+import { Component, inject, Input, output } from "@angular/core";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { RouterLink } from "@angular/router";
@@ -6,7 +6,7 @@ import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { faCheck } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { TooltipConfig, TooltipDirective } from "ngx-bootstrap/tooltip";
 import {
   ButtonDropdownContainer,
   ButtonDropdownItem,
@@ -127,7 +127,7 @@ import {
                 [disabled]="disabled"
                 [tooltip]="tooltip"
                 [container]="tooltipContainer"
-                [delay]="tooltipDelay"
+                [delay]="tooltipDelay ?? tooltipConfig.delay"
                 [attr.aria-label]="ariaLabel || tooltip || label"
                 (click)="chooseDefault()">
           @if (icon) {
@@ -151,7 +151,7 @@ import {
                 [disabled]="disabled"
                 [tooltip]="tooltip"
                 [container]="tooltipContainer"
-                [delay]="tooltipDelay"
+                [delay]="tooltipDelay ?? tooltipConfig.delay"
                 [attr.aria-label]="ariaLabel || label">
           @if (icon) {
             <fa-icon [icon]="icon" [animation]="iconSpin ? 'spin' : undefined"/>
@@ -221,6 +221,7 @@ import {
   `
 })
 export class ButtonDropdownComponent {
+  private tooltipConfig = inject(TooltipConfig);
   @Input() label: string = null;
   @Input() icon: IconDefinition = null;
   @Input() items: ButtonDropdownItem[] = [];

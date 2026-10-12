@@ -283,6 +283,7 @@ import { Confirm, ConfirmType, EditMode, StoredValue } from "../../models/ui-act
 import { UiActionsService } from "../../services/ui-actions.service";
 import { BsModalService } from "ngx-bootstrap/modal";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { DELAYED_TOOLTIP_PROVIDERS } from "../../modules/common/tooltip-config";
 
 import { NgSelectModule } from "@ng-select/ng-select";
 import { campaignOverflowNotice } from "../../functions/brevo-campaigns";
@@ -310,7 +311,8 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     EmailComposerFragmentsService,
     EmailComposerDraftingService,
     EmailComposerSenderService,
-    EmailComposerEventSelectionService
+    EmailComposerEventSelectionService,
+    ...DELAYED_TOOLTIP_PROVIDERS
   ],
   imports: [
     EmailComposerDraftingComponent,
@@ -1096,7 +1098,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                       <span toolbarExtras class="toolbar-extras">
                         <span class="toolbar-divider"></span>
                         <button type="button" class="toolbar-text-toggle" [disabled]="documentImporting"
-                                tooltip="Start the message from a Word or PDF document" container="body" delay=500
+                                tooltip="Start the message from a Word or PDF document" container="body"
                                 (click)="documentFileInput.value = ''; documentFileInput.click()">
                           <fa-icon [icon]="documentImporting ? faSpinner : faFile" [spin]="documentImporting" class="me-1"/>
                           {{ documentImporting ? "Importing…" : "Word or PDF" }}
