@@ -1,3 +1,4 @@
+import { WALKS_HOW_TO_DOCUMENTATION_URL } from "../../../../../projects/ngx-ramblers/src/app/models/walks-route-paths.model";
 import { PageContent, PageContentRow, PageContentType } from "../../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { AccessLevel } from "../../../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { FilterCriteria, SortOrder } from "../../../../../projects/ngx-ramblers/src/app/models/api-request.model";
@@ -152,68 +153,90 @@ export function createAdminActionButtons(_params: PageContentTemplateParams): Pa
 }
 
 export const PRIVACY_POLICY_PATH = "about-us/privacy-policy";
+export const WALKING_APP_HOWTO_PATH = "how-to/walking-app";
+export const WALKING_APP_HOWTO_URL = new URL("/how-to/walking-app", WALKS_HOW_TO_DOCUMENTATION_URL).href;
+
+export function privacyPolicyMarkdown(params: PageContentTemplateParams): string {
+  return `# Privacy Policy for ${params.groupName}
+
+This Privacy Policy explains what ${params.groupName} stores on your device, what data is collected, and how it is used. It covers this website and the NGX-Ramblers walking app when that app is connected to this website. Questions about this policy can be sent through the [Contact Us](/contact-us) page.
+
+## What we store on your device
+
+### Browser local storage
+
+This site uses browser localStorage (similar to cookies) to store:
+
+- **Authentication tokens** — When you log in as a member, a token is stored so your session continues. The token can contain your member identifier and permissions, so it is personal information.
+- **Display preferences** — Choices such as map zoom, search filters, sort order and view mode are remembered so you do not have to set them again on each visit.
+
+This storage supports sign-in and the settings you choose. Tokens and preferences stay on your device until they expire or you remove them through the application or browser settings.
+
+## Optional website analytics
+
+Analytics is optional. Most group websites do not enable it. A site may have no analytics at all.
+
+Where Google Analytics is enabled, its scripts and cookies measure website use. Where Cloudflare Web Analytics is enabled, a cookieless request reports page views. Neither is switched on just because this platform can support it.
+
+The walking app does not start either analytics service. Embedded content or links opened outside the app follow the provider's own privacy notice.
+
+This website does not use advertising cookies, behavioural tracking cookies, social-media tracking cookies or third-party tracking pixels.
+
+## Third-party services
+
+This site uses:
+
+- **Font Awesome** — icons included with the application
+- **Cloudflare** — DNS and content delivery (may set a \`__cf_bm\` cookie for security)
+
+${params.groupName} does not control cookies set by those services.
+
+## Children's information
+
+${params.groupName} does not knowingly collect personal information from children under 13. If you believe a child has given us this kind of information, contact us and we will remove it.
+
+## Walking app
+
+The NGX-Ramblers walking app for iPhone and Android can connect to this website. This group's privacy policy applies to the member account and to information held here. The [walking app how-to](${WALKING_APP_HOWTO_URL}) explains how to choose a group and use maps and recordings.
+
+### Location and recorded walks
+
+The app uses your precise location to show your position on a map, follow a route and record a walk. If you allow background location, a recording can continue with the screen locked or while you use another app. You control this permission in your phone's settings and can pause or stop recording in the app.
+
+Recorded points, including coordinates, timestamps and available elevation, stay on your device for recording and recovery. Saving a recording sends its route, title, description and any waypoints to this website. A saved route may be visible to other people according to the route's visibility and this group's permissions. Check the visibility before saving a route that shows a private address or other sensitive location.
+
+Removing an offline copy or hiding a route changes your own device or route list. It does not delete the route from this website.
+
+### Accounts and preferences
+
+Signing in uses your existing account on this website. The app processes your account identifier, name and email address for sign-in and member features. Authentication tokens and necessary app settings are stored on your device. Uploaded routes can be associated with the member who created or updated them. Favourites and hidden routes are stored locally; where profile synchronisation is available, those choices are associated with your member account here.
+
+The app does not access your phone's address book, microphone, health records or advertising identifier. It does not use advertising or cross-app advertising tracking.
+
+### Maps and network services
+
+Displaying maps, downloading offline maps, finding nearby routes and calculating directions can send requests to this website and its mapping providers. Those services receive the network information needed to respond, such as an IP address and requested map area; route calculation can include coordinates. Their own privacy notices apply. Saved routes and member records are held by this website and its hosting and storage providers.
+
+### Retention and your choices
+
+Offline maps, recordings and app settings remain on your device until removed through the app or your device settings. Removing the app does not remove data you have already uploaded. Website records are retained under this group's usual arrangements, including backups.
+
+You can withdraw location permission, stop recording, sign out and remove local offline copies. For access, correction or deletion of your member account or uploaded routes, use [Contact Us](/contact-us). For a problem with the app itself, use [Website Support on the NGX-Ramblers Contact Us page](https://www.ngx-ramblers.org.uk/contact-us). Do not include passwords or a full location history in an initial support request.
+
+## Further reading
+
+For a detailed technical explanation of how this platform handles privacy, cookies and PECR, see [Privacy, Cookies and PECR Compliance](https://www.ngx-ramblers.org.uk/how-to/technical-articles/2026-04-04-privacy-cookies-and-compliance).
+
+## Permissions and consent
+
+This policy explains how information is handled. Where a feature needs permission or consent, that is requested separately. Reading or using the website is not treated as blanket consent.`;
+}
 
 export function createPrivacyPolicyPage(params: PageContentTemplateParams): PageContent {
   return {
     path: PRIVACY_POLICY_PATH,
     rows: [
-      createTextRow(`# Privacy Policy for ${params.groupName}
-
-At ${params.groupName}, one of our main priorities is the privacy of our visitors. This Privacy Policy explains what information is stored on your device, what data we collect, and how we use it.
-
-If you have additional questions or require more information about our Privacy Policy, do not hesitate to contact us.
-
-## What We Store on Your Device
-
-### Browser Local Storage
-
-This site uses browser localStorage (a mechanism similar to cookies) to store:
-
-- **Authentication tokens (JWTs)** — When you log in as a member, a JSON Web Token is stored to maintain your session. This is essential for the login function to work.
-- **Display preferences** — If you change settings such as map zoom level, search filters, sort orders, or view modes, these choices are remembered so you don't have to set them again on each visit.
-
-This storage is **strictly necessary** for the provision of features you have explicitly requested, and qualifies for the exemption under PECR Regulation 6(4). No consent mechanism is required for this type of storage.
-
-No personal data, analytics identifiers, or tracking information is stored in your browser's local storage.
-
-## Analytics
-
-If analytics have been configured for this site, it may use one of the following:
-
-- **Google Analytics** — sets cookies (\`_ga\`, \`_ga_*\`, \`_gid\`) to collect anonymous usage statistics. These cookies are set by Google, not by ${params.groupName} directly.
-- **Cloudflare Web Analytics** — a cookieless analytics solution that collects anonymous page view statistics without storing anything on your device.
-
-### What We Do NOT Use
-
-- No advertising or behavioural tracking cookies
-- No third-party tracking pixels
-- No social media tracking cookies
-- No web beacons
-
-## Third Party Services
-
-This site uses the following third-party services:
-
-- **Font Awesome** — for displaying icons (loaded from a CDN, sets no cookies)
-- **Cloudflare** — for DNS and content delivery (may set a \`__cf_bm\` cookie for security purposes)
-
-${params.groupName} has no access to or control over cookies set by third-party services.
-
-## Children's Information
-
-${params.groupName} does not knowingly collect any Personal Identifiable Information from children under the age of 13. If you think that your child provided this kind of information on our website, we strongly encourage you to contact us immediately and we will do our best efforts to promptly remove such information from our records.
-
-## Online Privacy Policy Only
-
-This Privacy Policy applies only to our online activities and is valid for visitors to our website with regards to the information that they shared and/or collected by ${params.groupName}. This policy is not applicable to any information collected offline or via channels other than this website.
-
-## Further Reading
-
-For a detailed technical explanation of how this platform handles privacy, cookies, and PECR compliance, see the [Privacy, Cookies and PECR Compliance](https://www.ngx-ramblers.org.uk/how-to/technical-articles/2026-04-04-privacy-cookies-and-compliance) technical article.
-
-## Consent
-
-By using our website, you hereby consent to our Privacy Policy and agree to its Terms and Conditions.`)
+      createTextRow(privacyPolicyMarkdown(params))
     ]
   };
 }
