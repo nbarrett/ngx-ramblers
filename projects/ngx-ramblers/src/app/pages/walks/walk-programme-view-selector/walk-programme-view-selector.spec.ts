@@ -87,13 +87,13 @@ describe("WalkProgrammeViewSelector", () => {
     memberLoginService.memberLoggedIn.mockReturnValue(false);
     const selector = TestBed.createComponent(WalkProgrammeViewSelector).componentInstance;
     await selector.openView(WalksAdminSegment.CALENDAR);
-    expect(router.navigate).toHaveBeenCalledWith(["/go-walking", "calendar"], {queryParamsHandling: "preserve"});
+    expect(router.navigate).toHaveBeenCalledWith(["/go-walking/calendar"], {queryParamsHandling: "preserve"});
   });
 
   it("navigates to the routes page when Routes is selected", async () => {
     memberLoginService.allowWalkAdminEdits.mockReturnValue(true);
     const selector = TestBed.createComponent(WalkProgrammeViewSelector).componentInstance;
     await selector.openView(WalksAdminSegment.ROUTES);
-    expect(router.navigate).toHaveBeenCalledWith(["/go-walking", "routes"], {queryParamsHandling: "preserve"});
+    expect(router.navigate).toHaveBeenCalledWith(["/go-walking/routes"], {queryParamsHandling: "preserve"});
   });
 });

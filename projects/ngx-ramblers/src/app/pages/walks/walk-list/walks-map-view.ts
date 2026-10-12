@@ -459,8 +459,9 @@ export class WalksMapView implements OnInit, OnChanges, OnDestroy {
       } else {
         invalidCoords++;
         const walkToken = this.display.walkSlug(dw?.walk);
+        const area = this.display.walksArea();
         missingLocationWalks.push({
-          url: walkToken ? `/walks/${walkToken}` : `/walks`,
+          url: walkToken ? `/${area}/${walkToken}` : `/${area}`,
           title: dw?.walk?.groupEvent?.title || "Unknown",
           lat: hasStartCoords ? startLat : locationLat,
           lng: hasStartCoords ? startLng : locationLng,

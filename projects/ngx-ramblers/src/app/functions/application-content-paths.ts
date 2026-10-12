@@ -1,7 +1,7 @@
 import { values } from "es-toolkit/compat";
 import { AdminContentPath, AdminMembersPath, AdminPath, AdminProfilePath, AdminSettingsPath } from "../models/admin-route-paths.model";
 import { AppPath } from "../models/route-follow.model";
-import { DEFAULT_WALKS_AREA, WALKS_ADD_WALK_SEGMENT, WalksAdminSegment, walksAdminPath, walksLeaderPath } from "../models/walks-route-paths.model";
+import { DEFAULT_WALKS_AREA, WALKS_AREA_FEATURE_SEGMENTS, WalksAdminSegment, walksAdminPath, walksLeaderPath } from "../models/walks-route-paths.model";
 
 export function applicationContentPaths(): string[] {
   return [
@@ -13,7 +13,7 @@ export function applicationContentPaths(): string[] {
     DEFAULT_WALKS_AREA,
     walksLeaderPath(DEFAULT_WALKS_AREA),
     walksAdminPath(DEFAULT_WALKS_AREA),
-    `${DEFAULT_WALKS_AREA}/${WALKS_ADD_WALK_SEGMENT}`,
+    ...WALKS_AREA_FEATURE_SEGMENTS.map(segment => `${DEFAULT_WALKS_AREA}/${segment}`),
     ...values(WalksAdminSegment).map(segment => walksAdminPath(DEFAULT_WALKS_AREA, segment)),
     AppPath.ROOT,
     `${AppPath.ROOT}/${AppPath.ROUTE}`,
