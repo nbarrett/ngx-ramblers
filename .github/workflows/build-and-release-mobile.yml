@@ -173,8 +173,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - name: Install Android SDK 36
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
       - uses: actions/download-artifact@v4
         with:
           name: mobile-web-${{ env.SOURCE_SHA }}
