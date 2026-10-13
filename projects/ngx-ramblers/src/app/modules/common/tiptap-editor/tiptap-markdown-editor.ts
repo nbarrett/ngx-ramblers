@@ -515,13 +515,16 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   @Input() set value(markdown: string) {
     const incoming = markdown ?? "";
-    if (this.lastBoundValue === null || incoming !== this.lastBoundValue) {
+    if (this.editor?.isFocused || this.sourceEditorFocused()) {
+      this.lastBoundValue = incoming;
+    } else if (this.lastBoundValue === null || incoming !== this.lastBoundValue) {
       this.syncValue(incoming);
     }
   }
 
   private appliedMarkdown: string | null = null;
   private lastBoundValue: string | null = null;
+  private lastEmittedMarkdown: string | null = null;
 
   public syncValue(markdown: string): void {
     const incoming = markdown ?? "";
@@ -796,6 +799,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       TableHeader,
       TableCell
     ];
+    this.zone.runOutsideAngular(() => {
     this.editor = new Editor({
       extensions,
       editable: this.editable,
@@ -840,12 +844,14 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
             void this.uploadAndInsertPastedImage(pastedImage);
             handled = true;
           } else if (text || pastedHtml) {
-            this.rawPaste.emit({
-              text,
-              html: pastedHtml || undefined,
-              consume: () => {
-                consumed.value = true;
-              }
+            this.zone.run(() => {
+              this.rawPaste.emit({
+                text,
+                html: pastedHtml || undefined,
+                consume: () => {
+                  consumed.value = true;
+                }
+              });
             });
             if (consumed.value) {
               event.preventDefault();
@@ -895,6 +901,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       });
     });
     this.editor.on("blur", () => {
+      this.flushMarkdownEmit();
       this.zone.run(() => {
         requestAnimationFrame(() => {
           const active = document.activeElement;
@@ -906,49 +913,23 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         });
       });
     });
-    this.zone.runOutsideAngular(() => {
-      document.addEventListener("pointerdown", this.onDocumentPointerDown, true);
-    });
+    document.addEventListener("pointerdown", this.onDocumentPointerDown, true);
     this.editor.on("transaction", () => {
       this.refreshHistoryState();
     });
     this.editor.on("update", ({transaction}) => {
       const contentChanged = !transaction || transaction.docChanged;
       if (contentChanged) {
-        const markdown = this.currentMarkdown();
-        this.emitMarkdown(markdown);
+        this.scheduleMarkdownEmit();
         this.refreshEmojiSuggestions();
       }
       this.refreshHistoryState();
     });
     this.editor.on("selectionUpdate", () => {
       this.refreshHistoryState();
-      this.imageSelected = this.editor?.isActive("image") ?? false;
-      this.mergeFieldSelected = this.editor?.isActive(MERGE_FIELD_NODE_NAME) ?? false;
-      this.tableSelected = this.editor?.isActive("table") ?? false;
-      this.linkTokenSelected = this.editor?.isActive(LINK_TOKEN_NODE_NAME) ?? false;
-      if (this.mergeFieldSelected) {
-        this.insertLinkMode = false;
-        this.tokenPopupType = TokenPopupType.Field;
-        this.tokenFieldValue = `{{${this.editor?.getAttributes(MERGE_FIELD_NODE_NAME)["token"]}}}`;
-        this.positionTokenEditor();
-      } else if (this.linkTokenSelected) {
-        this.insertLinkMode = false;
-        this.tokenPopupType = TokenPopupType.Link;
-        const attributes = this.editor?.getAttributes(LINK_TOKEN_NODE_NAME) ?? {};
-        this.linkTokenOriginalLabel = (attributes["label"] as string) ?? "";
-        this.linkHrefValue = (attributes["href"] as string) ?? LINK_DESTINATIONS[0].token;
-        this.rebuildLinkDestinations();
-        this.linkTextDisplay = friendlyText(this.linkTokenOriginalLabel);
-        this.positionTokenEditor();
-      } else if (this.imageSelected) {
-        this.insertLinkMode = false;
-        this.imageSpacing = (this.editor?.getAttributes("image")["spacing"] as ImageSpacing) ?? ImageSpacing.Small;
-        this.imageAlign = (this.editor?.getAttributes("image")["align"] as ImageAlign) ?? ImageAlign.Center;
-        this.positionTokenEditor();
-        this.positionImageHandle();
-      }
+      this.updateSelectionChrome();
       this.refreshEmojiSuggestions();
+    });
     });
   }
 
@@ -968,6 +949,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.hideClickToEditHint();
     this.committeeSubscription?.unsubscribe();
     this.committeeSubscription = null;
+    this.flushMarkdownEmit();
     if (this.mermaidPreviewTimer) {
       clearTimeout(this.mermaidPreviewTimer);
       this.mermaidPreviewTimer = null;
@@ -1092,6 +1074,73 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   private mermaidPreviewTimer: ReturnType<typeof setTimeout> | null = null;
+  private markdownEmitTimer: ReturnType<typeof setTimeout> | null = null;
+  private static readonly MARKDOWN_EMIT_DELAY_MS = 150;
+
+  private sourceEditorFocused(): boolean {
+    return this.sourceMode && this.host.nativeElement.contains(document.activeElement);
+  }
+
+  private scheduleMarkdownEmit(): void {
+    if (this.markdownEmitTimer) {
+      clearTimeout(this.markdownEmitTimer);
+    }
+    this.markdownEmitTimer = setTimeout(() => {
+      this.markdownEmitTimer = null;
+      this.flushMarkdownEmit();
+    }, TiptapMarkdownEditor.MARKDOWN_EMIT_DELAY_MS);
+  }
+
+  public flushMarkdownEmit(): void {
+    if (this.markdownEmitTimer) {
+      clearTimeout(this.markdownEmitTimer);
+      this.markdownEmitTimer = null;
+    }
+    if (this.editor || this.sourceMode) {
+      this.emitMarkdown(this.currentMarkdown());
+    }
+  }
+
+  private updateSelectionChrome(): void {
+    const imageSelected = this.editor?.isActive("image") ?? false;
+    const mergeFieldSelected = this.editor?.isActive(MERGE_FIELD_NODE_NAME) ?? false;
+    const tableSelected = this.editor?.isActive("table") ?? false;
+    const linkTokenSelected = this.editor?.isActive(LINK_TOKEN_NODE_NAME) ?? false;
+    const chromeChanged = imageSelected !== this.imageSelected
+      || mergeFieldSelected !== this.mergeFieldSelected
+      || tableSelected !== this.tableSelected
+      || linkTokenSelected !== this.linkTokenSelected;
+    if (chromeChanged || imageSelected || mergeFieldSelected || tableSelected || linkTokenSelected) {
+      this.zone.run(() => {
+        this.imageSelected = imageSelected;
+        this.mergeFieldSelected = mergeFieldSelected;
+        this.tableSelected = tableSelected;
+        this.linkTokenSelected = linkTokenSelected;
+        if (this.mergeFieldSelected) {
+          this.insertLinkMode = false;
+          this.tokenPopupType = TokenPopupType.Field;
+          this.tokenFieldValue = `{{${this.editor?.getAttributes(MERGE_FIELD_NODE_NAME)["token"]}}}`;
+          this.positionTokenEditor();
+        } else if (this.linkTokenSelected) {
+          this.insertLinkMode = false;
+          this.tokenPopupType = TokenPopupType.Link;
+          const attributes = this.editor?.getAttributes(LINK_TOKEN_NODE_NAME) ?? {};
+          this.linkTokenOriginalLabel = (attributes["label"] as string) ?? "";
+          this.linkHrefValue = (attributes["href"] as string) ?? LINK_DESTINATIONS[0].token;
+          this.rebuildLinkDestinations();
+          this.linkTextDisplay = friendlyText(this.linkTokenOriginalLabel);
+          this.positionTokenEditor();
+        } else if (this.imageSelected) {
+          this.insertLinkMode = false;
+          this.imageSpacing = (this.editor?.getAttributes("image")["spacing"] as ImageSpacing) ?? ImageSpacing.Small;
+          this.imageAlign = (this.editor?.getAttributes("image")["align"] as ImageAlign) ?? ImageAlign.Center;
+          this.positionTokenEditor();
+          this.positionImageHandle();
+        }
+        this.changeDetector.markForCheck();
+      });
+    }
+  }
 
   private queueMermaidPreviewRefresh(): void {
     if (this.mermaidPreviewTimer) {
@@ -1271,6 +1320,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   private refreshEmojiSuggestions(): void {
+    const previousCount = this.emojiSuggestions.length;
     if (!this.editor || !this.editable || this.editor.isActive("codeBlock") || this.editor.isActive("code")) {
       this.clearEmojiSuggestions();
     } else {
@@ -1293,7 +1343,9 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         this.clearEmojiSuggestions();
       }
     }
-    this.changeDetector.markForCheck();
+    if (previousCount > 0 || this.emojiSuggestions.length > 0) {
+      this.zone.run(() => this.changeDetector.markForCheck());
+    }
   }
 
   private positionEmojiMenu(): void {
@@ -1868,7 +1920,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private emitMarkdown(markdown: string): void {
     this.appliedMarkdown = markdown;
     this.lastBoundValue = markdown;
-    this.valueChange.emit(markdown);
+    if (markdown !== this.lastEmittedMarkdown) {
+      this.lastEmittedMarkdown = markdown;
+      this.zone.run(() => this.valueChange.emit(markdown));
+    }
   }
 
   private autosizeSourceEditor(): void {
@@ -2273,14 +2328,16 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   private refreshHistoryState(): void {
-    if (this.editor) {
-      this.canUndo = undoDepth(this.editor.state) > 0;
-      this.canRedo = redoDepth(this.editor.state) > 0;
-      this.documentEmpty = this.editor.isEmpty;
-    } else {
-      this.canUndo = false;
-      this.canRedo = false;
-      this.documentEmpty = true;
+    const canUndo = this.editor ? undoDepth(this.editor.state) > 0 : false;
+    const canRedo = this.editor ? redoDepth(this.editor.state) > 0 : false;
+    const documentEmpty = this.editor ? this.editor.isEmpty : true;
+    if (canUndo !== this.canUndo || canRedo !== this.canRedo || documentEmpty !== this.documentEmpty) {
+      this.zone.run(() => {
+        this.canUndo = canUndo;
+        this.canRedo = canRedo;
+        this.documentEmpty = documentEmpty;
+        this.changeDetector.markForCheck();
+      });
     }
   }
 

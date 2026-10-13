@@ -83,9 +83,12 @@ import {
   ElementRef,
   HostListener,
   inject,
+  NgZone,
   OnDestroy,
   OnInit,
-  ViewChild
+  QueryList,
+  ViewChild,
+  ViewChildren
 } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
 import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
@@ -1302,11 +1305,9 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
   `
 })
 export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveCheck {
-  @HostListener("input")
-  @HostListener("change")
-  markUserEdit(): void {
+  private readonly markUserEditFromDom = (): void => {
     this.userHasEditedComposer = true;
-  }
+  };
 
   @HostListener("window:beforeunload", ["$event"])
   warnBeforeBrowserLeave(event: BeforeUnloadEvent): void {
@@ -1374,6 +1375,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   private memberLoginService = inject(MemberLoginService);
   private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   private changeDetector = inject(ChangeDetectorRef);
+  private zone = inject(NgZone);
+  private host = inject(ElementRef<HTMLElement>);
   protected pendingSubjectFocus = false;
   private systemConfigService = inject(SystemConfigService);
   private salesforceConfigService = inject(SalesforceConfigService);
@@ -1485,6 +1488,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   protected readonly faTrash = faTrash;
 
   async ngOnInit(): Promise<void> {
+    this.zone.runOutsideAngular(() => {
+      this.host.nativeElement.addEventListener("input", this.markUserEditFromDom, true);
+      this.host.nativeElement.addEventListener("change", this.markUserEditFromDom, true);
+    });
     this.loadComposerPrefs();
     this.session.notify = this.notifierService.createAlertInstance(this.session.notifyTarget);
     this.subscriptions.push(this.session.requestStep.subscribe(key => {
@@ -1626,8 +1633,14 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   ngOnDestroy(): void {
+    this.host.nativeElement.removeEventListener("input", this.markUserEditFromDom, true);
+    this.host.nativeElement.removeEventListener("change", this.markUserEditFromDom, true);
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
     this.pollSubscription?.unsubscribe();
+  }
+
+  private flushComposerEditors(): void {
+    this.markdownEditors?.forEach(editor => editor.flushMarkdownEmit());
   }
 
   private async applyContextFromRoute(queryParams: ParamMap, pathParams: ParamMap): Promise<void> {
@@ -1871,6 +1884,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   protected pendingForwardedHeaderLines: string[] = [];
   private introEditorRef?: TiptapMarkdownEditor;
   private pendingIntroFocus = false;
+
+  @ViewChildren(TiptapMarkdownEditor)
+  private markdownEditors!: QueryList<TiptapMarkdownEditor>;
 
   @ViewChild("introEditor")
   set introEditor(editor: TiptapMarkdownEditor | undefined) {
@@ -3752,6 +3768,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   protected async saveDraft(shareWithCommittee?: boolean): Promise<boolean> {
+    this.flushComposerEditors();
     if (isBoolean(shareWithCommittee)) {
       this.composeShared = shareWithCommittee;
     }
@@ -4504,6 +4521,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   private async executeSend(): Promise<void> {
+    this.flushComposerEditors();
     this.sendConfirm.clear();
     this.goToStepKey(EmailComposerStepKey.SEND);
     this.sendInProgress = true;
