@@ -1182,6 +1182,30 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     };
   }
 
+  public commitMarkdown(markdown: string): void {
+    if (this.markdownEmitTimer) {
+      clearTimeout(this.markdownEmitTimer);
+      this.markdownEmitTimer = null;
+    }
+    const incoming = markdown ?? "";
+    this.lastBoundValue = incoming;
+    this.lastEmittedMarkdown = incoming;
+    this.appliedMarkdown = incoming;
+    if (this.sourceMode) {
+      this.sourceMarkdown = incoming;
+    } else if (this.editor) {
+      this.editor.commands.setContent(incoming, {contentType: "markdown", emitUpdate: false});
+      const canonical = this.currentMarkdown();
+      this.appliedMarkdown = canonical;
+      this.lastEmittedMarkdown = canonical;
+      this.lastBoundValue = canonical;
+      this.clearEditorHistory();
+      this.queueMermaidPreviewRefresh();
+    } else {
+      this.pendingValue = incoming;
+    }
+  }
+
   private serializeMarkdownRange(start: number, end: number): string {
     if (!this.editor || end <= start) {
       return "";
