@@ -23,7 +23,7 @@ import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { faCloudArrowUp, faEnvelope, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { ButtonDropdownComponent } from "../../../modules/common/button-dropdown/button-dropdown";
-import { ButtonDropdownContainer, ButtonDropdownItem } from "../../../models/button-dropdown.model";
+import { ButtonDropdownItem } from "../../../models/button-dropdown.model";
 import { WalkShareMenuAction } from "../../../models/walk.model";
 import {
   EventSocialPublishModalComponent
@@ -83,7 +83,6 @@ import { StoredValue } from "../../../models/ui-actions";
                                      buttonClass="btn btn-primary"
                                      ariaLabel="Publish this event"
                                      [disabled]="notifyTarget.busy"
-                                     [container]="ButtonDropdownContainer.BODY"
                                      [items]="publishMenuItems()"
                                      (itemSelect)="onPublishMenu($event)"/>
               }
@@ -236,7 +235,6 @@ export class GroupEventView implements OnInit {
   protected readonly faShareNodes = faShareNodes;
   protected readonly faCloudArrowUp = faCloudArrowUp;
   protected readonly faEnvelope = faEnvelope;
-  protected readonly ButtonDropdownContainer = ButtonDropdownContainer;
   private walksAndEventsService = inject(WalksAndEventsService);
   private createWalkAlbumService = inject(CreateWalkAlbumService);
 

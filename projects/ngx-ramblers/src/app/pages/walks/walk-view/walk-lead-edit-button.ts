@@ -7,7 +7,8 @@ import { WalkLeadEditAction, WalkLeadEditAppearance } from "../../../models/walk
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { ButtonDropdownComponent } from "../../../modules/common/button-dropdown/button-dropdown";
-import { ButtonDropdownContainer, ButtonDropdownItem, ButtonDropdownPlacement } from "../../../models/button-dropdown.model";
+import { ButtonDropdownItem } from "../../../models/button-dropdown.model";
+import { TOOLTIP_SHOW_DELAY_MS } from "../../../modules/common/tooltip-config";
 
 @Component({
   selector: "app-walk-lead-edit-button",
@@ -24,26 +25,40 @@ import { ButtonDropdownContainer, ButtonDropdownItem, ButtonDropdownPlacement } 
       right: 10px
       z-index: 1000
     :host.action
-      display: contents
-    :host.compact
+      display: flex
+      min-width: 0
+    :host.action > *
+      flex: 1 1 auto
+      width: 100%
+      min-width: 0
+    :host.inline
       display: inline-flex
-      vertical-align: middle
-      width: 56px
-    :host.compact app-button-dropdown
-      width: 56px
+      width: 6.5rem
+      --button-dropdown-caret-width: 1.75rem
+    :host.inline > *
+      width: 100%
+      height: 32px
+    :host.inline > button.btn
+      box-sizing: border-box
+      min-height: 32px
+      height: 32px
+      padding: 0 var(--button-dropdown-caret-width) 0 0.5rem
+      display: inline-flex
+      align-items: center
+      justify-content: flex-start
+      gap: var(--space-2)
   `],
   template: `
     @if (displayedWalk?.walkAccessMode?.walkWritable) {
       @if (display.walkAdminLeadAndEdit(displayedWalk)) {
         <app-button-dropdown [class.walk-view-split]="appearance === WalkLeadEditAppearance.ACTION"
-                             [label]="appearance === WalkLeadEditAppearance.COMPACT ? null : caption()"
+                             [fullWidth]="appearance !== WalkLeadEditAppearance.OVERLAY"
+                             [compact]="appearance === WalkLeadEditAppearance.INLINE"
+                             [label]="caption()"
                              [icon]="faPersonWalking"
                              [buttonClass]="primaryButtonClass()"
-                             [tooltip]="actionTooltip()"
                              [ariaLabel]="actionTooltip()"
-                             [container]="ButtonDropdownContainer.BODY"
-                             [placement]="ButtonDropdownPlacement.BOTTOM_RIGHT"
-                             menuEnd
+                             [defaultItemId]="WalkLeadEditAction.LEAD"
                              [items]="leadEditItems()"
                              (itemSelect)="onLeadEdit($event)"
                              (click)="$event.stopPropagation()"/>
@@ -54,11 +69,12 @@ import { ButtonDropdownContainer, ButtonDropdownItem, ButtonDropdownPlacement } 
                 (click)="$event.stopPropagation(); display.edit(displayedWalk)"
                 [tooltip]="actionTooltip()"
                 [attr.aria-label]="actionTooltip()"
-                container="body">
+                container="body"
+                [delay]="tooltipShowDelay"
+                [adaptivePosition]="false"
+                placement="top">
           <fa-icon [icon]="actionIcon()"/>
-          @if (appearance !== WalkLeadEditAppearance.COMPACT) {
-            <span class="ms-2">{{ caption() }}</span>
-          }
+          <span class="ms-2">{{ caption() }}</span>
         </button>
       }
     }
@@ -69,11 +85,11 @@ export class WalkLeadEditButton {
   protected readonly faPencil = faPencil;
   protected readonly faPersonWalking = faPersonWalking;
   protected readonly WalkLeadEditAppearance = WalkLeadEditAppearance;
-  protected readonly ButtonDropdownContainer = ButtonDropdownContainer;
-  protected readonly ButtonDropdownPlacement = ButtonDropdownPlacement;
+  protected readonly WalkLeadEditAction = WalkLeadEditAction;
+  protected readonly tooltipShowDelay = TOOLTIP_SHOW_DELAY_MS;
   protected readonly editCaption = WalksReferenceService.walkAccessModes.edit.caption;
   @Input() displayedWalk: DisplayedWalk;
-  @Input() appearance: WalkLeadEditAppearance = WalkLeadEditAppearance.COMPACT;
+  @Input() appearance: WalkLeadEditAppearance = WalkLeadEditAppearance.INLINE;
 
   @HostBinding("class.overlay")
   get overlayHost(): boolean {
@@ -85,9 +101,14 @@ export class WalkLeadEditButton {
     return this.appearance === WalkLeadEditAppearance.ACTION;
   }
 
-  @HostBinding("class.compact")
-  get compactHost(): boolean {
-    return this.appearance === WalkLeadEditAppearance.COMPACT;
+  @HostBinding("class.walk-view-split")
+  get actionSplitHost(): boolean {
+    return this.appearance === WalkLeadEditAppearance.ACTION;
+  }
+
+  @HostBinding("class.inline")
+  get inlineHost(): boolean {
+    return this.appearance === WalkLeadEditAppearance.INLINE;
   }
 
   caption(): string {
@@ -103,12 +124,12 @@ export class WalkLeadEditButton {
   }
 
   primaryButtonClass(): string {
-    if (this.appearance === WalkLeadEditAppearance.OVERLAY) {
-      return "btn pager-btn me-0";
-    } else if (this.appearance === WalkLeadEditAppearance.ACTION) {
+    if (this.appearance === WalkLeadEditAppearance.ACTION) {
       return "btn btn-primary btn-sm walk-view-action";
+    } else if (this.appearance === WalkLeadEditAppearance.INLINE) {
+      return "btn pager-btn btn-sm me-0";
     } else {
-      return "btn btn-primary btn-icon";
+      return "btn pager-btn me-0";
     }
   }
 

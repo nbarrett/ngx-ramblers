@@ -65,7 +65,7 @@ import { WalkLeadEditButton } from "../../../pages/walks/walk-view/walk-lead-edi
               <td id="eventAction-{{index}}" class="nowrap action" width="8%">
                 @if (displayedWalk?.walkAccessMode?.walkWritable) {
                   <app-walk-lead-edit-button [displayedWalk]="displayedWalk"
-                                             [appearance]="WalkLeadEditAppearance.COMPACT"/>
+                                             [appearance]="WalkLeadEditAppearance.INLINE"/>
                 }
               </td>
             }

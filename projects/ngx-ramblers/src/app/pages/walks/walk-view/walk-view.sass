@@ -106,6 +106,16 @@
   z-index: 0
   overflow: visible
 
+  > .walk-view-action-follow
+    display: none
+    width: 100%
+    justify-content: center
+    margin-top: var(--space-2, 0.5rem)
+
+@media (max-width: 991.98px)
+  .walk-view-map > .walk-view-action-follow
+    display: inline-flex
+
   .map-walk-view,
   .map-walk-view-google
     float: none
@@ -225,9 +235,7 @@
       grid-column: 1 / -1
 
     > .walk-view-action-follow
-      grid-column: 1 / -1
-      order: 10
-      justify-content: center
+      display: none
 
     > .link-copied-confirmation
       grid-column: 1 / -1

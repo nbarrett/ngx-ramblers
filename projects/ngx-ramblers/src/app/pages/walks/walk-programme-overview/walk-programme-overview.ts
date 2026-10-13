@@ -149,7 +149,7 @@ import { WalksReferenceService } from "../../../services/walks/walks-reference-d
                   @if (allowEdit() && row.status === ProgrammeOverviewStatus.AWAITING_LEADER) {
                     <div class="flex-fill d-flex" (click)="$event.stopPropagation()">
                       <app-walk-lead-edit-button [displayedWalk]="leadEditDisplayedWalk(row)"
-                                                 [appearance]="WalkLeadEditAppearance.COMPACT"/>
+                                                 [appearance]="WalkLeadEditAppearance.INLINE"/>
                     </div>
                   } @else if (allowEdit()) {
                     <button type="button" class="btn btn-sm btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-fill" [title]="actionTooltip(row)"

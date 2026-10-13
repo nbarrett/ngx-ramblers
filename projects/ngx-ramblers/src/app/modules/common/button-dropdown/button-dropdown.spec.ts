@@ -27,4 +27,31 @@ describe("app-button-dropdown", () => {
     instance.chooseDefault();
     expect(instance.itemSelect.emit).toHaveBeenCalledWith("save-and-exit");
   });
+
+  it("does not emit a default action when the control is disabled", () => {
+    const instance: any = Object.create(ButtonDropdownComponent.prototype);
+    instance.disabled = true;
+    instance.defaultItemId = "save-and-exit";
+    instance.items = [
+      {id: "save-and-exit", label: "Save and exit"},
+      {id: "cancel", label: "Exit without saving"}
+    ];
+    instance.itemSelect = {emit: vi.fn()};
+    instance.chooseDefault();
+    expect(instance.itemSelect.emit).not.toHaveBeenCalled();
+  });
+
+  it("keeps the button as a menu toggle when no default is set", () => {
+    const instance: any = Object.create(ButtonDropdownComponent.prototype);
+    instance.disabled = false;
+    instance.defaultItemId = null;
+    instance.items = [
+      {id: "lead", label: "lead"},
+      {id: "edit", label: "edit"}
+    ];
+    instance.itemSelect = {emit: vi.fn()};
+    instance.chooseDefault();
+    expect(instance.hasDefaultAction()).toBe(false);
+    expect(instance.itemSelect.emit).not.toHaveBeenCalled();
+  });
 });
