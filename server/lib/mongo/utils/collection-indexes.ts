@@ -2,6 +2,23 @@ import mongoose, { Model, Query, Schema } from "mongoose";
 import { Collection, CreateIndexesOptions, Db, IndexDescriptionInfo, IndexDirection, IndexSpecification } from "mongodb";
 import { fromPairs, isEqual, toPairs, values } from "es-toolkit/compat";
 
+const legacyCollectionIndexes = new WeakMap<Schema, [IndexSpecification, CreateIndexesOptions, CreateIndexesOptions][]>();
+
+export function registerLegacyCollectionIndex(schema: Schema, keys: IndexSpecification, options: CreateIndexesOptions): void {
+  const canonicalOptions = schema.indexes().find(([indexKeys]) => isEqual(indexKeys, keys))?.[1];
+  if (canonicalOptions) {
+    legacyCollectionIndexes.set(schema, [...(legacyCollectionIndexes.get(schema) ?? []), [keys, canonicalOptions as CreateIndexesOptions, options]]);
+  }
+}
+
+function acceptedLegacyIndex(schema: Schema, keys: IndexSpecification, options: CreateIndexesOptions, existing: IndexDescriptionInfo[]): boolean {
+  return (legacyCollectionIndexes.get(schema) ?? []).some(([legacyKeys, canonicalOptions, legacyOptions]) =>
+    isEqual(keys, legacyKeys) && isEqual(options, canonicalOptions) && existing.some(index =>
+      isEqual(collectionIndexKeys(index), legacyKeys) && toPairs(legacyOptions)
+        .filter(([option]) => option !== "name" && option !== "background")
+        .every(([option, value]) => isEqual(index[option], value))));
+}
+
 const indexedSchemas = new WeakSet<Schema>();
 const databaseIndexes = new WeakMap<Db, WeakMap<Model<unknown>, Promise<void>>>();
 
@@ -24,8 +41,12 @@ export async function ensureCollectionIndexes(model: Model<unknown>, createIfMis
         const present = createIfMissing || await database.listCollections({name: model.collection.name}, {nameOnly: true}).hasNext();
         if (present) {
           const difference = await model.diffIndexes({indexOptionsToCreate: true});
-          if (difference.toCreate.length > 0) {
-            await model.createIndexes({toCreate: difference.toCreate} as CreateIndexesOptions);
+          const storedIndexes = legacyCollectionIndexes.has(model.schema) && await database.listCollections({name: model.collection.name}, {nameOnly: true}).hasNext()
+            ? await database.collection(model.collection.name).indexes()
+            : [];
+          const toCreate = difference.toCreate.filter(([keys, options]) => !acceptedLegacyIndex(model.schema, keys, options, storedIndexes));
+          if (toCreate.length > 0) {
+            await model.createIndexes({toCreate} as CreateIndexesOptions);
           }
         } else {
           pendingIndexes.delete(model);
@@ -73,7 +94,7 @@ export async function indexExistingCollections(database: Db): Promise<void> {
       const present = existing.some(index => isEqual(collectionIndexKeys(index), keys) && toPairs(options)
         .filter(([option]) => option !== "name" && option !== "background")
         .every(([option, value]) => isEqual(index[option], value)));
-      if (!present) {
+      if (!present && !acceptedLegacyIndex(model.schema, keys as IndexSpecification, options as CreateIndexesOptions, existing)) {
         await collection.createIndex(keys as IndexSpecification, options as CreateIndexesOptions);
       }
     }

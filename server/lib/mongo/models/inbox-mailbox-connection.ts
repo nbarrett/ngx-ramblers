@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { registerLegacyCollectionIndex } from "../utils/collection-indexes";
 import { ensureModel } from "../utils/model-utils";
 import { InboxMailboxConnection } from "../../../../projects/ngx-ramblers/src/app/models/inbox.model";
 
@@ -28,5 +29,7 @@ const inboxMailboxConnectionSchema = new mongoose.Schema({
 inboxMailboxConnectionSchema.index({tenantSlug: 1, gmailAccountEmail: 1}, {unique: true, partialFilterExpression: {gmailAccountEmail: {$type: "string"}}});
 
 inboxMailboxConnectionSchema.index({tenantSlug: 1, provider: 1}, {unique: true, partialFilterExpression: {gmailAccountEmail: {$type: "null"}}});
+
+registerLegacyCollectionIndex(inboxMailboxConnectionSchema, {tenantSlug: 1, provider: 1}, {unique: true, partialFilterExpression: {gmailAccountEmail: null}});
 
 export const inboxMailboxConnection: mongoose.Model<InboxMailboxConnection> = ensureModel<InboxMailboxConnection>("inbox-mailbox-connection", inboxMailboxConnectionSchema);

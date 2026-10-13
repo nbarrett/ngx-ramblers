@@ -205,16 +205,18 @@ export async function listHistoryDelta(connection: InboxMailboxConnection, start
   return {newMessageIds: ids, latestHistoryId: response.historyId ?? null};
 }
 
-export async function fetchFullMessage(connection: InboxMailboxConnection, gmailMessageId: string): Promise<InboxMessage> {
-  return (await fetchFullMessageDetailed(connection, gmailMessageId)).message;
+export async function fetchFullMessage(connection: InboxMailboxConnection, gmailMessageId: string, downloadAttachments = true): Promise<InboxMessage> {
+  return (await fetchFullMessageDetailed(connection, gmailMessageId, downloadAttachments)).message;
 }
 
-export async function fetchFullMessageDetailed(connection: InboxMailboxConnection, gmailMessageId: string): Promise<{ message: InboxMessage; authentication: MessageAuthentication }> {
+export async function fetchFullMessageDetailed(connection: InboxMailboxConnection, gmailMessageId: string, downloadAttachments = true): Promise<{ message: InboxMessage; authentication: MessageAuthentication }> {
   const payload = await gmailRequest<GmailMessage>(connection, GMAIL_DYNAMIC_ENDPOINTS.MESSAGE(gmailMessageId), {
     format: GmailMessageFormat.FULL
   });
   const message = parseGmailMessage(payload);
-  message.attachments = await downloadAttachmentsToS3(connection, gmailMessageId, payload);
+  if (downloadAttachments) {
+    message.attachments = await downloadAttachmentsToS3(connection, gmailMessageId, payload);
+  }
   return {message, authentication: parseAuthenticationResults(payload)};
 }
 
