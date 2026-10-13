@@ -12,34 +12,41 @@ export async function saveOsMapsRouteListing(routes: OsMapsListedRoute[], ownerM
   const listedAt = dateTimeNowAsValue();
   const importedById = await importedRecordsByRouteId();
   const merged = withImportedAt(routes, importedById);
+  const slim = merged.map(route => ({...route, waypoints: null, walks: undefined}));
   return mongooseClient.execute(() => osMapsRouteListing.findOneAndUpdate(
     {key: ownerMemberId || LISTING_KEY},
-    {key: ownerMemberId || LISTING_KEY, listedAt, routes: merged},
+    {key: ownerMemberId || LISTING_KEY, listedAt, routes: slim},
     {upsert: true, new: true, lean: true}
   ).then(document => ({
     listedAt: document?.listedAt || listedAt,
-    routes: withImportedAt(document?.routes || merged, importedById)
+    routes: withImportedAt(document?.routes || slim, importedById)
   })));
 }
 
-export async function latestOsMapsRouteListing(ownerMemberId: string | null = null): Promise<OsMapsRouteListing> {
-  const importedById = await importedRecordsByRouteId();
-  return mongooseClient.execute(() => osMapsRouteListing.findOne({key: ownerMemberId || LISTING_KEY}).lean()
+const LISTING_ROUTE_FIELDS = "listedAt routes.id routes.title routes.url routes.createdAt routes.createdAtValue routes.distanceMetres routes.source routes.importedAt routes.number routes.ownerMemberId routes.visibility";
+
+export async function latestOsMapsRouteListing(ownerMemberId: string | null = null, importedById?: Record<string, OsMapsImportedRouteRecord>): Promise<OsMapsRouteListing> {
+  const imported = importedById || await importedRecordsByRouteId();
+  return mongooseClient.execute(() => osMapsRouteListing.findOne({key: ownerMemberId || LISTING_KEY}).select(LISTING_ROUTE_FIELDS).lean()
     .then(document => ({
       listedAt: document?.listedAt || 0,
-      routes: withImportedAt(document?.routes || [], importedById)
+      routes: withImportedAt(document?.routes || [], imported)
     })));
 }
 
-export async function listedImportedOsMapsRoutes(): Promise<OsMapsListedRoute[]> {
-  const listing = await latestOsMapsRouteListing();
-  const importedById = await importedRecordsByRouteId();
+export function listedImportedFrom(listing: OsMapsRouteListing, importedById: Record<string, OsMapsImportedRouteRecord>): OsMapsListedRoute[] {
   const fromListing = (listing.routes || []).filter(route => !!route.gpxFile?.awsFileName);
   const listedIds = new Set(fromListing.map(route => route.id));
   const extras = values(importedById)
     .filter(record => record.gpxFile?.awsFileName && !listedIds.has(record.routeId))
     .map(listedRouteFromImportedRecord);
   return [...fromListing, ...extras].sort((left, right) => (right.importedAt || 0) - (left.importedAt || 0));
+}
+
+export async function listedImportedOsMapsRoutes(): Promise<OsMapsListedRoute[]> {
+  const importedById = await importedRecordsByRouteId();
+  const listing = await latestOsMapsRouteListing(null, importedById);
+  return listedImportedFrom(listing, importedById);
 }
 
 export function listedRouteFromImportedRecord(record: OsMapsImportedRouteRecord): OsMapsListedRoute {
@@ -61,7 +68,6 @@ export function listedRouteFromImportedRecord(record: OsMapsImportedRouteRecord)
     routeOpacity: record.opacity,
     walkedAt: record.gpxFile?.walkedAt || null,
     walkedByName: record.gpxFile?.walkedByName || null,
-    waypoints: record.waypoints || null,
     difficulty: record.difficulty || null
   };
 }

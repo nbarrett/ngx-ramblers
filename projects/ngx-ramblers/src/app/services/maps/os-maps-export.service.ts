@@ -1,3 +1,4 @@
+import { isNumber } from "es-toolkit/compat";
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { firstValueFrom } from "rxjs";
@@ -18,8 +19,35 @@ export class OsMapsExportService {
     await this.webSocketClientService.connect();
   }
 
-  listing(account = OsMapsAccountScope.GROUP): Promise<OsMapsRouteListing> {
-    return firstValueFrom(this.http.get<OsMapsRouteListing>(`${this.baseUrl}/routes`, {params: {account}}));
+  listing(account = OsMapsAccountScope.GROUP, query: {
+    search?: string;
+    filter?: string;
+    user?: string;
+    sort?: string;
+    sortOrder?: string;
+    nearby?: boolean;
+    nearbyMiles?: number;
+    latitude?: number | null;
+    longitude?: number | null;
+    favouriteKeys?: string[];
+    hiddenKeys?: string[];
+    favourites?: boolean;
+  } = {}): Promise<OsMapsRouteListing> {
+    return firstValueFrom(this.http.get<OsMapsRouteListing>(`${this.baseUrl}/routes`, {params: {
+      account,
+      search: query.search || "",
+      filter: query.filter || "",
+      user: query.user || "",
+      sort: query.sort || "",
+      sortOrder: query.sortOrder || "",
+      nearby: query.nearby ? "true" : "",
+      nearbyMiles: isNumber(query.nearbyMiles) ? String(query.nearbyMiles) : "",
+      latitude: isNumber(query.latitude) ? String(query.latitude) : "",
+      longitude: isNumber(query.longitude) ? String(query.longitude) : "",
+      favouriteKeys: (query.favouriteKeys || []).join(","),
+      hiddenKeys: (query.hiddenKeys || []).join(","),
+      favourites: query.favourites ? "true" : ""
+    }}));
   }
 
   personalAccount(): Promise<OsMapsPersonalAccount> {

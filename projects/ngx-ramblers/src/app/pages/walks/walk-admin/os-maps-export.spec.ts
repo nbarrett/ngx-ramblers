@@ -52,7 +52,9 @@ describe("OS Maps export job reconnection", () => {
     toggleFavourite: vi.fn(),
     hide: vi.fn(),
     showHidden: vi.fn(),
-    hiddenCount: vi.fn()
+    hiddenCount: vi.fn(),
+    favouriteKeys: vi.fn(),
+    hiddenKeys: vi.fn()
   };
   const state = {page: null as OsMapsExportPage | null};
 
@@ -65,6 +67,8 @@ describe("OS Maps export job reconnection", () => {
     listPreferences.isFavourite.mockReturnValue(false);
     listPreferences.isHidden.mockReturnValue(false);
     listPreferences.hiddenCount.mockReturnValue(0);
+    listPreferences.favouriteKeys.mockReturnValue([]);
+    listPreferences.hiddenKeys.mockReturnValue([]);
     TestBed.configureTestingModule({providers: [
       {provide: MemberLoginService, useValue: {loggedInMember: () => ({memberId: "member-admin", walkAdmin: true})}},
       {provide: RouteNearbyService, useValue: {}},
@@ -264,22 +268,46 @@ describe("OS Maps export job reconnection", () => {
     expect(listCache.save).toHaveBeenCalledWith(OsMapsAccountScope.GROUP, {listedAt: 0, routes: []});
   });
 
-  it("uses the same favourite key as the app and can hide a route from the list", () => {
-    const route = {id: "1001", title: "Hillside Park", url: "https://explore.osmaps.com/route/1001", createdAt: "", createdAtValue: 1, distanceMetres: 1000, source: "created"} as OsMapsListedRoute;
+  it("sends hidden route keys to the server and displays the returned page", async () => {
+    await vi.advanceTimersByTimeAsync(0);
+    const route = {id: "1001", title: "Hillside Park"} as OsMapsListedRoute;
     state.page.listing = {listedAt: 1, routes: [route]};
     expect(state.page.routeKey(route)).toBe("os-maps:1001");
-    listPreferences.isHidden.mockImplementation((key: string) => key === "os-maps:1001");
-    expect(state.page.visibleRoutes()).toEqual([]);
+    listPreferences.hiddenKeys.mockReturnValue(["os-maps:1001"]);
+    service.listing.mockResolvedValue({listedAt: 1, routes: [], matchedCount: 0, totalCount: 1});
     state.page.hideRoute(route);
+    await vi.advanceTimersByTimeAsync(0);
     expect(listPreferences.hide).toHaveBeenCalledWith("os-maps:1001");
+    expect(service.listing).toHaveBeenLastCalledWith(OsMapsAccountScope.GROUP, expect.objectContaining({hiddenKeys: ["os-maps:1001"]}));
+    expect(state.page.visibleRoutes()).toEqual([]);
   });
 
-  it("limits the list to favourites when that filter is on", () => {
-    const favourite = {id: "1001", title: "Hillside Park", url: "https://explore.osmaps.com/route/1001", createdAt: "", createdAtValue: 1, distanceMetres: 1000, source: "created"} as OsMapsListedRoute;
-    const other = {id: "1002", title: "Other", url: "https://explore.osmaps.com/route/1002", createdAt: "", createdAtValue: 1, distanceMetres: 1000, source: "created"} as OsMapsListedRoute;
-    state.page.listing = {listedAt: 1, routes: [favourite, other]};
-    listPreferences.isFavourite.mockImplementation((key: string) => key === "os-maps:1001");
-    state.page.favouritesOnly = true;
+  it("requests favourites from the server when that filter is on", async () => {
+    await vi.advanceTimersByTimeAsync(0);
+    const favourite = {id: "1001", title: "Hillside Park"} as OsMapsListedRoute;
+    listPreferences.favouriteKeys.mockReturnValue(["os-maps:1001"]);
+    service.listing.mockResolvedValue({listedAt: 1, routes: [favourite], matchedCount: 1, totalCount: 2});
+    state.page.chooseFavourites();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(service.listing).toHaveBeenLastCalledWith(OsMapsAccountScope.GROUP, expect.objectContaining({favourites: true, favouriteKeys: ["os-maps:1001"]}));
     expect(state.page.visibleRoutes().map(route => route.id)).toEqual(["1001"]);
+    expect(state.page.matchedCount()).toBe(1);
+  });
+
+  it("resolves location before requesting a bookmarked nearby list", async () => {
+    await vi.advanceTimersByTimeAsync(0);
+    state.page.ngOnDestroy();
+    TestBed.inject(ActivatedRoute).snapshot.queryParams[StoredValue.NEARBY] = "true";
+    const route = {id: "1001", gpxFile: {startLat: 51, startLng: 1}} as OsMapsListedRoute;
+    service.listing.mockClear().mockResolvedValue({listedAt: 1, routes: [route]});
+    const origin = vi.fn().mockResolvedValue({latitude: 51, longitude: 1});
+    TestBed.inject(RouteNearbyService).origin = origin;
+    state.page = TestBed.runInInjectionContext(() => new OsMapsExportPage());
+    state.page.ngOnInit();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(origin).toHaveBeenCalledWith([{latitude: 51, longitude: 1}]);
+    expect(service.listing).toHaveBeenNthCalledWith(1, OsMapsAccountScope.GROUP);
+    expect(service.listing).toHaveBeenNthCalledWith(2, OsMapsAccountScope.GROUP, expect.objectContaining({nearby: true, latitude: 51, longitude: 1}));
+    expect(state.page.visibleRoutes()).toEqual([route]);
   });
 });

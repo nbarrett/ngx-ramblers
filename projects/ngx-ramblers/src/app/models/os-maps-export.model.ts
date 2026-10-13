@@ -69,9 +69,14 @@ export interface OsMapsListedRoute extends OsMapsImportContext {
   difficulty?: Difficulty | null;
 }
 
+export const OS_MAPS_ROUTE_PAGE_SIZE = 50;
+
 export interface OsMapsRouteListing {
   listedAt: number;
   routes: OsMapsListedRoute[];
+  matchedCount?: number;
+  totalCount?: number;
+  users?: string[];
 }
 
 export interface OsMapsRouteListSnapshot {

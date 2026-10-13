@@ -1,10 +1,13 @@
 import { accessibleRoutes, canEditImportedRoute, routeAdmin } from "./os-maps-route-access";
-import { OsMapsAccountScope, OsMapsImportContext, RouteVisibility } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
+import { OsMapsAccountScope, OsMapsImportContext, OsMapsRouteListFilter, OS_MAPS_ROUTE_PAGE_SIZE, RouteVisibility } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { routesWithWalkReferences } from "./os-maps-route-walks";
+import { pageOsMapsListedRoutes } from "./os-maps-route-listing-page";
 import { removeOsMapsRouteFromApp } from "./os-maps-route-listing-store";
 import { routeContributorFrom } from "../auth/request-member";
 import { Request, Response } from "express";
-import { isArray, isObject, isString } from "es-toolkit/compat";
+import { isArray, isNumber, isObject, isString, keys } from "es-toolkit/compat";
+import { SortDirection } from "../../../projects/ngx-ramblers/src/app/models/sort.model";
+import { APP_NEARBY_MILES } from "../../../projects/ngx-ramblers/src/app/models/route-follow.model";
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
@@ -13,8 +16,8 @@ import { dispatchOsMapsExport, dispatchOsMapsList } from "../ramblers/os-maps-ex
 import { cancelActiveWorkerQueueJob } from "../ramblers/integration-worker-queue-client";
 import { failOsMapsExportResult, latestOsMapsExportResult, osMapsExportResultByJobId, lastOsMapsExportActivityAt, osMapsExportResultWithActivity } from "./os-maps-export-result-store";
 import { dateTimeNowAsValue } from "../shared/dates";
-import { latestOsMapsRouteListing, listedImportedOsMapsRoutes, listedRouteFromImportedRecord } from "./os-maps-route-listing-store";
-import { osMapsImportedRouteById, osMapsImportedRouteByNumber, saveOsMapsImportedRoute } from "./os-maps-imported-route-store";
+import { latestOsMapsRouteListing, listedImportedFrom, listedImportedOsMapsRoutes, listedRouteFromImportedRecord } from "./os-maps-route-listing-store";
+import { importedRecordsByRouteId, osMapsImportedRouteById, osMapsImportedRouteByNumber, saveOsMapsImportedRoute, withListingPreviewPoints } from "./os-maps-imported-route-store";
 
 function actorNameFrom(req: Request): string {
   const user = req.user as Partial<MemberCookie> | undefined;
@@ -25,13 +28,31 @@ const debugLog = debug(envConfig.logNamespace("os-maps-export-controller"));
 debugLog.enabled = true;
 
 export async function listOsMapsRoutes(req: Request, res: Response): Promise<void> {
+  const started = process.hrtime.bigint();
   try {
     const member = req.user as MemberCookie;
-    const listing = await latestOsMapsRouteListing(accountOwner(req));
-    const imported = await listedImportedOsMapsRoutes();
-    const combined = [...listing.routes, ...imported.filter(route => !listing.routes.some(listed => listed.id === route.id))];
-    const shown = routeAdmin(member) ? combined : combined.filter(route => !!route.importedAt || listing.routes.some(listed => listed.id === route.id));
-    res.json({...listing, routes: await routesWithWalkReferences(accessibleRoutes(shown, member))});
+    const owner = accountOwner(req);
+    const importedById = await importedRecordsByRouteId();
+    debugLog("list imported records", Number(process.hrtime.bigint() - started) / 1e6, "ms", keys(importedById).length);
+    const listing = await latestOsMapsRouteListing(owner, importedById);
+    debugLog("list listing", Number(process.hrtime.bigint() - started) / 1e6, "ms", listing.routes.length);
+    const importedSource = owner ? await latestOsMapsRouteListing(null, importedById) : listing;
+    const imported = listedImportedFrom(importedSource, importedById);
+    const listedIds = new Set(listing.routes.map(route => route.id));
+    const combined = [...listing.routes, ...imported.filter(route => !listedIds.has(route.id))];
+    const shown = routeAdmin(member) ? combined : combined.filter(route => !!route.importedAt || listedIds.has(route.id));
+    const accessible = accessibleRoutes(shown, member);
+    const paged = pageOsMapsListedRoutes(accessible, listingPageQuery(req));
+    const withPreviews = await withListingPreviewPoints(paged.page);
+    const withWalks = await routesWithWalkReferences(withPreviews);
+    debugLog("list page", Number(process.hrtime.bigint() - started) / 1e6, "ms", withWalks.length, "of", paged.matchedCount);
+    res.json({
+      listedAt: listing.listedAt,
+      routes: withWalks,
+      matchedCount: paged.matchedCount,
+      totalCount: paged.totalCount,
+      users: paged.users
+    });
   } catch (error) {
     debugLog("list failed:", (error as Error).message);
     res.status(500).json({error: (error as Error).message});
@@ -242,6 +263,47 @@ export async function deleteOsMapsRoute(req: Request, res: Response): Promise<vo
     debugLog("delete route failed:", (error as Error).message);
     res.status(500).json({error: (error as Error).message});
   }
+}
+
+function queryStringList(value: unknown): string[] {
+  if (isArray(value)) {
+    return value.filter(item => isString(item) && item.length > 0);
+  } else if (isString(value) && value.length > 0) {
+    return value.split(",").map(item => item.trim()).filter(item => item.length > 0);
+  } else {
+    return [];
+  }
+}
+
+function queryNumber(value: unknown): number | null {
+  if (isNumber(value)) {
+    return value;
+  } else if (isString(value) && value.length > 0) {
+    const parsed = Number(value);
+    return parsed === parsed ? parsed : null;
+  } else {
+    return null;
+  }
+}
+
+function listingPageQuery(req: Request) {
+  const filter = req.query?.filter;
+  const sortKey = isString(req.query?.sort) ? req.query.sort : "createdAtValue";
+  return {
+    search: isString(req.query?.search) ? req.query.search : "",
+    filter: filter === OsMapsRouteListFilter.IMPORTED || filter === OsMapsRouteListFilter.NOT_IMPORTED ? filter : OsMapsRouteListFilter.ALL,
+    user: isString(req.query?.user) ? req.query.user : "",
+    sortKey: sortKey === "title" || sortKey === "distanceMetres" || sortKey === "importedAt" ? sortKey : "createdAtValue",
+    sortDirection: req.query?.sortOrder === SortDirection.ASC ? SortDirection.ASC : SortDirection.DESC,
+    nearbyOnly: req.query?.nearby === "true",
+    nearbyMiles: queryNumber(req.query?.nearbyMiles) || APP_NEARBY_MILES,
+    latitude: queryNumber(req.query?.latitude),
+    longitude: queryNumber(req.query?.longitude),
+    favouriteKeys: queryStringList(req.query?.favouriteKeys),
+    hiddenKeys: queryStringList(req.query?.hiddenKeys),
+    favouritesOnly: req.query?.favourites === "true",
+    limit: queryNumber(req.query?.limit) || OS_MAPS_ROUTE_PAGE_SIZE
+  };
 }
 
 function accountOwner(req: Request): string | null {
