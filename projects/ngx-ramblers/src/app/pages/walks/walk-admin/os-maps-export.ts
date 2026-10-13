@@ -17,7 +17,7 @@ import { RouteAuditComponent } from "../../../modules/common/route-audit";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faTrash, faArrowLeft, faArrowUpRightFromSquare, faXmark, faArrowDownWideShort, faArrowUpShortWide, faBookmark, faCalendarDays, faCircleCheck, faCircleExclamation, faDownload, faEyeSlash, faLocationDot, faMagnifyingGlass, faMap, faPersonWalking, faPowerOff, faSpinner, faStar, faSync } from "@fortawesome/free-solid-svg-icons";
+import { faTrash, faArrowLeft, faArrowUpRightFromSquare, faXmark, faArrowDownWideShort, faArrowUpShortWide, faBookmark, faCalendarDays, faCheck, faCircleCheck, faCircleExclamation, faDownload, faEyeSlash, faLocationDot, faMagnifyingGlass, faMap, faPersonWalking, faPowerOff, faSpinner, faStar, faSync } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -32,14 +32,13 @@ import {
   OsMapsExportJobResult,
   OsMapsExportTab,
   OS_MAPS_EXPORT_POLL_INTERVAL_MS,
+  OS_MAPS_ROUTE_PAGE_SIZE,
   OsMapsListedRoute,
   OsMapsRouteListFilter,
   OsMapsRouteListing,
   OsMapsRouteSource,
   isOsMapsRouteUrl,
   isRecordedOsMapsRoute,
-  osMapsRouteUserNames,
-  osMapsRouteVisible,
   routeAuditCreatedLabel
 } from "../../../models/os-maps-export.model";
 import { SortDirection } from "../../../models/sort.model";
@@ -169,14 +168,14 @@ import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk
             <div class="thumbnail-heading">Routes</div>
             <p class="os-maps-route-intro">Search and tick the routes you want, then convert them to GPX. Imported routes stay marked so you can see what is still to do next time. When new routes have been saved on an OS Maps account, reload the list using the button next to the last-loaded time.</p>
             <p class="mb-3"><a [href]="routesHowToImportUrl" target="_blank" rel="noopener noreferrer">How to import routes from OS Maps</a></p>
-            <div class="mb-3 d-flex flex-wrap gap-2">
+            <div class="os-maps-route-toggles mb-3 d-flex flex-wrap gap-2" role="group" aria-label="Route list filters">
               <button type="button" class="btn" [class.btn-primary]="nearbyOnly" [class.btn-quiet]="!nearbyOnly"
                       [attr.aria-pressed]="nearbyOnly" (click)="chooseNearby()">
-                <fa-icon [icon]="faLocationDot" class="me-2"/>Near me
+                <fa-icon [icon]="nearbyOnly ? faCheck : faLocationDot" class="me-2"/>Near me
               </button>
               <button type="button" class="btn" [class.btn-primary]="favouritesOnly" [class.btn-quiet]="!favouritesOnly"
                       [attr.aria-pressed]="favouritesOnly" (click)="chooseFavourites()">
-                <fa-icon [icon]="faStar" class="me-2"/>Favourites
+                <fa-icon [icon]="favouritesOnly ? faCheck : faStar" class="me-2"/>Favourites
               </button>
               @if (listPreferences.hiddenCount()) {
                 <button type="button" class="btn btn-quiet" (click)="showHiddenMaps()">
@@ -257,7 +256,7 @@ import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk
                   @if (matchedCount() > visibleRoutes().length) {
                     Showing the first {{ visibleRoutes().length }} of {{ matchedCount() }}
                   } @else {
-                    {{ matchedCount() }} of {{ listing.routes.length }} routes
+                    {{ matchedCount() }} of {{ listing.totalCount || listing.routes.length }} routes
                   }
                 </span>
               </div>
@@ -505,6 +504,22 @@ import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk
         .btn
           width: 100%
 
+    .os-maps-route-toggles .btn
+      display: inline-flex
+      align-items: center
+      transition: none
+
+    .os-maps-route-toggles .btn[aria-pressed="true"]
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.22)
+
+    .os-maps-route-toggles .btn[aria-pressed="false"]:is(:hover, :focus, :active)
+      background-color: var(--bs-btn-bg)
+      border-color: var(--bs-btn-border-color)
+
+    .os-maps-route-toggles .btn[aria-pressed="false"]:focus:not(:focus-visible)
+      box-shadow: none
+      outline: none
+
     .os-maps-route-intro
       @media (max-width: 575.98px)
         display: none
@@ -612,6 +627,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   faCircleCheck = faCircleCheck;
   faMap = faMap;
   faStar = faStar;
+  faCheck = faCheck;
   faEyeSlash = faEyeSlash;
   faLocationDot = faLocationDot;
   faPersonWalking = faPersonWalking;
@@ -662,7 +678,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   protected previewWidth = Number(this.uiActions.initialValueFor(StoredValue.OS_MAPS_ROUTE_PREVIEW_WIDTH)) || this.defaultPreviewWidth;
   protected previewHeight = Number(this.uiActions.initialValueFor(StoredValue.OS_MAPS_ROUTE_PREVIEW_HEIGHT)) || this.defaultPreviewHeight;
   private searchWait = {timer: null as ReturnType<typeof setTimeout> | null};
-  private readonly maxVisibleRoutes = 50;
+  private readonly maxVisibleRoutes = OS_MAPS_ROUTE_PAGE_SIZE;
   private readonly sortKeys = ["createdAtValue", "title", "distanceMetres", "importedAt"];
 
   isAdmin(): boolean {
@@ -708,14 +724,13 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   async chooseNearby(): Promise<void> {
     this.nearbyOnly = !this.nearbyOnly;
     this.writeViewToUrl();
-    if (this.nearbyOnly) {
-      await this.locateNearby();
-    }
+    await this.loadListing();
   }
 
   chooseFavourites(): void {
     this.favouritesOnly = !this.favouritesOnly;
     this.writeViewToUrl();
+    void this.loadListing();
   }
 
   routeKey(route: OsMapsListedRoute): string | null {
@@ -728,18 +743,23 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
 
   toggleFavourite(route: OsMapsListedRoute): void {
     this.listPreferences.toggleFavourite(this.routeKey(route));
+    if (this.favouritesOnly) {
+      void this.loadListing();
+    }
   }
 
   hideRoute(route: OsMapsListedRoute): void {
     this.listPreferences.hide(this.routeKey(route));
+    void this.loadListing();
   }
 
   showHiddenMaps(): void {
     this.listPreferences.showHidden();
+    void this.loadListing();
   }
 
-  private async locateNearby(): Promise<void> {
-    const points = this.listing.routes.map(route => this.startPoint(route)).filter((point): point is GeoCoordinate => !!point);
+  private async locateNearby(routes: OsMapsListedRoute[] = this.listing.routes): Promise<void> {
+    const points = routes.map(route => this.startPoint(route)).filter((point): point is GeoCoordinate => !!point);
     this.here = await this.nearby.origin(points);
     this.locationError = this.here ? "" : "Location is not available, so Near me cannot filter the list.";
   }
@@ -748,6 +768,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
     this.nearbyRange = range;
     this.nearbyMiles = range.unit === DistanceUnit.KILOMETERS ? range.max / KM_PER_MILE : range.max;
     this.writeViewToUrl();
+    void this.loadListing();
   }
 
   onPreviewWidthChange(width: number): void {
@@ -881,25 +902,19 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   }
 
   private matchedRoutes(): OsMapsListedRoute[] {
-    return this.sortRoutes(this.listing.routes.filter(route => osMapsRouteVisible(route, this.search, this.importFilter, this.userFilter)
-      && !this.listPreferences.isHidden(this.routeKey(route))
-      && (!this.favouritesOnly || this.isFavourite(route))
-      && (!this.nearbyOnly || this.milesAway(route) !== null && this.milesAway(route) <= this.nearbyMiles)));
+    return this.listing.routes;
   }
 
   matchedCount(): number {
-    return this.matchedRoutes().length;
+    return this.listing.matchedCount ?? this.listing.routes.length;
   }
 
   visibleRoutes(): OsMapsListedRoute[] {
-    return this.matchedRoutes().slice(0, this.maxVisibleRoutes);
+    return this.listing.routes.slice(0, this.maxVisibleRoutes);
   }
 
   userFilterOptions(): string[] {
-    return this.listing.routes
-      .reduce((names: string[], route) => [...names, ...osMapsRouteUserNames(route)], [])
-      .filter((name, index, names) => names.indexOf(name) === index)
-      .sort((first, second) => first.localeCompare(second));
+    return this.listing.users || [];
   }
 
   sourceLabel(route: OsMapsListedRoute): string {
@@ -918,31 +933,10 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
 
   protected readonly routeAuditCreatedLabel = routeAuditCreatedLabel;
 
-  private sortRoutes(routes: OsMapsListedRoute[]): OsMapsListedRoute[] {
-    const direction = this.sortDirection === ASCENDING ? 1 : -1;
-    if (this.nearbyOnly) {
-      return [...routes].sort((first, second) => (this.milesAway(first) ?? Infinity) - (this.milesAway(second) ?? Infinity));
-    } else {
-      return [...routes].sort((first, second) => this.compareBySortKey(first, second) * direction);
-    }
-  }
-
-  private compareBySortKey(first: OsMapsListedRoute, second: OsMapsListedRoute): number {
-    if (this.sortKey === "title") {
-      return (first.title || "").localeCompare(second.title || "");
-    } else if (this.sortKey === "distanceMetres") {
-      return (first.distanceMetres || 0) - (second.distanceMetres || 0);
-    } else if (this.sortKey === "importedAt") {
-      return (first.importedAt || 0) - (second.importedAt || 0);
-    } else {
-      return (first.createdAtValue || 0) - (second.createdAtValue || 0);
-    }
-  }
-
   emptyMessage(): string {
     if (this.listingLoading) {
       return "Loading saved routes…";
-    } else if (this.listing.routes.length === 0) {
+    } else if ((this.listing.totalCount || this.listing.routes.length) === 0) {
       return "No routes loaded yet. Use Load routes from OS Maps.";
     } else if (this.favouritesOnly) {
       return "No favourite maps yet.";
@@ -996,27 +990,32 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
     }
     this.searchWait.timer = setTimeout(() => {
       this.writeViewToUrl();
+      void this.loadListing();
     }, 300);
   }
 
   onFilterChange(value: OsMapsRouteListFilter): void {
     this.importFilter = value;
     this.writeViewToUrl();
+    void this.loadListing();
   }
 
   onUserFilterChange(value: string): void {
     this.userFilter = value || "";
     this.writeViewToUrl();
+    void this.loadListing();
   }
 
   onSortKeyChange(value: string): void {
     this.sortKey = value || "createdAtValue";
     this.writeViewToUrl();
+    void this.loadListing();
   }
 
   toggleSortDirection(): void {
     this.sortDirection = this.sortDirection === ASCENDING ? DESCENDING : ASCENDING;
     this.writeViewToUrl();
+    void this.loadListing();
   }
 
   selectTab(tab: OsMapsExportTab): void {
@@ -1088,12 +1087,26 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       this.listingLoading = true;
     }
     try {
-      const listing = await this.osMapsExportService.listing(this.account);
+      if (this.nearbyOnly && !this.here) {
+        const unfiltered = await this.osMapsExportService.listing(this.account);
+        await this.locateNearby(unfiltered.routes);
+      }
+      const listing = await this.osMapsExportService.listing(this.account, {
+        search: this.search,
+        filter: this.importFilter,
+        user: this.userFilter,
+        sort: this.sortKey,
+        sortOrder: this.sortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC,
+        nearby: this.nearbyOnly,
+        nearbyMiles: this.nearbyMiles,
+        latitude: this.here?.latitude,
+        longitude: this.here?.longitude,
+        favouriteKeys: this.listPreferences.favouriteKeys(),
+        hiddenKeys: this.listPreferences.hiddenKeys(),
+        favourites: this.favouritesOnly
+      });
       this.applyListing(listing);
       this.listCache.save(this.account, listing);
-      if (this.nearbyOnly && !this.here) {
-        await this.locateNearby();
-      }
     } catch (error) {
       this.logger.error("loadListing failed:", error);
       this.errorMessage = this.failureMessage(error, "Failed to load saved routes");

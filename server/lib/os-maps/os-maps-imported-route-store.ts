@@ -61,10 +61,47 @@ export async function markOsMapsRoutesImported(imports: OsMapsRouteImport[], con
 }
 
 export async function importedRecordsByRouteId(): Promise<Record<string, OsMapsImportedRouteRecord>> {
-  return mongooseClient.execute(() => osMapsImportedRoute.find({}).lean()
-    .then(documents => (documents || []).reduce((acc, document) => {
-      return document.routeId ? {...acc, [document.routeId]: document} : acc;
-    }, {} as Record<string, OsMapsImportedRouteRecord>)));
+  return mongooseClient.execute(() => osMapsImportedRoute.find({}).select("-waypoints -gpxFile.previewPoints").lean()
+    .then(documents => {
+      const importedById: Record<string, OsMapsImportedRouteRecord> = {};
+      (documents || []).forEach(document => {
+        if (document.routeId) {
+          importedById[document.routeId] = document;
+        }
+      });
+      return importedById;
+    }));
+}
+
+export async function withListingPreviewPoints(routes: OsMapsListedRoute[]): Promise<OsMapsListedRoute[]> {
+  if (routes.length === 0) {
+    return [];
+  } else {
+    const previewById = await mongooseClient.execute(() => osMapsImportedRoute.find({routeId: {$in: routes.map(route => route.id)}})
+      .select("routeId gpxFile.previewPoints gpxFile.startLat gpxFile.startLng")
+      .lean()
+      .then(documents => {
+        const byId: Record<string, OsMapsImportedRouteRecord> = {};
+        (documents || []).forEach(document => {
+          if (document.routeId) {
+            byId[document.routeId] = document;
+          }
+        });
+        return byId;
+      }));
+    return routes.map(route => {
+      const preview = previewById[route.id]?.gpxFile;
+      return preview ? {
+        ...route,
+        gpxFile: route.gpxFile ? {
+          ...route.gpxFile,
+          previewPoints: preview.previewPoints || route.gpxFile.previewPoints,
+          startLat: preview.startLat ?? route.gpxFile.startLat,
+          startLng: preview.startLng ?? route.gpxFile.startLng
+        } : preview
+      } : route;
+    });
+  }
 }
 
 export async function osMapsImportedRouteById(routeId: string): Promise<OsMapsImportedRouteRecord | null> {
@@ -128,19 +165,27 @@ export async function saveOsMapsImportedRoute(routeId: string, update: {
 export function withImportedAt(routes: OsMapsListedRoute[], importedById: Record<string, OsMapsImportedRouteRecord>): OsMapsListedRoute[] {
   return (routes || []).map(route => {
     const imported = importedById[route.id];
+    const gpxFile = imported?.gpxFile || route.gpxFile || null;
     return {
-      ...route,
+      id: route.id,
+      ownerMemberId: imported?.ownerMemberId || route.ownerMemberId || null,
+      visibility: imported?.visibility || route.visibility || null,
+      canEdit: route.canEdit,
       number: imported?.number || route.number || null,
+      title: route.title,
+      url: route.url,
+      createdAt: route.createdAt,
+      createdAtValue: route.createdAtValue,
+      distanceMetres: route.distanceMetres || gpxFile?.distanceMetres || 0,
+      source: route.source,
       importedAt: imported?.importedAt || 0,
-      ownerMemberId: imported?.ownerMemberId || null,
-      visibility: imported?.visibility || null,
-      gpxFile: imported?.gpxFile || null,
-      routeColor: imported?.color || null,
-      routeWeight: imported?.weight || null,
-      routeOpacity: imported?.opacity || null,
-      walkedAt: imported?.gpxFile?.walkedAt || null,
-      walkedByName: imported?.gpxFile?.walkedByName || null,
-      waypoints: imported?.waypoints || route.waypoints || null,
+      gpxFile,
+      routeColor: imported?.color || route.routeColor || null,
+      routeWeight: imported?.weight || route.routeWeight || null,
+      routeOpacity: imported?.opacity || route.routeOpacity || null,
+      walkedAt: gpxFile?.walkedAt || null,
+      walkedByName: gpxFile?.walkedByName || null,
+      walks: route.walks,
       difficulty: imported?.difficulty || route.difficulty || null
     };
   });
