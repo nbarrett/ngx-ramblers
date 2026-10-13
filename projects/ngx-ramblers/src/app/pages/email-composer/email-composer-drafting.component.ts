@@ -99,7 +99,7 @@ import {NEWSLETTER_INTRO_DETAIL_OPTIONS, NewsletterIntroDetail} from "../../mode
                       <div class="mb-2 d-flex align-items-center flex-wrap gap-2">
                         @if (drafting.walkLeaderRequest()) {
                           <button type="button" class="btn btn-primary btn-sm"
-                                  [disabled]="drafting.draftingIntro || events.selectedGroupEventCount() === 0"
+                                  [disabled]="!drafting.introDraftAvailable()"
                                   (click)="drafting.draftNewsletterIntro()">
                             <fa-icon [icon]="drafting.draftingIntro ? faSpinner : faWandMagicSparkles" [spin]="drafting.draftingIntro" class="me-1"/>
                             {{ drafting.draftingIntro ? "Drafting…" : drafting.introDraftUndoAvailable() ? "Draft it again" : "Draft the intro" }}
@@ -113,7 +113,7 @@ import {NEWSLETTER_INTRO_DETAIL_OPTIONS, NewsletterIntroDetail} from "../../mode
                                                  tooltip="Choose how much detail to include"
                                                  [items]="introDetailItems()"
                                                  [defaultItemId]="drafting.introDetail"
-                                                 [disabled]="drafting.draftingIntro || events.selectedGroupEventCount() === 0"
+                                                 [disabled]="!drafting.introDraftAvailable()"
                                                  (itemSelect)="drafting.onIntroDetailSelect($event)"/>
                           </div>
                         }

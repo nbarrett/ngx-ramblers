@@ -117,6 +117,22 @@ describe("composer drafting start UI", () => {
     expect(drafting().introDraftOffered()).toEqual(true);
   });
 
+  it("disables the intro draft when there are no events to write from", () => {
+    const instance = drafting({
+      draftingIntro: false,
+      eventsForDraftPurpose: () => []
+    });
+    expect(instance.introDraftAvailable()).toEqual(false);
+  });
+
+  it("enables the intro draft when events match the purpose", () => {
+    const instance = drafting({
+      draftingIntro: false,
+      eventsForDraftPurpose: () => [{id: "walk-1"}]
+    });
+    expect(instance.introDraftAvailable()).toEqual(true);
+  });
+
   it("hides the intro draft when creating a platform update", () => {
     const instance = drafting({platformAdminEnabled: true, newsletterStartMode: NewsletterStartMode.UPDATE});
     instance.session.platformAdminEnabled = true;

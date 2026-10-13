@@ -115,7 +115,7 @@ import { WalkLeadEditButton } from "../walk-view/walk-lead-edit-button";
         <div class="walk-row-actions" (click)="$event.stopPropagation()">
           @if (slot) {
             <app-walk-lead-edit-button [displayedWalk]="displayedWalk"
-                                       [appearance]="WalkLeadEditAppearance.COMPACT"/>
+                                       [appearance]="WalkLeadEditAppearance.INLINE"/>
           } @else {
             <button type="button" class="btn btn-sm btn-quiet" (click)="openWalk(displayedWalk, false); $event.stopPropagation()">Open</button>
             @if (showEdit) {

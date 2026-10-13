@@ -78,6 +78,10 @@ export class EmailComposerDraftingService {
       && this.effectiveStartMode() !== NewsletterStartMode.UPDATE;
   }
 
+  introDraftAvailable(): boolean {
+    return !this.draftingIntro && this.eventsForDraftPurpose().length > 0;
+  }
+
   startUiOffered(): boolean {
     return this.session.state.brandingMode !== BrandingMode.UNBRANDED
       && !this.session.inboxReplyContext

@@ -11,7 +11,7 @@ import { LoginResponse } from "../../../models/member.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { DisplayedWalk, EventType, MapDisplay, WalkExportTab, WalkShareMenuAction } from "../../../models/walk.model";
 import { ButtonDropdownComponent } from "../../../modules/common/button-dropdown/button-dropdown";
-import { ButtonDropdownContainer, ButtonDropdownItem } from "../../../models/button-dropdown.model";
+import { ButtonDropdownItem } from "../../../models/button-dropdown.model";
 import { WalkLeadEditAppearance } from "../../../models/walk-edit-mode.model";
 import { WalkLeadEditButton } from "./walk-lead-edit-button";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
@@ -38,6 +38,7 @@ import { ExtendedGroupEventQueryService } from "../../../services/walks-and-even
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { WalkPanelExpanderComponent } from "../../../panel-expander/walk-panel-expander";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { TOOLTIP_SHOW_DELAY_MS } from "../../../modules/common/tooltip-config";
 
 import {
   EventSocialPublishModalComponent
@@ -177,10 +178,12 @@ import { AppPath } from "../../../models/route-follow.model";
                   }
                   @if (mapFullScreen) {
                     <ng-container *ngTemplateOutlet="mapDisplayControls"/>
+                    <ng-container *ngTemplateOutlet="followThisRoute"/>
                   }
                 </app-maximisable-map>
                 @if (!mapFullScreen) {
                   <ng-container *ngTemplateOutlet="mapDisplayControls"/>
+                  <ng-container *ngTemplateOutlet="followThisRoute"/>
                 }
               </div>
               <ng-template #mapDisplayControls>
@@ -295,7 +298,6 @@ import { AppPath } from "../../../models/route-follow.model";
                                  [icon]="showPublishToRamblers ? faCloudArrowUp : faShareNodes"
                                  [buttonClass]="showPublishToRamblers ? 'btn btn-primary btn-sm walk-view-action' : 'btn btn-quiet btn-sm walk-view-action'"
                                  [ariaLabel]="'Share and publish options for this ' + eventTypeLabel()"
-                                 [container]="ButtonDropdownContainer.BODY"
                                  [items]="shareMenuItems()"
                                  (itemSelect)="onShareMenu($event)"/>
           }
@@ -316,9 +318,16 @@ import { AppPath } from "../../../models/route-follow.model";
               <span>View</span>
             </a>
           }
+          <ng-container *ngTemplateOutlet="followThisRoute"/>
+        </ng-template>
+        <ng-template #followThisRoute>
           @if (canFollowRoute()) {
             <button type="button" (click)="followRoute()"
                     tooltip="Follow this route"
+                    container="body"
+                    [delay]="tooltipShowDelay"
+                    [adaptivePosition]="false"
+                    placement="top"
                     class="btn btn-primary btn-sm walk-view-action walk-view-action-follow">
               <fa-icon [icon]="faPersonWalking"/>
               <span>Follow this route</span>
@@ -449,6 +458,7 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   protected linkCopied = false;
   private linkCopiedTimeout: ReturnType<typeof setTimeout>;
   protected readonly faPersonWalking = faPersonWalking;
+  protected readonly tooltipShowDelay = TOOLTIP_SHOW_DELAY_MS;
   public showPublishToRamblers = false;
   public publishTooltip = "Open Walks export to publish changes to Ramblers";
   public publishExportLink: string[] = [];
@@ -470,8 +480,6 @@ export class WalkViewComponent implements OnInit, OnDestroy {
   eventTypeLabel(): string {
     return this.display.eventTypeTitle(this.displayedWalk?.walk).toLowerCase();
   }
-
-  protected readonly ButtonDropdownContainer = ButtonDropdownContainer;
 
   protected shareMenuItems(): ButtonDropdownItem[] {
     const eventLabel = this.eventTypeLabel();

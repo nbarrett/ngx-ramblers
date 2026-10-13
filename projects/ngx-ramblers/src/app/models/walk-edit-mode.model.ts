@@ -8,7 +8,7 @@ export interface WalkAccessMode {
 export enum WalkLeadEditAppearance {
   OVERLAY = "overlay",
   ACTION = "action",
-  COMPACT = "compact"
+  INLINE = "inline"
 }
 
 export enum WalkLeadEditAction {

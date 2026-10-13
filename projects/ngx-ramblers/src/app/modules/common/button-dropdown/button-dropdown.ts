@@ -1,4 +1,4 @@
-import { Component, inject, Input, output } from "@angular/core";
+import { Component, Input, output } from "@angular/core";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { RouterLink } from "@angular/router";
@@ -6,19 +6,21 @@ import { IconDefinition } from "@fortawesome/fontawesome-common-types";
 import { faCheck } from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { TooltipConfig, TooltipDirective } from "ngx-bootstrap/tooltip";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import {
   ButtonDropdownContainer,
   ButtonDropdownItem,
   ButtonDropdownItemType,
   ButtonDropdownPlacement
 } from "../../../models/button-dropdown.model";
+import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
 
 @Component({
   selector: "app-button-dropdown",
   imports: [BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FontAwesomeModule, TooltipDirective, RouterLink, NgClass, NgTemplateOutlet],
   host: {
-    "[class.full-width]": "fullWidth"
+    "[class.full-width]": "fullWidth",
+    "[class.compact]": "compact"
   },
   styles: [`
     :host
@@ -27,6 +29,31 @@ import {
 
     :host.full-width
       width: 100%
+
+    :host.compact
+      display: inline-flex
+      width: auto
+
+    :host.compact .btn-group
+      flex: 0 0 auto
+      width: auto
+
+    :host.compact .btn-group > .btn
+      min-height: 32px
+      height: 32px
+      padding-top: 0
+      padding-bottom: 0
+      padding-left: 0.5rem
+      padding-right: 0.5rem
+      gap: var(--space-2)
+      justify-content: flex-start
+    :host.compact .btn-group > .dropdown-toggle-split
+      flex: 0 0 var(--button-dropdown-caret-width, 1.75rem)
+      width: var(--button-dropdown-caret-width, 1.75rem)
+      min-width: var(--button-dropdown-caret-width, 1.75rem)
+      padding-left: 0
+      padding-right: 0
+      justify-content: center
 
     .btn-group
       display: flex
@@ -57,6 +84,13 @@ import {
       flex: 0 0 auto
       width: auto
       min-height: var(--btn-min-height)
+
+    .btn-group:hover > .btn:not(:disabled),
+    .btn-group.show > .btn:not(:disabled),
+    .btn-group:focus-within > .btn:not(:disabled)
+      color: #000
+      background-color: var(--rsm-btn-ghost-hover-bg)
+      border-color: var(--rsm-btn-ghost-hover-border)
 
     .btn-group > .dropdown-toggle fa-icon
       display: inline-flex
@@ -121,15 +155,34 @@ import {
          [placement]="placement"
          [insideClick]="insideClick"
          [isDisabled]="disabled">
-      @if (defaultItemId) {
+      @if (disabled) {
         <button type="button"
                 class="{{ buttonClass }}"
-                [disabled]="disabled"
+                [class.w-100]="fullWidth"
+                disabled
                 [tooltip]="tooltip"
-                [container]="tooltipContainer"
-                [delay]="tooltipDelay ?? tooltipConfig.delay"
+                [container]="tooltipContainer || 'body'"
+                [delay]="tooltipDelay ?? TOOLTIP_SHOW_DELAY_MS"
+                [adaptivePosition]="false"
+                [placement]="tooltipPlacement"
+                [attr.aria-label]="ariaLabel || tooltip || label">
+          @if (icon) {
+            <fa-icon [icon]="icon" [animation]="iconSpin ? 'spin' : undefined"/>
+          }
+          @if (label) {
+            <span>{{ label }}</span>
+          }
+        </button>
+      } @else if (hasDefaultAction()) {
+        <button type="button"
+                class="{{ buttonClass }}"
+                [tooltip]="tooltip"
+                [container]="tooltipContainer || 'body'"
+                [delay]="tooltipDelay ?? TOOLTIP_SHOW_DELAY_MS"
+                [adaptivePosition]="false"
+                [placement]="tooltipPlacement"
                 [attr.aria-label]="ariaLabel || tooltip || label"
-                (click)="chooseDefault()">
+                (click)="onFaceClick($event)">
           @if (icon) {
             <fa-icon [icon]="icon" [animation]="iconSpin ? 'spin' : undefined"/>
           }
@@ -140,7 +193,6 @@ import {
         <button type="button"
                 class="dropdown-toggle dropdown-toggle-split {{ buttonClass }}"
                 dropdownToggle
-                [disabled]="disabled"
                 [attr.aria-label]="'More ' + (label || 'options')">
         </button>
       } @else {
@@ -148,10 +200,11 @@ import {
                 class="dropdown-toggle {{ buttonClass }}"
                 [class.w-100]="fullWidth"
                 dropdownToggle
-                [disabled]="disabled"
                 [tooltip]="tooltip"
-                [container]="tooltipContainer"
-                [delay]="tooltipDelay ?? tooltipConfig.delay"
+                [container]="tooltipContainer || 'body'"
+                [delay]="tooltipDelay ?? TOOLTIP_SHOW_DELAY_MS"
+                [adaptivePosition]="false"
+                [placement]="tooltipPlacement"
                 [attr.aria-label]="ariaLabel || label">
           @if (icon) {
             <fa-icon [icon]="icon" [animation]="iconSpin ? 'spin' : undefined"/>
@@ -161,6 +214,7 @@ import {
           }
         </button>
       }
+      @if (!disabled) {
       <ul *dropdownMenu class="dropdown-menu" [class.w-100]="fullWidth" [class.dropdown-menu-end]="menuEnd"
           [ngClass]="menuClass" role="menu">
         @for (item of items; track item.id) {
@@ -203,6 +257,7 @@ import {
           }
         }
       </ul>
+      }
     </div>
     <ng-template #itemBody let-item>
       @if (item.icon) {
@@ -221,7 +276,6 @@ import {
   `
 })
 export class ButtonDropdownComponent {
-  private tooltipConfig = inject(TooltipConfig);
   @Input() label: string = null;
   @Input() icon: IconDefinition = null;
   @Input() items: ButtonDropdownItem[] = [];
@@ -231,6 +285,7 @@ export class ButtonDropdownComponent {
   @Input() tooltip: string = null;
   @Input() tooltipContainer: string = null;
   @Input() tooltipDelay: number = null;
+  @Input() tooltipPlacement = "top";
   @Input() ariaLabel: string = null;
   @Input() container: ButtonDropdownContainer | string = null;
   @Input() placement: ButtonDropdownPlacement | string = null;
@@ -239,6 +294,7 @@ export class ButtonDropdownComponent {
   protected disabled = false;
   protected dropUp = false;
   protected fullWidth = false;
+  protected compact = false;
   protected insideClick = false;
   protected menuEnd = false;
   protected iconSpin = false;
@@ -255,6 +311,10 @@ export class ButtonDropdownComponent {
 
   @Input("fullWidth") set fullWidthValue(value: boolean) {
     this.fullWidth = coerceBooleanProperty(value);
+  }
+
+  @Input("compact") set compactValue(value: boolean) {
+    this.compact = coerceBooleanProperty(value);
   }
 
   @Input("insideClick") set insideClickValue(value: boolean) {
@@ -275,10 +335,31 @@ export class ButtonDropdownComponent {
     }
   }
 
+  protected hasDefaultAction(): boolean {
+    return !!this.resolvedDefaultItem();
+  }
+
+  protected onFaceClick(event: Event): void {
+    this.chooseDefault();
+    if (event.currentTarget instanceof HTMLElement) {
+      event.currentTarget.blur();
+    }
+  }
+
   protected chooseDefault(): void {
-    const item = (this.items ?? []).find(candidate => candidate.id === this.defaultItemId);
+    const item = this.resolvedDefaultItem();
     if (item) {
       this.choose(item);
     }
   }
+
+  private resolvedDefaultItem(): ButtonDropdownItem {
+    if (this.defaultItemId) {
+      return (this.items ?? []).find(candidate => candidate.id === this.defaultItemId) ?? null;
+    } else {
+      return null;
+    }
+  }
+
+  protected readonly TOOLTIP_SHOW_DELAY_MS = TOOLTIP_SHOW_DELAY_MS;
 }
