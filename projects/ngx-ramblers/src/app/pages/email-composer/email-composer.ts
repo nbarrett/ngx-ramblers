@@ -91,7 +91,7 @@ import {
   ViewChildren
 } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
-import { Location, NgClass, NgTemplateOutlet } from "@angular/common";
+import { NgClass, NgTemplateOutlet } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { firstValueFrom, Subscription, timer } from "rxjs";
 import { VolunteerManagementService } from "../../services/volunteer-management.service";
@@ -1361,7 +1361,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private uiActions = inject(UiActionsService);
-  private location = inject(Location);
+
   private notifierService = inject(NotifierService);
   private documentConversionService = inject(DocumentConversionService);
   protected readonly documentImportAccept = CONVERTIBLE_DOCUMENT_EXTENSIONS.map(extension => `.${extension}`).join(",");
@@ -3509,11 +3509,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   private leaveComposer(): void {
-    if (this.session.inboxReplyContext) {
-      this.navigateToInbox();
-    } else {
-      this.location.back();
-    }
+    this.navigateToInbox();
   }
 
   private navigateToInbox(): void {
