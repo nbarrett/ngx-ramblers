@@ -846,15 +846,12 @@ export class ContentTextEditor implements OnInit, AfterViewInit, OnDestroy {
       selected: "",
       after: ""
     };
-    if (parts.selected) {
-      this.content.text = `${parts.before}${parts.after}`.trim();
-      this.changeText();
-      this.split.emit({textBefore: "", textAfter: parts.selected});
-      return;
-    }
-    this.content.text = parts.before;
+    const remaining = parts.selected ? `${parts.before}${parts.after}`.trim() : parts.before;
+    const moved = parts.selected || parts.after;
+    this.tiptapEditor?.commitMarkdown(remaining);
+    this.content.text = remaining;
     this.changeText();
-    this.split.emit({textBefore: "", textAfter: parts.after});
+    this.split.emit({textBefore: remaining, textAfter: moved});
   }
 
   private broadcastChange() {

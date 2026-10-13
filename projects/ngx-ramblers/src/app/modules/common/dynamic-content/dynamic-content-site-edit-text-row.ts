@@ -1253,6 +1253,10 @@ export class DynamicContentSiteEditTextRowComponent implements OnInit {
       return;
     }
 
+    if (splitData.textBefore != null) {
+      column.contentText = splitData.textBefore;
+    }
+
     const rowsToInsert: PageContentRow[] = [];
     if (splitData.textAfter != null) {
       rowsToInsert.push(this.createRowFromSplitRow({text: splitData.textAfter}));
