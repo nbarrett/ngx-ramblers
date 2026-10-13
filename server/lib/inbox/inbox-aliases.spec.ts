@@ -363,6 +363,16 @@ describe("inbox-aliases", () => {
       }), "example.co.uk")).toEqual(["walks@example.co.uk"]);
     });
 
+    it("keeps chair as an extra when the generated role address is chairman", () => {
+      expect(roleMailboxExtras(role({
+        type: "chairman",
+        description: "Chair",
+        fullName: "Alex Reed",
+        email: "chairman@group.example.org.uk",
+        additionalEmails: ["chair@group.example.org.uk"]
+      }), "group.example.org.uk")).toEqual(["chair@group.example.org.uk"]);
+    });
+
   });
 
   describe("roleNotificationRecipients", () => {

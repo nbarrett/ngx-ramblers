@@ -1,7 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Observable, ReplaySubject } from "rxjs";
-import { applyCommitteeRoleDefaultSender, BuiltInRole, CommitteeConfig, CommitteeMember, committeeMeetingTypesFromFileTypes, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, reassignCommitteeRoleMember, RoleType, roleEmailAddresses } from "../../models/committee.model";
+import { applyCommitteeRoleDefaultSender, BuiltInRole, CommitteeConfig, CommitteeMember, committeeMeetingTypesFromFileTypes, CONTACT_US_LABEL, CONTACT_US_TYPE, DEFAULT_COST_PER_MILE, reassignCommitteeRoleMember, RoleType, roleEmailAddresses, roleMailboxExtras } from "../../models/committee.model";
 import { committeeSenderDisplayName } from "../../functions/committee-senders";
 import { normaliseEmail } from "../../functions/strings";
 import { memberFullName } from "../../functions/member-names";
@@ -146,20 +146,67 @@ export class CommitteeConfigService {
       if (lost.length > 0) {
         return Promise.reject("That change would remove an address from the role, so it was not saved.");
       } else {
-        const next = {
-          ...config,
-          roles: config.roles.map(role => role.type === roleType ? updatedRole : role)
-        };
-        this.publishConfig(next);
-        return this.saveConfig(next)
-          .then(() => {
-            this.refreshConfig();
-          })
-          .catch(error => {
-            this.refreshConfig();
-            return Promise.reject(error);
-          });
+        return this.replaceRoleAndSave(currentRole.type, updatedRole);
       }
+    }
+  }
+
+  addRoleMailbox(roleType: string, email: string, domain?: string): Promise<void> {
+    const currentRole = this.latestConfig?.roles.find(role => role.type === roleType) ?? null;
+    if (!this.memberLoginService.allowMemberAdminEdits()) {
+      return Promise.reject("You cannot change committee email addresses here.");
+    } else if (!currentRole) {
+      return Promise.reject("Committee settings could not be loaded.");
+    } else {
+      const withExtra = {
+        ...currentRole,
+        additionalEmails: [...(currentRole.additionalEmails ?? []), email]
+      };
+      return this.replaceRoleAndSave(currentRole.type, {
+        ...withExtra,
+        additionalEmails: roleMailboxExtras(withExtra, domain)
+      });
+    }
+  }
+
+  removeRoleMailbox(roleType: string, email: string, domain?: string): Promise<void> {
+    const currentRole = this.latestConfig?.roles.find(role => role.type === roleType) ?? null;
+    const wanted = normaliseEmail(email);
+    if (!this.memberLoginService.allowMemberAdminEdits()) {
+      return Promise.reject("You cannot change committee email addresses here.");
+    } else if (!currentRole) {
+      return Promise.reject("Committee settings could not be loaded.");
+    } else {
+      const without = {
+        ...currentRole,
+        additionalEmails: (currentRole.additionalEmails ?? []).filter(address => normaliseEmail(address) !== wanted),
+        email: normaliseEmail(currentRole.email ?? "") === wanted ? null : currentRole.email
+      };
+      return this.replaceRoleAndSave(currentRole.type, {
+        ...without,
+        additionalEmails: roleMailboxExtras(without, domain)
+      });
+    }
+  }
+
+  replaceRoleAndSave(previousType: string, updatedRole: CommitteeMember): Promise<void> {
+    const config = this.latestConfig;
+    if (!config) {
+      return Promise.reject("Committee settings could not be loaded.");
+    } else {
+      const next = {
+        ...config,
+        roles: config.roles.map(role => role.type === previousType ? updatedRole : role)
+      };
+      this.publishConfig(next);
+      return this.saveConfig(next)
+        .then(() => {
+          this.refreshConfig();
+        })
+        .catch(error => {
+          this.refreshConfig();
+          return Promise.reject(error);
+        });
     }
   }
 

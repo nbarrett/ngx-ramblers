@@ -4,12 +4,16 @@ import { NgTemplateOutlet } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { LoggerFactory } from "../../../services/logger-factory.service";
-import { CreateSenderResponse, Sender, SendersResponse } from "../../../models/mail.model";
+import { AdminPath } from "../../../models/admin-route-paths.model";
+import { CreateSenderResponse, MailSettingsTab, Sender, SendersResponse } from "../../../models/mail.model";
+import { RouterLink } from "@angular/router";
+import { StoredValue } from "../../../models/ui-actions";
+import { sendingDomainAuthenticated } from "../../../functions/committee-senders";
 import { NonSensitiveCloudflareConfig } from "../../../models/cloudflare-email-routing.model";
 import { MailService } from "../../../services/mail/mail.service";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
 import { CommitteeMember, roleEmailAddresses } from "../../../models/committee.model";
-import { emailLocalPart, validEmailLocalPart } from "../../../functions/strings";
+import { emailLocalPart, toKebabCase, validEmailLocalPart } from "../../../functions/strings";
 import { ALERT_ERROR, ALERT_SUCCESS } from "../../../models/alert-target.model";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { CloudflareEmailRoutingService } from "../../../services/cloudflare/cloudflare-email-routing.service";
@@ -108,11 +112,18 @@ import { MailSendersListComponent } from "../system-settings/mail/mail-senders-l
                 <li>{{ address }}</li>
               }
             </ul>
+            @if (!sendingDomainReady) {
+              <div class="mt-1">Create senders after the sending domain is authenticated
+                (<a [routerLink]="'/' + mailSettingsDomainsPath" [queryParams]="mailSettingsDomainsQueryParams">Mail Settings → Domains</a>).
+                A subdomain of an authenticated domain is already ready.</div>
+            }
           </alert>
           <div class="sender-action-buttons flex-shrink-0">
-            <app-brevo-button class="w-100" [disabled]="!senderCommitteeMemberInternal || apiRequestPending" [loading]="apiRequestPending" button
-              (click)="createSenders()"
-            title="Create Senders"></app-brevo-button>
+            @if (sendingDomainReady && !senderCommitteeMemberInternal?.vacant) {
+              <app-brevo-button class="w-100" [disabled]="!senderCommitteeMemberInternal || apiRequestPending" [loading]="apiRequestPending" button
+                (click)="createSenders()"
+              title="Create Senders"></app-brevo-button>
+            }
             <ng-container *ngTemplateOutlet="viewSendersButton"/>
           </div>
         </div>
@@ -141,7 +152,7 @@ import { MailSendersListComponent } from "../system-settings/mail/mail-senders-l
       </div>
     }
     }`,
-    imports: [AlertComponent, FontAwesomeModule, BrevoButtonComponent, NgTemplateOutlet, MailSendersListComponent]
+    imports: [AlertComponent, FontAwesomeModule, BrevoButtonComponent, NgTemplateOutlet, MailSendersListComponent, RouterLink]
 })
 
 export class CreateOrAmendSenderComponent implements OnInit, OnDestroy {
@@ -183,6 +194,9 @@ export class CreateOrAmendSenderComponent implements OnInit, OnDestroy {
   @Output() senderExists: EventEmitter<boolean> = new EventEmitter();
 
   showingSenders = false;
+  sendingDomainReady = false;
+  mailSettingsDomainsPath = AdminPath.MAIL_SETTINGS;
+  mailSettingsDomainsQueryParams = { [StoredValue.TAB]: toKebabCase(MailSettingsTab.DOMAINS) };
   roleMailboxAddresses: string[] = [];
   private mailboxListFromParent = false;
   protected readonly ALERT_ERROR = ALERT_ERROR;
@@ -269,8 +283,23 @@ export class CreateOrAmendSenderComponent implements OnInit, OnDestroy {
     return this.senderCommitteeMemberInternal?.email?.endsWith(`@${this.baseDomain}`);
   }
 
+  async reload(): Promise<void> {
+    delete this.error;
+    await this.refreshSenders();
+    this.notifySenderExists();
+  }
+
+  showError(error: unknown) {
+    this.error = error;
+  }
+
   private async refreshSenders() {
-    this.sendersResponse = await this.mailService.querySenders();
+    const [sendersResponse, domains] = await Promise.all([
+      this.mailService.querySenders(),
+      this.mailService.listDomains().catch(() => [])
+    ]);
+    this.sendersResponse = sendersResponse;
+    this.sendingDomainReady = sendingDomainAuthenticated(this.baseDomain, domains || []);
     if (this.sendersList) {
       await this.sendersList.reload();
     }
@@ -279,28 +308,33 @@ export class CreateOrAmendSenderComponent implements OnInit, OnDestroy {
   async createSenders() {
     if (!this.emailOnDomain()) {
       this.error = {message: `Sender email must end with @${this.baseDomain}`};
-      return;
-    }
-    if (this.senderCommitteeMemberInternal) {
+    } else if (!this.sendingDomainReady) {
+      this.error = {message: "Create senders is only available when the sending domain is authenticated"};
+    } else if (this.senderCommitteeMemberInternal?.vacant) {
+      this.error = {message: "Create senders is not available for a vacant role"};
+    } else if (this.senderCommitteeMemberInternal) {
       this.apiRequestPending = true;
       delete this.error;
       const name = this.expectedSenderName();
       const addresses = this.missingSenderAddresses();
       this.logger.info("creating senders for addresses:", addresses);
-      await addresses.reduce<Promise<void>>(async (previous, address) => {
-        await previous;
-        if (!this.error) {
-          const sender: Sender = {active: true, name, email: address};
-          this.createSenderResponse = await this.mailService.createSender(sender)
-            .catch(error => this.error = error);
-          if (!this.createSenderResponse?.id && !this.error) {
-            this.error = {message: `Error creating sender ${address}`, response: this.createSenderResponse};
+      try {
+        await addresses.reduce<Promise<void>>(async (previous, address) => {
+          await previous;
+          if (!this.error) {
+            const sender: Sender = {active: true, name, email: address};
+            this.createSenderResponse = await this.mailService.createSender(sender)
+              .catch(error => this.error = error);
+            if (!this.createSenderResponse?.id && !this.error) {
+              this.error = {message: `Error creating sender ${address}`, response: this.createSenderResponse};
+            }
           }
-        }
-      }, Promise.resolve());
-      this.apiRequestPending = false;
-      await this.refreshSenders();
-      this.notifySenderExists();
+        }, Promise.resolve());
+      } finally {
+        this.apiRequestPending = false;
+        await this.refreshSenders();
+        this.notifySenderExists();
+      }
     }
   }
 

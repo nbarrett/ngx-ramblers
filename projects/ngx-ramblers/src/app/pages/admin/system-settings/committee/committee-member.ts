@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { ALERT_SUCCESS, ALERT_WARNING } from "../../../../models/alert-target.model";
@@ -44,6 +44,7 @@ import {
   EMAIL_LOCAL_PART_MAX_LENGTH,
   emailLocalPart,
   emailLocalPartLengthMessage,
+  extractErrorMessage,
   normaliseEmail,
   toDotCase,
   toKebabCase,
@@ -52,6 +53,7 @@ import {
 } from "../../../../functions/strings";
 import { RecipientMultiSelect } from "./recipient-multi-select";
 import { CommitteeConfigService } from "../../../../services/committee/commitee-config.service";
+import { MailService } from "../../../../services/mail/mail.service";
 import { MemberNamingService } from "projects/ngx-ramblers/src/app/services/member/member-naming.service";
 import { UrlService } from "../../../../services/url.service";
 import { InboxService } from "../../../../services/inbox/inbox.service";
@@ -65,7 +67,7 @@ import { EmailRoutingLogComponent } from "./email-routing-log";
 import { CopyIconComponent } from "../../../../modules/common/copy-icon/copy-icon";
 import { MarkdownComponent } from "ngx-markdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faAdd, faFileImport } from "@fortawesome/free-solid-svg-icons";
+import { faAdd, faFileImport, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { NgTemplateOutlet } from "@angular/common";
 import { SectionToggle } from "../../../../shared/components/section-toggle";
 import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
@@ -343,13 +345,13 @@ import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/c
                   </alert>
                 }
                 @if (hasDistinctGeneratedAddresses()) {
-                  <p>Two addresses are created automatically: <strong>{{ roleTypeAddress() }}</strong> from {{ roleTypeAddressSource() }}, and <strong>{{ fullNameAddress() }}</strong> from {{ committeeMember.fullName }}. Incoming and outgoing mail for this role works with both.</p>
+                  <p>Two addresses are created automatically: {{ roleTypeAddress() }} from {{ roleTypeAddressSource() }}, and {{ fullNameAddress() }} from {{ committeeMember.fullName }}. Incoming and outgoing mail for this role works with both.</p>
                 } @else if (roleTypeAddress(); as roleAddress) {
-                  <p><strong>{{ roleAddress }}</strong> is created automatically from {{ roleTypeAddressSource() }}. Incoming and outgoing mail for this role works with this address.</p>
+                  <p>{{ roleAddress }} is created automatically from {{ roleTypeAddressSource() }}. Incoming and outgoing mail for this role works with this address.</p>
                 } @else if (fullNameAddress(); as nameAddress) {
-                  <p><strong>{{ nameAddress }}</strong> is created automatically from {{ committeeMember.fullName }}. Incoming and outgoing mail for this role works with this address.</p>
+                  <p>{{ nameAddress }} is created automatically from {{ committeeMember.fullName }}. Incoming and outgoing mail for this role works with this address.</p>
                 }
-                <p>Choose which address is the default sender. That is the From address when this role sends mail. All addresses will automatically use your group's domain. Register every address in Brevo with Create Senders before mail can be sent from it.</p>
+                <p>Choose which address is the default sender. That is the From address when this role sends mail. All addresses will automatically use your group's domain. Type the part before @ and click Add to save it. Register every extra address in Brevo with Create Senders before mail can be sent from it.</p>
                 <label class="control-label">Email addresses</label>
                 @if (mailboxAddresses.length === 0) {
                   <p class="text-muted small mb-2">Add a role description or assign a member to generate addresses on @{{baseDomain}}.</p>
@@ -359,13 +361,16 @@ import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/c
                     [persist]="false"
                     [showHeading]="false"
                     [allowRemove]="true"
+                    [allowEdit]="true"
+                    [domain]="baseDomain"
                     [disabled]="committeeMember.vacant"
                     (defaultChange)="setDefaultSender($event.email)"
-                    (addressRemove)="removeMailboxAddress($event)"/>
+                    (addressRemove)="removeMailboxAddress($event)"
+                    (addressRename)="renameMailboxAddress($event.from, $event.to)"/>
                 }
                 <div class="d-flex align-items-center gap-2 mt-2">
                   <div class="mailbox-local-part form-control"
-                    [class.is-invalid]="newMailboxAddress && !canAddMailboxAddress()"
+                    [class.is-invalid]="mailboxAddAttempted && !canAddMailboxAddress()"
                     [class.disabled]="committeeMember.vacant"
                     (click)="mailboxAddressInput.focus()">
                     <input #mailboxAddressInput type="text" class="mailbox-local-part-input"
@@ -376,15 +381,22 @@ import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/c
                       autocomplete="one-time-code"
                       [attr.data-lpignore]="'true'"
                       spellcheck="false"
+                      placeholder="local-part"
+                      (ngModelChange)="mailboxAddAttempted = false"
                       (keyup.enter)="addMailboxAddress()">
-                    <span class="mailbox-local-part-overlay" aria-hidden="true"><span class="mailbox-local-part-sizer">{{ newMailboxAddress }}</span><span class="mailbox-local-part-domain">@{{baseDomain}}</span></span>
+                    <span class="mailbox-local-part-overlay" aria-hidden="true"><span class="mailbox-local-part-sizer" [class.mailbox-local-part-placeholder]="!newMailboxAddress">{{ newMailboxAddress || "local-part" }}</span><span class="mailbox-local-part-domain">@{{baseDomain}}</span></span>
                   </div>
                   <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2 flex-shrink-0" (click)="addMailboxAddress()"
-                    [disabled]="committeeMember.vacant || !canAddMailboxAddress()">
-                    <fa-icon [icon]="faAdd"/>Add
+                    [disabled]="committeeMember.vacant || mailboxSaving">
+                    @if (mailboxSaving) {
+                      <fa-icon [icon]="faSpinner" animation="spin"/>
+                    } @else {
+                      <fa-icon [icon]="faAdd"/>
+                    }
+                    Add
                   </button>
                 </div>
-                @if (newMailboxAddress && !canAddMailboxAddress()) {
+                @if (mailboxAddAttempted && !canAddMailboxAddress()) {
                   <div class="invalid-feedback d-block">{{mailboxAddressError()}}</div>
                 }
               </div>
@@ -524,6 +536,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private urlService = inject(UrlService);
   private memberNamingService = inject(MemberNamingService);
   private committeeConfigService = inject(CommitteeConfigService);
+  private mailService = inject(MailService);
   private cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   private committeeQueryService = inject(CommitteeQueryService);
   private inboxService = inject(InboxService);
@@ -595,7 +608,11 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   mailboxAddresses: string[] = [];
   generatedMailboxAddresses: string[] = [];
   newMailboxAddress = "";
+  mailboxAddAttempted = false;
+  mailboxSaving = false;
+  @ViewChild(CreateOrAmendSenderComponent) private senderPanel: CreateOrAmendSenderComponent;
   protected readonly faAdd = faAdd;
+  protected readonly faSpinner = faSpinner;
   protected readonly faFileImport = faFileImport;
   private recipientRegistrations = new Set<string>();
   readonly GMAIL_TOKEN_PREFIX = "gmail:";
@@ -853,7 +870,9 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     const typed = (this.newMailboxAddress || "").trim();
     const lengthMessage = emailLocalPartLengthMessage(typed);
     const address = this.typedMailboxAddress();
-    if (typed.includes("@")) {
+    if (!typed) {
+      return "Type the part before @, for example chair, then Add.";
+    } else if (typed.includes("@")) {
       return "Enter only the local part, not the domain.";
     } else if (lengthMessage) {
       return lengthMessage;
@@ -865,14 +884,38 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   }
 
   addMailboxAddress() {
+    this.mailboxAddAttempted = true;
     const address = this.typedMailboxAddress();
-    if (this.canAddMailboxAddress() && address) {
+    if (this.canAddMailboxAddress() && address && !this.mailboxSaving) {
       this.committeeMember.additionalEmails = [...(this.committeeMember.additionalEmails ?? []), address];
       this.newMailboxAddress = "";
+      this.mailboxAddAttempted = false;
       this.syncMailboxAddresses();
       if (!this.committeeMember.email) {
         this.setDefaultSender(address);
       }
+      this.persistMailboxChange(this.committeeConfigService.addRoleMailbox(this.committeeMember.type, address, this.baseDomain), address);
+    }
+  }
+
+  renameMailboxAddress(from: string, to: string) {
+    if (this.mailboxSaving || this.committeeMember.vacant || !to || normaliseEmail(from) === normaliseEmail(to)) {
+      this.mailboxAddAttempted = false;
+    } else {
+      const previousType = this.committeeMember.type;
+      const fromNorm = normaliseEmail(from);
+      const roleGenerated = normaliseEmail(this.roleTypeAddress() || "");
+      if (fromNorm === roleGenerated) {
+        const taken = (this.roles ?? []).filter(role => role.type !== previousType).map(role => role.type);
+        this.committeeMember.type = uniqueCommitteeRoleType(emailLocalPart(to), taken, to);
+      }
+      this.committeeMember.additionalEmails = (this.committeeMember.additionalEmails ?? [])
+        .map(email => normaliseEmail(email) === fromNorm ? to : email);
+      if (normaliseEmail(this.committeeMember.email ?? "") === fromNorm) {
+        this.committeeMember.email = to;
+      }
+      this.syncMailboxAddresses();
+      this.persistMailboxChange(this.committeeConfigService.replaceRoleAndSave(previousType, this.committeeMember), to);
     }
   }
 
@@ -884,6 +927,37 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       this.committeeMember.email = null;
     }
     this.syncMailboxAddresses();
+    this.persistMailboxChange(this.committeeConfigService.removeRoleMailbox(this.committeeMember.type, address, this.baseDomain));
+  }
+
+  private persistMailboxChange(save: Promise<void>, senderEmail?: string) {
+    this.mailboxSaving = true;
+    save
+      .then(() => {
+        if (!senderEmail) {
+          return Promise.resolve();
+        } else {
+          return this.mailService.createSender({
+            active: true,
+            name: this.committeeConfigService.nameAndDescriptionFrom(this.committeeMember),
+            email: senderEmail
+          }).then(() => undefined).catch(error => {
+            if (!/already exist/i.test(extractErrorMessage(error) || "")) {
+              return Promise.reject(error);
+            } else {
+              return undefined;
+            }
+          });
+        }
+      })
+      .then(() => this.senderPanel?.reload())
+      .catch(error => {
+        this.logger.error("Failed to save role mailbox:", error);
+        this.senderPanel?.showError(error);
+      })
+      .finally(() => {
+        this.mailboxSaving = false;
+      });
   }
 
   private persistAdditionalEmails() {
