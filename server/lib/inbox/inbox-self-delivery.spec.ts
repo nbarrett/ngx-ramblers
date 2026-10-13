@@ -81,12 +81,14 @@ describe("self-addressed inbox delivery", () => {
     it(`Gmail polling ${alreadyReceived ? "skips a repeated received copy" : "imports delivery despite an existing sent thread"}`, async () => {
       sandbox.stub(aliases, "roleIdentityEmailsByType").resolves(new Map([[alias.roleType, internalEmails]]));
       sandbox.stub(aliases, "internalEmailsForConnection").resolves(internalEmails);
-      sandbox.stub(reader, "fetchFullMessage").resolves(received);
+      const fetch = sandbox.stub(reader, "fetchFullMessage").resolves({...received});
       sandbox.stub(inboxThread, "findOne").returns({lean: async () => ({_id: "thread-1"})} as any);
       sandbox.stub(inboxMessage, "exists").resolves(alreadyReceived ? {_id: "incoming-1"} as any : null);
       const store = sandbox.stub(messageImport, "storeInboundMessage").resolves(received);
       sandbox.stub(messageImport, "backfillStatedReplyAddress").resolves(0);
       const result = await processGmailMessageIds({gmailAccountEmail: "group.inbox@example.com"} as InboxMailboxConnection, [alias], ["gmail-1"]);
+      expect(fetch.firstCall.args[2]).toBe(false);
+      expect(fetch.callCount).toBe(alreadyReceived ? 1 : 2);
       expect(store.callCount).toBe(alreadyReceived ? 0 : 1);
       expect(result).toEqual(alreadyReceived ? [] : [received.messageId]);
     });

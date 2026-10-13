@@ -859,7 +859,6 @@ export class BackupAndRestoreService {
   }
 
   async sessions(limit: number = 50, environments?: string[]): Promise<BackupSession[]> {
-    await this.cleanupStuckSessions();
     const query = environments && environments.length > 0
       ? { environment: { $in: environments } }
       : {};

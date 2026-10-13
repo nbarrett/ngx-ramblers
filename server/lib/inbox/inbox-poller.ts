@@ -33,7 +33,7 @@ import { compositionSenderEmail } from "./inbox-composition-sender";
 import { backfillStatedReplyAddress, isDeliveredToRole, recordOutboundMessage, storeInboundMessage } from "./inbox-message-import";
 import { sendInboxAlertToAllSubscribers } from "./inbox-web-push";
 import { AdminPath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
-import { dateTimeNow } from "../shared/dates";
+import { dateTimeFromIso, dateTimeNow } from "../shared/dates";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { emailDomain, normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
@@ -48,6 +48,7 @@ const errorDebugLog = createErrorDebugLog("inbox-poller");
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let pollInProgress = false;
+const connectionRetryAfter = new Map<string, number>();
 const connectionSyncInFlight = new Set<string>();
 const connectionSyncRerunRequested = new Set<string>();
 
@@ -82,7 +83,24 @@ export async function recoverRecentSentCompositions(): Promise<number> {
   }, Promise.resolve(0));
 }
 
+export function inboxRetryAfter(message: string | null): number {
+  const match = (message ?? "").match(/Retry after ([0-9T:.+-]+Z?)/i);
+  const parsed = match ? dateTimeFromIso(match[1]).toMillis() : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export async function pollConnection(connection: InboxMailboxConnection): Promise<InboxPollResult> {
+  const mailboxConnectionId = identifier(connection);
+  const retryAfter = Math.max(connectionRetryAfter.get(mailboxConnectionId) ?? 0, inboxRetryAfter(connection.lastErrorMessage));
+  if (retryAfter > dateTimeNow().toMillis()) {
+    return {mailboxConnectionId, importedCount: 0, error: connection.lastErrorMessage ?? "Gmail sync is waiting for the rate limit retry time"};
+  } else {
+    connectionRetryAfter.delete(mailboxConnectionId);
+    return pollConnectionNow(connection);
+  }
+}
+
+async function pollConnectionNow(connection: InboxMailboxConnection): Promise<InboxPollResult> {
   const mailboxConnectionId = identifier(connection);
   const aliases = await derivedAliasesForConnection(connection);
   try {
@@ -90,8 +108,7 @@ export async function pollConnection(connection: InboxMailboxConnection): Promis
       ? await pollViaHistoryDelta(connection, aliases)
       : await pollViaListing(connection, aliases);
     const recoveredSentCount = await reconcileRecentSentCompositions(connection, aliases);
-    await pollSpamForConnection(connection, aliases)
-      .catch(spamError => errorDebugLog(`spam scan failed for Gmail inbox ${connection.gmailAccountEmail}: ${(spamError as Error).message}`));
+    await pollSpamForConnection(connection, aliases);
     await inboxMailboxConnectionModel.updateOne({_id: mailboxConnectionId}, {
       $set: {
         lastPolledAt: dateTimeNow().toMillis(),
@@ -105,6 +122,10 @@ export async function pollConnection(connection: InboxMailboxConnection): Promis
     return {mailboxConnectionId, importedCount: importedIds.length + recoveredSentCount, error: null};
   } catch (error) {
     const message = (error as Error).message;
+    const retryAfter = inboxRetryAfter(message);
+    if (retryAfter > 0) {
+      connectionRetryAfter.set(mailboxConnectionId, retryAfter);
+    }
     const status = looksLikeAuthFailure(message) ? InboxAliasConnectionStatus.TOKEN_REVOKED : InboxAliasConnectionStatus.ERROR;
     await inboxMailboxConnectionModel.updateOne({_id: mailboxConnectionId}, {
       $set: {
@@ -351,7 +372,8 @@ export async function processGmailMessageIds(connection: InboxMailboxConnection,
   const internalEmails = await internalEmailsForConnection(connection);
   return gmailMessageIds.reduce<Promise<string[]>>(async (acc, gmailMessageId) => {
     const accumulator = await acc;
-    const parsed = await fetchFullMessage(connection, gmailMessageId);
+    const parsed = await fetchFullMessage(connection, gmailMessageId, false);
+    const attachmentState = {downloaded: false};
     const messageEmails = messageRecipientEmails(parsed);
     const addressedRealAliases = realAliases.filter(alias =>
       roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageEmails, identityEmailsByType, mailboxEmails));
@@ -372,6 +394,10 @@ export async function processGmailMessageIds(connection: InboxMailboxConnection,
         await backfillStatedReplyAddress(parsed, internalEmails);
         return existingStored;
       } else {
+        if (!attachmentState.downloaded) {
+          parsed.attachments = (await fetchFullMessage(connection, gmailMessageId)).attachments;
+          attachmentState.downloaded = true;
+        }
         await storeInboundMessage(alias, parsed, undefined, internalEmails);
         return true;
       }
@@ -393,7 +419,7 @@ async function pollSpamForConnection(connection: InboxMailboxConnection, aliases
   const spamMessageIds = await listSpamMessageIds(connection, 50);
   return spamMessageIds.reduce<Promise<number>>(async (acc, gmailMessageId) => {
     const accumulator = await acc;
-    const {message: parsed, authentication} = await fetchFullMessageDetailed(connection, gmailMessageId);
+    const {message: parsed, authentication} = await fetchFullMessageDetailed(connection, gmailMessageId, false);
     const rescue = authentication.dmarcPass && isOwnDomain(emailDomain(parsed.from?.email ?? ""), internalDomains);
     const existingThread = await inboxThreadModel.findOne({
       tenantSlug: connection.tenantSlug,
@@ -402,6 +428,9 @@ async function pollSpamForConnection(connection: InboxMailboxConnection, aliases
     const addressedRealAliases = realAliases.filter(alias =>
       roleMatchesMessageAddresses(alias.roleType, alias.roleEmail, messageRecipientEmails(parsed), identityEmailsByType, mailboxEmails));
     const alias = addressedRealAliases[0] ?? generalAlias;
+    if (!existingThread) {
+      parsed.attachments = (await fetchFullMessage(connection, gmailMessageId)).attachments;
+    }
     return accumulator + await fileSpamScanMessage(connection, parsed, alias, gmailMessageId, rescue, internalEmails, existingThread);
   }, Promise.resolve(0));
 }

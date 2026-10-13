@@ -4,7 +4,7 @@ import Kareem from "kareem";
 import mongoose, { Model, Schema } from "mongoose";
 import { afterEach, describe, it } from "mocha";
 import { get } from "es-toolkit/compat";
-import { copyCollectionIndexes, ensureCollectionIndexes, indexExistingCollections, lazyCollectionIndexes } from "./collection-indexes";
+import { copyCollectionIndexes, ensureCollectionIndexes, indexExistingCollections, lazyCollectionIndexes, registerLegacyCollectionIndex } from "./collection-indexes";
 
 function fictionalModel(present: boolean) {
   const hasNext = sinon.stub().resolves(present);
@@ -54,6 +54,25 @@ describe("lazy collection indexes", () => {
     fixture.connection.db = {listCollections: fixture.database.listCollections} as never;
     await ensureCollectionIndexes(fixture.model, true);
     expect(fixture.createIndexes.calledTwice).toBe(true);
+  });
+
+  [true, false].forEach(unique => {
+    it(`only accepts a registered legacy index when uniqueness is ${unique ? "preserved" : "missing"}`, async () => {
+      const fixture = fictionalModel(true);
+      fixture.schema.index({tenantSlug: 1, provider: 1}, {unique: true, partialFilterExpression: {account: {$type: "null"}}});
+      registerLegacyCollectionIndex(fixture.schema, {tenantSlug: 1, provider: 1}, {unique: true, partialFilterExpression: {account: null}});
+      const indexes = [{key: {tenantSlug: 1, provider: 1}, unique, partialFilterExpression: {account: null}}];
+      const createIndex = sandbox.stub().resolves();
+      Object.assign(fixture.database, {collection: () => ({indexes: async () => indexes, createIndex})});
+      fixture.database.listCollections.returns({hasNext: fixture.hasNext, toArray: async () => [{name: "fictionalRecords"}]});
+      await ensureCollectionIndexes(fixture.model);
+      const requested = fixture.createIndexes.firstCall.args[0].toCreate;
+      expect(requested.some(([keys]) => keys.provider === 1)).toBe(!unique);
+      expect(requested.some(([keys]) => keys.name === 1)).toBe(true);
+      sandbox.stub(mongoose, "models").value({Fictional: fixture.model});
+      await indexExistingCollections(fixture.database as never);
+      expect(createIndex.args.some(([keys]) => keys.provider === 1)).toBe(!unique);
+    });
   });
 
   it("attaches write middleware once without attaching read middleware", () => {

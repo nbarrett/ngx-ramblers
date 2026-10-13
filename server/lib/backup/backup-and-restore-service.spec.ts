@@ -22,6 +22,22 @@ describe("backup database traffic", () => {
     expect(options.get("serverSelectionTimeoutMS")).toEqual("30000");
   });
 
+  it("lists history without modifying sessions or reconciling interrupted runs", async () => {
+    const records = [{status: BackupSessionStatus.IN_PROGRESS}];
+    const lean = sandbox.stub().resolves(records);
+    const select = sandbox.stub().returns({lean});
+    const limit = sandbox.stub().returns({select});
+    const sort = sandbox.stub().returns({limit});
+    const find = sandbox.stub(backupSession, "find").returns({sort} as any);
+    const updateOne = sandbox.stub(backupSession, "updateOne");
+    const cleanup = sandbox.stub(service, "cleanupStuckSessions");
+
+    expect(await service.sessions(20, ["group-example"])).toEqual(records);
+    expect(find.calledOnceWithExactly({environment: {$in: ["group-example"]}})).toEqual(true);
+    expect(cleanup.called).toEqual(false);
+    expect(updateOne.called).toEqual(false);
+  });
+
   it("polls only status and error without transferring the accumulated logs", async () => {
     const result = { status: BackupSessionStatus.IN_PROGRESS };
     const lean = sandbox.stub().resolves(result);
