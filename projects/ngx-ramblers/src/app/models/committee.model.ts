@@ -367,6 +367,11 @@ export interface CommitteeMailboxDefaultChange {
   email: string;
 }
 
+export interface CommitteeMailboxRename {
+  from: string;
+  to: string;
+}
+
 export function committeeMailboxKind(role: CommitteeMember, email: string, domain?: string | null): CommitteeMailboxKind {
   const wanted = normaliseEmail(email);
   const roleName = normaliseEmail(derivedRoleTypeAddress(role, domain) || "");
@@ -405,12 +410,7 @@ export function isObsoleteGeneratedRoleLocalPart(local: string, role: CommitteeM
   } else {
     const descriptionKebab = toKebabCase(role.description || "");
     const first = committeeRoleTypeFromDescription(role.description || "");
-    const fullFit = fitEmailLocalPart(descriptionKebab);
-    if (wanted === fullFit && fullFit !== current) {
-      return true;
-    } else {
-      return Boolean(first && wanted.startsWith(`${first}-`) && (descriptionKebab === wanted || descriptionKebab.startsWith(`${wanted}-`)));
-    }
+    return Boolean(first && wanted.startsWith(`${first}-`) && (descriptionKebab === wanted || descriptionKebab.startsWith(`${wanted}-`)));
   }
 }
 

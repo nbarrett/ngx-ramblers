@@ -63,7 +63,7 @@ import { StoredValue } from "../../../../models/ui-actions";
 import { sortBy } from "../../../../functions/arrays";
 import { assignedMemberId } from "../../../../functions/committee-members";
 import { extractErrorMessage, toDotCase, toKebabCase } from "../../../../functions/strings";
-import { CommitteeSenderPlan, committeeSenderPlans, missingCommitteeSenders } from "../../../../functions/committee-senders";
+import { CommitteeSenderPlan, sendingDomainAuthenticated, unregisteredCommitteeSenders } from "../../../../functions/committee-senders";
 import { SortDirection } from "../../../../models/sort.model";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
@@ -298,15 +298,19 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                     </div>
                   </div>
                   <app-committee-unassigned-roles/>
-                  @if (mailMessagingService.brevoAccountConfigured() && missingCommitteeSenderPlans.length > 0) {
+                  @if (mailMessagingService.brevoAccountConfigured() && missingCommitteeSenderPlans.length > 0 && !committeeSendersAlertDismissed && !editingRoleDraft) {
                     <div class="alert alert-warning d-flex align-items-start mt-2 mb-3">
                       <fa-icon [icon]="ALERT_ERROR.icon" class="me-2 mt-1"></fa-icon>
                       <div class="flex-grow-1">
                         <strong>Brevo senders not yet created</strong>
                         <div class="mt-2">
-                          These committee addresses are not registered as outbound senders. Domain authentication has to be finished in the Brevo dashboard
-                          (<a [routerLink]="'/' + mailSettingsDomainsPath" [queryParams]="mailSettingsDomainsQueryParams">Mail Settings → Domains</a>).
-                          After that, create the missing senders here.
+                          @if (sendingDomainReady) {
+                            These filled committee roles have no outbound sender yet. Extra addresses on a role that already has a sender are added from that role's Outbound Email tab.
+                          } @else {
+                            These filled committee roles have no outbound sender yet. Create senders after the sending domain is authenticated
+                            (<a [routerLink]="'/' + mailSettingsDomainsPath" [queryParams]="mailSettingsDomainsQueryParams">Mail Settings → Domains</a>).
+                            A subdomain of an authenticated domain is already ready.
+                          }
                         </div>
                         <ul class="mt-2 mb-2">
                           @for (plan of missingCommitteeSenderPlans; track plan.email) {
@@ -314,15 +318,21 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                           }
                         </ul>
                         <div class="d-flex gap-2">
-                          <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-start gap-2"
-                                  [disabled]="creatingMissingSenders || !!editingRoleDraft"
-                                  (click)="createMissingCommitteeSenders()">
-                            @if (creatingMissingSenders) {
-                              <fa-icon [icon]="faSpinner" animation="spin"/>
-                            } @else {
-                              <fa-icon [icon]="faAdd"/>
-                            }
-                            Create {{ stringUtils.pluraliseWithCount(missingCommitteeSenderPlans.length, "missing sender") }}
+                          @if (sendingDomainReady) {
+                            <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-start gap-2"
+                                    [disabled]="creatingMissingSenders"
+                                    (click)="createMissingCommitteeSenders()">
+                              @if (creatingMissingSenders) {
+                                <fa-icon [icon]="faSpinner" animation="spin"/>
+                              } @else {
+                                <fa-icon [icon]="faAdd"/>
+                              }
+                              Create {{ stringUtils.pluraliseWithCount(missingCommitteeSenderPlans.length, "missing sender") }}
+                            </button>
+                          }
+                          <button type="button" class="btn btn-sm btn-quiet d-inline-flex align-items-center gap-2"
+                                  (click)="committeeSendersAlertDismissed = true">
+                            <fa-icon [icon]="faTimes"/>Dismiss
                           </button>
                         </div>
                         @if (missingSendersError) {
@@ -1017,14 +1027,17 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   platformAdminEnabled = false;
   committeeMembersLoaded = false;
   committeeRolesAlertDismissed = false;
+  committeeSendersAlertDismissed = false;
   missingCommitteeSenderPlans: CommitteeSenderPlan[] = [];
   creatingMissingSenders = false;
   missingSendersError: string = null;
+  sendingDomainReady = false;
   mailSettingsDomainsPath = AdminPath.MAIL_SETTINGS;
   mailSettingsDomainsQueryParams = { [StoredValue.TAB]: toKebabCase(MailSettingsTab.DOMAINS) };
 
   private readonly onRoleEditEscape = (event: KeyboardEvent) => {
-    if (event.key === "Escape" && this.editingRoleDraft) {
+    const target = event.target as HTMLElement;
+    if (event.key === "Escape" && this.editingRoleDraft && !target?.closest(".mailbox-rename-input")) {
       event.preventDefault();
       this.cancelRoleEdit();
     }
@@ -1109,6 +1122,12 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
           this.pendingEditType = null;
         }
         this.logger.info("retrieved committeeConfig", committeeConfig);
+        if (this.editingRoleDraft?.type) {
+          const updated = committeeConfig.roles?.find(role => role.type === this.editingRoleDraft.type);
+          if (updated) {
+            this.editingRoleOriginal = updated;
+          }
+        }
         this.refreshMissingCommitteeSenders();
       }),
       this.cloudflareEmailRoutingService.rulesNotifications().subscribe(rules => {
@@ -1143,41 +1162,47 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   private refreshMissingCommitteeSenders(): void {
     if (!this.mailMessagingService.brevoAccountConfigured() || !this.committeeConfig || !this.baseDomain) {
       this.missingCommitteeSenderPlans = [];
+      this.sendingDomainReady = false;
     } else {
-      this.mailService.querySenders()
-        .then(response => {
+      Promise.all([this.mailService.querySenders(), this.mailService.listDomains()])
+        .then(([response, domains]) => {
           const existing = (response?.senders || []).map((sender: Sender) => sender.email);
-          this.missingCommitteeSenderPlans = missingCommitteeSenders(committeeSenderPlans(this.committeeConfig, this.baseDomain), existing);
+          this.sendingDomainReady = sendingDomainAuthenticated(this.baseDomain, domains || []);
+          this.missingCommitteeSenderPlans = unregisteredCommitteeSenders(this.committeeConfig, this.baseDomain, existing);
         })
         .catch(error => {
           this.logger.error("Committee senders not available:", error);
           this.missingCommitteeSenderPlans = [];
+          this.sendingDomainReady = false;
         });
     }
   }
 
   async createMissingCommitteeSenders(): Promise<void> {
     const toCreate = this.missingCommitteeSenderPlans;
-    if (toCreate.length === 0) {
+    if (!this.sendingDomainReady || toCreate.length === 0) {
       this.missingSendersError = null;
     } else {
       this.creatingMissingSenders = true;
       this.missingSendersError = null;
-      await toCreate.reduce(async (previous, plan) => {
-        await previous;
-        if (!this.missingSendersError) {
-          try {
-            const created = await this.mailService.createSender({ active: true, name: plan.name, email: plan.email });
-            if (!created?.id) {
-              this.missingSendersError = `Error creating sender ${plan.email}`;
+      try {
+        await toCreate.reduce(async (previous, plan) => {
+          await previous;
+          if (!this.missingSendersError) {
+            try {
+              const created = await this.mailService.createSender({ active: true, name: plan.name, email: plan.email });
+              if (!created?.id) {
+                this.missingSendersError = `Error creating sender ${plan.email}`;
+              }
+            } catch (error) {
+              this.missingSendersError = extractErrorMessage(error);
             }
-          } catch (error) {
-            this.missingSendersError = extractErrorMessage(error);
           }
-        }
-      }, Promise.resolve());
-      this.creatingMissingSenders = false;
-      this.refreshMissingCommitteeSenders();
+        }, Promise.resolve());
+      } finally {
+        this.creatingMissingSenders = false;
+        this.refreshMissingCommitteeSenders();
+      }
     }
   }
 
