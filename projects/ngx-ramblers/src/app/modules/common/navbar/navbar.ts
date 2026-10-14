@@ -111,6 +111,8 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
     flex-wrap: nowrap
   .container
     flex-wrap: nowrap
+    min-width: 0
+    overflow: visible
 
 .brand-search-wrap
   display: flex

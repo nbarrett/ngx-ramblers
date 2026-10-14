@@ -598,6 +598,28 @@
 .follow-sheet.is-minimised
   padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px))
 
+@media (max-width: 899px)
+  .follow-sheet.is-minimised
+    position: relative
+    padding-top: 44px
+
+  .follow-sheet.is-minimised .follow-sheet-handle
+    position: absolute
+    top: 0
+    left: 0
+    width: 100%
+    z-index: 1
+
+  .follow-sheet.is-minimised .follow-sheet-peek
+    padding-bottom: var(--space-3)
+
+  .follow-sheet.is-minimised .follow-peek-stats
+    align-items: center
+    gap: var(--space-2)
+
+  .follow-sheet.is-minimised .follow-peek-stat strong
+    font-size: 1.1rem
+
 .follow-sheet-heading
   display: none
   margin: 0 0 12px
@@ -639,6 +661,10 @@
   margin-bottom: 0
   flex-shrink: 0
 
+.follow-sheet.is-minimised .follow-recording-tray[aria-expanded]
+  touch-action: none
+  cursor: grab
+
 .follow-recording-indicator
   display: inline-flex
   flex: 0 0 auto
@@ -673,7 +699,6 @@
   max-height: 0
   flex: 0 0 auto
   min-height: 0
-  transition: max-height 0.36s cubic-bezier(0.32, 0.72, 0, 1)
 
 .follow-sheet:not(.is-minimised) .follow-sheet-body-slot
   max-height: none

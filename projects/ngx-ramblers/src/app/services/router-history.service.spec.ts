@@ -75,6 +75,18 @@ describe("RouterHistoryService app navigation", () => {
     expect(service.pageHistory).toContain(router.url);
   });
 
+  it("returns to the previous website page instead of the walking app", () => {
+    const service = TestBed.inject(RouterHistoryService);
+    const router = TestBed.inject(Router);
+    state.events.next(new NavigationEnd(1, "/app", "/app"));
+    state.events.next(new NavigationEnd(2, "/", "/"));
+    state.events.next(new NavigationEnd(3, "/join-us", "/join-us"));
+    Object.assign(router, {url: "/join-us"});
+    expect(service.appBackDestination()).toBe("/");
+    service.navigateBackWithinApp();
+    expect(state.router.navigateByUrl).toHaveBeenCalledWith("/");
+  });
+
   it("returns to the Walks programme when a walk detail has no saved history", () => {
     const service = TestBed.inject(RouterHistoryService);
     const router = TestBed.inject(Router);

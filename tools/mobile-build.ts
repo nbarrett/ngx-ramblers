@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { AppInstallPlatform } from "../projects/ngx-ramblers/src/app/models/route-follow.model";
 
@@ -21,6 +21,7 @@ if (requestedSite) {
 execFileSync("npm", ["run", "build:sw"], {stdio: "inherit"});
 execFileSync("npx", ["ng", "build", "--project", "ngx-ramblers", "--configuration", "production"], {stdio: "inherit"});
 const mobileDirectory = resolve("dist/ngx-mobile");
+rmSync(mobileDirectory, {recursive: true, force: true});
 mkdirSync(mobileDirectory, {recursive: true});
 cpSync(resolve("dist/ngx-ramblers"), mobileDirectory, {recursive: true});
 const indexPath = resolve(mobileDirectory, "index.html");

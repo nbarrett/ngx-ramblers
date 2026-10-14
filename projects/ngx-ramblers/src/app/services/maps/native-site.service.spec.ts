@@ -4,12 +4,12 @@ import { TestBed } from "@angular/core/testing";
 import { Capacitor } from "@capacitor/core";
 import { HealthStatus } from "../../models/health.model";
 import { StoredValue } from "../../models/ui-actions";
-import { NativeSiteService } from "./native-site.service";
+import { NATIVE_HTTP, NativeSiteService } from "./native-site.service";
 
 describe("NativeSiteService", () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), NativeSiteService]
+      providers: [provideHttpClient(), provideHttpClientTesting(), NativeSiteService, {provide: NATIVE_HTTP, useValue: {request: vi.fn()}}]
     });
     window.localStorage.removeItem(StoredValue.APP_SITE_ORIGIN);
   });
@@ -80,6 +80,41 @@ describe("NativeSiteService", () => {
     expect(JSON.parse(window.localStorage.getItem(StoredValue.FOLLOW_SESSION))).toEqual({walkId: "fictional"});
     expect(TestBed.inject(NativeSiteService).needsChooser()).toBe(true);
     delete (window as {ngxNativeSiteUrl?: string}).ngxNativeSiteUrl;
+  });
+
+  it("resolves the www redirect once before sending API requests", async () => {
+    const nativeRequest = vi.mocked(TestBed.inject(NATIVE_HTTP).request).mockResolvedValue({
+      status: 200, url: "https://group.example.org.uk/api/health", headers: {}, data: ""
+    });
+    const service = TestBed.inject(NativeSiteService);
+    const first = service.canonicalOrigin("https://www.group.example.org.uk");
+    const second = service.canonicalOrigin("https://www.group.example.org.uk");
+    expect(first).toBe(second);
+    await expect(first).resolves.toBe("https://group.example.org.uk");
+    await expect(service.canonicalOrigin("https://www.group.example.org.uk")).resolves.toBe("https://group.example.org.uk");
+    expect(nativeRequest).toHaveBeenCalledExactlyOnceWith({
+      url: "https://www.group.example.org.uk/api/health", method: "HEAD", connectTimeout: 10000, readTimeout: 10000
+    });
+  });
+
+  it("rejects a redirect to another website and permits another attempt", async () => {
+    const nativeRequest = vi.mocked(TestBed.inject(NATIVE_HTTP).request).mockResolvedValueOnce({
+      status: 200, url: "https://other.example.org.uk/api/health", headers: {}, data: ""
+    }).mockResolvedValueOnce({
+      status: 200, url: "https://group.example.org.uk/api/health", headers: {}, data: ""
+    });
+    const service = TestBed.inject(NativeSiteService);
+    await expect(service.canonicalOrigin("https://group.example.org.uk")).rejects.toThrow("unexpected address");
+    await expect(service.canonicalOrigin("https://group.example.org.uk")).resolves.toBe("https://group.example.org.uk");
+    expect(nativeRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps staging separate from its advertised public website", async () => {
+    const nativeRequest = vi.mocked(TestBed.inject(NATIVE_HTTP).request).mockResolvedValue({
+      status: 200, url: "https://staging.group.example.org.uk/api/health", headers: {}, data: ""
+    });
+    await expect(TestBed.inject(NativeSiteService).canonicalOrigin("https://staging.group.example.org.uk"))
+      .resolves.toBe("https://staging.group.example.org.uk");
   });
 
 });

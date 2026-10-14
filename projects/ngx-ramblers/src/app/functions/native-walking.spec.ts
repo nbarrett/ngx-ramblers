@@ -19,6 +19,8 @@ describe("nativeApiUrl", () => {
   it("sends relative API requests to the configured group website", () => {
     expect(nativeApiUrl("api/database/config", "https://group.example.org.uk")).toBe("https://group.example.org.uk/api/database/config");
     expect(nativeApiUrl("/api/walks", "https://group.example.org.uk")).toBe("https://group.example.org.uk/api/walks");
+    expect(nativeApiUrl("https://localhost/api/database/auth/login", "https://group.example.org.uk")).toBe("https://group.example.org.uk/api/database/auth/login");
+    expect(nativeApiUrl("https://127.0.0.1/api/database/config", "https://group.example.org.uk")).toBe("https://group.example.org.uk/api/database/config");
   });
 
   it("keeps bundled assets and external requests unchanged", () => {
