@@ -55,6 +55,7 @@ export function titleCase(str: string): string {
 }
 
 const MACHINE_GENERATED_WORD = /^(\d+|[0-9a-f]{6,}|[a-z]\d*)$/i;
+const RAMBLERS_WEBS_IMAGE_STEM = /^wp[0-9a-f]+(?:[_\s-]+\d+)*$/i;
 
 export function humaniseFileStemFromUrl(input: string): string {
   const stem = (() => {
@@ -65,7 +66,11 @@ export function humaniseFileStemFromUrl(input: string): string {
     }
   })();
   const humanised = stem.replace(/[\-_]+/g, " ").replace(/\s+/g, " ").trim();
-  return humanised.split(" ").every(word => MACHINE_GENERATED_WORD.test(word)) ? "" : humanised;
+  if (!humanised || RAMBLERS_WEBS_IMAGE_STEM.test(humanised) || humanised.split(" ").every(word => MACHINE_GENERATED_WORD.test(word))) {
+    return "";
+  } else {
+    return humanised;
+  }
 }
 
 export function booleanOf(value: any, fallback: boolean = false): boolean {

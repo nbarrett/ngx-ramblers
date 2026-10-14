@@ -22,6 +22,7 @@ import { first, isArray, isString, omit } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { fullMonthName, galleryDateFrom, MONTH_NAME_PATTERN } from "../../../projects/ngx-ramblers/src/app/functions/gallery-date";
 import { generateUid, humaniseFileStemFromUrl, pluraliseWithCount, titleCase } from "../shared/string-utils";
+import { registrationTitleFromLink, uniqueLinksByHref } from "../site-registration/registration-content";
 import { ExternalAlbumMetadata, ExternalAlbumSource, RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { contentMetadata } from "../mongo/models/content-metadata";
 import { assertMigrationNotCancelled, progress } from "./migration-progress";
@@ -583,7 +584,7 @@ function migratedAlbumCarousel(name: string, title: string, introductoryText: st
     eventType: "walks",
     title,
     subtitle: `Photos from ${titleCase(title)}`,
-    showTitle: true,
+    showTitle: albumView !== AlbumView.CAROUSEL,
     introductoryText,
     coverImageHeight: 400,
     coverImageVerticalPosition: 50,
@@ -592,7 +593,7 @@ function migratedAlbumCarousel(name: string, title: string, introductoryText: st
     showPreAlbumText,
     preAlbumText: null,
     albumView,
-    gridViewOptions: {showTitles: true, showDates: true},
+    gridViewOptions: {showTitles: albumView !== AlbumView.CAROUSEL, showDates: albumView !== AlbumView.CAROUSEL},
     galleryViewOptions: {
       thumbPosition: "left",
       imageSize: "cover",
@@ -756,21 +757,29 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
 }
 
 function albumFileFromSource(img: ScrapedImage, index: number, image: string) {
+  const alt = (img.alt || "").trim();
+  const caption = !alt || /^image$/i.test(alt) ? humaniseFileStemFromUrl(img.src) : alt;
   return {
     image,
     originalFileName: decodeURIComponent(img.src.split("/").pop() || `image-${index + 1}.jpg`),
-    text: (img.alt || "").trim() || humaniseFileStemFromUrl(img.src),
+    text: caption,
     tags: []
   };
 }
 
+function decorativeRamblersWebsImage(img: ScrapedImage): boolean {
+  const src = (img.src || "").toLowerCase();
+  return /\/wpimages\/wp[0-9a-f_]+/.test(src) && !/\.jpe?g($|\?)/.test(src);
+}
+
 async function albumFromImages(ctx: Ctx, title: string, images: ScrapedImage[], albumView: AlbumView = AlbumView.GALLERY): Promise<MigratedAlbum | null> {
+  const usable = albumView === AlbumView.CAROUSEL ? images.filter(image => !decorativeRamblersWebsImage(image)) : images;
   const files = ctx.config.uploadTos3
-    ? (await Promise.all(images.map(async (img, index) => {
+    ? (await Promise.all(usable.map(async (img, index) => {
       const uploaded = await uploadImageToS3(ctx, img);
       return uploaded ? albumFileFromSource(img, index, uploaded) : null;
     }))).filter(Boolean)
-    : images.map((img, index) => albumFileFromSource(img, index, img.src));
+    : usable.map((img, index) => albumFileFromSource(img, index, img.src));
   if (files.length) {
   const name = albumFrom(title);
   const album: ContentMetadata = {
@@ -1038,8 +1047,8 @@ async function scrapeParentPageLinks(ctx: Ctx, parentPageConfig: ParentPageConfi
     const pathPrefix = (parentPageConfig.pathPrefix || "").replace(/^\/+|\/+$/g, "");
     const contentSelector = ctx.config.contentSelector;
     const parentPathPrefix = new URL(parentUrl).pathname.replace(/\/index\.[a-zA-Z0-9]+$/, "").replace(/^\/+|\/+$/g, "");
-    const childLinks: PageLink[] = await page.evaluate(
-      ({selector, base, prefix, contentSelectorString, parentPath}: {selector: string | null; base: string; prefix: string; contentSelectorString: string; parentPath: string}): PageLink[] => {
+    const rawLinks: {path: string; title: string}[] = await page.evaluate(
+      ({selector, base, contentSelectorString, parentPath}: {selector: string | null; base: string; contentSelectorString: string; parentPath: string}): {path: string; title: string}[] => {
         const collectedAnchors: Element[] = [];
         if (selector && selector.length > 0) {
           collectedAnchors.push(...Array.from(document.querySelectorAll(selector)));
@@ -1051,23 +1060,25 @@ async function scrapeParentPageLinks(ctx: Ctx, parentPageConfig: ParentPageConfi
         if (anchors.length === 0 && parentPath) {
           anchors = Array.from(document.querySelectorAll("a")).filter((a): a is HTMLAnchorElement => a instanceof HTMLAnchorElement && a.href.startsWith(location.origin) && new URL(a.href).pathname.startsWith(`/${parentPath}`));
         }
-        const unique = new Map<string, { path: string; title: string; contentPath: string }>();
-        anchors.forEach(element => {
+        return anchors.reduce((found: {path: string; title: string}[], element) => {
           const href = element.href;
           const text = element.textContent ? element.textContent.trim() : "";
-          if (!href || !text) return;
-          if (!href.startsWith(base)) return;
-          if (href.includes("#")) return;
-          const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-          if (!slug) return;
-          const contentPath = prefix ? `${prefix}/${slug}` : slug;
-          const key = `${href}|${contentPath}`;
-          if (!unique.has(key)) unique.set(key, {path: href, title: text, contentPath});
-        });
-        return Array.from(unique.values());
+          if (!href || !text) {
+            return found;
+          } else if (!href.startsWith(base) || href.includes("#")) {
+            return found;
+          } else {
+            return [...found, {path: href, title: text}];
+          }
+        }, []);
       },
-      {selector: linkSelector, base: baseUrl, prefix: pathPrefix, contentSelectorString: contentSelector, parentPath: parentPathPrefix}
+      {selector: linkSelector, base: baseUrl, contentSelectorString: contentSelector, parentPath: parentPathPrefix}
     );
+    const childLinks: PageLink[] = uniqueLinksByHref(rawLinks.map(link => ({href: link.path, text: link.title}))).map(link => {
+      const title = registrationTitleFromLink(link.text, link.href);
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      return {path: link.href, title, contentPath: pathPrefix && slug ? `${pathPrefix}/${slug}` : slug};
+    }).filter(link => !!link.contentPath);
     debugLog(`✅ Scraped ${pluraliseWithCount(childLinks.length, "child link")} from ${parentUrl}:`, childLinks);
     if (childLinks.length === 0) progress(`No child links found at ${parentUrl}`);
     else progress(`Found ${pluraliseWithCount(childLinks.length, "child link")} at ${parentUrl}`);

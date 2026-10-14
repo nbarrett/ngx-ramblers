@@ -7,7 +7,7 @@ import { ADMIN_SET_PASSWORD_PATH, EventPopulation, SystemConfig } from "../../..
 import { ensureRegistrationIndexes, recordRegistrationHistory, registrations, registrationSettings } from "./registration-store";
 import { assertRegistrationEditable } from "./registration-policy";
 import { registrationForToken } from "./registration-service";
-import { earlierImportFilters, importedPagePath, withRowsUnderHeading, pairedImageRows, registrationMigrationConfig, withContactUsLinks, withIntroductionPhotos, withoutButtonsTo, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
+import { earlierImportFilters, importedPagePath, withRowsUnderHeading, pairedImageRows, registrationMigrationConfig, withContactUsLinks, withIntroductionPhotos, withoutButtonsTo, withoutDuplicateHeadingImages, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
 import { contentMetadata } from "../mongo/models/content-metadata";
 import { createEnvironment } from "../environment-setup/environment-setup-service";
 import { environmentDetails } from "../environment-setup/environment-details";
@@ -378,7 +378,8 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
   }, assembled.filter(page => page.parentPath === RegistrationNavbarPath.INFORMATION).length)] : [];
   const sourcePages = withSourcePageAlbums(migrated.pages.map(page => ({...page, rows: withoutEmptyRows(page.rows)})), migrated.albums).filter(page => !informationPages.some(information => information.path === page.path));
   const groupCentre: [number, number] | null = registration.group.latitude && registration.group.longitude ? [registration.group.latitude, registration.group.longitude] : null;
-  const migratedPages = photosByYear(withIntroductionPhotos([...sourcePages, ...informationPages], migrated.albums), registration.pages || [], photoTemplates, groupCentre);
+  const migratedPages = photosByYear(withIntroductionPhotos([...sourcePages, ...informationPages], migrated.albums), registration.pages || [], photoTemplates, groupCentre)
+    .map(page => ({...page, rows: withoutDuplicateHeadingImages(page.rows || [])}));
   const connection = await connectToEnvironmentMongo(context.envConfigData);
   try {
     const earlierImport = earlierImportFilters([...migratedPages, ...migrated.albums.map(album => album.pageContent)].filter(page => page?.path).map(page => page.path), migrated.albums.map(album => album.album.name));

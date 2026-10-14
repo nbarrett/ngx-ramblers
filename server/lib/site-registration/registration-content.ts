@@ -21,6 +21,7 @@ import { DateFormat, RamblersEventType, RamblersEventsApiResponse } from "../../
 import { dateTimeNow } from "../shared/dates";
 import { chunk, isEmpty } from "es-toolkit/compat";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { humaniseFileStemFromUrl, titleCase } from "../shared/string-utils";
 import { CONTACT_US_TYPE } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { assembleRegistrationPages, isRegistrationFeaturePath, proposedRegistrationNavigation, unusedRegistrationPath } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import { Link } from "../../../projects/ngx-ramblers/src/app/models/page.model";
@@ -131,6 +132,62 @@ function ramblersHostedLinkTitle(link: HTMLAnchorElement): string {
   return ramblersHostedCardTitle(link) || link.textContent?.replace(/\s+/g, " ").trim();
 }
 
+export function joinSplitLinkText(left: string, right: string): string {
+  const leftTrimmed = (left || "").trimEnd();
+  const rightTrimmed = (right || "").trimStart();
+  if (!leftTrimmed) {
+    return (right || "").replace(/\s+/g, " ").trim();
+  } else if (!rightTrimmed) {
+    return (left || "").replace(/\s+/g, " ").trim();
+  } else if (leftTrimmed === rightTrimmed) {
+    return leftTrimmed;
+  } else if (/\s$/.test(left) || /^\s/.test(right)) {
+    return `${leftTrimmed} ${rightTrimmed}`.replace(/\s+/g, " ").trim();
+  } else {
+    return `${leftTrimmed}${rightTrimmed}`;
+  }
+}
+
+export function looksLikeNavigationalPhrase(title: string): boolean {
+  const value = (title || "").replace(/\s+/g, " ").trim();
+  return /^(here|click|details|read more|more information|this page)\b/i.test(value)
+    || /\b(on our web ?site|at bottom of|click here)\b/i.test(value);
+}
+
+export function registrationTitleFromLink(linkText: string, pageUrl: string): string {
+  const joined = (linkText || "").replace(/\s+/g, " ").trim();
+  const fromUrl = titleCase(humaniseFileStemFromUrl(pageUrl));
+  if (looksLikeNavigationalPhrase(joined) && fromUrl) {
+    return fromUrl;
+  } else {
+    return joined || fromUrl || "Page";
+  }
+}
+
+export function mergeAdjacentSameHrefLinks(links: {href: string; text: string}[]): {href: string; text: string}[] {
+  return links.reduce((collected, link) => {
+    const last = collected[collected.length - 1];
+    if (last && last.href === link.href) {
+      return [...collected.slice(0, -1), {...last, text: joinSplitLinkText(last.text, link.text)}];
+    } else {
+      return [...collected, link];
+    }
+  }, [] as {href: string; text: string}[]);
+}
+
+export function uniqueLinksByHref(links: {href: string; text: string}[]): {href: string; text: string}[] {
+  return mergeAdjacentSameHrefLinks(links).reduce((collected, link) => {
+    const existing = collected.find(item => item.href === link.href);
+    if (!existing) {
+      return [...collected, link];
+    } else if ((link.text || "").length > (existing.text || "").length) {
+      return collected.map(item => item.href === link.href ? link : item);
+    } else {
+      return collected;
+    }
+  }, [] as {href: string; text: string}[]);
+}
+
 export function ramblersHostedGroupPath(url: URL): string {
   const match = (url?.pathname || "").match(/^(\/go-walking\/ramblers-groups\/[^/]+)/);
   return url?.hostname?.endsWith("ramblers.org.uk") && match ? match[1] : null;
@@ -143,7 +200,7 @@ export function discoverRegistrationPages(html: string, website: string): {pages
     : document.querySelector("main .type-group-hub, main .type-content") && ramblersHostedGroupPath(base) ? RegistrationSiteFlavour.RAMBLERS_HOSTED
     : document.querySelector('meta[name="generator"][content*="WordPress"], link[href*="wp-content"]') ? RegistrationSiteFlavour.WORDPRESS : RegistrationSiteFlavour.GENERIC;
   const groupPath = ramblersHostedGroupPath(base);
-  const items: {url: string; title: string; parentTitle: string; sourcePath: string}[] = [];
+  const discoveredLinks: {url: string; title: string; parentTitle: string; sourcePath: string}[] = [];
   document.querySelectorAll<HTMLAnchorElement>(menuSelectors[flavour]).forEach(link => {
     try {
       const url = new URL(link.href, base);
@@ -153,12 +210,8 @@ export function discoverRegistrationPages(html: string, website: string): {pages
         const ownPage = samePublicHost && url.pathname.startsWith(`${groupPath}/`);
         const groupDocument = isDocumentUrl(url.href) && !url.hostname.endsWith("ramblers.org.uk");
         const sourceUrl = groupDocument ? url.href : registrationSourceUrl(url.href);
-        const existing = items.find(item => item.url === sourceUrl);
-        if (title && (ownPage || groupDocument) && !existing) {
-          items.push({url: sourceUrl, title, parentTitle: "", sourcePath: ownPage ? url.pathname.slice(groupPath.length + 1) : toKebabCase(title.toLowerCase())});
-        } else if (existing && ramblersHostedCardTitle(link)) {
-          existing.title = ramblersHostedCardTitle(link);
-          existing.sourcePath = existing.sourcePath.startsWith("http") ? existing.sourcePath : existing.sourcePath;
+        if (title && (ownPage || groupDocument)) {
+          discoveredLinks.push({url: sourceUrl, title, parentTitle: "", sourcePath: ownPage ? url.pathname.slice(groupPath.length + 1) : toKebabCase(title.toLowerCase())});
         }
       } else if (samePublicHost) {
         const sourcePath = url.pathname.replace(/^\/+|\/+$/g, "").replace(/\.(html?|php|aspx?)$/i, "") || "home";
@@ -167,13 +220,18 @@ export function discoverRegistrationPages(html: string, website: string): {pages
         const parentTitle = parentLink?.textContent?.replace(/\s+/g, " ").trim() || "";
         const sourceUrl = registrationSourceUrl(url.href);
         if (title && !/\.(jpe?g|png|gif|webp|svg|pdf|zip|docx?|xlsx?)$/i.test(url.pathname) &&
-          !/^(admin|login|wp-admin|wp-json)(\/|$)/i.test(sourcePath) && !items.some(item => item.url === sourceUrl)) {
-          items.push({url: sourceUrl, title, parentTitle, sourcePath});
+          !/^(admin|login|wp-admin|wp-json)(\/|$)/i.test(sourcePath)) {
+          discoveredLinks.push({url: sourceUrl, title, parentTitle, sourcePath});
         }
       }
     } catch (error) {
       debugLog("skipping source link %s: %s", link.href, error instanceof Error ? error.message : error);
     }
+  });
+  const items = uniqueLinksByHref(discoveredLinks.map(item => ({href: item.url, text: item.title}))).map(link => {
+    const match = discoveredLinks.find(item => item.url === link.href);
+    const title = registrationTitleFromLink(link.text, link.href);
+    return {...match, url: link.href, title, sourcePath: match?.sourcePath || toKebabCase(title.toLowerCase())};
   });
   if (flavour === RegistrationSiteFlavour.RAMBLERS_HOSTED && !items.some(item => item.sourcePath === "home")) {
     items.unshift({url: registrationSourceUrl(base.href), title: "Home", parentTitle: "", sourcePath: "home"});
@@ -318,7 +376,11 @@ export function mergeRegistrationPages(pages: RegistrationPage[]): RegistrationP
       return [...found, page];
     } else {
       return found.map(existing => existing.url === page.url
-        ? {...existing, imageUrls: [...existing.imageUrls || [], ...page.imageUrls || []].filter((url, index, list) => list.indexOf(url) === index).slice(0, 12)}
+        ? {
+          ...existing,
+          title: (page.title || "").length > (existing.title || "").length ? page.title : existing.title,
+          imageUrls: [...existing.imageUrls || [], ...page.imageUrls || []].filter((url, index, list) => list.indexOf(url) === index).slice(0, 12)
+        }
         : existing);
     }
   }, [] as RegistrationPage[]);
@@ -460,6 +522,22 @@ export function withoutButtonsTo(rows: PageContentRow[], removedPaths: string[])
     } else {
       const columns = (row.columns || []).filter(column => !removedPaths.includes((column.href || "").replace(/^\/+/, "")));
       return columns.length ? [{...row, columns}] : [];
+    }
+  });
+}
+
+export function withoutDuplicateHeadingImages(rows: PageContentRow[]): PageContentRow[] {
+  return (rows || []).map((row, index, all) => {
+    const heading = row.columns?.[0];
+    const following = all[index + 1]?.columns?.[0];
+    const headingImage = heading?.imageSource;
+    const followingImage = following?.imageSource;
+    const headingLooksLikeTitle = /^#\s+/m.test(heading?.contentText || "");
+    const followingIsImageOnly = all[index + 1]?.type === PageContentType.TEXT && followingImage && !(following?.contentText || "").trim();
+    if (headingLooksLikeTitle && headingImage && followingIsImageOnly && headingImage === followingImage) {
+      return {...row, columns: (row.columns || []).map((column, columnIndex) => columnIndex === 0 ? {...column, imageSource: null} : column)};
+    } else {
+      return row;
     }
   });
 }
