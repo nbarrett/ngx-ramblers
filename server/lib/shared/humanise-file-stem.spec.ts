@@ -10,5 +10,6 @@ describe("humaniseFileStemFromUrl", () => {
   it("gives no caption for a file name made only of numbers, hex codes and size letters", () => {
     expect(humaniseFileStemFromUrl("https://live.staticflickr.com/5686/31702683443_29c6c49dc8_c.jpg")).toEqual("");
     expect(humaniseFileStemFromUrl("site-content/1d01a038.jpeg")).toEqual("");
+    expect(humaniseFileStemFromUrl("https://group.example/wpimages/wp826abf85_06.png")).toEqual("");
   });
 });

@@ -14,7 +14,7 @@ import {
 import { ParentPageMode } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 import { TransformationActionType } from "../../../projects/ngx-ramblers/src/app/models/page-transformation.model";
 import { PageContentType } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { withContactUsLinks, discoverRegistrationPages, isNgxRamblersSite, mergeRegistrationPages, pagesFoundOn, proposedRegistrationNavigation, registrationHeaderButtons, registrationMigrationConfig, registrationPageType, registrationContentType, registrationSourceUrl, earlierImportFilters, importedPagePath, pairedImageRows, repeatedLayoutImagePaths, withIntroductionPhotos, withoutButtonsTo, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
+import { withContactUsLinks, discoverRegistrationPages, isNgxRamblersSite, joinSplitLinkText, mergeAdjacentSameHrefLinks, mergeRegistrationPages, pagesFoundOn, proposedRegistrationNavigation, registrationHeaderButtons, registrationMigrationConfig, registrationPageType, registrationContentType, registrationSourceUrl, registrationTitleFromLink, earlierImportFilters, importedPagePath, pairedImageRows, repeatedLayoutImagePaths, uniqueLinksByHref, withIntroductionPhotos, withoutButtonsTo, withoutDuplicateHeadingImages, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
 import { assembleRegistrationPages, registrationPageTree, registrationPagesMoved, registrationPagesWithSelection } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import { SitemapMoveDirection } from "../../../projects/ngx-ramblers/src/app/models/sitemap.model";
 import { excludedImage, markdownSegments, migrateStaticSite, sourceFidelityGaps } from "../migration/migrate-static-site-engine";
@@ -62,18 +62,52 @@ function registration(pages = discoverRegistrationPages(`
 }
 
 describe("site registration content discovery", () => {
+  it("joins split links that all point at the same page instead of naming the page after the first fragment", () => {
+    expect(joinSplitLinkText("Hi", "llside Walking Fe")).toBe("Hillside Walking Fe");
+    expect(joinSplitLinkText("Hillside Walking Fe", "stival")).toBe("Hillside Walking Festival");
+    expect(uniqueLinksByHref(mergeAdjacentSameHrefLinks([
+      {href: "https://group.example/festival.html", text: "Hi"},
+      {href: "https://group.example/festival.html", text: "llside Walking Fe"},
+      {href: "https://group.example/festival.html", text: "stival"}
+    ]))).toEqual([{href: "https://group.example/festival.html", text: "Hillside Walking Festival"}]);
+    expect(registrationTitleFromLink("details at bottom of calendar page", "https://group.example/calendar.html")).toBe("Calendar");
+    expect(registrationTitleFromLink("here on our web site", "https://group.example/news.html")).toBe("News");
+    const discovered = discoverRegistrationPages(`<html><body><nav>
+      <a href="/festival.html">Hi</a><a href="/festival.html">llside Walking Fe</a><a href="/festival.html">stival</a>
+      <a href="/calendar.html">details at bottom of calendar page</a>
+      <a href="/news.html">here on our web site</a>
+    </nav></body></html>`, "https://group.example");
+    expect(discovered.pages.find(page => page.url.includes("festival")).title).toBe("Hillside Walking Festival");
+    expect(discovered.pages.find(page => page.url.includes("festival")).path).toBe("hillside-walking-festival");
+    expect(discovered.pages.find(page => page.url.includes("calendar")).title).toBe("Calendar");
+    expect(discovered.pages.find(page => page.url.includes("news")).title).toBe("News");
+  });
+
+  it("preserves meaningful short titles even when the URL has a generic file name", () => {
+    expect(registrationTitleFromLink("FAQs", "https://group.example/document/edit")).toBe("FAQs");
+    expect(registrationTitleFromLink("News", "https://group.example/page?id=1")).toBe("News");
+    expect(registrationTitleFromLink("About", "https://group.example/section-1")).toBe("About");
+  });
+
+  it("does not join identical repeated navigation labels", () => {
+    expect(uniqueLinksByHref([
+      {href: "https://group.example/about", text: "About"},
+      {href: "https://group.example/about", text: "About"}
+    ])).toEqual([{href: "https://group.example/about", text: "About"}]);
+  });
+
   it("reads a Ramblers-hosted group page as the group's own pages and linked documents only", () => {
     const html = `<html><body><main><div class="type-group-hub">
       <ol class="breadcrumb"><li><a href="/">Home</a></li><li><a href="/go-walking">Go Walking</a></li></ol>
-      <div class="col-md-8"><div class="bg-white"><h1>Walking in the Camel District</h1><p>Welcome to our group.</p></div></div>
-      <div class="card"><div class="card-title">What we do</div><a href="/go-walking/ramblers-groups/camel-district-wadebridge-group/what-we-do">What we do</a></div>
+      <div class="col-md-8"><div class="bg-white"><h1>Walking in the Hillside District</h1><p>Welcome to our group.</p></div></div>
+      <div class="card"><div class="card-title">What we do</div><a href="/go-walking/ramblers-groups/hillside-district-group/what-we-do">What we do</a></div>
       <div class="card"><div class="card-title">FAQs</div><a href="https://docs.google.com/document/d/abc123/edit?usp=sharing">click here for our FAQs</a></div>
       <div class="card"><div class="card-title">Campaign with us</div><a href="/support-us/campaign-with-us">Campaign with us</a></div>
       <a href="https://cdn.ramblers.org.uk/media/files/faqs.pdf">Ramblers FAQs</a>
       <a href="https://www.ramblers.org.uk/membership">Join now</a>
       <a href="/go-walking/group-walks/some-walk">A walk</a>
     </div></main></body></html>`;
-    const discovered = discoverRegistrationPages(html, "https://www.ramblers.org.uk/go-walking/ramblers-groups/camel-district-wadebridge-group");
+    const discovered = discoverRegistrationPages(html, "https://www.ramblers.org.uk/go-walking/ramblers-groups/hillside-district-group");
     expect(discovered.flavour).toBe(RegistrationSiteFlavour.RAMBLERS_HOSTED);
     expect(discovered.pages.map(page => page.path).sort()).toEqual(["faqs", "home", "what-we-do"]);
     expect(discovered.pages.find(page => page.path === "faqs").title).toBe("FAQs");
@@ -619,6 +653,14 @@ describe("site registration page addresses and layout images", () => {
     expect(registrationSourceUrl(gallery)).toEqual(gallery);
     expect(registrationSourceUrl("https://group.example/page.php?b=2&utm_source=news&a=1&fbclid=xyz#top")).toEqual("https://group.example/page.php?a=1&b=2");
     expect(registrationSourceUrl("https://group.example/page.php?utm_campaign=autumn")).toEqual("https://group.example/page.php");
+  });
+
+  it("does not keep the same photo on the heading and on the row beneath it", () => {
+    const heading = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "# Festival", imageSource: "photo.jpg"}]};
+    const photo = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, imageSource: "photo.jpg"}]};
+    const body = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "Welcome"}]};
+    expect(withoutDuplicateHeadingImages([heading, photo, body])[0].columns[0].imageSource).toBeNull();
+    expect(withoutDuplicateHeadingImages([heading, photo, body])[1].columns[0].imageSource).toBe("photo.jpg");
   });
 
   it("puts a real photo under the heading of each indexed page that has no images, so its index card shows it too", () => {
