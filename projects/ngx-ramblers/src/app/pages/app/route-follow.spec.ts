@@ -1,3 +1,4 @@
+import { ChangeDetectorRef, ElementRef } from "@angular/core";
 import { StoredValue } from "../../models/ui-actions";
 import { AppInstallPlatform, RouteFollowLocationError, RouteFollowMode, RouteFollowPoint, RouteFollowPayload, RouteFollowSession, RouteFollowSheetState, RouteFollowSource } from "../../models/route-follow.model";
 import { RouteFollowComponent } from "./route-follow";
@@ -371,6 +372,7 @@ describe("follow sheet handle drag", () => {
     target.releasePointerCapture = vi.fn();
     target.hasPointerCapture = vi.fn().mockReturnValue(type !== "pointerdown");
     const event = {
+      type,
       pointerId,
       clientY,
       cancelable: true,
@@ -393,6 +395,55 @@ describe("follow sheet handle drag", () => {
     handleEvent(view, "pointermove", 320);
     handleEvent(view, "pointerup", 320);
     expect(view["sheetState"]).toBe(RouteFollowSheetState.EXPANDED);
+  });
+
+  it("moves with the finger and animates to the expanded height on release", () => {
+    const view = handleView();
+    const sheet = document.createElement("section");
+    sheet.setPointerCapture = vi.fn();
+    sheet.releasePointerCapture = vi.fn();
+    sheet.hasPointerCapture = vi.fn().mockReturnValue(true);
+    sheet.getBoundingClientRect = vi.fn().mockImplementation(() => ({height: Number.parseFloat(sheet.style.height) || (view.sheetMinimised ? 100 : 400)}));
+    sheet.animate = vi.fn().mockReturnValue({cancel: vi.fn(), onfinish: null});
+    window.matchMedia = vi.fn().mockReturnValue({matches: false});
+    view["followSheet"] = new ElementRef(sheet);
+    view["changeDetector"] = {detectChanges: vi.fn()} as unknown as ChangeDetectorRef;
+    handleEvent(view, "pointerdown", 400);
+    handleEvent(view, "pointermove", 320);
+    expect(sheet.style.height).toBe("180px");
+    handleEvent(view, "pointerup", 320);
+    expect(sheet.animate).toHaveBeenCalledWith([{height: "180px"}, {height: "400px"}], expect.objectContaining({duration: 240}));
+    expect(sheet.style.height).toBe("");
+    view["startLocationMessage"] = "You are 12.4 miles from the start.";
+    view.minimiseSheet();
+    expect(view.sheetMinimised).toBe(true);
+    expect(sheet.animate).toHaveBeenLastCalledWith([{height: "400px"}, {height: "100px"}], expect.objectContaining({duration: 240}));
+  });
+
+  it("closes when the expanded content is pulled down", () => {
+    const view = handleView();
+    view["sheetState"] = RouteFollowSheetState.EXPANDED;
+    view.onSheetBodyDragging(true);
+    view.onSheetBodySwipeOffset(80);
+    view.onSheetBodyDragging(false);
+    expect(view.sheetMinimised).toBe(true);
+  });
+
+  it("keeps the content open after a small pull", () => {
+    const view = handleView();
+    view["sheetState"] = RouteFollowSheetState.EXPANDED;
+    view.onSheetBodyDragging(true);
+    view.onSheetBodySwipeOffset(10);
+    view.onSheetBodyDragging(false);
+    expect(view.sheetMinimised).toBe(false);
+  });
+
+  it("restores the original state when a swipe is cancelled", () => {
+    const view = handleView();
+    handleEvent(view, "pointerdown", 400);
+    handleEvent(view, "pointermove", 320);
+    handleEvent(view, "pointercancel", 320);
+    expect(view.sheetMinimised).toBe(true);
   });
 
   it("minimises when the grab is swiped down", () => {
@@ -480,5 +531,70 @@ describe("centring on the current location", () => {
     await view.recenter();
     expect(view["mapRef"].setView).not.toHaveBeenCalled();
     expect(view["followService"].applyPosition).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("checking the walk start before following", () => {
+  function startView(metres: number | null): RouteFollowComponent {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["payload"] = {points: [{latitude: 51, longitude: 0}, {latitude: 51.01, longitude: 0.01}]} as RouteFollowPayload;
+    Object.defineProperty(view, "mobileAccess", {value: {allowed: vi.fn().mockReturnValue(true)}});
+    view["currentLocation"] = {currentPosition: vi.fn().mockResolvedValue({lat: 51, lng: 0})} as unknown as typeof view["currentLocation"];
+    view["followService"] = {
+      requestCompassPermission: vi.fn().mockResolvedValue(null),
+      trackPoints: vi.fn().mockReturnValue(view["payload"].points),
+      distanceFromStart: vi.fn().mockReturnValue(metres),
+      formatDistance: vi.fn().mockReturnValue("12.4 miles"),
+      startFollowing: vi.fn()
+    } as unknown as typeof view["followService"];
+    view.expandSheet = vi.fn();
+    view.minimiseSheet = vi.fn();
+    view["requestWakeLock"] = vi.fn().mockResolvedValue(null);
+    return view;
+  }
+
+  it("shows the distance and keeps directions stopped when far from the start", async () => {
+    const view = startView(20000);
+    await view.start();
+    expect(view["startLocationMessage"]).toContain("12.4 miles from the start");
+    expect(view["startLocationMessage"]).toContain("straight-line distance");
+    expect(view["followService"].startFollowing).not.toHaveBeenCalled();
+    expect(view.expandSheet).toHaveBeenCalled();
+    expect(view["startingFollow"]).toBe(false);
+  });
+
+  it("starts directions when within reach of the start", async () => {
+    const view = startView(40);
+    await view.start();
+    expect(view["startLocationMessage"]).toBeNull();
+    expect(view["followService"].startFollowing).toHaveBeenCalled();
+    expect(view.minimiseSheet).toHaveBeenCalled();
+  });
+
+  it("keeps directions stopped when location is unavailable", async () => {
+    const view = startView(null);
+    view["currentLocation"].currentPosition = vi.fn().mockResolvedValue(null);
+    await view.start();
+    expect(view["startLocationMessage"]).toContain("current location could not be found");
+    expect(view["followService"].startFollowing).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("recording stop and save availability", () => {
+  it("allows stopping without GPS points but requires a line to save", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["payload"] = {source: RouteFollowSource.RECORDING} as RouteFollowPayload;
+    view["recordingDetailsOpen"] = false;
+    view["savingRoute"] = false;
+    view["followService"] = {trackPoints: vi.fn().mockReturnValue([])} as unknown as typeof view["followService"];
+    expect(view.recordingActionDisabled).toBe(false);
+    view["recordingDetailsOpen"] = true;
+    expect(view.recordingActionDisabled).toBe(true);
+    view["followService"].trackPoints = vi.fn().mockReturnValue([{latitude: 51, longitude: 0}, {latitude: 51.001, longitude: 0.001}]);
+    expect(view.recordingActionDisabled).toBe(false);
+    view["savingRoute"] = true;
+    expect(view.recordingActionDisabled).toBe(true);
   });
 });

@@ -46,10 +46,28 @@ export function saveNativeWalkingSite(origin: string | null): void {
   }
 }
 
+function apiPathFrom(url: string): string | null {
+  let path: string | null = null;
+  if (/^\/?api(?:\/|\?|$)/.test(url)) {
+    path = url.startsWith("/") ? url : `/${url}`;
+  } else {
+    try {
+      const parsed = new URL(url);
+      if ((parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") && /^\/api(?:\/|\?|$)/.test(parsed.pathname)) {
+        path = `${parsed.pathname}${parsed.search}`;
+      }
+    } catch {
+      path = null;
+    }
+  }
+  return path;
+}
+
 export function nativeApiUrl(url: string, site = nativeWalkingSite()): string {
-  const directoryRequest = /^\/?api\/(?:areas\/available-areas|ramblers\/walks-manager\/list-groups)$/.test(url);
+  const apiPath = apiPathFrom(url);
+  const directoryRequest = !!apiPath && /^\/api\/(?:areas\/available-areas|ramblers\/walks-manager\/list-groups)$/.test(apiPath);
   const directory = Capacitor.isNativePlatform() && directoryRequest
     ? parseHttpsOrigin((window as NativeWalkingWindow).ngxNativeDirectoryUrl || "") : null;
   const origin = site || directory;
-  return origin && /^\/?api(?:\/|\?|$)/.test(url) ? `${origin}/${url.replace(/^\//, "")}` : url;
+  return origin && apiPath ? `${origin}${apiPath}` : url;
 }

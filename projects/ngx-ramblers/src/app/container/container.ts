@@ -98,7 +98,7 @@ export class ContainerComponent implements OnInit, OnDestroy {
   protected showFloatingNavigation(): boolean {
     const path = this.currentPath();
     const followPath = "/" + AppPath.ROOT + "/" + AppPath.ROUTE;
-    return !this.nativeSite.needsChooser() && this.appShell.installed() && path !== "/" && path !== "/home" && !path.startsWith(followPath);
+    return !this.nativeSite.needsChooser() && this.appShell.installed() && !path.startsWith(followPath);
   }
 
   protected showFloatingShare(): boolean {

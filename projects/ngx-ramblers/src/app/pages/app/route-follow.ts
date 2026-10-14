@@ -1,3 +1,5 @@
+import { SwipeAxis } from "../../models/swipe.model";
+import { SwipeableDirective } from "../../modules/common/swipe/swipeable.directive";
 import { DistanceUnit } from "../../models/walk.model";
 import { routeVisibleToMember } from "../../functions/route-access";
 import { generateUid } from "../../functions/numbers";
@@ -15,7 +17,7 @@ import { RouteVisibility, routeAuditCreatedLabel } from "../../models/os-maps-ex
 import { downloadBlob } from "../../functions/file-download";
 import { FormsModule } from "@angular/forms";
 import { CdkTextareaAutosize } from "@angular/cdk/text-field";
-import { afterNextRender, Component, ElementRef, HostListener, inject, Injector, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { afterNextRender, ChangeDetectorRef, Component, ElementRef, HostListener, inject, Injector, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { turnRotationDegrees } from "../../functions/route-turns";
 import { nearestPointIndex, cumulativeDistances, snapToRoute } from "../../functions/route-geometry";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -48,7 +50,7 @@ import {
   faStop,
   faSun,
   faUpLong,
-  faXmark, faCodeFork, faSignsPost } from "@fortawesome/free-solid-svg-icons";
+  faXmark, faTrash, faChevronDown, faCodeFork, faSignsPost } from "@fortawesome/free-solid-svg-icons";
 import * as L from "leaflet";
 import { isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -97,6 +99,7 @@ import {
   formatOsGridReference,
   isLiveFollowMode,
   ROUTE_FOLLOW_NUDGE_METRES,
+  ROUTE_FOLLOW_START_RADIUS_METRES,
   RouteFollowProgressPaint,
   routeFollowProgressPaintFrom,
   ROUTE_FOLLOW_HEADING_UP_MIN_DELTA,
@@ -151,8 +154,8 @@ import { RouterHistoryService } from "../../services/router-history.service";
         <div class="follow-status">
           <div class="follow-top-actions">
             <button class="follow-icon-btn" type="button" (click)="closeFollow()" [disabled]="savingRoute"
-                    tooltip="Close" [isDisabled]="!tooltipsEnabled" placement="bottom" container=".follow-app"
-                    aria-label="Close follow">
+                    tooltip="Exit map" [isDisabled]="!tooltipsEnabled" placement="bottom" container=".follow-app"
+                    aria-label="Exit map">
               <fa-icon [icon]="faXmark"/>
             </button>
           </div>
@@ -187,8 +190,8 @@ import { RouterHistoryService } from "../../services/router-history.service";
           <div class="follow-top-bar">
             <div class="follow-top-actions">
               <button class="follow-icon-btn" type="button" (click)="closeFollow()" [disabled]="savingRoute"
-                      tooltip="Close" [isDisabled]="!tooltipsEnabled" placement="bottom" container=".follow-app"
-                      aria-label="Close follow">
+                      tooltip="Exit map" [isDisabled]="!tooltipsEnabled" placement="bottom" container=".follow-app"
+                      aria-label="Exit map">
                 <fa-icon [icon]="faXmark"/>
               </button>
             </div>
@@ -512,7 +515,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
             </div>
           </div>
           </div>
-          <section class="follow-sheet" [class.is-minimised]="sheetMinimised">
+          <section #followSheet class="follow-sheet" [class.is-minimised]="sheetMinimised">
           <button class="follow-sheet-handle" type="button"
                   (pointerdown)="onSheetHandlePointerDown($event)"
                   (pointermove)="onSheetPointerMove($event)"
@@ -529,7 +532,12 @@ import { RouterHistoryService } from "../../services/router-history.service";
               <fa-icon [icon]="faCircle" class="follow-recording-indicator is-ready"/> Start recording
             </button>
           } @else if (recordingSession && !recordingDetailsOpen && sheetMinimised && !followPanelWide) {
-            <button class="btn follow-main-btn follow-recording-tray" [class.btn-primary]="progress?.mode === RouteFollowMode.RECORDING" [class.btn-quiet]="progress?.mode !== RouteFollowMode.RECORDING" type="button" (click)="onSheetHandleClick()"
+            <button class="btn follow-main-btn follow-recording-tray" [class.btn-primary]="progress?.mode === RouteFollowMode.RECORDING" [class.btn-quiet]="progress?.mode !== RouteFollowMode.RECORDING" type="button"
+                    (pointerdown)="onSheetHandlePointerDown($event)"
+                    (pointermove)="onSheetPointerMove($event)"
+                    (pointerup)="onSheetPointerUp($event)"
+                    (pointercancel)="onSheetPointerUp($event)"
+                    (click)="onSheetHandleClick()"
                     [attr.aria-expanded]="!sheetMinimised" aria-label="Recording controls">
               <fa-icon [icon]="faCircle" class="follow-recording-indicator"
                        [class.is-recording]="progress?.mode === RouteFollowMode.RECORDING"/>
@@ -565,12 +573,16 @@ import { RouterHistoryService } from "../../services/router-history.service";
           </div>
           }
           @if (sheetMinimised && !followPanelWide && hasLine && payload?.source !== RouteFollowSource.RECORDING && !recordingSession && progress?.mode !== RouteFollowMode.EDITING) {
-            <button class="btn btn-primary follow-main-btn follow-recording-tray" type="button" (click)="onPeekAction($event)" [disabled]="savingRoute">
+            <button class="btn btn-primary follow-main-btn follow-recording-tray" type="button" (click)="onPeekAction($event)" [disabled]="savingRoute || startingFollow">
               <fa-icon [icon]="startControlIcon()"/>
               {{ startControlLabel() }}
             </button>
           }
-          <div class="follow-sheet-body-slot">
+          <div class="follow-sheet-body-slot" appSwipeable
+               [swipeAxis]="SwipeAxis.VERTICAL" [swipeDownAtTopOnly]="true"
+               [swipeEnabled]="!sheetMinimised && !followPanelWide"
+               (draggingChange)="onSheetBodyDragging($event)"
+               (swipeOffset)="onSheetBodySwipeOffset($event)">
           <div class="follow-sheet-body">
           @if (payload && payload.source !== RouteFollowSource.RECORDING && !showingRouteDetails()) {
             <app-route-audit [audit]="payload" iconsOnly showDates [createdLabel]="routeAuditCreatedLabel(payload)"/>
@@ -605,6 +617,12 @@ import { RouterHistoryService } from "../../services/router-history.service";
             <div class="alert alert-warning d-flex align-items-start gap-2">
               <fa-icon [icon]="faCircleExclamation"/>
               <div><strong>Session storage unavailable</strong><p>{{ sessionStorageError }}</p></div>
+            </div>
+          }
+          @if (startLocationMessage) {
+            <div class="alert alert-warning d-flex align-items-start gap-2" role="status">
+              <fa-icon [icon]="faCircleExclamation"/>
+              <div><strong class="d-block">Head to the start</strong>{{ startLocationMessage }}</div>
             </div>
           }
           @if (persistError) {
@@ -784,34 +802,34 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 Reduce density
               </button>
             } @else if (recordingSession) {
-              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="onPeekAction($event)" [disabled]="savingRoute">
+              <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="onPeekAction($event)" [disabled]="savingRoute || startingFollow">
                 <fa-icon [icon]="startControlIcon()"/>
                 {{ startControlLabel() }}
               </button>
               <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="cancelEdit()" [disabled]="savingRoute">
-                <fa-icon [icon]="faXmark"/>
+                <fa-icon [icon]="faTrash"/>
                 Discard
               </button>
-              <button class="btn btn-primary follow-main-btn" type="button" (click)="payload?.source === RouteFollowSource.RECORDING && !recordingDetailsOpen ? finishRecording() : saveRoute()" [disabled]="savingRoute || !hasLine">
-                @if (payload?.source === RouteFollowSource.RECORDING && !recordingDetailsOpen) {
+              <button class="btn btn-primary follow-main-btn" type="button" (click)="recordingStopAction ? finishRecording() : saveRoute()" [disabled]="recordingActionDisabled">
+                @if (recordingStopAction) {
                   <fa-icon [icon]="faCircle" class="follow-recording-indicator" aria-hidden="true"
                            [class.is-recording]="progress?.mode === RouteFollowMode.RECORDING"/>
                 } @else {
                   <fa-icon [icon]="faFloppyDisk"/>
                 }
-                {{ savingRoute ? "Saving" : payload?.source === RouteFollowSource.RECORDING && !recordingDetailsOpen ? "Stop recording" : "Save route" }}
+                {{ savingRoute ? "Saving" : recordingStopAction ? "Stop recording" : "Save route" }}
               </button>
             } @else if (!thinningPrompt && (progress?.mode === RouteFollowMode.FOLLOWING || progress?.mode === RouteFollowMode.PAUSED || progress?.mode === RouteFollowMode.PREVIEW)) {
               <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="stop()">
                 <fa-icon [icon]="faStop"/>
                 Stop
               </button>
-              <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)">
+              <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)" [disabled]="startingFollow">
                 <fa-icon [icon]="startControlIcon()"/>
                 {{ startControlLabel() }}
               </button>
             } @else if (!thinningPrompt && progress?.mode === RouteFollowMode.IDLE && payload?.source !== RouteFollowSource.RECORDING) {
-              <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)">
+              <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)" [disabled]="startingFollow">
                 <fa-icon [icon]="startControlIcon()"/>
                 {{ startControlLabel() }}
               </button>
@@ -834,9 +852,9 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 </button>
               }
             }
-            <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="closeFollow()" [disabled]="savingRoute">
-              <fa-icon [icon]="faXmark"/>
-              Close
+            <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="followPanelWide ? closeFollow() : minimiseSheet()" [disabled]="savingRoute">
+              <fa-icon [icon]="followPanelWide ? faXmark : faChevronDown"/>
+              {{ followPanelWide ? "Exit map" : "Close drawer" }}
             </button>
             }
           </div>
@@ -847,7 +865,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
     </div>
   `,
   styleUrls: ["./route-follow.sass"],
-  imports: [CdkTextareaAutosize, MapLoadingOverlay, RouteAuditComponent, RouteElevationComponent, RouteDirectionsEditor, WalkGradeSelect, WalkGradingComponent, FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
+  imports: [SwipeableDirective, CdkTextareaAutosize, MapLoadingOverlay, RouteAuditComponent, RouteElevationComponent, RouteDirectionsEditor, WalkGradeSelect, WalkGradingComponent, FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
 })
 export class RouteFollowComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowComponent", NgxLoggerLevel.ERROR);
@@ -919,6 +937,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected saveProgress = "";
   protected persistMessage = "";
   protected persistError: string | null = null;
+  protected startLocationMessage: string | null = null;
+  protected startingFollow = false;
   protected savingRoute = false;
   protected readonly mobileAccess = inject(MobileAppAccessService);
   protected readonly MobileAppAction = MobileAppAction;
@@ -955,9 +975,14 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly RouteFollowMode = RouteFollowMode;
   protected readonly RouteFollowEditTool = RouteFollowEditTool;
   protected readonly RouteFollowSheetState = RouteFollowSheetState;
+  protected readonly SwipeAxis = SwipeAxis;
   protected sheetState = RouteFollowSheetState.MINIMISED;
   followPanelWide = false;
   followExtraSettings = false;
+  private changeDetector = inject(ChangeDetectorRef);
+  @ViewChild("followSheet") private followSheet: ElementRef<HTMLElement> | null = null;
+  private sheetAnimation: Animation | null = null;
+  private sheetDragLayout = {state: RouteFollowSheetState.MINIMISED, startHeight: 0, collapsedHeight: 0, expandedHeight: 0};
   private sheetDrag = {active: false, pointerId: -1, startY: 0, lastY: 0, moved: false, target: null as HTMLElement | null};
   protected editTool = RouteFollowEditTool.PENCIL;
   protected readonly faCircle = faCircle;
@@ -1026,6 +1051,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private nudgedWaypointId: string | null = null;
   protected browsedWaypoint: RouteFollowWaypoint | null = null;
   protected readonly faXmark = faXmark;
+  protected readonly faTrash = faTrash;
+  protected readonly faChevronDown = faChevronDown;
   protected mapScale: FollowMapScaleBar = {label: "", midLabel: "", widthPx: 0};
   protected gridReference = "";
   protected compassHeadingText = "";
@@ -1097,6 +1124,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.sheetAnimation?.cancel();
     this.persistFollowSession(true);
     this.cancelTravel();
     const container = this.mapRef?.getContainer();
@@ -1713,7 +1741,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   onSheetHandlePointerDown(event: PointerEvent): void {
-    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    const target = this.followSheet?.nativeElement || (event.currentTarget instanceof HTMLElement ? event.currentTarget : null);
+    this.sheetDragLayout = {state: this.sheetState, startHeight: 0, collapsedHeight: 0, expandedHeight: 0};
+    this.prepareSheetDrag();
     if (event.cancelable) {
       event.preventDefault();
     }
@@ -1730,8 +1760,43 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   onSheetPointerMove(event: PointerEvent): void {
     if (this.sheetDrag.active && event.pointerId === this.sheetDrag.pointerId) {
       this.sheetDrag.lastY = event.clientY;
-      if (Math.abs(event.clientY - this.sheetDrag.startY) > 8) {
-        this.sheetDrag.moved = true;
+      this.updateSheetDrag(event.clientY - this.sheetDrag.startY);
+    }
+  }
+
+  onSheetBodyDragging(active: boolean): void {
+    if (active) {
+      this.sheetDragLayout = {state: this.sheetState, startHeight: 0, collapsedHeight: 0, expandedHeight: 0};
+      this.prepareSheetDrag();
+      this.sheetDrag.active = true;
+      this.sheetDrag.pointerId = -1;
+      this.sheetDrag.lastY = 0;
+      this.sheetDrag.startY = 0;
+      this.sheetDrag.moved = false;
+      this.sheetDrag.target = null;
+    } else if (this.sheetDrag.active && this.sheetDrag.pointerId === -1) {
+      this.sheetDrag.active = false;
+      this.setSheetState(sheetStateAfterDrag(this.sheetDragLayout.state, this.sheetDrag.lastY));
+      this.sheetDrag.moved = true;
+    }
+  }
+
+  onSheetBodySwipeOffset(offset: number): void {
+    if (this.sheetDrag.active && this.sheetDrag.pointerId === -1) {
+      this.sheetDrag.lastY = offset;
+      this.updateSheetDrag(offset);
+    }
+  }
+
+  private updateSheetDrag(deltaY: number): void {
+    if (Math.abs(deltaY) > 4) {
+      this.sheetDrag.moved = true;
+      const sheet = this.followSheet?.nativeElement;
+      if (sheet) {
+        this.sheetState = RouteFollowSheetState.EXPANDED;
+        this.changeDetector.detectChanges();
+        const height = Math.max(this.sheetDragLayout.collapsedHeight, Math.min(this.sheetDragLayout.expandedHeight, this.sheetDragLayout.startHeight - deltaY));
+        sheet.style.height = `${height}px`;
       }
     }
   }
@@ -1740,22 +1805,19 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   @HostListener("document:pointercancel", ["$event"])
   onSheetPointerUp(event: PointerEvent): void {
     if (this.sheetDrag.active && event.pointerId === this.sheetDrag.pointerId) {
-      const nextState = sheetStateAfterDrag(this.sheetState, this.sheetDrag.lastY - this.sheetDrag.startY);
+      const initialState = this.sheetDragLayout.state;
+      const nextState = event.type === "pointercancel"
+        ? initialState
+        : this.sheetDrag.moved
+          ? sheetStateAfterDrag(initialState, event.clientY - this.sheetDrag.startY)
+          : initialState === RouteFollowSheetState.MINIMISED ? RouteFollowSheetState.EXPANDED : RouteFollowSheetState.MINIMISED;
       const target = this.sheetDrag.target;
       if (target?.hasPointerCapture(event.pointerId)) {
         target.releasePointerCapture(event.pointerId);
       }
       this.sheetDrag.active = false;
       this.sheetDrag.target = null;
-      if (this.sheetDrag.moved) {
-        if (nextState !== this.sheetState) {
-          this.sheetState = nextState;
-          this.persistFollowSession(true);
-          this.refreshMapSize();
-        }
-      } else {
-        this.toggleSheet();
-      }
+      this.setSheetState(nextState);
       this.sheetDrag.moved = true;
     }
   }
@@ -1776,13 +1838,52 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   minimiseSheet(): void {
-    this.sheetState = RouteFollowSheetState.MINIMISED;
-    this.persistFollowSession(true);
-    this.refreshMapSize();
+    this.setSheetState(RouteFollowSheetState.MINIMISED);
   }
 
   expandSheet(): void {
-    this.sheetState = RouteFollowSheetState.EXPANDED;
+    this.setSheetState(RouteFollowSheetState.EXPANDED);
+  }
+
+  private prepareSheetDrag(): void {
+    const sheet = this.followSheet?.nativeElement;
+    if (sheet && !this.followPanelWide) {
+      const startHeight = sheet.getBoundingClientRect().height;
+      this.sheetAnimation?.cancel();
+      sheet.style.height = "";
+      this.sheetState = RouteFollowSheetState.MINIMISED;
+      this.changeDetector.detectChanges();
+      const collapsedHeight = sheet.getBoundingClientRect().height;
+      this.sheetState = RouteFollowSheetState.EXPANDED;
+      this.changeDetector.detectChanges();
+      const expandedHeight = sheet.getBoundingClientRect().height;
+      this.sheetState = this.sheetDragLayout.state;
+      this.changeDetector.detectChanges();
+      this.sheetDragLayout = {...this.sheetDragLayout, startHeight, collapsedHeight, expandedHeight};
+      sheet.style.height = `${startHeight}px`;
+    }
+  }
+
+  private setSheetState(state: RouteFollowSheetState): void {
+    const sheet = this.followSheet?.nativeElement;
+    const startHeight = sheet?.getBoundingClientRect().height;
+    this.sheetAnimation?.cancel();
+    this.sheetAnimation = null;
+    this.sheetState = state;
+    if (sheet && !this.followPanelWide) {
+      sheet.style.height = "";
+      this.changeDetector.detectChanges();
+      const endHeight = sheet.getBoundingClientRect().height;
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      this.sheetAnimation = sheet.animate([{height: `${startHeight}px`}, {height: `${endHeight}px`}], {
+        duration: reducedMotion ? 0 : 240,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)"
+      });
+      this.sheetAnimation.onfinish = () => {
+        this.sheetAnimation = null;
+        this.refreshMapSize();
+      };
+    }
     this.persistFollowSession(true);
     this.refreshMapSize();
   }
@@ -1841,15 +1942,35 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (!this.mobileAccess.allowed(MobileAppAction.FOLLOW)) {
       this.persistError = "You do not have permission to follow routes.";
     } else {
-    this.followUser = true;
-    try {
-      await this.followService.requestCompassPermission();
-    } catch (error) {
-      this.logger.info("compass permission", error);
-    }
-    this.followService.startFollowing();
-    this.minimiseSheet();
-    void this.requestWakeLock();
+      this.startingFollow = true;
+      this.startLocationMessage = null;
+      try {
+        await this.followService.requestCompassPermission();
+      } catch (error) {
+        this.logger.info("compass permission", error);
+      }
+      try {
+        const location = this.hasLine ? await this.currentLocation.currentPosition(true) : null;
+        const metres = location ? this.followService.distanceFromStart({latitude: location.lat, longitude: location.lng}) : null;
+        if (this.hasLine && !location) {
+          this.startLocationMessage = "Your current location could not be found. Enable location access and try Start again.";
+          this.expandSheet();
+        } else if (isNumber(metres) && metres > ROUTE_FOLLOW_START_RADIUS_METRES) {
+          this.startLocationMessage = `You are ${this.followService.formatDistance(metres)} from the start (straight-line distance). Travel to the start, then tap Start again.`;
+          this.expandSheet();
+        } else {
+          this.followUser = true;
+          this.followService.startFollowing();
+          this.minimiseSheet();
+          void this.requestWakeLock();
+        }
+      } catch (error) {
+        this.logger.error("start location check failed", error);
+        this.startLocationMessage = "Your current location could not be checked. Try Start again.";
+        this.expandSheet();
+      } finally {
+        this.startingFollow = false;
+      }
     }
   }
 
@@ -2004,6 +2125,14 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.refreshEditHandles();
     this.refreshArrows();
     this.redraw();
+  }
+
+  get recordingStopAction(): boolean {
+    return this.payload?.source === RouteFollowSource.RECORDING && !this.recordingDetailsOpen;
+  }
+
+  get recordingActionDisabled(): boolean {
+    return this.savingRoute || (!this.recordingStopAction && !this.hasLine);
   }
 
   get recordingSession(): boolean {
@@ -2820,6 +2949,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   private async load(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null, trackIndex = 0, via: number[] = [], recordingId: string | null = null): Promise<void> {
     const sequence = ++this.loadSequence;
+    this.startLocationMessage = null;
     this.mapTiles.allowCachedOsTiles(false);
     this.restoredMapView = null;
     this.via = via;

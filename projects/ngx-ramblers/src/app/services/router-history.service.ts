@@ -62,11 +62,15 @@ export class RouterHistoryService {
     const current = this.router.url;
     const appRoot = "/" + AppPath.ROOT;
     const previous = [...this.pageHistory].reverse().find(url => url !== current);
-    if (previous && this.isAppHistoryUrl(previous)) {
-      return previous;
+    if (this.isAppHistoryUrl(current)) {
+      if (previous && this.isAppHistoryUrl(previous)) {
+        return previous;
+      } else {
+        const previousApp = [...this.pageHistory].reverse().find(url => this.isAppHistoryUrl(url) && url !== current);
+        return previousApp || previous || this.walksProgrammeDestination() || appRoot;
+      }
     } else {
-      const previousApp = [...this.pageHistory].reverse().find(url => this.isAppHistoryUrl(url) && url !== current);
-      return previousApp || previous || this.walksProgrammeDestination() || appRoot;
+      return previous || this.walksProgrammeDestination() || "/";
     }
   }
 

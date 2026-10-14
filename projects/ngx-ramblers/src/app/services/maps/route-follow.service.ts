@@ -93,6 +93,12 @@ export class RouteFollowService {
     return this.cumulativeMetres.length > 0 ? this.cumulativeMetres[this.cumulativeMetres.length - 1] : 0;
   }
 
+  distanceFromStart(position: RouteFollowPoint): number | null {
+    const start = this.track[0] || this.waypoints[0];
+    const kilometres = start ? this.geoDistance.calculateDistanceKm(position, start) : null;
+    return kilometres === null ? null : kilometres * 1000;
+  }
+
   trackPoints(): RouteFollowPoint[] {
     return this.track;
   }

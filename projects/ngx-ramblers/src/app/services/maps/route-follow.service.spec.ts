@@ -76,6 +76,15 @@ describe("RouteFollowService", () => {
     ]);
   });
 
+  it("measures the distance to the route start and handles a route without a line", () => {
+    expect(service.distanceFromStart({latitude: 51.2, longitude: 1.0})).toBe(0);
+    expect(service.distanceFromStart({latitude: 51.4, longitude: 1.0})).toBeGreaterThan(20000);
+    service.loadRoute([], [{id: "start", latitude: 51.2, longitude: 1.0, kind: RouteWaypointKind.START}]);
+    expect(service.distanceFromStart({latitude: 51.2, longitude: 1.0})).toBe(0);
+    service.loadRoute([], []);
+    expect(service.distanceFromStart({latitude: 51.2, longitude: 1.0})).toBeNull();
+  });
+
   it("records GPS points and timestamps from an empty standalone route and retains them on pause", () => {
     service.loadRoute([], []);
     service.startRecording(true);
