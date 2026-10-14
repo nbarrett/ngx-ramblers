@@ -16,6 +16,7 @@ import { UrlService } from "../../../services/url.service";
            [disabled]="disabled"
            [typeahead]="pageContentService.siteLinks"
            [typeaheadMinLength]="0"
+           container="body"
            [ngModel]="value"
            [ngModelOptions]="{ standalone: true }"
            (ngModelChange)="onValueChange($event)"

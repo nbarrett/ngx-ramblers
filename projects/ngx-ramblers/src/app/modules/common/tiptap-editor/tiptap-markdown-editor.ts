@@ -78,6 +78,7 @@ import { LINK_TOKEN_NODE_NAME, LinkToken } from "./link-token.extension";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { PAGE_BREAK_NODE_NAME, PageBreak } from "./page-break.extension";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
+import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
 import { AwsFileData, AwsFileUploadResponse } from "../../../models/aws-object.model";
 import { RootFolder } from "../../../models/system.model";
 import { S3_BASE_URL } from "../../../models/content-metadata.model";
@@ -100,7 +101,7 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
 @Component({
   selector: "app-tiptap-markdown-editor",
   encapsulation: ViewEncapsulation.None,
-  imports: [NgClass, TiptapEditorDirective, FontAwesomeModule, ImageCropperAndResizerComponent, FormsModule, NgSelectComponent, NgOptionTemplateDirective, TooltipDirective],
+  imports: [NgClass, TiptapEditorDirective, FontAwesomeModule, ImageCropperAndResizerComponent, SiteLinkInputComponent, FormsModule, NgSelectComponent, NgOptionTemplateDirective, TooltipDirective],
   template: `
 <div class="tiptap-editor-shell"
      [class.tiptap-editor-shell-disabled]="!editable"
@@ -294,32 +295,30 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
              placeholder="The words the reader sees"
              (keyup.enter)="confirmLink()">
       <label class="link-url-label" for="tiptap-link-url">Link URL</label>
-      <input #linkUrlInput
-             id="tiptap-link-url"
-             type="text"
-             class="form-control form-control-sm link-url-input"
-             name="tiptap-link-url"
-             [(ngModel)]="linkUrl"
-             placeholder="https://…  /walks/…  or ?contact-us&role=…&redirect=…"
-             (keyup.enter)="confirmLink()">
+      <app-site-link-input inputId="tiptap-link-url"
+                           cssClass="form-control form-control-sm"
+                           placeholder="Pick a page, or type a URL"
+                           [value]="linkUrl"
+                           (valueChange)="linkUrl = $event"
+                           (keyup.enter)="confirmLink()"/>
       @if (linkHrefMissing) {
         <div class="link-url-hint">This link has no URL stored. Enter a path or address, then Apply.</div>
       }
-      <div class="form-check mb-2">
+      <div class="form-check mb-0">
         <input class="form-check-input" type="checkbox" id="tiptap-link-new-tab"
                [(ngModel)]="linkOpenInNewTab" name="tiptap-link-new-tab">
         <label class="form-check-label" for="tiptap-link-new-tab">Open in a new tab</label>
       </div>
-      <div class="link-url-actions">
+      <div class="d-flex flex-wrap align-items-center gap-2">
         <button type="button" class="btn btn-sm btn-primary" (click)="confirmLink()">Apply</button>
-        <button type="button" class="btn btn-sm btn-secondary" (click)="cancelLinkBar()">Cancel</button>
-        <button type="button" class="btn btn-sm btn-secondary" [disabled]="!linkUrl?.trim()"
-                tooltip="Open this link in a new tab — your editing stays as it is" container="body" delay=500
+        <button type="button" class="btn btn-sm btn-quiet" (click)="cancelLinkBar()">Cancel</button>
+        <button type="button" class="btn btn-sm btn-quiet" [disabled]="!linkUrl?.trim()"
+                tooltip="Open this link in a new tab - your editing stays as it is" container="body" delay=500
                 (click)="openLinkInNewTab(linkUrl)">
           <fa-icon [icon]="faExternalLinkAlt" class="me-1"/>Open in new tab
         </button>
         @if (isActive("link")) {
-          <button type="button" class="btn btn-sm btn-secondary" (click)="removeLink()">Remove link</button>
+          <button type="button" class="btn btn-sm btn-quiet" (click)="removeLink()">Remove link</button>
         }
       </div>
     </div>
@@ -351,13 +350,13 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
           <div class="mt-1"><code>{{ contactHrefPreview() }}</code></div>
         }
       </div>
-      <div class="contact-button-actions">
+      <div class="d-flex flex-wrap align-items-center gap-2">
         <button type="button" class="btn btn-sm btn-primary"
                 [disabled]="!contactRoleType || !contactLabel.trim()"
                 (click)="applyContactButton()">
           {{ contactUpdatingExisting ? "Update button" : "Insert button" }}
         </button>
-        <button type="button" class="btn btn-sm btn-secondary" (click)="cancelContactButtonBar()">Cancel</button>
+        <button type="button" class="btn btn-sm btn-quiet" (click)="cancelContactButtonBar()">Cancel</button>
       </div>
     </div>
   }
