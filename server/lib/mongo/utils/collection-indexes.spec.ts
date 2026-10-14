@@ -8,12 +8,16 @@ import { copyCollectionIndexes, ensureCollectionIndexes, indexExistingCollection
 
 function fictionalModel(present: boolean) {
   const hasNext = sinon.stub().resolves(present);
-  const database = {listCollections: sinon.stub().returns({hasNext})};
+  const identity = {value: "original"};
+  const next = sinon.stub().callsFake(async () => await hasNext() ? {name: "fictionalRecords", info: {uuid: {toString: () => identity.value}}} : null);
+  const database = {listCollections: sinon.stub().returns({hasNext, next})};
   const connection = {db: database};
-  const createIndexes = sinon.stub().resolves();
+  const createIndexes = sinon.stub().callsFake(async () => {
+    hasNext.resolves(true);
+  });
   const schema = new Schema({name: {type: String, unique: true}});
   const model = {schema, collection: {name: "fictionalRecords"}, db: connection, createIndexes, diffIndexes: async () => ({toCreate: schema.indexes()})} as unknown as Model<unknown>;
-  return {model, schema, database, connection, hasNext, createIndexes};
+  return {model, schema, database, connection, hasNext, next, identity, createIndexes};
 }
 
 describe("lazy collection indexes", () => {
@@ -56,6 +60,23 @@ describe("lazy collection indexes", () => {
     expect(fixture.createIndexes.calledTwice).toBe(true);
   });
 
+  it("rebuilds indexes after an empty collection is dropped in the same process", async () => {
+    const fixture = fictionalModel(true);
+    await ensureCollectionIndexes(fixture.model, true);
+    fixture.hasNext.resolves(false);
+    fixture.identity.value = "recreated";
+    await ensureCollectionIndexes(fixture.model, true);
+    expect(fixture.createIndexes.calledTwice).toBe(true);
+  });
+
+  it("detects a replacement collection even when its name has not changed", async () => {
+    const fixture = fictionalModel(true);
+    await ensureCollectionIndexes(fixture.model, true);
+    fixture.identity.value = "replacement";
+    await ensureCollectionIndexes(fixture.model, true);
+    expect(fixture.createIndexes.calledTwice).toBe(true);
+  });
+
   [true, false].forEach(unique => {
     it(`only accepts a registered legacy index when uniqueness is ${unique ? "preserved" : "missing"}`, async () => {
       const fixture = fictionalModel(true);
@@ -64,7 +85,7 @@ describe("lazy collection indexes", () => {
       const indexes = [{key: {tenantSlug: 1, provider: 1}, unique, partialFilterExpression: {account: null}}];
       const createIndex = sandbox.stub().resolves();
       Object.assign(fixture.database, {collection: () => ({indexes: async () => indexes, createIndex})});
-      fixture.database.listCollections.returns({hasNext: fixture.hasNext, toArray: async () => [{name: "fictionalRecords"}]});
+      fixture.database.listCollections.returns({hasNext: fixture.hasNext, next: fixture.next, toArray: async () => [{name: "fictionalRecords"}]});
       await ensureCollectionIndexes(fixture.model);
       const requested = fixture.createIndexes.firstCall.args[0].toCreate;
       expect(requested.some(([keys]) => keys.provider === 1)).toBe(!unique);
