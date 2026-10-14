@@ -1,5 +1,6 @@
+import { CollectionIndexCache } from "./collection-indexes.model";
 import mongoose, { Model, Query, Schema } from "mongoose";
-import { Collection, CreateIndexesOptions, Db, IndexDescriptionInfo, IndexDirection, IndexSpecification } from "mongodb";
+import { Collection, CollectionInfo, CreateIndexesOptions, Db, IndexDescriptionInfo, IndexDirection, IndexSpecification } from "mongodb";
 import { fromPairs, isEqual, toPairs, values } from "es-toolkit/compat";
 
 const legacyCollectionIndexes = new WeakMap<Schema, [IndexSpecification, CreateIndexesOptions, CreateIndexesOptions][]>();
@@ -20,7 +21,7 @@ function acceptedLegacyIndex(schema: Schema, keys: IndexSpecification, options: 
 }
 
 const indexedSchemas = new WeakSet<Schema>();
-const databaseIndexes = new WeakMap<Db, WeakMap<Model<unknown>, Promise<void>>>();
+const databaseIndexes = new WeakMap<Db, WeakMap<Model<unknown>, CollectionIndexCache>>();
 
 export async function ensureCollectionIndexes(model: Model<unknown>, createIfMissing = false): Promise<void> {
   if (model.schema.indexes().length > 0) {
@@ -28,36 +29,40 @@ export async function ensureCollectionIndexes(model: Model<unknown>, createIfMis
       await model.db.asPromise();
     }
     const database = model.db.db;
-    const pendingIndexes = databaseIndexes.get(database) || new WeakMap<Model<unknown>, Promise<void>>();
+    const pendingIndexes = databaseIndexes.get(database) || new WeakMap<Model<unknown>, CollectionIndexCache>();
     databaseIndexes.set(database, pendingIndexes);
+    const collection = await database.listCollections<CollectionInfo>({name: model.collection.name}, {nameOnly: false}).next();
+    const identity = collection?.info?.uuid?.toString("hex") || null;
     const existing = pendingIndexes.get(model);
-    if (existing) {
-      await existing;
-      if (createIfMissing && !pendingIndexes.has(model)) {
-        await ensureCollectionIndexes(model, true);
-      }
+    if (existing?.building) {
+      await existing.pending;
+      await ensureCollectionIndexes(model, createIfMissing);
+    } else if (existing && identity && existing.collectionIdentity === identity) {
+      await existing.pending;
+    } else if (!collection && !createIfMissing) {
+      pendingIndexes.delete(model);
     } else {
-      const pending = (async () => {
-        const present = createIfMissing || await database.listCollections({name: model.collection.name}, {nameOnly: true}).hasNext();
-        if (present) {
-          const difference = await model.diffIndexes({indexOptionsToCreate: true});
-          const storedIndexes = legacyCollectionIndexes.has(model.schema) && await database.listCollections({name: model.collection.name}, {nameOnly: true}).hasNext()
-            ? await database.collection(model.collection.name).indexes()
-            : [];
-          const toCreate = difference.toCreate.filter(([keys, options]) => !acceptedLegacyIndex(model.schema, keys, options, storedIndexes));
-          if (toCreate.length > 0) {
-            await model.createIndexes({toCreate} as CreateIndexesOptions);
-          }
-        } else {
-          pendingIndexes.delete(model);
+      const cache: CollectionIndexCache = {collectionIdentity: null, building: true, pending: Promise.resolve()};
+      cache.pending = (async () => {
+        const difference = await model.diffIndexes({indexOptionsToCreate: true});
+        const storedIndexes = legacyCollectionIndexes.has(model.schema) && collection
+          ? await database.collection(model.collection.name).indexes()
+          : [];
+        const toCreate = difference.toCreate.filter(([keys, options]) => !acceptedLegacyIndex(model.schema, keys, options, storedIndexes));
+        if (toCreate.length > 0) {
+          await model.createIndexes({toCreate} as CreateIndexesOptions);
         }
+        const createdCollection = await database.listCollections<CollectionInfo>({name: model.collection.name}, {nameOnly: false}).next();
+        cache.collectionIdentity = createdCollection?.info?.uuid?.toString("hex") || null;
       })();
-      pendingIndexes.set(model, pending);
+      pendingIndexes.set(model, cache);
       try {
-        await pending;
+        await cache.pending;
       } catch (error) {
         pendingIndexes.delete(model);
         throw error;
+      } finally {
+        cache.building = false;
       }
     }
   }
