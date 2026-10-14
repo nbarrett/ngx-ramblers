@@ -25,6 +25,31 @@ export enum InboxReaderProvider {
   CLOUDFLARE_INGRESS = "cloudflare-ingress"
 }
 
+export enum InboxProviderSwitchStep {
+  PROVIDER = "provider",
+  CLOUDFLARE_CONNECTION = "cloudflare-connection",
+  GMAIL_POLLING = "gmail-polling"
+}
+
+export enum InboxProviderSwitchChange {
+  ALREADY = "already",
+  CHANGED = "changed"
+}
+
+export interface InboxProviderSwitchStepResult {
+  step: InboxProviderSwitchStep;
+  change: InboxProviderSwitchChange;
+  detail: string;
+}
+
+export interface InboxProviderSwitchResult {
+  provider: InboxReaderProvider;
+  gmailPollingEnabled: boolean;
+  gmailConnectionsWithToken: number;
+  cloudflareConnectionReady: boolean;
+  steps: InboxProviderSwitchStepResult[];
+}
+
 export enum InboxCatchAllMode {
   INBOX = "inbox",
   FORWARD = "forward",
