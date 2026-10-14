@@ -23,6 +23,8 @@ import {
   InboxViewScope,
   InboxCalendarReplyRequest,
   InboxCalendarReplyResponse,
+  InboxProviderSwitchResult,
+  InboxReaderProvider,
   InboxThreadRemapRequest,
   InboxThreadRemapResponse,
   InboxThreadUpdateResult,
@@ -83,6 +85,16 @@ export class InboxService {
 
   async setAliasNotificationsBulk(changes: InboxRoleNotificationSetting[]): Promise<void> {
     await this.commonDataService.responseFrom(this.logger, this.http.put<ApiResponse>(`${this.BASE_URL}/aliases/notifications`, {changes}));
+  }
+
+  async inboxProviderSwitchStatus(): Promise<InboxProviderSwitchResult> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/provider-switch`));
+    return response.response as InboxProviderSwitchResult;
+  }
+
+  async applyInboxProviderSwitch(provider: InboxReaderProvider): Promise<InboxProviderSwitchResult> {
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.post<ApiResponse>(`${this.BASE_URL}/provider-switch`, {provider}));
+    return response.response as InboxProviderSwitchResult;
   }
 
   async mailboxConnections(): Promise<InboxMailboxConnectionView[]> {

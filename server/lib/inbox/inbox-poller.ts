@@ -515,39 +515,54 @@ export async function renewInboxWatches(): Promise<void> {
   }, Promise.resolve());
 }
 
-async function renewWatch(connection: InboxMailboxConnection): Promise<void> {
+async function renewWatch(connection: InboxMailboxConnection, failOnError = false): Promise<void> {
   const mailboxConnectionId = identifier(connection);
   try {
-    await pollConnection(connection);
+    const sync = await pollConnection(connection);
+    if (failOnError && sync.error) {
+      throw new Error(sync.error);
+    }
     const refreshed = await inboxMailboxConnectionModel.findById(mailboxConnectionId).lean() as InboxMailboxConnection | null;
     if (!refreshed?.pubsubTopicName) {
-      return;
-    }
-    const registration = await registerGmailWatch(refreshed, refreshed.pubsubTopicName);
-    await inboxMailboxConnectionModel.updateOne({_id: mailboxConnectionId}, {
-      $set: {
-        watchExpiresAt: registration.expiration,
-        lastHistoryId: registration.historyId ?? refreshed.lastHistoryId
+      if (failOnError) {
+        throw new Error("Gmail push delivery needs a configured Pub/Sub topic before it can resume");
+      } else {
+        debugLog("Gmail watch renewal skipped because its connection has no Pub/Sub topic");
       }
-    });
-    debugLog(`renewed Gmail watch for ${connection.gmailAccountEmail}, expires ${registration.expiration}`);
+    } else {
+      const registration = await registerGmailWatch(refreshed, refreshed.pubsubTopicName);
+      await inboxMailboxConnectionModel.updateOne({_id: mailboxConnectionId}, {
+        $set: {
+          watchExpiresAt: registration.expiration,
+          lastHistoryId: registration.historyId ?? refreshed.lastHistoryId
+        }
+      });
+      debugLog(`renewed Gmail watch for ${connection.gmailAccountEmail}, expires ${registration.expiration}`);
+    }
   } catch (error) {
     errorDebugLog(`failed to renew Gmail watch for ${connection.gmailAccountEmail}: ${(error as Error).message}`);
+    if (failOnError) {
+      throw error;
+    }
   }
 }
 
-export async function activateConnectionAfterReconnect(mailboxConnectionId: string): Promise<void> {
+export async function activateConnectionAfterReconnect(mailboxConnectionId: string, failOnError = false): Promise<void> {
   const connection = await inboxMailboxConnectionModel.findById(mailboxConnectionId).lean() as InboxMailboxConnection | null;
   if (!connection) {
-    errorDebugLog(`activate after reconnect skipped - connection ${mailboxConnectionId} not found`);
-    return;
-  }
-  if (connection.syncMode === InboxSyncMode.WATCH) {
-    await renewWatch(connection);
+    if (failOnError) {
+      throw new Error("The Gmail connection no longer exists");
+    } else {
+      errorDebugLog(`activate after reconnect skipped - connection ${mailboxConnectionId} not found`);
+    }
   } else {
-    await pollConnection(connection);
+    if (connection.syncMode === InboxSyncMode.WATCH) {
+      await renewWatch(connection, failOnError);
+    } else {
+      await pollConnection(connection);
+    }
+    debugLog(`activated Gmail inbox ${connection.gmailAccountEmail} after reconnect (${connection.syncMode} mode)`);
   }
-  debugLog(`activated Gmail inbox ${connection.gmailAccountEmail} after reconnect (${connection.syncMode} mode)`);
 }
 
 async function alertIfTokenJustRevoked(connection: InboxMailboxConnection, newStatus: InboxAliasConnectionStatus, message: string): Promise<void> {

@@ -9,6 +9,7 @@ import {
   GoogleCloudSetupStatusValue,
   GoogleCloudSetupStatusView,
   InboxPrivacyMode,
+  InboxProviderSwitchResult,
   InboxReaderProvider
 } from "../../../../models/inbox.model";
 import { LoggerFactory } from "../../../../services/logger-factory.service";
@@ -33,6 +34,7 @@ import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
   faCircleCheck,
+  faCircleExclamation,
   faGear,
   faList,
   faSpinner,
@@ -98,14 +100,14 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
             </div>
             <div class="form-check">
               <input class="form-check-input" type="radio" id="inbox-provider-gmail"
-                name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.GMAIL_API"
-                (change)="selectInboxProvider(InboxReaderProvider.GMAIL_API)">
+                name="inbox-provider" [disabled]="switchBusy" [checked]="inboxProvider === InboxReaderProvider.GMAIL_API"
+                (change)="requestProviderSwitch(InboxReaderProvider.GMAIL_API)">
               <label class="form-check-label" for="inbox-provider-gmail">Gmail-connected inbox &mdash; per-role forwarding remains possible (<a href="https://www.ngx-ramblers.org.uk/how-to/technical-articles/2026-05-29-gmail-inbox-setup" target="_blank" (click)="$event.stopPropagation()">read the user guide</a>)</label>
             </div>
             <div class="form-check">
               <input class="form-check-input" type="radio" id="inbox-provider-cloudflare"
-                name="inbox-provider" [checked]="inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS"
-                (change)="selectInboxProvider(InboxReaderProvider.CLOUDFLARE_INGRESS)">
+                name="inbox-provider" [disabled]="switchBusy" [checked]="inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS"
+                (change)="requestProviderSwitch(InboxReaderProvider.CLOUDFLARE_INGRESS)">
               <label class="form-check-label" for="inbox-provider-cloudflare">Direct to inbox &mdash; all role mail stays in NGX, no Gmail account (recommended)</label>
             </div>
             <div class="small text-muted mt-1">
@@ -117,6 +119,63 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
                 NGX reads mail from a connected Gmail account. Route committee addresses to that shared account so replies remain available in Admin &rarr; Inbox. Per-role forwarding to personal addresses is possible in this mode, but is discouraged because those messages bypass the shared inbox.
               }
             </div>
+            @if (memberAdmin && (inboxProvider === InboxReaderProvider.GMAIL_API || inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS)) {
+              <div class="mt-3">
+                @if (inboxProvider === InboxReaderProvider.GMAIL_API) {
+                  <button class="btn btn-primary me-2" type="button"
+                          (click)="requestProviderSwitch(InboxReaderProvider.CLOUDFLARE_INGRESS)"
+                          [disabled]="switchBusy">
+                    @if (switchBusy && pendingProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
+                      <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
+                    }
+                    Switch to Direct to inbox
+                  </button>
+                }
+                @if (inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
+                  <button class="btn btn-quiet" type="button"
+                          (click)="requestProviderSwitch(InboxReaderProvider.GMAIL_API)"
+                          [disabled]="switchBusy || !canSwitchBackToGmail">
+                    @if (switchBusy && pendingProvider === InboxReaderProvider.GMAIL_API) {
+                      <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
+                    }
+                    Switch back to Gmail
+                  </button>
+                  @if (!canSwitchBackToGmail) {
+                    <div class="small text-muted mt-2">Switch back needs a Gmail account that is still connected on this page.</div>
+                  }
+                }
+              </div>
+            }
+            @if (pendingProvider) {
+              <div class="alert alert-warning d-flex align-items-start mt-3 mb-0">
+                <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                <div>
+                  <strong>Confirm inbox switch</strong>
+                  <p class="mb-2 mt-1">{{ switchConfirmCopy() }}</p>
+                  <p class="mb-2">Existing conversations, folders and attachments stay as they are. You can run this again; it only changes what is still on Gmail polling or the provider flag.</p>
+                  <button class="btn btn-primary me-2" type="button" (click)="confirmProviderSwitch()" [disabled]="switchBusy">
+                    @if (switchBusy) {
+                      <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
+                    }
+                    Confirm switch
+                  </button>
+                  <button class="btn btn-quiet" type="button" (click)="cancelProviderSwitch()" [disabled]="switchBusy">Cancel</button>
+                </div>
+              </div>
+            }
+            @if (switchResult) {
+              <div class="alert alert-success d-flex align-items-start mt-3 mb-0">
+                <fa-icon [icon]="faCircleCheck" class="me-2 mt-1"/>
+                <div>
+                  <strong>Inbox switch complete</strong>
+                  <ul class="mb-0 mt-2">
+                    @for (step of switchResult.steps; track step.step) {
+                      <li>{{ step.detail }}</li>
+                    }
+                  </ul>
+                </div>
+              </div>
+            }
           </div>
       @if (inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
         <div class="col-sm-12">
@@ -459,8 +518,13 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected readonly faList = faList;
   protected readonly faTriangleExclamation = faTriangleExclamation;
   protected readonly faCircleCheck = faCircleCheck;
+  protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faTrashCan = faTrashCan;
   protected readonly faSpinner = faSpinner;
+  protected pendingProvider: InboxReaderProvider | null = null;
+  protected switchBusy = false;
+  protected switchResult: InboxProviderSwitchResult | null = null;
+  protected switchStatus: InboxProviderSwitchResult | null = null;
   protected readonly steps = GMAIL_INBOX_STEPS;
   protected readonly GmailInboxSetupStepKey = GmailInboxSetupStepKey;
   protected cloudflareConfig: NonSensitiveCloudflareConfig;
@@ -527,6 +591,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     this.subscriptions.push(this.oauthSave$.pipe(debounceTime(1000)).subscribe(() => this.autoSaveOAuthClient()));
     await this.refreshSetupStatus();
+    await this.refreshProviderSwitchStatus();
     this.cloudflareEmailRoutingService.queryCloudflareConfig().catch(error => this.logger.warn("Cloudflare config not available:", error));
     this.subscriptions.push(this.cloudflareEmailRoutingService.cloudflareConfigNotifications()
       .subscribe(config => this.cloudflareConfig = config));
@@ -723,15 +788,66 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     return this.inboxProvider !== InboxReaderProvider.NONE && this.memberAdmin ? this.selectedInboxTab : InboxSettingsTab.SETTINGS;
   }
 
-  async selectInboxProvider(provider: InboxReaderProvider): Promise<void> {
-    if (!this.systemConfigInternal || this.inboxProvider === provider) {
-      return;
+  get canSwitchBackToGmail(): boolean {
+    return (this.switchStatus?.gmailConnectionsWithToken ?? 0) > 0;
+  }
+
+  switchConfirmCopy(): string {
+    if (this.pendingProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
+      return "Direct to inbox will store committee mail in NGX. Gmail polling stops, but the Gmail connection and tokens stay so you can switch back. Catch-all routing on Committee Settings still needs to be the shared inbox router for new mail to arrive this way.";
+    } else {
+      return "Gmail-connected inbox will poll the connected Gmail account again. Direct to inbox stays available to switch back. Mail and folders already in NGX are left as they are.";
     }
-    this.systemConfigInternal.inbox = inboxSettingsForProvider(this.systemConfigInternal.inbox ?? null, provider);
-    try {
-      await this.systemConfigService.saveConfig(this.systemConfigInternal);
-    } catch (error) {
-      this.errorMessage = (error as Error)?.message || "Could not save the inbox provider - try again.";
+  }
+
+  async refreshProviderSwitchStatus(): Promise<void> {
+    if (this.memberAdmin) {
+      try {
+        this.switchStatus = await this.inboxService.inboxProviderSwitchStatus();
+      } catch (error) {
+        this.logger.error("Could not load inbox provider switch status", error);
+      }
+    }
+  }
+
+  requestProviderSwitch(provider: InboxReaderProvider): void {
+    if (!this.switchBusy && this.systemConfigInternal && this.inboxProvider !== provider) {
+      this.pendingProvider = provider;
+      this.switchResult = null;
+    }
+  }
+
+  cancelProviderSwitch(): void {
+    this.pendingProvider = null;
+  }
+
+  async confirmProviderSwitch(): Promise<void> {
+    if (!this.switchBusy && this.pendingProvider && this.systemConfigInternal) {
+      const provider = this.pendingProvider;
+      this.switchBusy = true;
+      this.errorMessage = null;
+      try {
+        this.switchResult = await this.inboxService.applyInboxProviderSwitch(provider);
+        this.systemConfigInternal.inbox = inboxSettingsForProvider(this.systemConfigInternal.inbox ?? null, provider);
+        await this.systemConfigService.refresh();
+        await this.refreshProviderSwitchStatus();
+        this.pendingProvider = null;
+      } catch (error) {
+        this.errorMessage = (error as Error)?.message || "Could not switch the inbox provider - try again.";
+      } finally {
+        this.switchBusy = false;
+      }
+    }
+  }
+
+  async selectInboxProvider(provider: InboxReaderProvider): Promise<void> {
+    if (this.systemConfigInternal && this.inboxProvider !== provider) {
+      this.systemConfigInternal.inbox = inboxSettingsForProvider(this.systemConfigInternal.inbox ?? null, provider);
+      try {
+        await this.systemConfigService.saveConfig(this.systemConfigInternal);
+      } catch (error) {
+        this.errorMessage = (error as Error)?.message || "Could not save the inbox provider - try again.";
+      }
     }
   }
 

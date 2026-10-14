@@ -5,6 +5,7 @@ import { sendCalendarReply } from "./inbox-calendar-reply";
 import { handleUnassignedCommitteeRoles } from "./inbox-unassigned-roles-controller";
 import { permanentlyDeleteSelectedThreads } from "./inbox-delete-controller";
 import { listMailboxConnections, createMailboxConnection, deleteMailboxConnection, updateMailboxAccessMode, updateMailboxImportAll, rescanGeneralMailbox, updateMailboxSyncMode, syncMailboxConnection } from "./inbox-connections-controllers";
+import { applyInboxProviderSwitchRequest, planInboxProviderSwitch } from "./inbox-provider-switch";
 import { readPubsubPushConfig, receivePubsubPush, readPushPublicKey, subscribeInboxPush, unsubscribeInboxPush } from "./inbox-push-controllers";
 import { listInboxAliases, readJunkAccess, updateRoleNotifications, updateRoleNotificationEmail, updateAliasNotifications } from "./inbox-aliases-controllers";
 import { readInboxUnreadCounts, listInboxThreads } from "./inbox-thread-list-controllers";
@@ -14,6 +15,8 @@ import { listOrphanedThreads, remapOrphanedThreads, restoreOrphanedThreads } fro
 
 const router = express.Router();
 
+router.get("/provider-switch", authConfig.authenticate(), planInboxProviderSwitch);
+router.post("/provider-switch", authConfig.authenticate(), applyInboxProviderSwitchRequest);
 router.get("/mailbox-connections", authConfig.authenticate(), listMailboxConnections);
 router.post("/mailbox-connections", authConfig.authenticate(), createMailboxConnection);
 router.delete("/mailbox-connections/:id", authConfig.authenticate(), deleteMailboxConnection);
