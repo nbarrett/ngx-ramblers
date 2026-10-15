@@ -1982,7 +1982,11 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     const fallbackInView = fallback && this.matchingThread(this.threads, this.threadIdOf(fallback))
       ? this.matchingThread(this.threads, this.threadIdOf(fallback))
       : null;
-    if (updated) {
+    const alreadyOpen = updated && this.selectedThread && this.selectedMessages.length > 0
+      && this.threadIdOf(this.selectedThread) === this.threadIdOf(updated);
+    if (alreadyOpen) {
+      this.selectedThread = updated;
+    } else if (updated) {
       await this.openThread(updated, false);
     } else if (fallbackInView) {
       await this.openThread(fallbackInView, false);
@@ -2948,6 +2952,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private async handleNewMessageEvent(event: InboxNewMessageEvent): Promise<void> {
     this.logger.info("Inbox websocket event:", event);
-    await this.refresh(false);
+    if (event.messageId) {
+      await this.refresh(false);
+    } else {
+      void this.inboxNotificationService.resync();
+    }
   }
 }

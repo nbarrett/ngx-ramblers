@@ -4,6 +4,7 @@ import { keys } from "es-toolkit/compat";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
+import { aliasMailboxHeading } from "../../../functions/inbox-thread";
 import { InboxOrphanedThreadGroup, InboxRemapCandidate, isInboxGeneralRoleType, OrphanedInboxThread } from "../../../models/inbox.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
@@ -168,7 +169,7 @@ export class InboxOrphanedThreadsComponent implements OnInit {
   }
 
   candidateLabel(candidate: InboxRemapCandidate): string {
-    return candidate.roleEmail || candidate.roleType;
+    return aliasMailboxHeading(candidate);
   }
 
   groupDescription(roleType: string): string {
