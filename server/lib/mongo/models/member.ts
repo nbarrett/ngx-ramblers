@@ -54,6 +54,7 @@ export const memberSchema = new mongoose.Schema({
   firstName: {type: String, required: true},
   lastName: {type: String, required: true},
   memberAdmin: {type: Boolean},
+  viewAsMember: {type: Boolean, default: false},
   membershipExpiryDate: {type: Number},
   membershipNumber: {type: String},
   postcode: {type: String},

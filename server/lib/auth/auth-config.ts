@@ -1,3 +1,4 @@
+import { currentMemberSession } from "./member-session";
 import { compare, hash } from "bcryptjs";
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
@@ -8,7 +9,7 @@ import passportJwt from "passport-jwt";
 import { DateTime } from "luxon";
 import { dateTimeFromMillis, dateTimeNow } from "../shared/dates";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { applyLocalViewAs } from "./local-view-as";
+import { applyViewAs } from "./local-view-as";
 
 let passportInitialised = false;
 
@@ -31,7 +32,7 @@ function initialisePassport() {
     if (expirationDate.toMillis() < dateTimeNow().toMillis()) {
       return done(null, false);
     }
-    done(null, jwtPayload);
+    currentMemberSession(jwtPayload.memberId).then(member => done(null, member || false)).catch(error => done(error, false));
   }));
 
   passportInitialised = true;
@@ -69,7 +70,7 @@ export function authenticate() {
         res.status(401).json({error: "Unauthorized"});
       } else {
         req.user = user;
-        applyLocalViewAs(req).then(() => next()).catch(next);
+        applyViewAs(req).then(() => next()).catch(error => res.status(error.status || 500).json({error: error.message}));
       }
     })(req, res, next);
   };
@@ -101,8 +102,10 @@ export function optionalAuthenticate() {
     passport.authenticate("jwt", {session: false}, (err, user) => {
       if (user) {
         req.user = user;
+        applyViewAs(req).then(() => next()).catch(error => res.status(error.status || 500).json({error: error.message}));
+      } else {
+        next();
       }
-      next();
     })(req, res, next);
   };
 }

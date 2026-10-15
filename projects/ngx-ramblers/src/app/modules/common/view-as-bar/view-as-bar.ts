@@ -1,10 +1,10 @@
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { AsyncPipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { NgSelectComponent } from "@ng-select/ng-select";
-import { Subscription } from "rxjs";
+import { combineLatest, Subscription } from "rxjs";
 import { Member, MemberCookie } from "../../../models/member.model";
-import { CommitteeConfig, CommitteeMember } from "../../../models/committee.model";
+import { CommitteeConfig, CommitteeMember, roleRecipientMemberIds } from "../../../models/committee.model";
 import { ViewAsMode } from "../../../models/view-as.model";
 import { ViewAsService } from "../../../services/member/view-as.service";
 import { CommitteeConfigService } from "../../../services/committee/commitee-config.service";
@@ -18,9 +18,9 @@ import { TooltipModule } from "ngx-bootstrap/tooltip";
   selector: "app-view-as-bar",
   imports: [FormsModule, MemberSelector, NgSelectComponent, TooltipModule, AsyncPipe],
   template: `
-    @if ((viewAs.availableChanges | async) && optedIn && chromeVisible) {
+    @if ((viewAs.availableChanges | async) && (optedIn || impersonating()) && chromeVisible) {
       <div class="view-as-bar d-flex flex-wrap align-items-center gap-3 px-3 py-2">
-        <span class="view-as-label">View as</span>
+        <span class="view-as-label">View as (read-only)</span>
         <div class="form-check form-check-inline mb-0">
           <input id="view-as-mode-person" class="form-check-input" type="radio" name="view-as-mode" [value]="ViewAsMode.PERSON" [ngModel]="mode" (ngModelChange)="onMode($event)">
           <label class="form-check-label" for="view-as-mode-person">Person</label>
@@ -50,9 +50,9 @@ import { TooltipModule } from "ngx-bootstrap/tooltip";
           </div>
         }
         @if (impersonating()) {
-          <button type="button" class="btn btn-quiet" (click)="viewAs.clear()">Clear</button>
+          <button type="button" class="btn btn-quiet" (click)="viewAs.clear()">Return to my profile</button>
         }
-        <button type="button" class="btn btn-quiet" tooltip="Hide this bar for a screenshot. Option-Shift-V toggles it." (click)="viewAs.setChromeVisible(false)">Hide</button>
+        <button type="button" class="btn btn-quiet" tooltip="Hide this bar. Option-Shift-V toggles it." (click)="viewAs.setChromeVisible(false)">Hide</button>
       </div>
     }
   `,
@@ -74,6 +74,7 @@ import { TooltipModule } from "ngx-bootstrap/tooltip";
 })
 export class ViewAsBar implements OnInit, OnDestroy {
   protected viewAs = inject(ViewAsService);
+  private changeDetector = inject(ChangeDetectorRef);
   private committeeConfigService = inject(CommitteeConfigService);
   private authService = inject(AuthService);
   private memberService = inject(MemberService);
@@ -87,15 +88,20 @@ export class ViewAsBar implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
 
   ngOnInit(): void {
-    this.subscriptions.push(this.viewAs.optedInChanges.subscribe(on => {
+    this.subscriptions.push(combineLatest([this.viewAs.optedInChanges, this.viewAs.availableChanges]).subscribe(([on, available]) => {
       this.optedIn = on;
-      if (on) {
+      this.changeDetector.markForCheck();
+      if (available && (on || this.impersonating())) {
         void this.viewAs.hydrateFromLocation().then(() => this.showCurrentSelection());
       }
     }));
-    this.subscriptions.push(this.viewAs.chromeVisibleChanges.subscribe(on => this.chromeVisible = on));
+    this.subscriptions.push(this.viewAs.chromeVisibleChanges.subscribe(on => {
+      this.chromeVisible = on;
+      this.changeDetector.markForCheck();
+    }));
     this.subscriptions.push(this.committeeConfigService.committeeConfigEvents().subscribe((config: CommitteeConfig) => {
-      this.roles = (config?.roles ?? []).filter(role => !!role.type);
+      this.roles = (config?.roles ?? []).filter(role => !!role.type && roleRecipientMemberIds(role).length > 0);
+      this.changeDetector.markForCheck();
     }));
   }
 
@@ -139,5 +145,6 @@ export class ViewAsBar implements OnInit, OnDestroy {
       const real = this.authService.parseAuthToken() as MemberCookie;
       this.selectedMember = real?.memberId ? await this.memberService.getById(real.memberId) : null;
     }
+    this.changeDetector.markForCheck();
   }
 }

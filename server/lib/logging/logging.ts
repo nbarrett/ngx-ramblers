@@ -1,4 +1,5 @@
 import debug from "debug";
+import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { Express, Request, Response } from "express";
 import { envConfig } from "../env-config/env-config";
 import morgan, { TokenIndexer } from "morgan";
@@ -26,6 +27,7 @@ export function configureLogging(app: Express): void {
   app.use(morgan((tokens: TokenIndexer, req: Request, res: Response) => {
     const status = Number(tokens.status(req, res));
     const user: any = req.user;
+    const viewAsAdministrator = res.locals.viewAsAdministrator as MemberCookie | null;
     const userName = user?.userName ? (`${user?.userName} (${user?.firstName} ${user?.lastName})`) : "guest";
     debugLog("User found in request:", user, "userName:", userName);
     return [
@@ -34,7 +36,8 @@ export function configureLogging(app: Express): void {
       colorStatus(status),
       tokens["response-time"](req, res), "ms",
       "id:", tokens.id(req, res),
-      "user:", userName
+      "user:", userName,
+      ...(viewAsAdministrator ? ["viewed by member:", viewAsAdministrator.memberId, "viewed member:", user?.memberId] : [])
     ].join(" ");
   }));
 

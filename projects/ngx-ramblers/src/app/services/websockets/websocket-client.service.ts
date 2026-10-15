@@ -13,6 +13,11 @@ import { mapStatusCode } from "../../functions/websockets";
 })
 export class WebSocketClientService {
   private socket: WebSocket;
+  private connectionOpenedSubject = new Subject<void>();
+
+  connectionOpened(): Observable<void> {
+    return this.connectionOpenedSubject.asObservable();
+  }
   private subjects: { [key: string]: Subject<any> } = {};
   private logger: Logger = inject(LoggerFactory).createLogger("WebSocketClientService", NgxLoggerLevel.ERROR);
   private urlService = inject(UrlService);
@@ -42,6 +47,7 @@ export class WebSocketClientService {
           this.clearReconnect();
           this.reconnectDelayMs = 2000;
           this.flushPendingMessages();
+          this.connectionOpenedSubject.next();
           resolve(openMessage);
         });
       };
@@ -65,7 +71,7 @@ export class WebSocketClientService {
             this.logger.info(`onclose transient event, will reconnect:`, mappedCloseMessage);
           } else {
             this.logger.error(`onclose event occurred with error:`, closeEvent);
-            this.subjects[MessageType.ERROR].next(mappedCloseMessage);
+            this.subjects[MessageType.ERROR]?.next(mappedCloseMessage);
           }
           this.scheduleReconnect();
         });

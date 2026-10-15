@@ -104,6 +104,7 @@ export interface MemberCookie {
   socialMember: boolean;
   contentAdmin: boolean;
   memberAdmin: boolean;
+  viewAsMember?: boolean;
   financeAdmin: boolean;
   committee: boolean;
   treasuryAdmin: boolean;
@@ -259,6 +260,7 @@ export const SYSTEM_MEMBER: Member = {
 export interface MemberPrivileges {
   groupMember?: boolean;
   memberAdmin?: boolean;
+  viewAsMember?: boolean;
   socialAdmin?: boolean;
   socialMember?: boolean;
   userAdmin?: boolean;

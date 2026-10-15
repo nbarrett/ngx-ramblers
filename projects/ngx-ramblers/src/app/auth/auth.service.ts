@@ -1,12 +1,13 @@
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Observable, Subject } from "rxjs";
-import { share, tap } from "rxjs/operators";
+import { firstValueFrom, Observable, Subject } from "rxjs";
+import { tap } from "rxjs/operators";
+import { isObject, isString } from "es-toolkit/compat";
 import { AuthPayload, AuthResponse } from "../models/auth-data.model";
 import { AuthTokens } from "../models/auth-tokens";
 import { NamedEvent, NamedEventType } from "../models/broadcast.model";
-import { LoginResponse } from "../models/member.model";
+import { LoginResponse, MemberCookie } from "../models/member.model";
 import { BroadcastService } from "../services/broadcast-service";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { SiteEditService } from "../site-edit/site-edit.service";
@@ -26,6 +27,11 @@ export class AuthService {
   private BASE_URL = "/api/database/auth";
   private authPayload: {};
   private authResponseSubject = new Subject<LoginResponse>();
+  private sessionChangesSubject = new Subject<MemberCookie>();
+
+  sessionChanges(): Observable<MemberCookie> {
+    return this.sessionChangesSubject.asObservable();
+  }
 
   login(userName: string, password: string): Promise<LoginResponse> {
     const url = `${this.BASE_URL}/login`;
@@ -53,24 +59,70 @@ export class AuthService {
     return loginResponseObservable;
   }
 
+  private parseAuthResponse(raw: unknown): AuthResponse | null {
+    if (isString(raw)) {
+      try {
+        return this.parseAuthResponse(JSON.parse(raw));
+      } catch {
+        return null;
+      }
+    } else if (raw && isObject(raw)) {
+      if ("loginResponse" in raw && isObject(raw.loginResponse)) {
+        return raw as AuthResponse;
+      } else if ("data" in raw) {
+        return this.parseAuthResponse(raw.data);
+      } else {
+        return null;
+      }
+    } else {
+      return null;
+    }
+  }
+
+  private finishAuthPost(authResponse: AuthResponse | null, postType: string, broadcastEvent?: NamedEventType): LoginResponse {
+    this.logger.info(postType, "- authResponse", authResponse);
+    if (authResponse?.loginResponse?.memberLoggedIn && authResponse.tokens?.auth && authResponse.tokens?.refresh) {
+      this.storeTokens(authResponse.tokens);
+    }
+    const loginResponse = authResponse?.loginResponse || {
+      memberLoggedIn: false,
+      alertMessage: "The site did not return a login response. Try again."
+    };
+    this.authResponseSubject.next(loginResponse);
+    if (broadcastEvent && (loginResponse.memberLoggedIn || broadcastEvent === NamedEventType.MEMBER_LOGOUT_COMPLETE)) {
+      this.broadcastService.broadcast(NamedEvent.withData(broadcastEvent, loginResponse));
+    }
+    return loginResponse;
+  }
+
   private async performAuthPost(url: string, body: object, postType: string, broadcastEvent?: NamedEventType): Promise<LoginResponse> {
-    const shared: Observable<AuthResponse> = this.http.post<any>(url, body).pipe(share());
-    shared.subscribe((authResponse: AuthResponse) => {
-      this.logger.info(postType, "- authResponse", authResponse);
-      if (authResponse?.tokens) {
-        this.storeTokens(authResponse.tokens);
+    try {
+      const httpResponse = await firstValueFrom(this.http.post(url, body, {observe: "response", responseType: "text"}));
+      return this.finishAuthPost(this.parseAuthResponse(httpResponse.body), postType, broadcastEvent);
+    } catch (error) {
+      if (error instanceof HttpErrorResponse) {
+        this.logger.error(postType, "- error", error);
+        const authResponse = this.parseAuthResponse(error.error);
+        if (authResponse?.loginResponse) {
+          return this.finishAuthPost(authResponse, postType, broadcastEvent);
+        } else {
+          const loginResponse: LoginResponse = {
+            memberLoggedIn: false,
+            alertMessage: error.status ? `Could not reach the site (${error.status}). Try again.` : "Could not reach the site. Try again."
+          };
+          this.authResponseSubject.next(loginResponse);
+          return loginResponse;
+        }
+      } else {
+        this.logger.error(postType, "- error", error);
+        const loginResponse: LoginResponse = {
+          memberLoggedIn: false,
+          alertMessage: "Could not reach the site. Try again."
+        };
+        this.authResponseSubject.next(loginResponse);
+        return loginResponse;
       }
-      this.authResponseSubject.next(authResponse?.loginResponse);
-      if (broadcastEvent) {
-        this.broadcastService.broadcast(NamedEvent.withData(broadcastEvent, authResponse?.loginResponse));
-      }
-    }, (httpErrorResponse: HttpErrorResponse) => {
-      this.logger.error(postType, "- error", httpErrorResponse);
-      const loginResponse: LoginResponse = httpErrorResponse.error.loginResponse;
-      this.authResponseSubject.next(loginResponse);
-    });
-    const authResponse = await shared.toPromise();
-    return authResponse?.loginResponse;
+    }
   }
 
   authResponse() {
@@ -85,7 +137,10 @@ export class AuthService {
       refreshToken
     }).pipe(
       tap((tokens: AuthTokens) => {
-        this.storeAuthToken(tokens.auth);
+        if (this.refreshToken() === refreshToken && this.authToken()) {
+          this.storeAuthToken(tokens.auth);
+          this.sessionChangesSubject.next(this.parseAuthToken() as MemberCookie);
+        }
       })
     );
   }

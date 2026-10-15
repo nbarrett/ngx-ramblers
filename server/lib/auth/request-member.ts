@@ -1,3 +1,5 @@
+import { currentMemberSession } from "./member-session";
+import { VIEW_AS_MEMBER_HEADER } from "../../../projects/ngx-ramblers/src/app/functions/member-cookie";
 import { RouteContributor } from "../../../projects/ngx-ramblers/src/app/models/audit";
 import { Request } from "express";
 import jwt from "jsonwebtoken";
@@ -9,14 +11,15 @@ export function bearerToken(req: Request): string | null {
   return authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
 }
 
-export function verifiedMember(req: Request): MemberCookie | null {
+export async function verifiedMember(req: Request): Promise<MemberCookie | null> {
   const token = bearerToken(req);
-  return token ? jwt.verify(token, envConfig.auth().secret) as MemberCookie : null;
+  const verified = token ? jwt.verify(token, envConfig.auth().secret) as MemberCookie : null;
+  return verified && req.headers[VIEW_AS_MEMBER_HEADER] ? req.user as MemberCookie ?? null : verified ? await currentMemberSession(verified.memberId) : null;
 }
 
-export function memberFromRequest(req: Request): MemberCookie | null {
+export async function memberFromRequest(req: Request): Promise<MemberCookie | null> {
   try {
-    return verifiedMember(req);
+    return await verifiedMember(req);
   } catch {
     return null;
   }

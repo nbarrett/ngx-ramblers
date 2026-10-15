@@ -1,5 +1,6 @@
+import { validateViewAsPermissionChanges } from "../../auth/view-as-permission";
 import debug from "debug";
-import { isString } from "es-toolkit/compat";
+import { pick, isString } from "es-toolkit/compat";
 import { Request, Response } from "express";
 import { booleanOf } from "../../shared/string-utils";
 import { envConfig } from "../../env-config/env-config";
@@ -98,6 +99,7 @@ export async function createOrUpdateAll(req: Request, res: Response) {
   const message = `Create or update of ${pluraliseWithCount(members.length, "member")}`;
   try {
     const priorMembers = await priorMembersById(members);
+    await validateViewAsPermissionChanges(req, priorMembers, members);
     const priorById = subscriptionsById(priorMembers);
     const lockSendingPermissions = await teamEmailsLocksSendingPermissions(false);
     const createOrUpdatedMembers = await Promise.all(members.map(async member => {
@@ -129,7 +131,7 @@ export async function createOrUpdateAll(req: Request, res: Response) {
     });
   } catch (error) {
     debugLog("createOrUpdateAll:error:", message, error);
-    res.status(500).json({
+    res.status(error.status || 500).json({
       action: ApiAction.UPSERT,
       message,
       request: message,
@@ -156,9 +158,10 @@ function uploadSessionIdFrom(req: Request): string | null {
 }
 
 export async function update(req: Request, res: Response) {
-  const updatedRequest: Member = normaliseConsentFields(await updateHashValue(req.body));
+  const updatedRequest: Member = normaliseConsentFields(await updateHashValue({...req.body, id: req.params.id}));
   try {
     const priorMembers = await priorMembersById([updatedRequest]);
+    await validateViewAsPermissionChanges(req, priorMembers, [updatedRequest]);
     const priorById = subscriptionsById(priorMembers);
     const boundedRequest = applyHeadOfficeSendingPermissionBounds(
       updatedRequest,
@@ -180,13 +183,14 @@ export async function update(req: Request, res: Response) {
     await writeBackFullOptOuts([response], priorById, actingUser(req));
     res.status(200).json({action: ApiAction.UPDATE, response});
   } catch (error) {
-    res.status(500).json({message: "Update of member failed", error: transforms.parseError(error)});
+    res.status(error.status || 500).json({message: "Update of member failed", error: transforms.parseError(error)});
   }
 }
 
 export async function create(req: Request, res: Response) {
   const updatedRequest: Member = normaliseConsentFields(await updateHashValue(req.body));
   try {
+    await validateViewAsPermissionChanges(req, new Map(), [updatedRequest]);
     const boundedRequest = applyHeadOfficeSendingPermissionBounds(
       updatedRequest,
       undefined,
@@ -202,12 +206,12 @@ export async function create(req: Request, res: Response) {
     }
     res.status(201).json({action: ApiAction.CREATE, response});
   } catch (error) {
-    res.status(500).json({message: "Creation of member failed", error: transforms.parseError(error)});
+    res.status(error.status || 500).json({message: "Creation of member failed", error: transforms.parseError(error)});
   }
 }
 
 export function updateEmailSubscription(req: Request, res: Response) {
-  const {criteria, document} = transforms.criteriaAndDocument(req);
+  const {criteria, document} = transforms.criteriaAndDocument({...req, body: {...pick(req.body, ["mailchimpLists"]), id: req.params.id}});
   debugLog("updateEmailSubscription:", req.body, "conditions:", criteria, "request document:", document);
   member.findOneAndUpdate(criteria, document, {new: true})
     .then(result => {

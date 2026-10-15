@@ -1,8 +1,9 @@
+import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import debug from "debug";
 import { Request, Response } from "express";
 import { isString } from "es-toolkit/compat";
 import { envConfig } from "../env-config/env-config";
-import { memberDescription, memberFromRequest } from "../auth/request-member";
+import { memberDescription } from "../auth/request-member";
 import { configuredEnvironments } from "../environments/environments-config";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { dateTimeNow, formatDateTime } from "../shared/dates";
@@ -32,7 +33,7 @@ function includeSecretsRequested(req: Request): boolean {
 }
 
 function logSecretsRevealed(req: Request, facility: string): void {
-  debugLog("Secret values revealed via %s by %s", facility, memberDescription(memberFromRequest(req)));
+  debugLog("Secret values revealed via %s by %s", facility, memberDescription(req.user as MemberCookie));
 }
 
 export async function downloadEstateRebuildCapture(req: Request, res: Response): Promise<void> {

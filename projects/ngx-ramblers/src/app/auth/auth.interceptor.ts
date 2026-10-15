@@ -41,8 +41,10 @@ export class AuthInterceptor implements HttpInterceptor {
   private addAuthToken(request: HttpRequest<any>, authToken: string) {
     this.logger.debug("addAuthToken to header", authToken);
     const viewAsService = this.injector.get(ViewAsService);
-    const viewAsSlug = viewAsService.enabled() ? viewAsService.memberIdFromLocation() : null;
+    const authenticationRequest = request.url.includes("/api/database/auth/");
+    const viewAsSlug = viewAsService.enabled() && !authenticationRequest ? viewAsService.memberIdFromLocation() : null;
     return request.clone({
+      headers: request.headers.delete(viewAsService.headerName()),
       setHeaders: viewAsSlug
         ? {Authorization: `Bearer ${authToken}`, [viewAsService.headerName()]: viewAsSlug}
         : {Authorization: `Bearer ${authToken}`}
@@ -50,7 +52,7 @@ export class AuthInterceptor implements HttpInterceptor {
   }
 
   private withoutAuthToken(request: HttpRequest<any>) {
-    return request.clone({headers: request.headers.delete("Authorization")});
+    return request.clone({headers: request.headers.delete("Authorization").delete(this.injector.get(ViewAsService).headerName())});
   }
 
   private handle401Error(request: HttpRequest<any>, next: HttpHandler) {

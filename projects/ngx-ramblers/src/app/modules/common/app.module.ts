@@ -1,3 +1,4 @@
+import { MemberSessionService } from "../../services/member/member-session.service";
 import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
 import { NativeApiInterceptor } from "../../auth/native-api.interceptor";
 import { ApplicationRef, DoBootstrap, ErrorHandler, inject, NgModule, provideAppInitializer } from "@angular/core";
@@ -180,7 +181,11 @@ import { ViewAsService } from "../../services/member/view-as.service";
         : initializeCloudflareBeacon(inject(SystemConfigService), inject(LoggerFactory))();
     }),
     provideAppInitializer(checkMigrationStatus),
-    provideAppInitializer(() => inject(ViewAsService).hydrateFromLocation()),
+    provideAppInitializer(() => {
+      const viewAs = inject(ViewAsService);
+      const sessions = inject(MemberSessionService);
+      return viewAs.hydrateFromLocation().then(() => sessions.initialise());
+    }),
     provideAppInitializer(() => {
       return inject(AppShellService).isAppUrl(window.location.pathname)
         ? null

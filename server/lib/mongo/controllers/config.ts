@@ -104,7 +104,7 @@ function configKeyFromQuerystring(req: Request): ConfigKey {
 }
 
 export async function createOrUpdate(req: Request, res: Response) {
-  const isAdmin = isAdminFromRequest(req);
+  const isAdmin = await isAdminFromRequest(req);
   if (!isAdmin) {
     return res.status(403).json({
       message: "Admin access required to update system configuration",
@@ -253,11 +253,11 @@ export async function createOrUpdateKey(configKey: ConfigKey, value: any): Promi
   return decryptedDocument(configKey, toObjectWithId(result));
 }
 
-export function handleQuery(req: Request, res: Response): Promise<any> {
+export async function handleQuery(req: Request, res: Response): Promise<any> {
   try {
     const configKey = configKeyFromQuerystring(req);
     const tokenPresent = hasAuthToken(req);
-    const { isAdmin, tokenValid } = resolveTokenStatus(req);
+    const { isAdmin, tokenValid } = await resolveTokenStatus(req);
 
     if (configAccessPolicy[configKey] === ConfigAccess.ADMIN_ONLY && !isAdmin) {
       if (tokenPresent && !tokenValid) {
@@ -293,7 +293,7 @@ export function handleQuery(req: Request, res: Response): Promise<any> {
         }
         const redactedValue = isAdmin ? configDocument?.value : redactSensitive(configDocument?.value);
         if (isAdmin && configKey === ConfigKey.ENVIRONMENTS) {
-          secretsAccessLog("Environments document with secret values returned to %s", memberDescription(memberFromRequest(req)));
+          secretsAccessLog("Environments document with secret values returned to %s", memberDescription(await memberFromRequest(req)));
         }
         debugLog(req.query, "findByConditions:criteria", criteria, "isAdmin:", isAdmin);
         return res.status(200).json({
@@ -325,21 +325,21 @@ function hasAuthToken(req: Request): boolean {
   return authHeader.startsWith("Bearer ");
 }
 
-function resolveTokenStatus(req: Request): { isAdmin: boolean; tokenValid: boolean } {
+async function resolveTokenStatus(req: Request) {
   if (!hasAuthToken(req)) {
     return { isAdmin: false, tokenValid: true };
   }
   try {
-    return { isAdmin: hasAdminPrivilege(verifiedMember(req)), tokenValid: true };
+    return { isAdmin: hasAdminPrivilege(await verifiedMember(req)), tokenValid: true };
   } catch (error) {
     debugLog("Token verification failed:", error);
     return { isAdmin: false, tokenValid: false };
   }
 }
 
-function isAdminFromRequest(req: Request): boolean {
+async function isAdminFromRequest(req: Request): Promise<boolean> {
   try {
-    return hasAdminPrivilege(verifiedMember(req));
+    return hasAdminPrivilege(await verifiedMember(req));
   } catch {
     return false;
   }
