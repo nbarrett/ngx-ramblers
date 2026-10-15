@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowRightToBracket, faChevronLeft, faChevronRight, faCircleExclamation, faLocationDot, faPenToSquare, faPersonWalking, faTriangleExclamation, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faChevronLeft, faChevronRight, faTriangleExclamation, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { DateTime } from "luxon";
@@ -10,7 +10,6 @@ import { DateRangeDirectionSelector } from "../../../components/date-range-selec
 import { DateRange } from "../../../components/date-range-slider/date-range-slider";
 import { DateRangeSelector } from "../../../components/date-range-selector/date-range-selector";
 import { DateValue } from "../../../models/date.model";
-import { PathSegment } from "../../../models/content-text.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { DATE_RANGE_DIRECTION_TABS, DateRangeDirection, defaultProgrammeRange } from "../../../models/search.model";
 import {
@@ -29,22 +28,17 @@ import { ScrollPositionService } from "../../../services/scroll-position.service
 import { WalkDisplayService } from "../walk-display.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
-import { UrlService } from "../../../services/url.service";
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
-import { DisplayedWalk } from "../../../models/walk.model";
-import { ExtendedGroupEvent } from "../../../models/group-event.model";
-import { WalkLeadEditAppearance } from "../../../models/walk-edit-mode.model";
-import { WalkLeadEditButton } from "../walk-view/walk-lead-edit-button";
-import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
+import { WalkProgrammeRowComponent } from "../walk-programme-row/walk-programme-row";
 
 @Component({
   selector: "app-walk-programme-overview",
   changeDetection: ChangeDetectionStrategy.Default,
-  imports: [WalkProgrammePageComponent, DateRangeSelector, FontAwesomeModule, DateRangeDirectionSelector, WalkLeadEditButton],
+  imports: [WalkProgrammePageComponent, DateRangeSelector, FontAwesomeModule, DateRangeDirectionSelector, WalkProgrammeRowComponent],
   styleUrls: ["./walk-programme-overview.sass"],
   template: `
     <app-walk-programme-page sticky>
@@ -94,72 +88,12 @@ import { WalksReferenceService } from "../../../services/walks/walks-reference-d
             </div>
           </div>
         } @else {
-          <div class="walk-rows" [class.with-thumbnails]="anyThumbnails()">
+          <div class="walk-rows">
             @for (row of rows; track row.id) {
-              <div class="walk-row" role="button" tabindex="0" [style.--status-colour]="descriptorFor(row.status).colour"
-                   (click)="openWalk(row)" (keydown.enter)="openWalk(row)" (keydown.space)="openWalk(row)">
-                <div class="walk-row-date">
-                  <span class="walk-day">{{ dayName(row.startDateTime) }}</span>
-                  <span class="walk-date">{{ dateShort(row.startDateTime) }}</span>
-                  <span class="walk-countdown">{{ countdown(row.startDateTime) }}</span>
-                </div>
-                @if (anyThumbnails()) {
-                  <div class="walk-row-thumbnail-cell">
-                    @if (row.thumbnailUrl) {
-                      <img class="walk-row-thumbnail" [src]="thumbnailSource(row)" [alt]="row.title || 'Walk image'"/>
-                    }
-                  </div>
-                }
-                <div class="walk-row-main">
-                  <div class="walk-row-title">
-                    @if (showGroup()) {
-                      <span class="group-badge">{{ groupLabel(row) }}</span>
-                    }
-                    {{ row.title || "Untitled walk slot" }}
-                  </div>
-                  <div class="walk-row-meta">
-                    <span><fa-icon [icon]="faPersonWalking"/> {{ row.leaderName || "No leader" }}</span>
-                    @if (row.distanceMiles) {
-                      <span>{{ row.distanceMiles }} miles</span>
-                    }
-                    @if (row.gradeDescription) {
-                      <span>{{ row.gradeDescription }}</span>
-                    }
-                    @if (!row.hasLocation) {
-                      <span class="muted"><fa-icon [icon]="faLocationDot"/> No location</span>
-                    }
-                  </div>
-                  @if (whatsMissing(row).length > 0) {
-                    <div class="walk-row-missing">
-                      <fa-icon [icon]="faCircleExclamation"/>
-                      <span>Needs: {{ whatsMissing(row).join(", ") }}</span>
-                    </div>
-                  }
-                </div>
-                <div class="walk-row-status">
-                  <span class="status-badge" [style.background-color]="descriptorFor(row.status).colour"
-                        [style.color]="descriptorFor(row.status).textColour">{{ descriptorFor(row.status).title }}</span>
-                </div>
-                <div class="walk-row-actions d-flex flex-column flex-md-row align-items-stretch justify-content-end gap-2">
-                  <button type="button" class="btn btn-sm btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-fill" (click)="openWalk(row)"
-                          [title]="'View ' + (row.title || 'this walk') + ' as it appears on the website'">
-                    <fa-icon [icon]="faArrowRightToBracket"/>
-                    <span>Open</span>
-                  </button>
-                  @if (allowEdit() && row.status === ProgrammeOverviewStatus.AWAITING_LEADER) {
-                    <div class="flex-fill d-flex" (click)="$event.stopPropagation()">
-                      <app-walk-lead-edit-button [displayedWalk]="leadEditDisplayedWalk(row)"
-                                                 [appearance]="WalkLeadEditAppearance.INLINE"/>
-                    </div>
-                  } @else if (allowEdit()) {
-                    <button type="button" class="btn btn-sm btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-fill" [title]="actionTooltip(row)"
-                            (click)="editWalk(row); $event.stopPropagation()">
-                      <fa-icon [icon]="faPenToSquare"/>
-                      <span>{{ actionLabel(row) }}</span>
-                    </button>
-                  }
-                </div>
-              </div>
+              <app-walk-programme-row [row]="row"
+                                      [allowEdit]="allowEdit()"
+                                      [showGroup]="showGroup()"
+                                      [reserveThumbnail]="anyThumbnails()"/>
             }
           </div>
 
@@ -189,7 +123,6 @@ export class WalkProgrammeOverviewComponent implements OnInit, OnDestroy {
   protected display = inject(WalkDisplayService);
   private dateUtils = inject(DateUtilsService);
   private uiActions = inject(UiActionsService);
-  private urlService = inject(UrlService);
   private memberLoginService = inject(MemberLoginService);
   private systemConfigService = inject(SystemConfigService);
   private walksConfigService = inject(WalksConfigService);
@@ -213,15 +146,8 @@ export class WalkProgrammeOverviewComponent implements OnInit, OnDestroy {
 
   protected readonly faXmark = faXmark;
   protected readonly faTriangleExclamation = faTriangleExclamation;
-  protected readonly faCircleExclamation = faCircleExclamation;
-  protected readonly faPersonWalking = faPersonWalking;
-  protected readonly faLocationDot = faLocationDot;
-  protected readonly faPenToSquare = faPenToSquare;
-  protected readonly faArrowRightToBracket = faArrowRightToBracket;
   protected readonly faChevronLeft = faChevronLeft;
   protected readonly faChevronRight = faChevronRight;
-  protected readonly ProgrammeOverviewStatus = ProgrammeOverviewStatus;
-  protected readonly WalkLeadEditAppearance = WalkLeadEditAppearance;
 
   ngOnInit() {
     this.applyDateBounds();
@@ -316,22 +242,10 @@ export class WalkProgrammeOverviewComponent implements OnInit, OnDestroy {
     return this.rows.some(row => !!row.thumbnailUrl);
   }
 
-  thumbnailSource(row: WalkProgrammeSummaryRow): string {
-    return this.urlService.imageSource(row.thumbnailUrl, false, true);
-  }
-
   showGroup(): boolean {
     const config = this.systemConfigService.systemConfig();
     const areaGroupCount = config?.area?.groups?.length || 0;
     return areaGroupCount > 1;
-  }
-
-  groupLabel(row: WalkProgrammeSummaryRow): string {
-    return row.groupName || row.groupCode || "";
-  }
-
-  descriptorFor(status: ProgrammeOverviewStatus): ProgrammeStatusDescriptor {
-    return programmeStatusDescriptor(status);
   }
 
   activeDescriptor(): ProgrammeStatusDescriptor | null {
@@ -370,81 +284,5 @@ export class WalkProgrammeOverviewComponent implements OnInit, OnDestroy {
 
   allowEdit(): boolean {
     return this.display.walkPopulationLocal() && this.memberLoginService.allowWalkAdminEdits();
-  }
-
-  private awaitingApproval(row: WalkProgrammeSummaryRow): boolean {
-    return row.status === ProgrammeOverviewStatus.AWAITING_APPROVAL;
-  }
-
-  inPast(row: WalkProgrammeSummaryRow): boolean {
-    return this.daysUntil(row.startDateTime) < 0;
-  }
-
-  actionLabel(row: WalkProgrammeSummaryRow): string {
-    return this.awaitingApproval(row) ? "Review & approve" : this.inPast(row) ? "Edit past walk" : "Edit walk";
-  }
-
-  actionTooltip(row: WalkProgrammeSummaryRow): string {
-    const walkName = row.title || "this walk";
-    return this.awaitingApproval(row)
-      ? `Open ${walkName} to check its details and approve it`
-      : this.inPast(row)
-        ? `Open ${walkName} for editing. This walk has already taken place, so nothing normally needs doing to it.`
-        : `Open ${walkName} for editing`;
-  }
-
-  whatsMissing(row: WalkProgrammeSummaryRow): string[] {
-    return [
-      row.leaderName ? null : "leader",
-      row.title ? null : "walk details",
-      row.distanceMiles ? null : "distance",
-      row.gradeDescription ? null : "grade",
-      row.hasLocation ? null : "start location"
-    ].filter(item => item);
-  }
-
-  dayName(startDateTime: string): string {
-    return this.dateUtils.asString(startDateTime, null, "ccc");
-  }
-
-  dateShort(startDateTime: string): string {
-    return this.dateUtils.asString(startDateTime, null, "d MMM yyyy");
-  }
-
-  private daysUntil(startDateTime: string): number {
-    return Math.round(this.dateUtils.asDateTime(startDateTime).startOf("day").diff(this.dateUtils.dateTimeNowNoTime(), "days").days);
-  }
-
-  countdown(startDateTime: string): string {
-    return this.dateUtils.relativeDay(startDateTime);
-  }
-
-  private navIdentifier(row: WalkProgrammeSummaryRow): string {
-    const slug = (row.url || "").split("/").filter(segment => segment).pop();
-    return slug || row.id;
-  }
-
-  openWalk(row: WalkProgrammeSummaryRow) {
-    this.display.openWalkViewFor(this.navIdentifier(row));
-  }
-
-  editWalk(row: WalkProgrammeSummaryRow) {
-    this.display.openWalkEditFor(this.navIdentifier(row), {
-      bypassLeaderInit: row.status === ProgrammeOverviewStatus.AWAITING_LEADER
-    });
-  }
-
-  leadEditDisplayedWalk(row: WalkProgrammeSummaryRow): DisplayedWalk {
-    return {
-      walk: {
-        id: row.id,
-        groupEvent: {
-          item_type: row.itemType,
-          url: row.url,
-          title: row.title
-        }
-      } as ExtendedGroupEvent,
-      walkAccessMode: WalksReferenceService.walkAccessModes.lead
-    } as DisplayedWalk;
   }
 }

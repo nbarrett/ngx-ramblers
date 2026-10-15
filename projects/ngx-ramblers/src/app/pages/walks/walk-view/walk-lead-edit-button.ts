@@ -37,11 +37,11 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../../../modules/common/tooltip-config";
       --button-dropdown-caret-width: 1.75rem
     :host.inline > *
       width: 100%
-      height: 32px
+      height: var(--btn-min-height)
     :host.inline > button.btn
       box-sizing: border-box
-      min-height: 32px
-      height: 32px
+      min-height: var(--btn-min-height)
+      height: var(--btn-min-height)
       padding: 0 var(--button-dropdown-caret-width) 0 0.5rem
       display: inline-flex
       align-items: center

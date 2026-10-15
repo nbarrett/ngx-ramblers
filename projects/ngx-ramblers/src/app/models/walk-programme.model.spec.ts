@@ -28,13 +28,41 @@ describe("displayedWalkProgrammeStatus", () => {
     expect(status).toBe(ProgrammeOverviewStatus.PUBLISHED);
   });
 
-  it("does not treat a Ramblers id without a Ramblers URL as published", () => {
+  it("treats a stored Ramblers id as published even when the walk URL is local", () => {
     const status = displayedWalkProgrammeStatus({
+      ramblersId: "100473687",
       groupEvent: {id: "100473687", url: "local-walk-slug"},
       fields: {links: []}
     } as any, ProgrammeOverviewStatus.APPROVED);
 
+    expect(status).toBe(ProgrammeOverviewStatus.PUBLISHED);
+  });
+
+  it("does not treat a Ramblers id without a Ramblers URL as published", () => {
+    const status = displayedWalkProgrammeStatus({
+      groupEvent: {id: "100473687", url: "local-walk-slug"},
+      fields: {links: [], publishing: {ramblers: {publish: true}}}
+    } as any, ProgrammeOverviewStatus.APPROVED);
+
     expect(status).toBe(ProgrammeOverviewStatus.APPROVED);
+  });
+
+  it("treats a confirmed Walks Manager status as published", () => {
+    const status = displayedWalkProgrammeStatus({
+      groupEvent: {title: "Westwell Circular Walk", status: "confirmed"},
+      fields: {links: [], publishing: {ramblers: {publish: true}}}
+    } as any, ProgrammeOverviewStatus.APPROVED);
+
+    expect(status).toBe(ProgrammeOverviewStatus.PUBLISHED);
+  });
+
+  it("treats an approved walk that is not for Ramblers as website only", () => {
+    const status = displayedWalkProgrammeStatus({
+      groupEvent: {title: "Westwell Circular Walk"},
+      fields: {links: [], publishing: {ramblers: {publish: false}}}
+    } as any, ProgrammeOverviewStatus.APPROVED);
+
+    expect(status).toBe(ProgrammeOverviewStatus.ON_WEBSITE);
   });
 
   it("keeps cancellation authoritative when a Ramblers publication identity exists", () => {
@@ -52,8 +80,9 @@ describe("displayedWalkProgrammeStatus", () => {
 });
 
 describe("walkIsMemberFacing", () => {
-  it("includes approved, published and cancelled walks", () => {
+  it("includes approved, website-only, published and cancelled walks", () => {
     expect(walkIsMemberFacing(ProgrammeOverviewStatus.APPROVED, true)).toBe(true);
+    expect(walkIsMemberFacing(ProgrammeOverviewStatus.ON_WEBSITE, true)).toBe(true);
     expect(walkIsMemberFacing(ProgrammeOverviewStatus.PUBLISHED, true)).toBe(true);
     expect(walkIsMemberFacing(ProgrammeOverviewStatus.CANCELLED, true)).toBe(true);
   });
