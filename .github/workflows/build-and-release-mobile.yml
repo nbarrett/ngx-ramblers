@@ -16,7 +16,6 @@ concurrency:
 
 env:
   NODE_VERSION: "24.14.0"
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   MOBILE_DIRECTORY_URL: ${{ vars.MOBILE_DIRECTORY_URL }}
   MOBILE_SITE_URL: ""
   SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -49,7 +48,7 @@ jobs:
         env:
           MOBILE_PLATFORM: android
         run: npm run mobile:prepare
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: mobile-web-${{ env.SOURCE_SHA }}
           path: dist/ngx-mobile
@@ -83,7 +82,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: mobile-web-${{ env.SOURCE_SHA }}
           path: dist/ngx-mobile
@@ -96,7 +95,7 @@ jobs:
         run: xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/ios-simulator" CURRENT_PROJECT_VERSION="$MOBILE_BUILD_NUMBER" CODE_SIGNING_ALLOWED=NO build
       - name: Package simulator app with executable permissions
         run: tar -czf "$RUNNER_TEMP/ios-simulator.tar.gz" -C "$RUNNER_TEMP/ios-simulator/Build/Products/Release-iphonesimulator" App.app
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: ios-simulator-${{ env.SOURCE_SHA }}
           path: ${{ runner.temp }}/ios-simulator.tar.gz
@@ -173,10 +172,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
         with:
           packages: "platform-tools platforms;android-36 build-tools;36.0.0"
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: mobile-web-${{ env.SOURCE_SHA }}
           path: dist/ngx-mobile
@@ -184,7 +183,7 @@ jobs:
       - name: Test and build Android app
         working-directory: mobile/android
         run: ./gradlew testDebugUnitTest bundleRelease
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: android-unsigned-${{ env.SOURCE_SHA }}
           path: mobile/android/app/build/outputs/bundle/release/*.aab
@@ -205,7 +204,7 @@ jobs:
         if: env.PUBLISH_ENABLED == 'true'
         working-directory: mobile/android
         run: ./gradlew bundleRelease
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: env.PUBLISH_ENABLED == 'true'
         with:
           name: android-signed-${{ env.SOURCE_SHA }}
