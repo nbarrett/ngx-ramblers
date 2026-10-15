@@ -8,7 +8,7 @@ import { MobileAppAccessService } from "../../services/maps/mobile-app-access.se
 import { MobileAppAction } from "../../models/walks-config.model";
 import { RouteFollowService } from "../../services/maps/route-follow.service";
 import { generateUid } from "../../functions/numbers";
-import { Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { Component, ElementRef, inject, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { NgTemplateOutlet } from "@angular/common";
 import { NgSelectModule } from "@ng-select/ng-select";
@@ -89,7 +89,7 @@ const MAP_LIST_BATCH_SIZE = 20;
 @Component({
   selector: "app-home",
   template: `
-    <div #homeScroll class="app-home container" [class.app-home-choosing-site]="choosingSite">
+    <div #homeScroll class="app-home container" [class.app-home-choosing-site]="choosingSite" [class.is-keyboard]="siteKeyboardOpen">
       @if (choosingSite) {
         <section class="app-home-site" aria-label="Choose your area or group">
           <div class="app-home-welcome-brand bg-white text-dark rounded p-2 mb-3 d-flex align-items-center justify-content-center gap-2">
@@ -104,7 +104,8 @@ const MAP_LIST_BATCH_SIZE = 20;
             <input id="app-site-url" type="url" class="form-control" inputmode="url" autocapitalize="none" autocomplete="url"
                    spellcheck="false" placeholder="https://group.example.org.uk" [ngModel]="siteUrlDraft" (ngModelChange)="siteWebsiteChanged($event)">
           } @else {
-            <app-area-selector id="walking-app-area" label="Area" [areaCode]="siteAreaCode" [disabled]="connectingSite" (areaChanged)="siteAreaChanged($event)"/>
+            <app-area-selector id="walking-app-area" label="Area" [areaCode]="siteAreaCode" [disabled]="connectingSite"
+                               (areaChanged)="siteAreaChanged($event)"/>
             @if (siteAreaCode) {
               <app-group-selector [appendTo]="null" label="Group (optional)" [areaCode]="siteAreaCode" [groupCode]="siteGroupCode" [disabled]="connectingSite"
                                   (areaChanged)="siteDirectoryAreaChanged($event)" (groupChanged)="siteGroupChanged($event)"/>
@@ -566,6 +567,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   private systemConfigService = inject(SystemConfigService);
   private urlService = inject(UrlService);
   private appShell = inject(AppShellService);
+  private zone = inject(NgZone);
   private ramblersLibrary = inject(RamblersLibraryRouteService);
   private osMapsExport = inject(OsMapsExportService);
   private currentLocation = inject(CurrentLocationService);
@@ -587,6 +589,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected legacyError: string | null = null;
   protected legacyMessage: string | null = null;
   protected choosingSite = false;
+  protected siteKeyboardOpen = false;
   protected connectingSite = false;
   protected ngxRamblersWebsite = new URL(WALKS_HOW_TO_DOCUMENTATION_URL).origin;
   protected siteUrlDraft = "";
@@ -800,6 +803,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     this.choosingSite = this.nativeSite.needsChooser();
     if (this.choosingSite) {
       this.loading = false;
+      this.bindSiteKeyboard();
     } else {
     void this.listPreferences.refresh();
     this.layout = {...this.layout, ...this.uiActions.initialObjectValueFor<Partial<AppHomeLayout>>(StoredValue.APP_HOME_LAYOUT, {})};
@@ -864,8 +868,45 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.unbindSiteKeyboard();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
+
+  private bindSiteKeyboard(): void {
+    const viewport = window.visualViewport;
+    if (viewport) {
+      viewport.addEventListener("resize", this.onSiteViewportChange);
+      viewport.addEventListener("scroll", this.onSiteViewportChange);
+    }
+    this.onSiteViewportChange();
+  }
+
+  private unbindSiteKeyboard(): void {
+    const viewport = window.visualViewport;
+    if (viewport) {
+      viewport.removeEventListener("resize", this.onSiteViewportChange);
+      viewport.removeEventListener("scroll", this.onSiteViewportChange);
+    }
+  }
+
+  private onSiteViewportChange = (): void => {
+    this.zone.run(() => {
+      const viewport = window.visualViewport;
+      const obscured = viewport ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0;
+      const wasOpen = this.siteKeyboardOpen;
+      this.siteKeyboardOpen = this.choosingSite && obscured > 80;
+      const host = this.homeScroll?.nativeElement;
+      if (host && viewport) {
+        host.style.setProperty("--app-visible-height", `${Math.round(viewport.height)}px`);
+      }
+      if (this.siteKeyboardOpen && !wasOpen && host) {
+        const field = host.querySelector(".ng-select.ng-select-opened, .ng-select.ng-select-focused, .form-control:focus") as HTMLElement | null;
+        if (field) {
+          field.scrollIntoView({block: "start", inline: "nearest"});
+        }
+      }
+    });
+  };
 
   chooseGpxFile(): void {
     this.afterSignIn(() => {

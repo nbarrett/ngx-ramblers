@@ -107,6 +107,23 @@ ${trackPoints}
     }
   }
 
+  async saveAsNew(payload: RouteFollowPayload, points: RouteFollowPoint[], recordingId: string): Promise<RouteFollowPayload> {
+    const copy = {
+      ...this.payloadService.recordingPayload(recordingId),
+      title: payload.title,
+      description: payload.description,
+      provider: payload.provider,
+      osStyle: payload.osStyle,
+      color: payload.color,
+      weight: payload.weight,
+      opacity: payload.opacity,
+      visibility: payload.visibility,
+      waypoints: payload.waypoints,
+      guide: payload.guide
+    };
+    return this.saveStandalone(copy, points);
+  }
+
   async save(payload: RouteFollowPayload, points: RouteFollowPoint[]): Promise<FileNameData> {
     if (points.length < 2) {
       throw new Error("A route needs at least two points before it can be saved.");

@@ -93,23 +93,25 @@
   margin-left: 0 !important
   min-width: 0
   min-height: 44px
-  padding: 8px 4px
-  display: flex
-  flex-direction: column
+  padding: 8px 6px
+  display: inline-flex
+  flex-direction: row
   flex-wrap: nowrap
   align-items: center
   justify-content: center
-  gap: 2px
+  gap: 6px
   font-size: 0.8rem
   line-height: 1.15
   white-space: nowrap
 
 .app-home-controls .btn fa-icon
-  flex-shrink: 0
+  flex: 0 0 auto
+  display: inline-flex
+  align-items: center
+  line-height: 1
 
 .app-home-controls .btn span
   min-width: 0
-  max-width: 100%
   overflow: hidden
   text-overflow: ellipsis
   white-space: nowrap
@@ -643,11 +645,35 @@
 
 .app-home.app-home-choosing-site
   padding-bottom: env(safe-area-inset-bottom, 0px)
-  overflow-y: visible
+  overflow-y: auto
+  max-height: 100dvh
 
 .app-home-choosing-site .app-home-site
   padding-top: 12px
   margin: 0 auto
+
+.app-home-choosing-site.is-keyboard .app-home-welcome-brand,
+.app-home-choosing-site.is-keyboard .app-home-site > p:first-of-type
+  display: none
+
+.app-home-choosing-site.is-keyboard .app-home-site h1
+  font-size: 1.15rem
+  margin-bottom: 4px
+
+.app-home-choosing-site.is-keyboard .app-home-site > p
+  margin-bottom: 8px
+
+:host ::ng-deep .app-home-choosing-site .ng-select .ng-input
+  z-index: 3
+
+:host ::ng-deep .app-home-choosing-site .ng-select .ng-input input
+  opacity: 1
+  width: 100%
+  height: 100%
+  font-size: 16px
+
+:host ::ng-deep .app-home-choosing-site .ng-dropdown-panel .ng-dropdown-panel-items
+  max-height: min(40vh, calc(var(--app-visible-height, 100dvh) - 12rem)) !important
 
 .app-home-choosing-site .app-home-site p
   margin-bottom: 10px

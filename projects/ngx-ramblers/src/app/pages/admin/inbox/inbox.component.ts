@@ -80,7 +80,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
   template: `
     <app-page pageTitle="Mail" [showTitle]="false" [showBreadcrumb]="!layout.mobile">
       <app-maximisable-panel #panel="maximisablePanel" class="inbox-scroll-contained"
-                             [showHeader]="!readingOnMobile || !layout.compactDetailHeader"
+                             [showHeader]="!readingOnMobile"
                              [showToggleButton]="false">
       <div panelControls class="d-flex gap-2 align-items-center flex-grow-1 inbox-toolbar">
           @if (!readingOnMobile) {
@@ -131,25 +131,6 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
             @if (layout.mobile) {
               <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="layout.mobileFiltersOpen = !layout.mobileFiltersOpen">
                 <fa-icon [icon]="faSliders"/>Filter and sort
-              </button>
-            }
-          }
-          @if (layout.mobile && layout.mobileShowDetail) {
-            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="backToList()" tooltip="Back to inbox">
-              <fa-icon [icon]="faArrowLeft"/>Inbox
-            </button>
-            <button class="btn btn-grey-danger d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="deleteCurrentThread()" [disabled]="busy" tooltip="Delete this conversation and show the next one">
-              <fa-icon [icon]="faTrash"/>Delete
-            </button>
-            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openAdjacentConversation(-1)" [disabled]="!hasAdjacentConversation(-1)" tooltip="Previous conversation">
-              <fa-icon [icon]="faChevronLeft"/>Previous
-            </button>
-            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openAdjacentConversation(1)" [disabled]="!hasAdjacentConversation(1)" tooltip="Next conversation">
-              Next<fa-icon [icon]="faChevronRight"/>
-            </button>
-            @if (nextUnreadConversation()) {
-              <button class="btn btn-quiet inbox-next-unread d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openNextUnread()" tooltip="Next unread conversation">
-                <fa-icon [icon]="faEnvelope"/>Next unread
               </button>
             }
           }
@@ -481,7 +462,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
       <div #inboxLayout class="inbox-layout" [class.stacked]="layout.stackedLayout"
            [style.grid-template-columns]="viewingDrafts ? 'minmax(0, 1fr)' : layout.gridTemplateColumns"
            [style.grid-template-rows]="viewingDrafts ? 'minmax(0, 1fr)' : layout.gridTemplateRows">
-        @if (!layout.mobile || !layout.mobileShowDetail) {
+        @if (!readingOnMobile) {
         <app-thumbnail-heading-frame class="inbox-pane" [heading]="conversationCountCaption" [fill]="true" [compact]="true" [class.inbox-list-flush]="layout.mobile">
           <div class="inbox-pane-body">
           <div class="p-2">
@@ -697,7 +678,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
           </div>
         </app-thumbnail-heading-frame>
         }
-        @if (!layout.mobile && !viewingDrafts) {
+        @if (!readingOnMobile && !layout.mobile && !viewingDrafts) {
           <app-resizer [variant]="ResizerVariant.BAR"
                        [orientation]="layout.stackedLayout ? ResizerOrientation.VERTICAL : ResizerOrientation.HORIZONTAL"
                        [size]="layout.listSize"
@@ -741,7 +722,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
               }
             </div>
           }
-          <div class="inbox-detail" (scroll)="onMessageScroll($event)">
+          <div class="inbox-detail" [attr.tabindex]="readingOnMobile ? 0 : null" role="region" aria-label="Conversation messages" (scroll)="onMessageScroll($event)">
           @if (viewingDrafts) {
             <div class="text-muted">Drafts open in the email composer. Choose one on the left to carry on where you left off.</div>
           } @else if (!selectedThread) {
@@ -750,18 +731,41 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
             <div class="text-muted">Loading conversation...</div>
           } @else {
             @for (message of displayMessages; track message.messageId) {
-              <app-inbox-message [message]="message" [busy]="busy" [initiallyExpanded]="message.messageId === initiallyExpandedMessageId"
+              <app-inbox-message [message]="message" [busy]="busy" [fitToWidth]="readingOnMobile" [initiallyExpanded]="message.messageId === initiallyExpandedMessageId"
                                  (reply)="prepareReply($event)" (replyAll)="prepareReplyAll($event)" (forward)="prepareForward($event)"/>
             }
           }
           </div>
-          @if (layout.mobile && latestActionMessage(); as actionMessage) {
+          @if (readingOnMobile) {
             <div class="inbox-sticky-actions">
-              <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareReply(actionMessage)"><fa-icon [icon]="faReply"/> Reply</button>
-              @if (hasMultipleRecipients(actionMessage)) {
-                <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareReplyAll(actionMessage)"><fa-icon [icon]="faReplyAll"/> Reply all</button>
+              <div class="d-flex flex-wrap gap-2 inbox-reader-navigation">
+                <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="backToList()" tooltip="Back to inbox">
+                  <fa-icon [icon]="faArrowLeft"/>Inbox
+                </button>
+                <button class="btn btn-grey-danger d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="deleteCurrentThread()" [disabled]="busy" tooltip="Delete this conversation and show the next one">
+                  <fa-icon [icon]="faTrash"/>Delete
+                </button>
+                <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openAdjacentConversation(-1)" [disabled]="!hasAdjacentConversation(-1)" tooltip="Previous conversation">
+                  <fa-icon [icon]="faChevronLeft"/>Previous
+                </button>
+                <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openAdjacentConversation(1)" [disabled]="!hasAdjacentConversation(1)" tooltip="Next conversation">
+                  Next<fa-icon [icon]="faChevronRight"/>
+                </button>
+                @if (nextUnreadConversation()) {
+                  <button class="btn btn-quiet inbox-next-unread d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openNextUnread()" tooltip="Next unread conversation">
+                    <fa-icon [icon]="faEnvelope"/>Next unread
+                  </button>
+                }
+              </div>
+              @if (latestActionMessage(); as actionMessage) {
+                <div class="d-flex gap-2 inbox-reader-replies">
+                <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareReply(actionMessage)"><fa-icon [icon]="faReply"/> Reply</button>
+                @if (hasMultipleRecipients(actionMessage)) {
+                  <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareReplyAll(actionMessage)"><fa-icon [icon]="faReplyAll"/> Reply all</button>
+                }
+                <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareForward(actionMessage)"><fa-icon [icon]="faShare"/> Forward</button>
+                </div>
               }
-              <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareForward(actionMessage)"><fa-icon [icon]="faShare"/> Forward</button>
             </div>
           }
         </div>
@@ -1414,6 +1418,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly DELETE_UNDO_MS = 6000;
   private static readonly THREAD_PAGE_SIZE = 50;
   private static readonly SWIPE_THRESHOLD_PX = 72;
+  private readingMaximisedPanel = false;
   private listScrollTop = 0;
   private touchStartX = 0;
   private touchStartY = 0;
@@ -1556,6 +1561,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   backToList(): void {
+    if (this.readingMaximisedPanel && this.layout.panel?.maximised) {
+      this.layout.panel.toggle();
+    }
+    this.readingMaximisedPanel = false;
     this.layout.mobileShowDetail = false;
     this.layout.compactDetailHeader = false;
     if (!isUndefined(window)) {
@@ -2560,7 +2569,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   private syncThreadToUrl(thread: InboxThread | null): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {[StoredValue.THREAD]: thread ? this.threadSlug(thread) : null},
+      queryParams: {
+        [StoredValue.THREAD]: thread ? this.threadSlug(thread) : null,
+        ...(this.readingOnMobile ? {[StoredValue.MAXIMISE]: "true"} : {})
+      },
       queryParamsHandling: "merge",
       replaceUrl: true
     });
@@ -2665,6 +2677,15 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.openThreadRequestId = requestId;
     this.selectedThreadId = threadId;
     this.selectedThread = representative;
+    if (this.layout.mobile && (markRead || this.readingOnMobile)) {
+      this.layout.mobileShowDetail = true;
+      this.layout.mobileFiltersOpen = false;
+      this.layout.compactDetailHeader = false;
+      if (this.layout.panel && !this.layout.panel.maximised) {
+        this.readingMaximisedPanel = true;
+        this.layout.panel.toggle();
+      }
+    }
     this.clearSelectedMessages();
     this.loadingThread = true;
     this.syncThreadToUrl(representative);

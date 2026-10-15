@@ -3,19 +3,18 @@
     display: flex
     flex-wrap: nowrap
     align-items: center
-    justify-content: flex-end
-    width: 100%
+    justify-content: flex-start
+    width: max-content
     min-width: 0
-    overflow-x: scroll
-    overflow-y: hidden
-    -webkit-overflow-scrolling: touch
-    touch-action: pan-x
-    scrollbar-width: none
-    -ms-overflow-style: none
-  :host::-webkit-scrollbar
-    display: none
-    width: 0
-    height: 0
+    flex: 0 0 auto
+
+@media (min-width: 992px) and (max-width: 1399.98px)
+  li.navigation a
+    font-size: clamp(1rem, 1.4vw, 1.25rem)
+    padding-inline: 0.25rem
+    min-height: 44px
+    display: inline-flex
+    align-items: center
 
 li.navigation a
   @media (max-width: 991px)

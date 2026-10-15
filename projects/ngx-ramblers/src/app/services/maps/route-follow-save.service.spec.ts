@@ -109,6 +109,40 @@ describe("RouteFollowSaveService", () => {
     expect(payload.source).toBe(RouteFollowSource.RECORDING);
   });
 
+  it("saves an edited route as a separate route without updating the original", async () => {
+    const payload = {
+      ...TestBed.inject(RouteFollowPayloadService).recordingPayload("original-recording"),
+      source: RouteFollowSource.OS_MAPS,
+      recordingId: null,
+      osMapsRouteId: "original-route",
+      walkId: "original-walk",
+      path: "original-page",
+      routeNumber: 123,
+      title: "Hillside Park circuit",
+      description: "Through the woods",
+      color: "#c21d4b",
+      weight: 6,
+      createdBy: "original-creator"
+    };
+    const points = [{latitude: 51, longitude: 0}, {latitude: 51.001, longitude: 0.001}];
+    const original = structuredClone(payload);
+    const uploads = walkGpx.uploadGpxFile.mock.calls.length;
+    const saved = await service.saveAsNew(payload, points, "copy-retry-id");
+    expect(payload).toEqual(original);
+    expect(saved.osMapsRouteId).toBe("recording-fictional-id");
+    expect(saved.routeNumber).toBe(396);
+    expect(saved.walkId).toBeNull();
+    expect(saved.path).toBeNull();
+    expect(saved.createdBy).not.toBe("original-creator");
+    expect(saved.title).toBe(payload.title);
+    expect(saved.color).toBe(payload.color);
+    expect(saved.weight).toBe(payload.weight);
+    expect(walkGpx.uploadGpxFile.mock.calls.length).toBe(uploads);
+    const args = walkGpx.importGpxFile.mock.calls.at(-1) as unknown as [File, string, string, string];
+    expect(args[3]).toBe("copy-retry-id");
+    expect(osMapsExport.saveImportedRoute.mock.calls.at(-1)?.[0]).toBe("recording-fictional-id");
+  });
+
   it("rejects unnamed recordings before upload", async () => {
     const payload = TestBed.inject(RouteFollowPayloadService).recordingPayload("fictional-id");
     payload.title = " ";

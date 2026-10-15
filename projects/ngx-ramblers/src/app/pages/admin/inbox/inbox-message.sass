@@ -116,6 +116,13 @@
   margin-left: 0
 
 @media (max-width: 767.98px), (orientation: landscape) and (max-height: 575.98px)
+  .inbox-message,
+  .inbox-message-content
+    min-width: 0
+    max-width: 100%
+    overflow-wrap: anywhere
+  .inbox-message-headers > .flex-grow-1
+    min-width: 0
   .inbox-message.collapsed .inbox-reply-actions
     opacity: 1
   .inbox-message-headers

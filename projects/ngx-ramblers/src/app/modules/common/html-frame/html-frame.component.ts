@@ -1,10 +1,16 @@
-import { Component, ElementRef, inject, Input, OnDestroy, ViewChild } from "@angular/core";
+import { booleanAttribute, Component, ElementRef, inject, Input, OnDestroy, ViewChild } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { isUndefined } from "es-toolkit/compat";
 
 @Component({
   selector: "app-html-frame",
   imports: [],
+  styles: [`
+    :host
+      display: block
+      min-width: 0
+      max-width: 100%
+  `],
   template: `
     @if (url) {
       <iframe
@@ -26,14 +32,27 @@ export class HtmlFrameComponent implements OnDestroy {
   url: SafeResourceUrl | null = null;
   private objectUrl: string | null = null;
   private lastHtml: string | null = null;
+  private lastFitToWidth = false;
+  private fitContentToWidth = false;
   private resizeObserver: ResizeObserver | null = null;
   private mutationObserver: MutationObserver | null = null;
 
   @Input() set html(value: string) {
-    const next = value ?? "";
-    const unchanged = next === this.lastHtml && !!this.url;
+    this.renderHtml(value ?? "");
+  }
+
+  @Input({transform: booleanAttribute}) set fitToWidth(value: boolean) {
+    this.fitContentToWidth = value;
+    if (this.lastHtml !== null) {
+      this.renderHtml(this.lastHtml);
+    }
+  }
+
+  private renderHtml(next: string): void {
+    const unchanged = next === this.lastHtml && this.fitContentToWidth === this.lastFitToWidth && !!this.url;
     if (!unchanged) {
       this.lastHtml = next;
+      this.lastFitToWidth = this.fitContentToWidth;
       this.clearObjectUrl();
       this.objectUrl = URL.createObjectURL(new Blob([this.wrap(next)], {type: "text/html"}));
       this.url = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
@@ -43,7 +62,8 @@ export class HtmlFrameComponent implements OnDestroy {
   private wrap(html: string): string {
     const base = `<base href="${window.location.origin}/" target="_blank">`;
     const reset = `<style>html,body{margin:0;padding:0;background:#fff;}img{max-width:100%;height:auto;}table{max-width:100%;}blockquote{border-left:4px solid #9bc8ab;margin:16px 0;padding:12px 20px;background-color:#f7fbf8;color:#343a40;font-style:italic;}blockquote p:first-child{margin-top:0;}blockquote p:last-child{margin-bottom:0;}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;}body{overflow-wrap:anywhere;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5;}</style>`;
-    return `<!doctype html><html><head><meta charset="utf-8">${base}${reset}</head><body>${html}</body></html>`;
+    const responsive = this.fitContentToWidth ? `<style>html,body{width:100%;max-width:100%;overflow-x:hidden;}body *{box-sizing:border-box;max-width:100%!important;min-width:0!important;overflow-wrap:anywhere!important;}table{width:100%!important;table-layout:fixed!important;}td,th{white-space:normal!important;}pre{white-space:pre-wrap!important;}img,video{height:auto!important;}blockquote{margin-left:0!important;margin-right:0!important;padding:12px!important;}</style>` : "";
+    return `<!doctype html><html><head><meta charset="utf-8">${base}${reset}${responsive}</head><body>${html}</body></html>`;
   }
 
   resize(): void {

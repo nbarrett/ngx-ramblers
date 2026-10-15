@@ -17,6 +17,7 @@ import {
   ROUTE_FOLLOW_PREVIEW_STEP_METRES,
   ROUTE_FOLLOW_WALKING_METRES_PER_MINUTE,
   ROUTE_FOLLOW_COMPASS_MIN_DELTA,
+  ROUTE_FOLLOW_COMPASS_SMOOTHING,
   RouteFollowLocationError,
   RouteFollowMode,
   RouteFollowPoint,
@@ -35,6 +36,7 @@ import { NativeRouteError, NativeRouteFailure, NativeRoutePosition } from "../..
 import { generateUid } from "../../functions/numbers";
 import { StringUtilsService } from "../string-utils.service";
 import { DistanceUnit, FEET_PER_METRE, KM_PER_MILE } from "../../models/walk.model";
+import { compassHeading, smoothedCompassHeading } from "../../functions/compass-heading";
 
 @Injectable({
   providedIn: "root"
@@ -56,6 +58,7 @@ export class RouteFollowService {
   private previewMetres = 0;
   private previewSpeedValue = ROUTE_FOLLOW_PREVIEW_SPEED_DEFAULT;
   private compassHeading: number | null = null;
+  private filteredCompassHeading: number | null = null;
   private orientationHandler: ((event: DeviceOrientationEvent) => void) | null = null;
   private recordingGap = false;
   private recordingCandidate: RouteFollowPoint | null = null;
@@ -87,6 +90,10 @@ export class RouteFollowService {
 
   progress(): RouteFollowProgress {
     return this.state;
+  }
+
+  compassAvailable(): boolean {
+    return this.compassHeading !== null;
   }
 
   totalMetres(): number {
@@ -465,6 +472,9 @@ export class RouteFollowService {
     const shortDistanceLimit = shortDistanceUnit === DistanceUnit.FEET ? milesInMetres / 4 : 1000;
     if (!isNumber(metres) || metres < 0) {
       return "";
+    } else if (shortDistanceUnit === DistanceUnit.MILES || shortDistanceUnit === DistanceUnit.KILOMETRES) {
+      const value = metres / (shortDistanceUnit === DistanceUnit.MILES ? milesInMetres : 1000);
+      return `${Number(value.toFixed(2))} ${shortDistanceUnit}`;
     } else if (metres < shortDistanceLimit) {
       return shortDistanceUnit === DistanceUnit.FEET
         ? `${Math.round(metres * FEET_PER_METRE)} ft`
@@ -737,7 +747,7 @@ export class RouteFollowService {
     }
   }
 
-  private minutesFor(metres: number): number {
+  minutesFor(metres: number): number {
     return metres / ROUTE_FOLLOW_WALKING_METRES_PER_MINUTE;
   }
 
@@ -788,20 +798,25 @@ export class RouteFollowService {
 
   private onOrientation(event: DeviceOrientationEvent): void {
     const webkitHeading = (event as DeviceOrientationEvent & {webkitCompassHeading?: number}).webkitCompassHeading;
-    const fromWebkit = isNumber(webkitHeading) && !isNaN(webkitHeading);
-    const fromAlpha = event.absolute !== false && isNumber(event.alpha) && !isNaN(event.alpha);
+    const fromWebkit = isNumber(webkitHeading) && Number.isFinite(webkitHeading);
+    const fromAlpha = event.absolute === true && [event.alpha, event.beta, event.gamma].every(value => isNumber(value) && Number.isFinite(value));
     if (fromWebkit) {
       this.setCompassHeading(webkitHeading);
     } else if (fromAlpha) {
-      this.setCompassHeading((360 - (event.alpha as number)) % 360);
+      const heading = compassHeading(event.alpha, event.beta, event.gamma, window.screen.orientation?.angle ?? 0);
+      if (heading !== null) {
+        this.setCompassHeading(heading);
+      }
     }
   }
 
   private setCompassHeading(next: number): void {
     const previous = this.compassHeading;
-    const delta = previous === null ? 360 : Math.min((next - previous + 360) % 360, (previous - next + 360) % 360);
+    const smoothed = smoothedCompassHeading(this.filteredCompassHeading, next, ROUTE_FOLLOW_COMPASS_SMOOTHING);
+    this.filteredCompassHeading = smoothed;
+    const delta = previous === null ? 360 : Math.min((smoothed - previous + 360) % 360, (previous - smoothed + 360) % 360);
     if (previous === null || delta >= ROUTE_FOLLOW_COMPASS_MIN_DELTA) {
-      this.compassHeading = next;
+      this.compassHeading = smoothed;
       this.publishHeading();
     }
   }
@@ -853,6 +868,7 @@ export class RouteFollowService {
     this.stopPreview();
     this.stopCompass();
     this.compassHeading = null;
+    this.filteredCompassHeading = null;
   }
 
   private clearWatch(): void {

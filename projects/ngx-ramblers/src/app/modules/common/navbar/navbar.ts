@@ -57,8 +57,8 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
               </div>
             }
             @if (inlineNavBarVisible()) {
-              <div class="d-flex align-items-center ms-auto flex-grow-1 pe-0">
-                <div class="d-flex justify-content-end flex-grow-1 pe-0">
+              <div class="d-flex align-items-center ms-auto flex-grow-1 pe-0 navbar-inline-content">
+                <div class="d-flex justify-content-end flex-grow-1 pe-0 navbar-inline-menu">
                   <app-navbar-content class="flex-grow-1"/>
                 </div>
                 @if (rightPanelVisible()) {
@@ -109,6 +109,8 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
 @media (min-width: 992px)
   nav.navbar
     flex-wrap: nowrap
+  .navbar-inline-content, .navbar-inline-menu
+    min-width: 0
   .container
     flex-wrap: nowrap
     min-width: 0
@@ -161,7 +163,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   private detectWidth(width: number) {
-    this.navbarContentWithinCollapse = width < 980;
+    this.navbarContentWithinCollapse = width < 992;
     this.logger.info("detectWidth:", width, "this.navbarContentWithinCollapse:", this.navbarContentWithinCollapse);
   }
 

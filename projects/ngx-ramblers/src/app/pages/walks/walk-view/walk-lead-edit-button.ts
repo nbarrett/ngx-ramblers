@@ -1,6 +1,6 @@
 import { Component, HostBinding, inject, Input } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faPencil, faPersonWalking } from "@fortawesome/free-solid-svg-icons";
+import { faEye, faPencil, faPersonWalking } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { DisplayedWalk } from "../../../models/walk.model";
 import { WalkLeadEditAction, WalkLeadEditAppearance } from "../../../models/walk-edit-mode.model";
@@ -50,15 +50,15 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../../../modules/common/tooltip-config";
   `],
   template: `
     @if (displayedWalk?.walkAccessMode?.walkWritable) {
-      @if (display.walkAdminLeadAndEdit(displayedWalk)) {
+      @if (eventActions() || display.walkAdminLeadAndEdit(displayedWalk)) {
         <app-button-dropdown [class.walk-view-split]="appearance === WalkLeadEditAppearance.ACTION"
                              [fullWidth]="appearance !== WalkLeadEditAppearance.OVERLAY"
                              [compact]="appearance === WalkLeadEditAppearance.INLINE"
                              [label]="caption()"
-                             [icon]="faPersonWalking"
+                             [icon]="eventActions() ? faPencil : faPersonWalking"
                              [buttonClass]="primaryButtonClass()"
                              [ariaLabel]="actionTooltip()"
-                             [defaultItemId]="WalkLeadEditAction.LEAD"
+                             [defaultItemId]="eventActions() ? WalkLeadEditAction.EDIT : WalkLeadEditAction.LEAD"
                              [items]="leadEditItems()"
                              (itemSelect)="onLeadEdit($event)"
                              (click)="$event.stopPropagation()"/>
@@ -83,6 +83,7 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../../../modules/common/tooltip-config";
 export class WalkLeadEditButton {
   public display = inject(WalkDisplayService);
   protected readonly faPencil = faPencil;
+  protected readonly faEye = faEye;
   protected readonly faPersonWalking = faPersonWalking;
   protected readonly WalkLeadEditAppearance = WalkLeadEditAppearance;
   protected readonly WalkLeadEditAction = WalkLeadEditAction;
@@ -116,7 +117,8 @@ export class WalkLeadEditButton {
   }
 
   actionTooltip(): string {
-    return `${this.caption()} this walk`;
+    const eventType = this.display.isWalk(this.displayedWalk?.walk) ? "walk" : "event";
+    return `${this.caption()} this ${eventType}`;
   }
 
   actionIcon() {
@@ -133,15 +135,24 @@ export class WalkLeadEditButton {
     }
   }
 
+  protected eventActions(): boolean {
+    return !this.display.isWalk(this.displayedWalk?.walk);
+  }
+
   protected leadEditItems(): ButtonDropdownItem[] {
-    return [
+    return this.eventActions() ? [
+      {id: WalkLeadEditAction.EDIT, label: this.editCaption, icon: this.faPencil},
+      {id: WalkLeadEditAction.VIEW, label: "view", icon: this.faEye}
+    ] : [
       {id: WalkLeadEditAction.LEAD, label: this.caption(), icon: this.faPersonWalking},
       {id: WalkLeadEditAction.EDIT, label: this.editCaption, icon: this.faPencil}
     ];
   }
 
   protected onLeadEdit(action: string): void {
-    if (action === WalkLeadEditAction.EDIT) {
+    if (action === WalkLeadEditAction.VIEW) {
+      void this.display.openGroupEventView(this.displayedWalk.walk);
+    } else if (action === WalkLeadEditAction.EDIT) {
       this.display.edit(this.displayedWalk, {bypassLeaderInit: true});
     } else {
       this.display.edit(this.displayedWalk);

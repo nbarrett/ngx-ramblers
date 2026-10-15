@@ -1,3 +1,4 @@
+import { memberLeadsWalk } from "../../functions/walks/walk-leader-fields";
 import { inject, Injectable } from "@angular/core";
 import { cloneDeep, isEmpty, last } from "es-toolkit/compat";
 import { BrandingMode } from "../../models/mail.model";
@@ -124,6 +125,12 @@ export class GroupEventDisplayService {
 
   inNewEventMode(): boolean {
     return this.allow.edits && this.urlService.lastPathSegment() === PathSegment.NEW;
+  }
+
+  canEditEvent(event: ExtendedGroupEvent): boolean {
+    const memberId = this.memberLoginService.memberLoggedIn() ? this.memberLoginService.loggedInMember()?.memberId : null;
+    return this.memberLoginService.allowSocialAdminEdits()
+      || (event?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT && memberLeadsWalk(memberId, event));
   }
 
   applyAllows() {

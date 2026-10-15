@@ -1,5 +1,5 @@
 import { ExtendedGroupEvent, GroupEvent } from "../../models/group-event.model";
-import { Contact } from "../../models/ramblers-walks-manager";
+import { Contact, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { isArray } from "es-toolkit/compat";
 import { jointWalkLeaderNames, normalisedWalkLeaderName } from "./joint-walk-leaders";
 
@@ -8,7 +8,8 @@ export type WalksManagerContactNameForCsv = string;
 export type WalksManagerListedWalkLeaderName = string;
 
 export function memberLeadsWalk(memberId: string, walk: ExtendedGroupEvent): boolean {
-  return !!memberId && [walk?.fields?.contactDetails?.memberId, walk?.groupEvent?.walk_leader?.id].includes(memberId);
+  const contact = walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT ? walk?.groupEvent?.event_organiser : walk?.groupEvent?.walk_leader;
+  return !!memberId && [walk?.fields?.contactDetails?.memberId, contact?.id].includes(memberId);
 }
 
 export function websiteWalkLeaderDisplayName(walk: ExtendedGroupEvent): WebsiteWalkLeaderDisplayName {

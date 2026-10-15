@@ -750,7 +750,8 @@ export const ROUTE_FOLLOW_START_RADIUS_METRES = 200;
 export const ROUTE_FOLLOW_LINE_WEIGHT_DEFAULT = 6;
 export const ROUTE_FOLLOW_ENDS_JOINED_SPAN = 0.0002;
 export const ROUTE_FOLLOW_WALKED_MUTED = "#8aa0c8";
-export const ROUTE_FOLLOW_COMPASS_MIN_DELTA = 0.5;
+export const ROUTE_FOLLOW_COMPASS_MIN_DELTA = 1.5;
+export const ROUTE_FOLLOW_COMPASS_SMOOTHING = 0.18;
 export const ROUTE_FOLLOW_HEADING_UP_MIN_DELTA = 0.5;
 export const FOLLOW_MAP_SCALE_TARGET_PX = 160;
 export const FOLLOW_MAP_SCALE_MAX_PX = 200;
@@ -895,6 +896,11 @@ export function routeAlignedMapHeading(routeHeading: number | null, fallbackHead
   } else {
     return fallbackHeading;
   }
+}
+
+export function followPointerRotation(heading: number, platform: AppInstallPlatform, compassAvailable: boolean): number {
+  const offset = platform === AppInstallPlatform.ANDROID && compassAvailable ? 180 : 0;
+  return ((heading + offset) % 360 + 360) % 360;
 }
 
 export function compassHeadingLabel(degrees: number): string {

@@ -1,8 +1,9 @@
-import { Component, DoCheck, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { ChangeDetectorRef, Component, DoCheck, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { Subscription } from "rxjs";
 import {
   CopyFrom,
   DisplayedWalk,
+  EventEventField,
   EventField,
   EventType,
   ExtendedGroupEventWithLabel,
@@ -34,6 +35,7 @@ import { ExtendedFields, GroupEvent } from "../../../models/group-event.model";
 import { FullNameWithAliasOrMePipe } from "../../../pipes/full-name-with-alias-or-me.pipe";
 import { NgSelectComponent } from "@ng-select/ng-select";
 import { WalkEditTab } from "../../../models/ui-actions";
+import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { isMongoId } from "../../../services/mongo-utils";
 
 @Component({
@@ -73,7 +75,7 @@ import { isMongoId } from "../../../services/mongo-utils";
                              (change)="populateWalkTemplates()"
                              [value]="WalkCopyOption.COPY_WITH_OS_MAPS_ROUTE_SELECTED"/>
                       <label class="form-check-label" [for]="WalkCopyOption.COPY_WITH_OS_MAPS_ROUTE_SELECTED">
-                        With an OS Maps route I can follow</label>
+                        With an OS Maps link or GPX route I can follow</label>
                     </div>
                   </div>
                 </div>
@@ -100,17 +102,24 @@ import { isMongoId } from "../../../services/mongo-utils";
                   <div class="row mt-2">
                     <div class="col-sm-12">
                       <label for="copy-walks-list">
-                        Copy from {{
-                          stringUtilsService.pluraliseWithCount(copyFrom?.walkTemplates?.length || 0, 'available walk')
-                        }}:</label>
+                        @if (loadingWalkTemplates) {
+                          Copy from a previous walk:
+                        } @else {
+                          Copy from {{
+                            stringUtilsService.pluraliseWithCount(copyFrom?.walkTemplates?.length || 0, "available walk")
+                          }}:
+                        }
+                      </label>
                       <ng-select id="copy-walks-list"
                                  [items]="walkTemplateOptions"
+                                 [loading]="loadingWalkTemplates"
+                                 loadingText="Searching for walks…"
                                  bindLabel="ngSelectAttributes.label"
                                  [disabled]="inputDisabled"
                                  [searchable]="true"
                                  [clearable]="true"
                                  dropdownPosition="bottom"
-                                 placeholder="Select a walk - type date, title or leader to filter"
+                                 [placeholder]="loadingWalkTemplates ? 'Searching for walks…' : 'Select a walk - type date, title or leader to filter'"
                                  [(ngModel)]="selectedWalkTemplateOption"
                                  (ngModelChange)="copyDetailsFromPreviousWalk($event)">
                       </ng-select>
@@ -146,6 +155,9 @@ export class WalkEditCopyFromComponent implements OnInit, DoCheck, OnDestroy {
   copyFrom: CopyFrom = {walkTemplate: {} as ExtendedGroupEvent, walkTemplates: []};
   previousWalkLeadersWithAliasOrMe: DisplayMember[] = [];
   previousWalkLeaderCount = 0;
+  loadingWalkTemplates = true;
+  private walkTemplateRequest = 0;
+  private changeDetector = inject(ChangeDetectorRef);
   walkTemplateOptions: ExtendedGroupEventWithLabel[] = [];
   selectedWalkTemplateOption: ExtendedGroupEventWithLabel | null = null;
   private previousWalkLeaderIds: string[] = [];
@@ -161,20 +173,30 @@ export class WalkEditCopyFromComponent implements OnInit, DoCheck, OnDestroy {
   private walkEventService = inject(GroupEventService);
   private displayDate = inject(DisplayDatePipe);
   private dateUtils = inject(DateUtilsService);
+  private distanceValidation = inject(DistanceValidationService);
   private memberLoginService = inject(MemberLoginService);
   private eventDefaultsService = inject(EventDefaultsService);
   private fullNameWithAliasOrMePipe = inject(FullNameWithAliasOrMePipe);
   protected readonly WalkCopyOption = WalkCopyOption;
 
   async ngOnInit() {
-    const allLeaderIds = (await this.walksAndEventsService.queryWalkLeaders()) || [];
-    this.previousWalkLeaderIds = allLeaderIds.filter(id => isMongoId(id));
-    this.leaderLabelMap = this.walksAndEventsService.leaderLabelMap();
-    this.rebuildPreviousWalkLeaders();
+    this.populateCopySourceFromWalkLeaderMemberId();
     this.subscriptions.push(this.display.memberEvents().subscribe(() => this.rebuildPreviousWalkLeaders()));
     this.display.refreshCachedData();
-    this.populateCopySourceFromWalkLeaderMemberId();
-    await this.populateWalkTemplates();
+    await Promise.all([this.populateWalkTemplates(), this.populatePreviousWalkLeaders()]);
+  }
+
+  private async populatePreviousWalkLeaders(): Promise<void> {
+    try {
+      const allLeaderIds = (await this.walksAndEventsService.queryWalkLeaders()) || [];
+      this.previousWalkLeaderIds = allLeaderIds.filter(id => isMongoId(id));
+      this.leaderLabelMap = this.walksAndEventsService.leaderLabelMap();
+      this.rebuildPreviousWalkLeaders();
+    } catch (error) {
+      this.logger.error("Error fetching previous walk leaders", error);
+      this.notify.error({title: "Walk leaders could not be loaded", message: "Please reopen the Copy tab to try again."});
+      this.changeDetector.markForCheck();
+    }
   }
 
   ngDoCheck(): void {
@@ -190,6 +212,7 @@ export class WalkEditCopyFromComponent implements OnInit, DoCheck, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.walkTemplateRequest++;
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
@@ -220,61 +243,69 @@ export class WalkEditCopyFromComponent implements OnInit, DoCheck, OnDestroy {
       };
     });
     this.previousWalkLeaderCount = this.previousWalkLeadersWithAliasOrMe.length;
+    this.changeDetector.markForCheck();
   }
 
   async populateWalkTemplates(injectedMemberId?: string) {
-    const memberId = this.displayedWalk.walk?.[EventField.CONTACT_DETAILS_MEMBER_ID] || injectedMemberId;
-    let criteria: any;
-    switch (this.copySource) {
-      case WalkCopyOption.COPY_SELECTED_WALK_LEADER: {
-        criteria = {
-          [EventField.CONTACT_DETAILS_MEMBER_ID]: this.copySourceFromWalkLeaderMemberId,
-          [GroupEventField.TITLE]: {$exists: true},
-          [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK
-        };
-        break;
-      }
-      case WalkCopyOption.COPY_WITH_OS_MAPS_ROUTE_SELECTED: {
-        criteria = {
-          [EventField.LINKS]: {
-            $elemMatch: {
-              source: LinkSource.OS_MAPS,
-              href: {$nin: [null, ""]}
-            }
-          },
-          [GroupEventField.TITLE]: {$exists: true},
-          [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK
-        };
-        break;
-      }
-      default: {
-        criteria = {
-          [EventField.CONTACT_DETAILS_MEMBER_ID]: memberId,
-          [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK
-        };
-      }
-    }
+    const request = ++this.walkTemplateRequest;
+    this.loadingWalkTemplates = true;
+    this.copyFrom.walkTemplates = [];
+    this.walkTemplateOptions = [];
+    this.selectedWalkTemplateOption = null;
+    const memberId = this.copySourceFromWalkLeaderMemberId || injectedMemberId || this.displayedWalk.walk?.fields?.contactDetails?.memberId;
+    const sourceCriteria = this.copySource === WalkCopyOption.COPY_WITH_OS_MAPS_ROUTE_SELECTED
+      ? {$or: [
+        {[EventField.LINKS]: {$elemMatch: {source: LinkSource.OS_MAPS, href: {$exists: true, $nin: [null, ""]}}}},
+        {[EventField.GPX_FILE_AWS_FILE_NAME]: {$exists: true, $nin: [null, ""]}}
+      ]}
+      : {[EventField.CONTACT_DETAILS_MEMBER_ID]: memberId};
+    const criteria = {
+      ...sourceCriteria,
+      [GroupEventField.TITLE]: {$exists: true},
+      [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK
+    };
     this.logger.info("selecting extended group events", this.copySource, criteria);
-    this.walksAndEventsService.all({
+    await this.walksAndEventsService.all({
       inputSource: InputSource.MANUALLY_CREATED,
       suppressEventLinking: true,
       dataQueryOptions: {
         criteria,
+        select: {
+          [GroupEventField.TITLE]: 1,
+          [GroupEventField.START_DATE]: 1,
+          [GroupEventField.DISTANCE_MILES]: 1,
+          [GroupEventField.DISTANCE_KM]: 1,
+          [EventField.CONTACT_DETAILS_DISPLAY_NAME]: 1,
+          [EventField.CONTACT_DETAILS_PHONE]: 1,
+          [EventEventField.DATE]: 1,
+          [EventEventField.EVENT_TYPE]: 1
+        },
         sort: {[GroupEventField.START_DATE]: -1}
       }
     })
       .then(events => this.extendedGroupEventQueryService.activeEvents(events))
       .then(events => {
-        this.logger.info("received extended group events", events);
-        this.copyFrom.walkTemplates = events;
-        this.walkTemplateOptions = (events || []).map(event => ({
-          ...event,
-          ngSelectAttributes: {label: this.walkSummaryLabel(event)}
-        }));
-        this.selectedWalkTemplateOption = null;
+        if (request === this.walkTemplateRequest) {
+          this.logger.info("received extended group events", events);
+          this.copyFrom.walkTemplates = events;
+          this.walkTemplateOptions = (events || []).map(event => ({
+            ...event,
+            ngSelectAttributes: {label: this.walkSummaryLabel(event)}
+          }));
+          this.selectedWalkTemplateOption = null;
+        }
       })
       .catch(error => {
-        this.logger.error("Error fetching extended group events", error);
+        if (request === this.walkTemplateRequest) {
+          this.logger.error("Error fetching extended group events", error);
+          this.notify.error({title: "Walks could not be loaded", message: "Please select the walk leader or copy option again to retry."});
+        }
+      })
+      .finally(() => {
+        if (request === this.walkTemplateRequest) {
+          this.loadingWalkTemplates = false;
+          this.changeDetector.markForCheck();
+        }
       });
   }
 
@@ -296,14 +327,16 @@ export class WalkEditCopyFromComponent implements OnInit, DoCheck, OnDestroy {
     const date = this.displayDate.transform(walk?.groupEvent?.start_date_time);
     const leader = walk?.fields?.contactDetails?.displayName || walk?.fields?.contactDetails?.phone || "unknown";
     const title = walk?.groupEvent?.title || "no description";
-    return `${date} led by ${leader} (${title})`;
+    const miles = this.distanceValidation.distanceMiles(walk);
+    const distance = miles > 0 ? ` · ${this.stringUtilsService.pluraliseWithCount(miles, "mile")}` : "";
+    return `${date} led by ${leader} (${title})${distance}`;
   }
 
   async copyDetailsFromPreviousWalk(selectedOption?: ExtendedGroupEventWithLabel | null) {
     try {
     this.logger.info("copyDetailsFromPreviousWalk:copySource:", this.copySource, "selectedOption:", selectedOption);
       const sourceTemplate: ExtendedGroupEvent | null = selectedOption
-        ? this.copyFrom.walkTemplates?.find(template => template.id === selectedOption.id) || selectedOption
+        ? await this.walksAndEventsService.queryById(selectedOption.id)
         : null;
       this.copyFrom.walkTemplate = sourceTemplate || ({} as ExtendedGroupEvent);
       const copyFromEvent: ExtendedGroupEvent = sourceTemplate ? cloneDeep(sourceTemplate) : null;

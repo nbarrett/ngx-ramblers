@@ -289,6 +289,14 @@ describe("RouteFollowService", () => {
     expect(service.formatDistance(KM_PER_MILE * 1000, DistanceUnit.FEET)).toBe("1 mile");
   });
 
+  it("formats edited route totals in the selected unit with useful precision", () => {
+    expect(service.formatDistance(KM_PER_MILE * 1000, DistanceUnit.MILES)).toBe("1 mi");
+    expect(service.formatDistance(KM_PER_MILE * 1000, DistanceUnit.KILOMETRES)).toBe("1.61 km");
+    expect(service.formatDistance(20000, DistanceUnit.MILES)).toBe("12.43 mi");
+    expect(service.formatDistance(80, DistanceUnit.KILOMETRES)).toBe("0.08 km");
+    expect(service.formatDistance(0, DistanceUnit.MILES)).toBe("0 mi");
+  });
+
   it("formats durations under and over an hour", () => {
     expect(service.formatDuration(12)).toBe("12 min");
     expect(service.formatDuration(70)).toBe("1 hr 10 min");
@@ -331,6 +339,55 @@ describe("RouteFollowService", () => {
     ]);
     expect(service.trackPoints().length).toBe(2);
     expect(service.totalMetres()).toBeGreaterThan(0);
+  });
+
+  it("uses an absolute tilt-compensated heading and ignores relative sensor events", () => {
+    service.listenForCompass();
+    window.dispatchEvent(Object.assign(new Event("deviceorientationabsolute"), {alpha: 0, beta: 90, gamma: -90, absolute: true}));
+    expect(service.progress().heading).toBeCloseTo(90, 6);
+    window.dispatchEvent(Object.assign(new Event("deviceorientation"), {alpha: 180, beta: 0, gamma: 0, absolute: false}));
+    expect(service.progress().heading).toBeCloseTo(90, 6);
+    window.dispatchEvent(Object.assign(new Event("deviceorientationabsolute"), {alpha: 0, beta: 0, gamma: 90, absolute: true}));
+    expect(service.progress().heading).toBeCloseTo(90, 6);
+  });
+
+  it("damps noisy compass updates instead of snapping to each sample", () => {
+    service.listenForCompass();
+    window.dispatchEvent(Object.assign(new Event("deviceorientation"), {webkitCompassHeading: 0}));
+    expect(service.progress().heading).toBeCloseTo(0, 6);
+    window.dispatchEvent(Object.assign(new Event("deviceorientation"), {webkitCompassHeading: 20}));
+    const heading = service.progress().heading;
+    expect(heading).toBeGreaterThan(2);
+    expect(heading).toBeLessThan(8);
+  });
+
+  it("accumulates small compass corrections instead of freezing below the publish threshold", () => {
+    service.listenForCompass();
+    window.dispatchEvent(Object.assign(new Event("deviceorientation"), {webkitCompassHeading: 0}));
+    Array.from({length: 40}).forEach(() => window.dispatchEvent(Object.assign(new Event("deviceorientation"), {webkitCompassHeading: 8})));
+    expect(service.progress().heading).toBeGreaterThan(6.5);
+    expect(service.progress().heading).toBeLessThanOrEqual(8);
+  });
+
+  it("keeps compass smoothing continuous across north", () => {
+    service.listenForCompass();
+    window.dispatchEvent(Object.assign(new Event("deviceorientation"), {webkitCompassHeading: 356}));
+    Array.from({length: 40}).forEach(() => window.dispatchEvent(Object.assign(new Event("deviceorientation"), {webkitCompassHeading: 4})));
+    expect(service.progress().heading).toBeGreaterThan(2.5);
+    expect(service.progress().heading).toBeLessThanOrEqual(4);
+  });
+
+  it("distinguishes GPS bearings from compass samples and clears the filter for another session", () => {
+    service.applyPosition({latitude: 51.2, longitude: 1}, 90, 5);
+    expect(service.compassAvailable()).toBe(false);
+    service.listenForCompass();
+    window.dispatchEvent(Object.assign(new Event("deviceorientation"), {webkitCompassHeading: 10}));
+    expect(service.compassAvailable()).toBe(true);
+    service.loadRoute(eastWest, []);
+    expect(service.compassAvailable()).toBe(false);
+    service.listenForCompass();
+    window.dispatchEvent(Object.assign(new Event("deviceorientation"), {webkitCompassHeading: 180}));
+    expect(service.progress().heading).toBe(180);
   });
 
   it("does not emit heading updates while the route is being edited", () => {

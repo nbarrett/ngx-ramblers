@@ -34,6 +34,7 @@ import { Status } from "../../../models/ramblers-upload-audit.model";
                    [clearable]="clearable"
                    [disabled]="disabled"
                    [loading]="loading"
+                   [appendTo]="appendTo"
                    [dropdownPosition]="dropdownPosition"
                    [placeholder]="placeholder"
                    [ngModel]="areaCode"
@@ -57,6 +58,7 @@ export class AreaSelector implements OnInit {
   @Input({transform: booleanAttribute}) showCount = false;
   @Input({transform: booleanAttribute}) showStatus = false;
   @Input() dropdownPosition: DropdownPosition = "bottom";
+  @Input() appendTo: string | null = null;
   @Output() areaChanged: EventEmitter<AvailableAreaWithLabel | null> = new EventEmitter();
   areas: AvailableAreaWithLabel[] = [];
   loading = false;

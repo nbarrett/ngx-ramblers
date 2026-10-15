@@ -1,7 +1,7 @@
 import { WalkDisplayService } from "../../walks/walk-display.service";
 import { Component, inject, Input, OnInit, ViewChild } from "@angular/core";
 import { NgStyle } from "@angular/common";
-import { faFile, faHouse, faImages, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
+import { faPencil, faFile, faHouse, faImages, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { PathSegment } from "../../../models/content-text.model";
@@ -68,7 +68,7 @@ import { StoredValue } from "../../../models/ui-actions";
       </div>
       <div class="card-body">
         <div class="position-relative">
-          @if (display.allow.edits || showSocialPublishing() || showEmailNotification()) {
+          @if (display.canEditEvent(groupEvent) || showSocialPublishing() || showEmailNotification()) {
             <div class="float-end d-flex gap-2">
               @if (showAlbumAction()) {
                 <button type="button" (click)="createPhotoAlbum()" [disabled]="creatingAlbum"
@@ -86,10 +86,11 @@ import { StoredValue } from "../../../models/ui-actions";
                                      [items]="publishMenuItems()"
                                      (itemSelect)="onPublishMenu($event)"/>
               }
-              @if (display.allow.edits) {
-                <input type="submit" value="edit"
-                       (click)="editGroupEvent()" [disabled]="notifyTarget.busy"
-                       tooltip="Edit event" class="btn btn-primary">
+              @if (display.canEditEvent(groupEvent)) {
+                <button type="button" (click)="editGroupEvent()" [disabled]="notifyTarget.busy"
+                        tooltip="Edit event" class="btn btn-primary">
+                  <fa-icon [icon]="faPencil" class="me-2"/>edit
+                </button>
               }
             </div>
           }
@@ -253,6 +254,7 @@ export class GroupEventView implements OnInit {
   public notify: AlertInstance;
   faMapMarkerAlt = faMapMarkerAlt;
   faHouse = faHouse;
+  protected readonly faPencil = faPencil;
   faFile = faFile;
   public links: Links = null;
   public image: BasicMedia;

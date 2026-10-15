@@ -13,6 +13,7 @@ export enum WalkLeadEditAppearance {
 
 export enum WalkLeadEditAction {
   LEAD = "lead",
-  EDIT = "edit"
+  EDIT = "edit",
+  VIEW = "view"
 }
 

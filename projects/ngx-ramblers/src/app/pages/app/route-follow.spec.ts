@@ -1,4 +1,5 @@
 import { ChangeDetectorRef, ElementRef } from "@angular/core";
+import { DistanceUnit } from "../../models/walk.model";
 import { StoredValue } from "../../models/ui-actions";
 import { AppInstallPlatform, RouteFollowLocationError, RouteFollowMode, RouteFollowPoint, RouteFollowPayload, RouteFollowSession, RouteFollowSheetState, RouteFollowSource } from "../../models/route-follow.model";
 import { RouteFollowComponent } from "./route-follow";
@@ -404,6 +405,7 @@ describe("follow sheet handle drag", () => {
     sheet.releasePointerCapture = vi.fn();
     sheet.hasPointerCapture = vi.fn().mockReturnValue(true);
     sheet.getBoundingClientRect = vi.fn().mockImplementation(() => ({height: Number.parseFloat(sheet.style.height) || (view.sheetMinimised ? 100 : 400)}));
+    Object.defineProperty(sheet, "scrollHeight", {configurable: true, get: () => 400});
     sheet.animate = vi.fn().mockReturnValue({cancel: vi.fn(), onfinish: null});
     window.matchMedia = vi.fn().mockReturnValue({matches: false});
     view["followSheet"] = new ElementRef(sheet);
@@ -443,6 +445,26 @@ describe("follow sheet handle drag", () => {
     handleEvent(view, "pointerdown", 400);
     handleEvent(view, "pointermove", 320);
     handleEvent(view, "pointercancel", 320);
+    expect(view.sheetMinimised).toBe(true);
+  });
+
+  it("does not reveal expanded controls when the collapsed drawer is pulled down", () => {
+    const view = handleView();
+    const sheet = document.createElement("section");
+    sheet.setPointerCapture = vi.fn();
+    sheet.releasePointerCapture = vi.fn();
+    sheet.hasPointerCapture = vi.fn().mockReturnValue(true);
+    sheet.getBoundingClientRect = vi.fn().mockImplementation(() => ({height: Number.parseFloat(sheet.style.height) || 100}));
+    Object.defineProperty(sheet, "scrollHeight", {configurable: true, get: () => 400});
+    sheet.animate = vi.fn().mockReturnValue({cancel: vi.fn(), onfinish: null});
+    window.matchMedia = vi.fn().mockReturnValue({matches: false});
+    view["followSheet"] = new ElementRef(sheet);
+    view["changeDetector"] = {detectChanges: vi.fn()} as unknown as ChangeDetectorRef;
+    handleEvent(view, "pointerdown", 400);
+    handleEvent(view, "pointermove", 480);
+    expect(view.sheetMinimised).toBe(true);
+    expect(sheet.style.height).toBe("100px");
+    handleEvent(view, "pointerup", 480);
     expect(view.sheetMinimised).toBe(true);
   });
 
@@ -596,5 +618,36 @@ describe("recording stop and save availability", () => {
     expect(view.recordingActionDisabled).toBe(false);
     view["savingRoute"] = true;
     expect(view.recordingActionDisabled).toBe(true);
+  });
+});
+
+describe("live route edit statistics", () => {
+  it("remembers the selected unit", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["uiActions"] = {saveValueFor: vi.fn()} as unknown as typeof view["uiActions"];
+    view.distanceUnitChanged(DistanceUnit.KILOMETRES);
+    expect(view["distanceUnit"]).toBe(DistanceUnit.KILOMETRES);
+    expect(view["uiActions"].saveValueFor).toHaveBeenCalledWith(StoredValue.DISTANCE_UNIT, DistanceUnit.KILOMETRES);
+  });
+
+  it("uses the edited line for distance and estimated time even when editing a recording", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["progress"] = {mode: RouteFollowMode.EDITING, remainingMetres: 100, remainingMinutes: 2} as typeof view["progress"];
+    view["payload"] = {source: RouteFollowSource.RECORDING} as RouteFollowPayload;
+    const track = {metres: 1600};
+    view["followService"] = {
+      totalMetres: () => track.metres,
+      minutesFor: (metres: number) => metres / 80,
+      formatDistance: (metres: number) => `${metres} metres`,
+      formatDuration: (minutes: number) => `${minutes} minutes`
+    } as unknown as typeof view["followService"];
+    expect(view.remainingDistance).toBe("1600 metres");
+    expect(view.remainingTime).toBe("20 minutes");
+    track.metres = 2400;
+    expect(view.remainingDistance).toBe("2400 metres");
+    expect(view.remainingTime).toBe("30 minutes");
+    track.metres = 0;
+    expect(view.remainingDistance).toBe("0 metres");
+    expect(view.remainingTime).toBe("0 minutes");
   });
 });

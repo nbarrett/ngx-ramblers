@@ -8,13 +8,21 @@
     display: flex
     width: 100%
     min-width: 0
-    justify-content: flex-end
-    overflow-x: scroll
+    justify-content: flex-start
+    overflow-x: auto
     overflow-y: hidden
     -webkit-overflow-scrolling: touch
     touch-action: pan-x
     scrollbar-width: none
     -ms-overflow-style: none
+    cursor: grab
+    user-select: none
+  .navbar-content-shell > div:not(.mobile-header-actions)
+    flex: 0 0 auto
+    min-width: 100%
+    width: max-content !important
+  .navbar-content-shell:active
+    cursor: grabbing
   .navbar-content-shell::-webkit-scrollbar
     display: none
     width: 0
