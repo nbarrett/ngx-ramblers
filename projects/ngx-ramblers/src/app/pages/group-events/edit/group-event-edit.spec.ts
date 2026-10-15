@@ -151,3 +151,13 @@ describe("GroupEventEdit URL sync", () => {
     });
   });
 });
+
+describe("event organiser selection", () => {
+  it("leaves the organiser unchanged when the editor is not an admin", () => {
+    const view = Object.create(GroupEventEdit.prototype) as GroupEventEdit;
+    view.groupEvent = {fields: {contactDetails: {memberId: "organiser-one", displayName: "Alex Reed"}}} as ExtendedGroupEvent;
+    view.display = {allow: {admin: false}} as typeof view.display;
+    view.selectMemberContactDetails("another-member");
+    expect(view.groupEvent.fields.contactDetails).toEqual({memberId: "organiser-one", displayName: "Alex Reed"});
+  });
+});

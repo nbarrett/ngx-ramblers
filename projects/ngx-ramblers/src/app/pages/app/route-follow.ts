@@ -1,5 +1,7 @@
 import { SwipeAxis } from "../../models/swipe.model";
 import { SwipeableDirective } from "../../modules/common/swipe/swipeable.directive";
+import { SectionToggle } from "../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../models/section-toggle.model";
 import { DistanceUnit } from "../../models/walk.model";
 import { routeVisibleToMember } from "../../functions/route-access";
 import { generateUid } from "../../functions/numbers";
@@ -88,6 +90,7 @@ import {
   FollowMapScaleBar,
   compassHeadingLabel,
   compassTapeMarks,
+  followPointerRotation,
   routeAlignedMapHeading,
   FollowPointerSize,
   FOLLOW_POINTER_SIZES,
@@ -216,24 +219,26 @@ import { RouterHistoryService } from "../../services/router-history.service";
               }
             </div>
             <div class="follow-hud">
-              @if (compassHeadingText) {
-                <div class="follow-tape-heading">{{ compassHeadingText }}</div>
-              }
-              <div class="follow-tape" aria-hidden="true">
-                <div class="follow-tape-window">
-                  @for (mark of tapeMarks; track mark.degree + '-' + mark.offsetPx) {
-                    <span class="follow-tape-mark" [style.left]="'calc(50% + ' + mark.offsetPx + 'px)'">
-                      <span class="follow-tape-tick"
-                            [class.is-major]="mark.major"
-                            [class.is-medium]="mark.medium"></span>
-                      @if (mark.label) {
-                        <span class="follow-tape-label">{{ mark.label }}</span>
-                      }
-                    </span>
-                  }
-                  <span class="follow-tape-needle"></span>
+              @if (progress?.mode !== RouteFollowMode.EDITING) {
+                @if (compassHeadingText) {
+                  <div class="follow-tape-heading">{{ compassHeadingText }}</div>
+                }
+                <div class="follow-tape" aria-hidden="true">
+                  <div class="follow-tape-window">
+                    @for (mark of tapeMarks; track mark.degree + '-' + mark.offsetPx) {
+                      <span class="follow-tape-mark" [style.left]="'calc(50% + ' + mark.offsetPx + 'px)'">
+                        <span class="follow-tape-tick"
+                              [class.is-major]="mark.major"
+                              [class.is-medium]="mark.medium"></span>
+                        @if (mark.label) {
+                          <span class="follow-tape-label">{{ mark.label }}</span>
+                        }
+                      </span>
+                    }
+                    <span class="follow-tape-needle"></span>
+                  </div>
                 </div>
-              </div>
+              }
               @if (gridReference) {
                 <div class="follow-tape-grid">{{ gridReference }}</div>
               }
@@ -545,7 +550,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
               <span>{{ remainingDistance }}</span>
             </button>
           }
-          @if (payload?.source !== RouteFollowSource.RECORDING && !creatingLine && (hasElevation || (sheetMinimised && progress?.mode !== RouteFollowMode.EDITING && progress?.mode !== RouteFollowMode.RECORDING))) {
+          @if (!creatingLine && sheetMinimised && progress?.mode !== RouteFollowMode.EDITING && (hasLine || recordingSession)) {
           <div class="follow-sheet-peek"
                (pointerdown)="onSheetHandlePointerDown($event)"
                (pointermove)="onSheetPointerMove($event)"
@@ -553,22 +558,14 @@ import { RouterHistoryService } from "../../services/router-history.service";
                (pointercancel)="onSheetPointerUp($event)"
                (click)="onSheetHandleClick()">
             <div class="follow-peek-stats">
-              @if (sheetMinimised && hasLine && progress?.mode !== RouteFollowMode.EDITING) {
-                <div class="follow-peek-stat">
-                  <span>{{ recordingSession ? "Recorded" : "Remaining" }}</span>
-                  <strong>{{ remainingDistance }}</strong>
-                </div>
-                <div class="follow-peek-stat">
-                  <span>{{ recordingSession ? "Elapsed" : "Time left" }}</span>
-                  <strong>{{ remainingTime }}</strong>
-                </div>
-              }
-              @if (hasElevation && sheetMinimised) {
-                <div class="follow-peek-stat">
-                  <span>Elevation</span>
-                  <strong>{{ currentElevation }}</strong>
-                </div>
-              }
+              <div class="follow-peek-stat">
+                <span>{{ recordingSession ? "Elevation" : "Remaining" }}</span>
+                <strong>{{ recordingSession ? currentElevation : remainingDistance }}</strong>
+              </div>
+              <div class="follow-peek-stat">
+                <span>{{ recordingSession ? "Duration" : "Time left" }}</span>
+                <strong aria-live="polite">{{ remainingTime }}</strong>
+              </div>
             </div>
           </div>
           }
@@ -649,22 +646,29 @@ import { RouterHistoryService } from "../../services/router-history.service";
           @if (loginPrompt) {
             <p class="follow-library-note">Editing and recording are for walk leaders and admins. <a [href]="loginUrl()">Log in</a> to see those options here.</p>
           }
-          @if ((hasLine || recordingSession) && progress?.mode !== RouteFollowMode.EDITING) {
-            <div class="follow-stats">
+          @if (hasLine || recordingSession) {
+            <div class="follow-stats" [class.follow-edit-stats]="progress?.mode === RouteFollowMode.EDITING">
               <div class="follow-stat">
-                <span aria-live="polite">{{ recordingSession ? (progress?.mode === RouteFollowMode.PAUSED ? "Recorded · paused" : "Distance recorded") : "Remaining distance" }}</span>
-                <strong>{{ remainingDistance }}</strong>
+                <span aria-live="polite">{{ progress?.mode === RouteFollowMode.EDITING ? "Distance" : recordingSession ? (progress?.mode === RouteFollowMode.PAUSED ? "Recorded · paused" : "Distance recorded") : "Remaining distance" }}</span>
+                <strong aria-live="polite">{{ remainingDistance }}</strong>
               </div>
               <div class="follow-stat">
-                <span>{{ recordingSession ? "Elapsed time" : "Remaining time" }}</span>
-                <strong>{{ remainingTime }}</strong>
+                <span>{{ progress?.mode === RouteFollowMode.EDITING ? "Estimated time" : recordingSession ? "Elapsed time" : "Remaining time" }}</span>
+                <strong aria-live="polite">{{ remainingTime }}</strong>
               </div>
-              @if (hasElevation) {
+              @if (hasElevation && progress?.mode !== RouteFollowMode.EDITING) {
                 <div class="follow-stat">
                   <span>Current elevation</span>
                   <strong>{{ currentElevation }}</strong>
                 </div>
               }
+            </div>
+          }
+          @if (progress?.mode === RouteFollowMode.EDITING) {
+            <div class="mb-3 text-center">
+              <app-section-toggle [tabs]="distanceUnitTabs" [selectedTab]="distanceUnit"
+                                  [queryParamKey]="StoredValue.DISTANCE_UNIT"
+                                  (selectedTabChange)="distanceUnitChanged($event)"/>
             </div>
           }
           @if (progress?.mode === RouteFollowMode.PREVIEW) {
@@ -790,6 +794,13 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 <fa-icon [icon]="faXmark"/>
                 Cancel
               </button>
+              @if (canEditRoute && payload.source !== RouteFollowSource.RECORDING) {
+                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="saveRoute(true)" [disabled]="savingRoute || !hasLine"
+                        tooltip="Save a separate route in Maps, keeping the original route" [isDisabled]="!tooltipsEnabled" placement="top" container=".follow-app">
+                  <fa-icon [icon]="faFloppyDisk"/>
+                  Save as new
+                </button>
+              }
               <button class="btn btn-primary follow-main-btn" type="button" (click)="saveRoute()" [disabled]="savingRoute || !hasLine">
                 <fa-icon [icon]="faFloppyDisk"/>
                 {{ savingRoute ? "Saving" : "Save" }}
@@ -865,7 +876,7 @@ import { RouterHistoryService } from "../../services/router-history.service";
     </div>
   `,
   styleUrls: ["./route-follow.sass"],
-  imports: [SwipeableDirective, CdkTextareaAutosize, MapLoadingOverlay, RouteAuditComponent, RouteElevationComponent, RouteDirectionsEditor, WalkGradeSelect, WalkGradingComponent, FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
+  imports: [SectionToggle, SwipeableDirective, CdkTextareaAutosize, MapLoadingOverlay, RouteAuditComponent, RouteElevationComponent, RouteDirectionsEditor, WalkGradeSelect, WalkGradingComponent, FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
 })
 export class RouteFollowComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowComponent", NgxLoggerLevel.ERROR);
@@ -937,6 +948,14 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected saveProgress = "";
   protected persistMessage = "";
   protected persistError: string | null = null;
+  protected distanceUnit = DistanceUnit.MILES;
+  protected readonly distanceUnitTabs: SectionToggleTab[] = [
+    {value: DistanceUnit.MILES, label: "Miles"},
+    {value: DistanceUnit.KILOMETRES, label: "Kilometres"}
+  ];
+  protected readonly StoredValue = StoredValue;
+  private loadedRouteSelection: string | null = null;
+  private saveAsNewRecordingId: string | null = null;
   protected startLocationMessage: string | null = null;
   protected startingFollow = false;
   protected savingRoute = false;
@@ -1076,6 +1095,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private pointerMarker: L.Marker | null = null;
 
   ngOnInit(): void {
+    const storedDistanceUnit = this.uiActions.initialValueFor(StoredValue.DISTANCE_UNIT, DistanceUnit.MILES);
+    this.distanceUnit = storedDistanceUnit === DistanceUnit.KILOMETRES ? DistanceUnit.KILOMETRES : DistanceUnit.MILES;
     this.followPanelWide = this.desktopFollowPanel();
     this.refreshTape();
     this.appearance = this.appShell.appearance();
@@ -1110,16 +1131,29 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       const routeKey = routeNumber
         ? String(routeNumber)
         : followRouteIdFromQuery(queryParams.get(StoredValue.ROUTE)) || queryParams.get(StoredValue.OS_MAPS_ROUTE_ID);
-      void this.load(
-        queryParams.get(StoredValue.FOLLOW_PATH),
-        queryParams.get(StoredValue.ROUTE_ID),
-        queryParams.get(StoredValue.WALK_ID),
-        queryParams.get(StoredValue.RAMBLERS_SLUG),
-        routeKey,
-        Number(queryParams.get(StoredValue.TRACK)) || 0,
-        viaFromQuery(queryParams.get(StoredValue.VIA)),
-        queryParams.get(StoredValue.RECORD_ROUTE)
-      );
+      const selection = JSON.stringify([
+        pathParams.get(RouteParam.ROUTE_NUMBER),
+        ...[StoredValue.FOLLOW_PATH, StoredValue.ROUTE_ID, StoredValue.WALK_ID, StoredValue.RAMBLERS_SLUG,
+          StoredValue.ROUTE, StoredValue.OS_MAPS_ROUTE_ID, StoredValue.TRACK, StoredValue.VIA, StoredValue.RECORD_ROUTE]
+          .map(key => queryParams.get(key))
+      ]);
+      const unit = queryParams.get(StoredValue.DISTANCE_UNIT);
+      if (unit === DistanceUnit.MILES || unit === DistanceUnit.KILOMETRES) {
+        this.distanceUnit = unit;
+      }
+      if (selection !== this.loadedRouteSelection) {
+        this.loadedRouteSelection = selection;
+        void this.load(
+          queryParams.get(StoredValue.FOLLOW_PATH),
+          queryParams.get(StoredValue.ROUTE_ID),
+          queryParams.get(StoredValue.WALK_ID),
+          queryParams.get(StoredValue.RAMBLERS_SLUG),
+          routeKey,
+          Number(queryParams.get(StoredValue.TRACK)) || 0,
+          viaFromQuery(queryParams.get(StoredValue.VIA)),
+          queryParams.get(StoredValue.RECORD_ROUTE)
+        );
+      }
     }));
   }
 
@@ -1193,8 +1227,15 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.persistFollowSession(true);
   }
 
+  distanceUnitChanged(unit: string): void {
+    this.distanceUnit = unit === DistanceUnit.KILOMETRES ? DistanceUnit.KILOMETRES : DistanceUnit.MILES;
+    this.uiActions.saveValueFor(StoredValue.DISTANCE_UNIT, this.distanceUnit);
+  }
+
   get remainingDistance(): string {
-    if (!this.hasLine && !this.progress?.position) {
+    if (this.progress?.mode === RouteFollowMode.EDITING) {
+      return this.followService.formatDistance(this.followService.totalMetres(), this.distanceUnit);
+    } else if (!this.hasLine && !this.progress?.position) {
       return "—";
     } else {
       return this.followService.formatDistance(
@@ -1204,7 +1245,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   get remainingTime(): string {
-    if (this.recordingSession) {
+    if (this.progress?.mode === RouteFollowMode.EDITING) {
+      return this.followService.formatDuration(this.followService.minutesFor(this.followService.totalMetres()));
+    } else if (this.recordingSession) {
       const points = this.followService.trackPoints();
       const first = points[0]?.recordedAt;
       const last = points.at(-1)?.recordedAt;
@@ -1792,10 +1835,14 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (Math.abs(deltaY) > 4) {
       this.sheetDrag.moved = true;
       const sheet = this.followSheet?.nativeElement;
-      if (sheet) {
+      const pullingDown = deltaY > 0 && this.sheetDragLayout.state === RouteFollowSheetState.MINIMISED;
+      if (sheet && pullingDown) {
+        sheet.style.height = `${this.sheetDragLayout.collapsedHeight}px`;
+      } else if (sheet) {
         this.sheetState = RouteFollowSheetState.EXPANDED;
         this.changeDetector.detectChanges();
         const height = Math.max(this.sheetDragLayout.collapsedHeight, Math.min(this.sheetDragLayout.expandedHeight, this.sheetDragLayout.startHeight - deltaY));
+        sheet.style.overflow = "hidden";
         sheet.style.height = `${height}px`;
       }
     }
@@ -1848,16 +1895,19 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private prepareSheetDrag(): void {
     const sheet = this.followSheet?.nativeElement;
     if (sheet && !this.followPanelWide) {
-      const startHeight = sheet.getBoundingClientRect().height;
+      const initial = this.sheetDragLayout.state;
       this.sheetAnimation?.cancel();
       sheet.style.height = "";
+      const startHeight = sheet.getBoundingClientRect().height;
       this.sheetState = RouteFollowSheetState.MINIMISED;
       this.changeDetector.detectChanges();
       const collapsedHeight = sheet.getBoundingClientRect().height;
+      sheet.style.overflow = "hidden";
+      sheet.style.height = `${collapsedHeight}px`;
       this.sheetState = RouteFollowSheetState.EXPANDED;
       this.changeDetector.detectChanges();
-      const expandedHeight = sheet.getBoundingClientRect().height;
-      this.sheetState = this.sheetDragLayout.state;
+      const expandedHeight = Math.max(collapsedHeight, sheet.scrollHeight);
+      this.sheetState = initial;
       this.changeDetector.detectChanges();
       this.sheetDragLayout = {...this.sheetDragLayout, startHeight, collapsedHeight, expandedHeight};
       sheet.style.height = `${startHeight}px`;
@@ -1872,6 +1922,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.sheetState = state;
     if (sheet && !this.followPanelWide) {
       sheet.style.height = "";
+      sheet.style.overflow = "";
       this.changeDetector.detectChanges();
       const endHeight = sheet.getBoundingClientRect().height;
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -2325,7 +2376,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
   }
 
-  async saveRoute(): Promise<void> {
+  async saveRoute(asNew = false): Promise<void> {
     const recovered = await this.followService.flushRecording();
     const recorded = this.followService.trackPoints();
     if (!recovered) {
@@ -2347,8 +2398,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
           this.followService.pause();
           this.persistFollowSession(true);
         }
-        const standalone = this.payload.source === RouteFollowSource.RECORDING;
-        if (standalone) {
+        const standalone = asNew || this.payload.source === RouteFollowSource.RECORDING;
+        if (asNew) {
+          this.saveAsNewRecordingId = this.saveAsNewRecordingId || generateUid();
+          this.payload = await this.routeSave.saveAsNew(this.payload, recorded, this.saveAsNewRecordingId);
+          this.saveAsNewRecordingId = null;
+        } else if (standalone) {
           this.payload = await this.routeSave.saveStandalone(this.payload, recorded);
         } else {
           const savedFile = await this.routeSave.save(this.payload, recorded);
@@ -2576,6 +2631,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       return vertexIndex === index ? {latitude: latLng.lat, longitude: latLng.lng} : vertex;
     });
     this.syncEditLineFromVertices();
+    this.followService.replaceTrack(this.editVertices);
   }
 
   private onVertexDragEnd(index: number): void {
@@ -2949,6 +3005,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   private async load(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null, trackIndex = 0, via: number[] = [], recordingId: string | null = null): Promise<void> {
     const sequence = ++this.loadSequence;
+    this.saveAsNewRecordingId = null;
     this.startLocationMessage = null;
     this.mapTiles.allowCachedOsTiles(false);
     this.restoredMapView = null;
@@ -3300,17 +3357,18 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   private syncPointer(latitude: number, longitude: number, heading: number): void {
+    const rotation = followPointerRotation(heading || 0, this.appShell.platform(), this.followService.compassAvailable());
     if (this.pointerMarker) {
       this.pointerMarker.setLatLng([latitude, longitude]);
       const chevron = this.pointerMarker.getElement()?.querySelector(".follow-location-chevron") as HTMLElement | null;
       if (chevron) {
-        chevron.style.transform = `rotate(${heading || 0}deg)`;
+        chevron.style.transform = `rotate(${rotation}deg)`;
       } else {
-        this.pointerMarker.setIcon(this.markerStyle.followLocationIcon(heading, this.pointerSize));
+        this.pointerMarker.setIcon(this.markerStyle.followLocationIcon(rotation, this.pointerSize));
       }
     } else if (this.mapRef) {
       this.pointerMarker = L.marker([latitude, longitude], {
-        icon: this.markerStyle.followLocationIcon(heading, this.pointerSize),
+        icon: this.markerStyle.followLocationIcon(rotation, this.pointerSize),
         zIndexOffset: 1200,
         keyboard: false
       });

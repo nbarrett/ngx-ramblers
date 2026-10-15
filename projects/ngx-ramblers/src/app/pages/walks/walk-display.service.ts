@@ -462,6 +462,8 @@ export class WalkDisplayService {
   private resolveWalkAccessMode(walk: ExtendedGroupEvent): WalkAccessMode {
     if (!this.memberLoginService.memberLoggedIn()) {
       return WalksReferenceService.walkAccessModes.view;
+    } else if (walk?.groupEvent?.item_type === RamblersEventType.GROUP_EVENT) {
+      return this.allowEdits(walk) ? {...WalksReferenceService.walkAccessModes.edit, walkWritable: true} : WalksReferenceService.walkAccessModes.view;
     } else if (this.awaitingLeader(walk)) {
       return {...WalksReferenceService.walkAccessModes.lead, walkWritable: true};
     } else if (this.memberLoginService.allowWalkAdminEdits() || this.loggedInMemberIsLeadingWalk(walk)) {
@@ -714,7 +716,8 @@ export class WalkDisplayService {
   }
 
   allowEdits(walk: ExtendedGroupEvent) {
-    return this.loggedInMemberIsLeadingWalk(walk) || this.allowAdminEdits();
+    return this.loggedInMemberIsLeadingWalk(walk)
+      || (this.isWalk(walk) ? this.allowAdminEdits() : this.memberLoginService.allowSocialAdminEdits());
   }
 
   allowAdminEdits() {

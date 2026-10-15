@@ -15,6 +15,7 @@ describe("View as availability and shortcut", () => {
   const originalUrl = window.location.href;
 
   beforeEach(() => {
+    window.sessionStorage.clear();
     state.actor = {memberId: actorId, memberAdmin: true, viewAsMember: true};
     state.expired = false;
     TestBed.configureTestingModule({providers: [
@@ -72,6 +73,39 @@ describe("View as availability and shortcut", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", {altKey: true, shiftKey: true, code: "KeyV"}));
     expect(service.barVisible()).toBe(true);
     expect(service.viewedCookie()?.memberId).toBe(targetId);
+  });
+
+  it("keeps the selected person and role after navigation and a service restart", async () => {
+    const service = TestBed.inject(ViewAsService);
+    const url = new URL(window.location.href);
+    url.searchParams.set(StoredValue.VIEW_AS, targetId);
+    url.searchParams.set(StoredValue.VIEW_AS_ROLE, "chair");
+    window.history.replaceState(null, "", url);
+    await service.hydrateFromLocation();
+    url.searchParams.delete(StoredValue.VIEW_AS);
+    url.searchParams.delete(StoredValue.VIEW_AS_ROLE);
+    window.history.replaceState(null, "", url);
+    expect(service.memberIdFromLocation()).toBe(targetId);
+    expect(service.roleTypeFromLocation()).toBe("chair");
+    const restarted = TestBed.runInInjectionContext(() => new ViewAsService());
+    await restarted.hydrateFromLocation();
+    expect(restarted.viewedCookie()?.memberId).toBe(targetId);
+    expect(restarted.roleTypeFromLocation()).toBe("chair");
+    restarted.ngOnDestroy();
+  });
+
+  it("does not restore another administrator's selected profile", async () => {
+    const service = TestBed.inject(ViewAsService);
+    const url = new URL(window.location.href);
+    url.searchParams.set(StoredValue.VIEW_AS, targetId);
+    window.history.replaceState(null, "", url);
+    await service.hydrateFromLocation();
+    url.searchParams.delete(StoredValue.VIEW_AS);
+    window.history.replaceState(null, "", url);
+    state.actor.memberId = "cccccccccccccccccccccccc";
+    await service.hydrateFromLocation();
+    expect(service.memberIdFromLocation()).toBeNull();
+    expect(service.viewedCookie()).toBeNull();
   });
 
   it("stops returning the simulated identity as soon as the real session loses access", async () => {

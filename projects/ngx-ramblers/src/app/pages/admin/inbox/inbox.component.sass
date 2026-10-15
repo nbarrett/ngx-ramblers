@@ -550,6 +550,26 @@
   overflow: auto
   padding-right: 0.75rem
 
+:host(.inbox-reading) .inbox-detail
+  overflow-x: hidden
+  overflow-y: auto
+  touch-action: pan-y
+  scrollbar-gutter: stable
+  scrollbar-width: auto
+  scrollbar-color: $ramblers-colour-granite $ramblers-colour-grey
+  overscroll-behavior: contain
+
+:host(.inbox-reading) .inbox-detail::-webkit-scrollbar
+  width: 12px
+
+:host(.inbox-reading) .inbox-detail::-webkit-scrollbar-track
+  background: $ramblers-colour-grey
+
+:host(.inbox-reading) .inbox-detail::-webkit-scrollbar-thumb
+  background: $ramblers-colour-granite
+  border: 3px solid $ramblers-colour-grey
+  border-radius: var(--bs-border-radius)
+
 :host(.inbox-reading)
   display: flex
   flex-direction: column
@@ -562,9 +582,40 @@
   min-height: 0
   overflow: visible
   overscroll-behavior: contain
+  grid-template-columns: minmax(0, 1fr) !important
+  grid-template-rows: minmax(0, 1fr) !important
 
 :host(.inbox-reading) .inbox-pane-messages
+  flex: 1 1 auto !important
+  width: 100%
+  min-height: 0
+  overflow: hidden
   overscroll-behavior: contain
+
+:host(.inbox-reading) .inbox-nav,
+:host(.inbox-reading) .inbox-shell > app-resizer
+  display: none
+
+:host(.inbox-reading) .inbox-shell
+  padding-top: 0
+
+:host(.inbox-reading) .inbox-toolbar-actions
+  flex-wrap: wrap
+
+:host(.inbox-reading) .inbox-detail-header
+  flex: 0 0 auto
+  min-width: 0
+  overflow-wrap: anywhere
+
+:host(.inbox-reading) .inbox-sticky-actions
+  display: flex
+  flex-direction: column
+  gap: var(--space-2)
+  padding: var(--space-2) 0 max(var(--space-2), env(safe-area-inset-bottom))
+  border-top: 1px solid var(--bs-border-color)
+
+:host(.inbox-reading) .inbox-sticky-actions .btn
+  flex: 1 1 auto
 
 .inbox-sticky-actions
   display: none

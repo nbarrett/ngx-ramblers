@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { Component, ElementRef, HostListener, inject, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { UrlService } from "../../../services/url.service";
@@ -11,7 +11,13 @@ import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
 @Component({
     selector: "app-navbar-content",
     template: `
-      <div class="navbar-content-shell">
+      <div class="navbar-content-shell"
+           #shell
+           (pointerdown)="onNavPointerDown($event)"
+           (pointermove)="onNavPointerMove($event)"
+           (pointerup)="onNavPointerUp($event)"
+           (pointercancel)="onNavPointerUp($event)"
+           (click)="onNavClick($event)">
         <div [class]="'ramblers-list-' + (systemConfig?.header?.navBar?.class || '') + ' ' + containerClasses()">
           <ul [class]="listClasses()">
             <app-page-navigator/>
@@ -36,6 +42,8 @@ export class NavbarContentComponent  implements OnInit, OnDestroy {
   urlService = inject(UrlService);
   public systemConfig: SystemConfig;
   private subscriptions: Subscription[] = [];
+  @ViewChild("shell") private shell: ElementRef<HTMLDivElement> | null = null;
+  private navDrag = {active: false, moved: false, startX: 0, startScroll: 0};
 
   ngOnInit(): void {
     this.logger.info("NavbarContentComponent created");
@@ -47,6 +55,49 @@ export class NavbarContentComponent  implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  onNavPointerDown(event: PointerEvent): void {
+    const el = this.shell?.nativeElement;
+    if (el && event.button === 0 && event.pointerType !== "touch" && el.scrollWidth > el.clientWidth) {
+      this.navDrag = {active: true, moved: false, startX: event.clientX, startScroll: el.scrollLeft};
+    }
+  }
+
+  onNavPointerMove(event: PointerEvent): void {
+    const el = this.shell?.nativeElement;
+    if (el && this.navDrag.active) {
+      const delta = event.clientX - this.navDrag.startX;
+      if (Math.abs(delta) > 4) {
+        this.navDrag.moved = true;
+        el.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      }
+      el.scrollLeft = this.navDrag.startScroll - delta;
+    }
+  }
+
+  onNavClick(event: MouseEvent): void {
+    if (this.navDrag.moved) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.navDrag.moved = false;
+    }
+  }
+
+  @HostListener("document:pointerup", ["$event"])
+  @HostListener("document:pointercancel", ["$event"])
+  onNavPointerUp(event: PointerEvent): void {
+    const el = this.shell?.nativeElement;
+    if (el && this.navDrag.active) {
+      if (this.navDrag.moved) {
+        event.preventDefault();
+      }
+      this.navDrag.active = false;
+      if (el.hasPointerCapture(event.pointerId)) {
+        el.releasePointerCapture(event.pointerId);
+      }
+    }
   }
 
   containerClasses(): string {

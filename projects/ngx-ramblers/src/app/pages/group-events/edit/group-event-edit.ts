@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { faCopy } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faEnvelope, faFloppyDisk, faFolderOpen, faPencil, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { cloneDeep, first, isNull, isString, values } from "es-toolkit/compat";
 import { PathSegment } from "../../../models/content-text.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -73,7 +73,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                           <div class="col-sm-7">
                             <div class="form-group">
                               <label for="title">Title</label>
-                              <input [disabled]="!display.allow.edits"
+                              <input [disabled]="!display.canEditEvent(groupEvent)"
                                      (change)="onTitleChange()"
                                      [(ngModel)]="groupEvent.groupEvent.title" type="text"
                                      class="form-control input-sm"
@@ -113,7 +113,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                           </div>
                           <div class="col-auto">
                             <div class="form-group" app-time-picker id="start-time" label="Start Time"
-                                 [disabled]="!display.allow.edits"
+                                 [disabled]="!display.canEditEvent(groupEvent)"
                                  [value]="groupEvent?.groupEvent?.start_date_time"
                                  (timeChange)="onStartDateTimeChange($event)">
                             </div>
@@ -129,7 +129,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                           </div>
                           <div class="col-auto">
                             <div class="form-group" app-time-picker id="end-time" label="End Time"
-                                 [disabled]="!display.allow.edits"
+                                 [disabled]="!display.canEditEvent(groupEvent)"
                                  [value]="groupEvent?.groupEvent?.end_date_time"
                                  (timeChange)="onEndDateTimeChange($event)">
                             </div>
@@ -149,7 +149,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                           <div class="col-auto">
                             <div class="form-check mb-2">
                               <input [(ngModel)]="groupEvent.fields.bookingsEnabled"
-                                     [disabled]="!display.allow.edits"
+                                     [disabled]="!display.canEditEvent(groupEvent)"
                                      type="checkbox"
                                      class="form-check-input"
                                      id="event-bookings-enabled">
@@ -160,7 +160,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                             <div class="form-group">
                               <label for="event-max-capacity">Max Capacity</label>
                               <input [(ngModel)]="groupEvent.fields.maxCapacity"
-                                     [disabled]="!display.allow.edits"
+                                     [disabled]="!display.canEditEvent(groupEvent)"
                                      type="number" min="1"
                                      class="form-control input-sm"
                                      id="event-max-capacity"
@@ -171,7 +171,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                             <div class="form-group">
                               <label for="event-max-group-size">Max Per Booking</label>
                               <input [(ngModel)]="groupEvent.fields.maxGroupSize"
-                                     [disabled]="!display.allow.edits"
+                                     [disabled]="!display.canEditEvent(groupEvent)"
                                      type="number" min="1" max="20"
                                      class="form-control input-sm"
                                      id="event-max-group-size"
@@ -182,7 +182,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                             <div class="form-group">
                               <label for="event-member-priority-days">Member Priority (days before event)</label>
                               <input [(ngModel)]="groupEvent.fields.memberPriorityDays"
-                                     [disabled]="!display.allow.edits"
+                                     [disabled]="!display.canEditEvent(groupEvent)"
                                      type="number" min="0" max="365"
                                      class="form-control input-sm"
                                      id="event-member-priority-days"
@@ -198,8 +198,8 @@ import { ConfirmType } from "../../../models/ui-actions";
                       <div class="col-sm-12">
                         <app-venue
                           [event]="groupEvent"
-                          [canEdit]="display.allow.edits"
-                          [inputDisabled]="!display.allow.edits"
+                          [canEdit]="display.canEditEvent(groupEvent)"
+                          [inputDisabled]="!display.canEditEvent(groupEvent)"
                           [showWalkLocationPrompts]="false"
                           [helpName]="'group-event-venue-help'"
                           [helpCategory]="'admin'"
@@ -217,7 +217,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                             <app-tiptap-markdown-editor
                               id="longer-description"
                               [value]="groupEvent.groupEvent.description || ''"
-                              [editable]="display.allow.edits"
+                              [editable]="display.canEditEvent(groupEvent)"
                               placeholder="Enter event description"
                               (valueChange)="descriptionChanged($event)"/>
                           </div>
@@ -245,7 +245,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                       <div class="col-sm-12">
                         <div class="form-group">
                           <label for="contact-member">Event Organiser</label>
-                          <select [disabled]="!display.allow.edits" (ngModelChange)="selectMemberContactDetails($event)"
+                          <select [disabled]="!display.allow.admin" (ngModelChange)="selectMemberContactDetails($event)"
                                   class="form-control input-sm"
                                   [(ngModel)]="groupEvent.fields.contactDetails.memberId">
                             <option value="">(no event organiser yet)</option>
@@ -259,20 +259,20 @@ import { ConfirmType } from "../../../models/ui-actions";
                         </div>
                         <div class="form-group">
                           <label for="contact-display-name">Display Name</label>
-                          <input [disabled]="!display.allow.edits"
+                          <input [disabled]="!display.canEditEvent(groupEvent)"
                                  [(ngModel)]="groupEvent.fields.contactDetails.displayName"
                                  type="text" class="form-control input-sm"
                                  id="contact-display-name"/>
                         </div>
                         <div class="form-group">
                           <label for="contact-phone">Contact Phone</label>
-                          <input [disabled]="!display.allow.edits" [(ngModel)]="groupEvent.fields.contactDetails.phone"
+                          <input [disabled]="!display.canEditEvent(groupEvent)" [(ngModel)]="groupEvent.fields.contactDetails.phone"
                                  type="text" class="form-control input-sm" id="contact-phone"
                                  placeholder="Enter contact phone here"/>
                         </div>
                         <div class="form-group">
                           <label for="contact-email">Contact Email</label>
-                          <input [disabled]="!display.allow.edits" [(ngModel)]="groupEvent.fields.contactDetails.email"
+                          <input [disabled]="!display.canEditEvent(groupEvent)" [(ngModel)]="groupEvent.fields.contactDetails.email"
                                  type="text" class="form-control input-sm" id="contact-email"
                                  placeholder="Enter contact email here"/>
                         </div>
@@ -287,21 +287,20 @@ import { ConfirmType } from "../../../models/ui-actions";
                      [rootFolder]="RootFolder.socialEventsImages"
                      [extendedGroupEvent]="groupEvent"
                      [config]="config"/>
-                @if (display.allow.edits) {
+                @if (display.canEditEvent(groupEvent)) {
                   <tab heading="{{GroupEventEditTab.ATTACHMENT}}"
                        [active]="tabActive(GroupEventEditTab.ATTACHMENT)"
                        (selectTab)="onTabSelect(GroupEventEditTab.ATTACHMENT)">
                     <div class="img-thumbnail thumbnail-admin-edit">
                       <div class="row">
                         <div class="col-md-12">
-                          <input type="submit" [disabled]="inputDisabled()"
-                                 value="Browse for attachment"
+                          <button type="button" [disabled]="inputDisabled()"
                                  (click)="browseToFile(fileElement)"
-                                 class="btn btn-primary mb-10"/>
+                                 class="btn btn-primary mb-10"><fa-icon [icon]="faFolderOpen" class="me-2"/>Browse for attachment</button>
                           @if (groupEvent?.fields?.attachment) {
-                            <input [disabled]="inputDisabled()" type="submit"
-                                   class="btn btn-primary ms-2" value="Remove attachment" (click)="removeAttachment()"
-                                   title="Remove attachment"/>
+                            <button [disabled]="inputDisabled()" type="button"
+                                   class="btn btn-primary ms-2" (click)="removeAttachment()"
+                                   title="Remove attachment"><fa-icon [icon]="faTrash" class="me-2"/>Remove attachment</button>
                           }
                           <input #fileElement id="browse-to-file" name="attachment" class="d-none"
                                  type="file" value="Upload"
@@ -330,7 +329,7 @@ import { ConfirmType } from "../../../models/ui-actions";
                             <div class="form-group">
                               <label class="d-inline-flex align-items-center flex-wrap"
                                      for="attachment-title">Title</label>
-                              @if (display.allow.edits) {
+                              @if (display.canEditEvent(groupEvent)) {
                                 <input [(ngModel)]="groupEvent.fields.attachment.title"
                                        [disabled]="inputDisabled()"
                                        type="text"
@@ -376,61 +375,61 @@ import { ConfirmType } from "../../../models/ui-actions";
               </div>
             }
             <div class="col-sm-12">
-              @if (display.allow.edits) {
-                <input type="submit" value="Save" (click)="saveGroupEventDetails()"
-                       title="Save this event" class="btn btn-primary"/>
+              @if (display.canEditEvent(groupEvent)) {
+                <button type="button" (click)="saveGroupEventDetails()"
+                       title="Save this event" class="btn btn-primary"><fa-icon [icon]="faFloppyDisk" class="me-2"/>Save</button>
               }
-              @if (display.allow.edits) {
-                <input type="submit" value="Send Notification"
+              @if (display.canEditEvent(groupEvent)) {
+                <button type="button"
                        [disabled]="inputDisabled()" (click)="sendGroupEventNotification()"
                        title="Send event notification"
-                       class="btn btn-primary ms-2"/>
+                       class="btn btn-primary ms-2"><fa-icon [icon]="faEnvelope" class="me-2"/>Send Notification</button>
               }
               @if (display.allow.delete && display.confirm.noneOutstanding()) {
-                <input type="submit" value="Delete" (click)="deleteGroupEventDetails()"
+                <button type="button" (click)="deleteGroupEventDetails()"
                        [disabled]="inputDisabled()"
-                       title="Delete this event" class="btn btn-primary ms-2"/>
+                       title="Delete this event" class="btn btn-primary ms-2"><fa-icon [icon]="faTrash" class="me-2"/>Delete</button>
               }
               @if (display.confirm.deleteConfirmOutstanding()) {
-                <input type="submit" value="Confirm Deletion"
+                <button type="button"
                        [disabled]="inputDisabled()"
                        (click)="confirmDeleteGroupEventDetails()"
-                       class="btn btn-primary ms-2"/>
+                       class="btn btn-primary ms-2"><fa-icon [icon]="faTrash" class="me-2"/>Confirm Deletion</button>
               }
               @if (display.confirm.deleteConfirmOutstanding()) {
-                <input type="submit" value="Cancel Deletion"
+                <button type="button"
                        [disabled]="notifyTarget.busy"
                        (click)="cancelDeleteGroupEvent()"
-                       class="btn btn-primary ms-2"/>
+                       class="btn btn-primary ms-2"><fa-icon [icon]="faXmark" class="me-2"/>Cancel Deletion</button>
               }
-              @if (display.allow.edits && display.confirm.noneOutstanding()) {
-                <input type="submit" value="Cancel" (click)="cancelGroupEventDetails()"
+              @if (display.canEditEvent(groupEvent) && display.confirm.noneOutstanding()) {
+                <button type="button" (click)="cancelGroupEventDetails()"
                        [disabled]="inputDisabled()"
-                       title="Cancel and don't save" class="btn btn-primary ms-2"/>
+                       title="Cancel and don't save" class="btn btn-primary ms-2"><fa-icon [icon]="faXmark" class="me-2"/>Cancel</button>
               }
               @if (display.confirm.confirmType() === ConfirmType.CANCEL) {
-                <input type="submit" value="Discard content and close"
+                <button type="button"
                        [disabled]="inputDisabled()"
                        (click)="confirmDiscardUnsavedContentAndClose()"
                        title="Discard unsaved content and close"
-                       class="btn btn-primary ms-2"/>
+                       class="btn btn-primary ms-2"><fa-icon [icon]="faTrash" class="me-2"/>Discard content and close</button>
               }
               @if (display.confirm.confirmType() === ConfirmType.CANCEL) {
-                <input type="submit" value="Keep editing"
+                <button type="button"
                        [disabled]="notifyTarget.busy"
                        (click)="cancelDiscardUnsavedContent()"
                        title="Stay on this form and keep editing"
-                       class="btn btn-primary ms-2"/>
+                       class="btn btn-primary ms-2"><fa-icon [icon]="faPencil" class="me-2"/>Keep editing</button>
               }
               @if (display.allow.copy) {
-                <input type="submit" value="Copy" (click)="copyDetailsToNewGroupEvent()"
+                <button type="button" (click)="copyDetailsToNewGroupEvent()"
                        [disabled]="inputDisabled()"
-                       title="Copy details to new event" class="btn btn-primary ms-2"/>
+                       title="Copy details to new event" class="btn btn-primary ms-2"><fa-icon [icon]="faCopy" class="me-2"/>Copy</button>
               }
-              @if (!display.allow.edits) {
-                <input type="submit" value="Close" (click)="cancelGroupEventDetails()"
+              @if (!display.canEditEvent(groupEvent)) {
+                <button type="button" (click)="cancelGroupEventDetails()"
                        [disabled]="notifyTarget.busy"
-                       title="Close without saving" class="btn btn-primary ms-2"/>
+                       title="Close without saving" class="btn btn-primary ms-2"><fa-icon [icon]="faXmark" class="me-2"/>Close</button>
               }
             </div>
           </div>
@@ -466,7 +465,13 @@ export class GroupEventEdit implements OnInit, OnDestroy {
   public hasFileOver = false;
   private existingTitle: string;
   public uploader: FileUploader;
-  faCopy = faCopy;
+  protected readonly faCopy = faCopy;
+  protected readonly faEnvelope = faEnvelope;
+  protected readonly faFloppyDisk = faFloppyDisk;
+  protected readonly faFolderOpen = faFolderOpen;
+  protected readonly faPencil = faPencil;
+  protected readonly faTrash = faTrash;
+  protected readonly faXmark = faXmark;
   editActive: boolean;
   private subscriptions: Subscription[] = [];
   protected readonly RootFolder = RootFolder;
@@ -657,15 +662,17 @@ export class GroupEventEdit implements OnInit, OnDestroy {
   }
 
   selectMemberContactDetails(memberId: string) {
-    const groupEvent = this.groupEvent;
-    if (isNull(memberId)) {
-      groupEvent.fields.contactDetails = this.eventDefaultsService.defaultContactDetails();
-    } else {
-      this.logger.debug("looking for member id", memberId, "in memberFilterSelections", this.display.memberFilterSelections);
-      const selectedMember = this.display.memberFilterSelections.find(member => member.id === memberId).member;
-      groupEvent.fields.contactDetails.displayName = selectedMember.displayName;
-      groupEvent.fields.contactDetails.phone = selectedMember.mobileNumber;
-      groupEvent.fields.contactDetails.email = selectedMember.email;
+    if (this.display.allow.admin) {
+      const groupEvent = this.groupEvent;
+      if (isNull(memberId)) {
+        groupEvent.fields.contactDetails = this.eventDefaultsService.defaultContactDetails();
+      } else {
+        this.logger.debug("looking for member id", memberId, "in memberFilterSelections", this.display.memberFilterSelections);
+        const selectedMember = this.display.memberFilterSelections.find(member => member.id === memberId).member;
+        groupEvent.fields.contactDetails.displayName = selectedMember.displayName;
+        groupEvent.fields.contactDetails.phone = selectedMember.mobileNumber;
+        groupEvent.fields.contactDetails.email = selectedMember.email;
+      }
     }
   }
 

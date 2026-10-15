@@ -1,4 +1,4 @@
-import {Component, EventEmitter, inject, Input, Output} from "@angular/core";
+import {booleanAttribute, Component, EventEmitter, inject, Input, Output} from "@angular/core";
 import {CommonModule} from "@angular/common";
 import {FontAwesomeModule} from "@fortawesome/angular-fontawesome";
 import {faChevronDown, faChevronRight, faPaperclip, faReply, faReplyAll, faShare, faEye, faDownload} from "@fortawesome/free-solid-svg-icons";
@@ -93,7 +93,7 @@ import {InboxCalendarInviteComponent} from "./inbox-calendar-invite";
                         }
                       </div>
                     }
-                    <app-html-frame class="inbox-message-body" [html]="renderableBody(message)"/>
+                    <app-html-frame class="inbox-message-body" [fitToWidth]="fitToWidth" [html]="renderableBody(message)"/>
                   </div>
                 }
               </div>
@@ -103,6 +103,7 @@ import {InboxCalendarInviteComponent} from "./inbox-calendar-invite";
 export class InboxMessageComponent {
   @Input({required: true}) message!: InboxMessage;
   @Input() busy = false;
+  @Input({transform: booleanAttribute}) fitToWidth = false;
   @Input() set initiallyExpanded(value: boolean) {
     this.expanded = value;
     this.opened = value;

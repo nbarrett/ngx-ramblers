@@ -1,3 +1,5 @@
+import { ViewAsSelection } from "../../models/view-as.model";
+import { isString } from "es-toolkit/compat";
 import { inject, Injectable, Injector, OnDestroy } from "@angular/core";
 import { BehaviorSubject, Subscription } from "rxjs";
 import { AuthService } from "../../auth/auth.service";
@@ -9,8 +11,6 @@ import { canViewAsMember, toMemberCookie, VIEW_AS_MEMBER_HEADER } from "../../fu
 import { roleRecipientMemberIds } from "../../models/committee.model";
 import { viewAsLooksLikeMemberId, viewAsSlug, viewAsSlugCandidates } from "../../functions/view-as-slug";
 
-const OPT_IN_KEY = "ngx-view-as-opt-in";
-const CHROME_KEY = "ngx-view-as-chrome";
 
 @Injectable({providedIn: "root"})
 export class ViewAsService implements OnDestroy {
@@ -18,8 +18,8 @@ export class ViewAsService implements OnDestroy {
   private readonly chromeShortcut = (event: KeyboardEvent) => this.restoreChromeFromShortcut(event);
   private injector = inject(Injector);
   private viewedMember: Member | null = null;
-  readonly optedInChanges = new BehaviorSubject<boolean>(window.localStorage.getItem(OPT_IN_KEY) === "true");
-  readonly chromeVisibleChanges = new BehaviorSubject<boolean>(window.localStorage.getItem(CHROME_KEY) !== "false");
+  readonly optedInChanges = new BehaviorSubject<boolean>(window.localStorage.getItem(StoredValue.VIEW_AS_OPT_IN) === "true");
+  readonly chromeVisibleChanges = new BehaviorSubject<boolean>(window.localStorage.getItem(StoredValue.VIEW_AS_CHROME) !== "false");
   readonly availableChanges = new BehaviorSubject<boolean>(false);
 
   constructor() {
@@ -41,6 +41,7 @@ export class ViewAsService implements OnDestroy {
     this.availableChanges.next(this.enabled());
     if (!this.enabled()) {
       this.viewedMember = null;
+      this.storeSelection(null);
     }
   }
 
@@ -65,7 +66,7 @@ export class ViewAsService implements OnDestroy {
   }
 
   setOptedIn(on: boolean): void {
-    window.localStorage.setItem(OPT_IN_KEY, on ? "true" : "false");
+    window.localStorage.setItem(StoredValue.VIEW_AS_OPT_IN, on ? "true" : "false");
     this.optedInChanges.next(on);
     if (on) {
       this.setChromeVisible(true);
@@ -73,7 +74,7 @@ export class ViewAsService implements OnDestroy {
   }
 
   setChromeVisible(on: boolean): void {
-    window.localStorage.setItem(CHROME_KEY, on ? "true" : "false");
+    window.localStorage.setItem(StoredValue.VIEW_AS_CHROME, on ? "true" : "false");
     this.chromeVisibleChanges.next(on);
   }
 
@@ -94,11 +95,38 @@ export class ViewAsService implements OnDestroy {
   }
 
   memberIdFromLocation(): string | null {
-    return new URLSearchParams(window.location.search).get(StoredValue.VIEW_AS);
+    return new URLSearchParams(window.location.search).get(StoredValue.VIEW_AS) || this.storedSelection()?.memberSlug || null;
   }
 
   roleTypeFromLocation(): string | null {
-    return this.memberIdFromLocation() ? new URLSearchParams(window.location.search).get(StoredValue.VIEW_AS_ROLE) : null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get(StoredValue.VIEW_AS)
+      ? params.get(StoredValue.VIEW_AS_ROLE)
+      : this.storedSelection()?.roleType || null;
+  }
+
+  private storedSelection(): ViewAsSelection | null {
+    try {
+      const raw = window.sessionStorage.getItem(StoredValue.VIEW_AS_SELECTION);
+      const selection: ViewAsSelection = raw ? JSON.parse(raw) : null;
+      const actorId = this.injector.get(AuthService).parseAuthToken()?.memberId;
+      return selection && this.enabled() && selection.actorId === actorId && isString(selection.memberSlug)
+        && (selection.roleType === null || isString(selection.roleType)) ? selection : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private storeSelection(selection: ViewAsSelection | null): void {
+    try {
+      if (selection) {
+        window.sessionStorage.setItem(StoredValue.VIEW_AS_SELECTION, JSON.stringify(selection));
+      } else {
+        window.sessionStorage.removeItem(StoredValue.VIEW_AS_SELECTION);
+      }
+    } catch {
+      this.viewedMember = null;
+    }
   }
 
   viewedCookie(): MemberCookie | null {
@@ -114,7 +142,11 @@ export class ViewAsService implements OnDestroy {
     if (!this.enabled() || !slug) {
       this.viewedMember = null;
     } else {
-      this.viewedMember = await this.memberForViewAsSlug(slug);
+      const actorId = this.injector.get(AuthService).parseAuthToken()?.memberId;
+      this.storeSelection({actorId, memberSlug: slug, roleType: this.roleTypeFromLocation()});
+      const member = await this.memberForViewAsSlug(slug);
+      this.viewedMember = this.enabled() && this.memberIdFromLocation() === slug
+        && this.injector.get(AuthService).parseAuthToken()?.memberId === actorId ? member : null;
     }
   }
 
@@ -137,6 +169,9 @@ export class ViewAsService implements OnDestroy {
 
   private assignViewAs(slug: string | null, roleType: string | null): void {
     const url = new URL(window.location.href);
+    const actorId = this.injector.get(AuthService).parseAuthToken()?.memberId;
+    this.storeSelection(slug && this.enabled() ? {actorId, memberSlug: slug, roleType} : null);
+    this.viewedMember = null;
     if (slug) {
       url.searchParams.set(StoredValue.VIEW_AS, slug);
     } else {
