@@ -7,32 +7,44 @@ import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { defaultTenantSlug, connectionIdentifier as connectionId, derivedAliasForRoleType, internalEmailsForConnection } from "./inbox-aliases";
-import { permittedInboxRoleTypes, permittedToReadJunk, requireInboxRoleAccess } from "./inbox-access";
+import { inboxAccessForMember, requestMember } from "./inbox-access";
 import { inboxThreadByIdOrSlug } from "./inbox-thread-lookup";
+import { isInboxThreadMongoId } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 import { isAutoReplyMessage, resolveThreadExternalAddress, statedReplyAddress } from "./inbox-message-import";
 import { fetchFullMessage, fetchMessageReplyTo, findGmailMessageIdByRfcHeader } from "./gmail-inbox-reader";
 
 const messageType = "inbox";
 const debugLog = debug(envConfig.logNamespace("inbox-thread-context"));
 
-export async function accessibleThread(req: Request, res: Response, threadId: string): Promise<InboxThread | null> {
-  const allowedRoles = await permittedInboxRoleTypes(req);
-  const junkAllowed = await permittedToReadJunk(req);
-  const thread = await inboxThreadByIdOrSlug(defaultTenantSlug(), threadId, allowedRoles, junkAllowed, isString(req.query.roleType) ? req.query.roleType : null);
+export type InboxMemberAccess = Awaited<ReturnType<typeof inboxAccessForMember>>;
+
+export function readableThread(access: InboxMemberAccess, thread: InboxThread | null, res: Response, threadId: string): InboxThread | null {
   if (!thread) {
     res.status(404).json({request: {messageType}, error: `Thread ${threadId} not found`});
     return null;
   } else if (thread.folder === InboxThreadFolder.JUNK) {
-    if (junkAllowed) {
+    if (access.junkAllowed) {
       return thread;
     } else {
       res.status(403).json({request: {messageType}, error: "You do not have access to junk mail"});
       return null;
     }
+  } else if (access.roleTypes.includes(thread.roleType)) {
+    return thread;
   } else {
-    const accessible = await requireInboxRoleAccess(req, res, thread.roleType);
-    return accessible ? thread : null;
+    res.status(403).json({error: "You do not have access to this role mailbox"});
+    return null;
   }
+}
+
+export async function accessibleThread(req: Request, res: Response, threadId: string): Promise<InboxThread | null> {
+  const accessPromise = inboxAccessForMember(requestMember(req));
+  const queryRole = isString(req.query.roleType) ? req.query.roleType : null;
+  const threadPromise = isInboxThreadMongoId(threadId)
+    ? inboxThreadModel.findOne({_id: threadId, tenantSlug: defaultTenantSlug()}).lean() as Promise<InboxThread | null>
+    : accessPromise.then(access => inboxThreadByIdOrSlug(defaultTenantSlug(), threadId, access.roleTypes, access.junkAllowed, queryRole));
+  const [access, thread] = await Promise.all([accessPromise, threadPromise]);
+  return readableThread(access, thread, res, threadId);
 }
 
 export async function resolveThreadConnection(thread: InboxThread, messages: InboxMessage[]): Promise<InboxMailboxConnection | null> {
@@ -67,8 +79,18 @@ export async function connectionForMessage(message: InboxMessage, fallback: Inbo
   }
 }
 
+export function canFetchFromGmail(connection: InboxMailboxConnection | null): boolean {
+  return !!connection
+    && connection.provider === InboxReaderProvider.GMAIL_API
+    && connection.enabled !== false
+    && !!connection.oauthRefreshTokenEncrypted;
+}
+
 export async function hydrateMessage(connection: InboxMailboxConnection, storedMessage: InboxMessage): Promise<InboxMessage> {
-  const needsBody = storedMessage.externalSource === InboxReaderProvider.GMAIL_API && storedMessage.bodyHtml === null && storedMessage.bodyText === null;
+  const needsBody = canFetchFromGmail(connection)
+    && storedMessage.externalSource === InboxReaderProvider.GMAIL_API
+    && storedMessage.bodyHtml === null
+    && storedMessage.bodyText === null;
   if (needsBody) {
     const externalId = storedMessage.externalId || (storedMessage.messageId ? await findGmailMessageIdByRfcHeader(connection, storedMessage.messageId).catch(lookupError => {
       debugLog(`hydrateMessage: lookup failed for ${storedMessage.messageId}: ${(lookupError as Error).message}`);
@@ -90,7 +112,8 @@ export async function hydrateMessage(connection: InboxMailboxConnection, storedM
 
 export async function hydrateReplyTo(connection: InboxMailboxConnection, message: InboxMessage): Promise<InboxAddress | null> {
   const stated = statedReplyAddress(message);
-  const lookupNeeded = !stated
+  const lookupNeeded = canFetchFromGmail(connection)
+    && !stated
     && message.replyTo === undefined
     && message.direction === InboxMessageDirection.INBOUND
     && message.externalSource === InboxReaderProvider.GMAIL_API

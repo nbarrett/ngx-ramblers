@@ -1,5 +1,5 @@
-import { inboxThreadId } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
-import { accessibleThread, resolveThreadConnection, connectionForMessage, hydrateMessage, threadCorrespondent } from "./inbox-thread-context";
+import { inboxThreadId, isInboxThreadMongoId } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
+import { accessibleThread, canFetchFromGmail, connectionForMessage, hydrateMessage, readableThread, resolveThreadConnection, threadCorrespondent } from "./inbox-thread-context";
 import { Request, Response } from "express";
 import debug from "debug";
 import { createErrorDebugLog } from "../shared/error-debug-log";
@@ -8,12 +8,12 @@ import { errorResponse } from "../shared/error-response";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
-import { InboxMailboxConnection, InboxMessage, InboxMessageDirection, InboxNewMessageEvent, InboxReaderProvider, InboxThreadFolder, InboxThreadMessagesResponse, isInboxGeneralRoleType } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { InboxMailboxConnection, InboxMessage, InboxMessageDirection, InboxNewMessageEvent, InboxReaderProvider, InboxThread, InboxThreadFolder, InboxThreadMessagesResponse, isInboxGeneralRoleType } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { markMessagesRead, markMessagesUnread, removeSpamLabel, trashMessage } from "./gmail-inbox-reader";
 import { permanentlyDeleteThread, recordThreadDeletion, restoreDeletedThread } from "./inbox-deleted";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
-import { requireInboxConfigurationAdministrator, requestingMemberId } from "./inbox-access";
+import { inboxAccessForMember, requestMember, requireInboxConfigurationAdministrator, requestingMemberId } from "./inbox-access";
 import { defaultTenantSlug, connectionIdentifier as connectionId, derivedAliases, messageAddressEmails, roleIdentityEmailsByType, roleMatchesMessageAddresses } from "./inbox-aliases";
 import { threadUnreadForMember, unreadConversationCountForRole } from "./inbox-unread-counts";
 const messageType = "inbox";
@@ -22,28 +22,44 @@ debugLog.enabled = true;
 const errorDebugLog = createErrorDebugLog(messageType);
 export async function readInboxThread(req: Request, res: Response): Promise<void> {
   try {
-    const thread = await accessibleThread(req, res, req.params.id);
+    const requestedId = req.params.id;
+    const loaded = isInboxThreadMongoId(requestedId)
+      ? await Promise.all([
+        inboxAccessForMember(requestMember(req)),
+        inboxThreadModel.findOne({ _id: requestedId, tenantSlug: defaultTenantSlug() }).lean() as Promise<InboxThread | null>,
+        inboxMessageModel.find({ threadId: requestedId }).sort({ receivedAt: 1, sentAt: 1 }).lean() as Promise<InboxMessage[]>
+      ]).then(([access, foundThread, foundMessages]) => ({
+        thread: readableThread(access, foundThread, res, requestedId),
+        stored: foundMessages
+      }))
+      : await accessibleThread(req, res, requestedId).then(async thread => ({
+        thread,
+        stored: thread ? await inboxMessageModel.find({ threadId: inboxThreadId(thread) }).sort({ receivedAt: 1, sentAt: 1 }).lean() as InboxMessage[] : []
+      }));
+    const thread = loaded.thread;
     if (thread) {
-      const threadId = inboxThreadId(thread);
-      const storedMessages = await inboxMessageModel.find({ threadId }).sort({ receivedAt: 1, sentAt: 1 }).lean();
-      const connection = await resolveThreadConnection(thread, storedMessages as InboxMessage[]);
-      if (!connection) {
-        res.status(404).json({ request: { messageType }, error: `No Gmail mailbox connection found for role ${thread.roleType}` });
-      }
-      else {
-        const messages = await Promise.all(storedMessages.map(async (message) => {
-          const storedMessage = message as InboxMessage;
-          return hydrateMessage(await connectionForMessage(storedMessage, connection), storedMessage);
-        }));
-        const correspondent = await threadCorrespondent(connection, messages);
-        const threadForMember = {
-          ...thread,
-          ...(correspondent ? { externalAddress: correspondent } : {}),
-          unread: threadUnreadForMember(thread, requestingMemberId(req))
-        };
-        const response: InboxThreadMessagesResponse = { thread: threadForMember, messages };
-        res.json({ request: { messageType }, response });
-      }
+      const stored = loaded.stored;
+      const needsGmailHydrate = stored.some(message =>
+        message.externalSource === InboxReaderProvider.GMAIL_API
+        && message.bodyHtml === null
+        && message.bodyText === null);
+      const connection = needsGmailHydrate ? await resolveThreadConnection(thread, stored) : null;
+      const gmailLive = canFetchFromGmail(connection);
+      const messages = gmailLive && connection
+        ? await Promise.all(stored.map(async (message) => hydrateMessage(await connectionForMessage(message, connection), message)))
+        : stored;
+      const latestInbound = messages.filter(message => message.direction === InboxMessageDirection.INBOUND).reduce<InboxMessage | null>((latest, candidate) =>
+        (candidate.receivedAt ?? candidate.sentAt ?? 0) > (latest?.receivedAt ?? latest?.sentAt ?? -1) ? candidate : latest, null);
+      const correspondent = gmailLive && connection
+        ? await threadCorrespondent(connection, messages)
+        : latestInbound?.from ?? null;
+      const threadForMember = {
+        ...thread,
+        ...(correspondent ? { externalAddress: correspondent } : {}),
+        unread: threadUnreadForMember(thread, requestingMemberId(req))
+      };
+      const response: InboxThreadMessagesResponse = { thread: threadForMember, messages };
+      res.json({ request: { messageType }, response });
     }
   }
   catch (error) {
