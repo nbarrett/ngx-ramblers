@@ -1,3 +1,4 @@
+import { startMemberSessionWatcher } from "./auth/member-session-watcher";
 import { versionReleases } from "./release-notes/version-releases";
 import { registrationRoutes } from "./site-registration/registration-routes";
 import { scheduleRegistrationJobs } from "./site-registration/registration-jobs";
@@ -64,6 +65,7 @@ import { flyMachineState, flyMemoryHistory, flyStats, heapSnapshot, memoryUsage,
 import { startMemoryWatchdog } from "./health/memory-watchdog";
 import { startScheduledTaskWatchdog } from "./cron/scheduled-task-registry";
 import * as authConfig from "./auth/auth-config";
+import { requireReadOnlyViewAs } from "./auth/local-view-as";
 import { crossEnvironmentHealthRoutes } from "./health/cross-environment-health-routes";
 import { download } from "./files/files";
 import { extendedGroupEventRoutes } from "./mongo/routes/extended-group-event";
@@ -190,6 +192,7 @@ app.use(bodyParser.json({
 }));
 app.use(bodyParser.urlencoded({limit: "50mb", extended: true}));
 app.use(passport.initialize());
+app.use("/api", requireReadOnlyViewAs);
 app.get("/ramblers-favicon.svg", ramblersFavicon);
 app.get("/manifest.webmanifest", serveWebManifest);
 app.get("/api/files/download", download);
@@ -374,6 +377,7 @@ async function startServer() {
     debugLog("⏳Connecting to MongoDB in background...");
     mongooseClient.connect().then(() => {
       debugLog("✅ MongoDB connected successfully");
+      startMemberSessionWatcher();
       warmSearchIndex();
 
       initialiseRedirectMiddleware().catch(error => {

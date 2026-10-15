@@ -14,6 +14,7 @@ const authSchema = new mongoose.Schema({
   socialMember: {type: Boolean},
   contentAdmin: {type: Boolean},
   memberAdmin: {type: Boolean},
+  viewAsMember: {type: Boolean, default: false},
   financeAdmin: {type: Boolean},
   committee: {type: Boolean},
   treasuryAdmin: {type: Boolean},

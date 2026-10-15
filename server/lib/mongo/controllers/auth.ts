@@ -1,3 +1,5 @@
+import { isString } from "es-toolkit/compat";
+import { currentMemberSession } from "../../auth/member-session";
 import * as common from "./auth-common";
 import { refreshToken } from "../models/refresh-token";
 import debug from "debug";
@@ -40,17 +42,22 @@ export async function logout(req: Request, res: Response) {
 }
 
 export async function refresh(req: Request, res: Response) {
-  const existingRefreshToken: RefreshToken = req.body.refreshToken;
-  debugLog("refresh:refreshToken:", existingRefreshToken);
-  refreshToken.findOne({refreshToken: existingRefreshToken})
-    .then((existingToken: any) => {
-      debugLog("refresh:refreshToken is in refreshToken");
-      const memberPayload = existingToken.memberPayload;
-      const token = authConfig.signValue(memberPayload, authConfig.tokenExpiry.refresh);
-      res.json({auth: token})
-    })
-    .catch(err => {
-      debugLog("refresh returning 401: refreshToken, not found");
-      res.sendStatus(401);
-    });
+  const existingRefreshToken = req.body?.refreshToken;
+  if (isString(existingRefreshToken) && existingRefreshToken.length > 0) {
+    try {
+      const existingToken = await refreshToken.findOne({refreshToken: existingRefreshToken});
+      const memberPayload = existingToken ? await currentMemberSession(existingToken.memberPayload?.memberId || existingToken.memberPayload?.id) : null;
+      if (memberPayload) {
+        const token = authConfig.signValue(memberPayload, authConfig.tokenExpiry.auth);
+        res.json({auth: token});
+      } else {
+        res.sendStatus(401);
+      }
+    } catch (error) {
+      debugLog("Could not refresh member session:", error);
+      res.status(500).json({error: "Unable to refresh the member session"});
+    }
+  } else {
+    res.sendStatus(401);
+  }
 }

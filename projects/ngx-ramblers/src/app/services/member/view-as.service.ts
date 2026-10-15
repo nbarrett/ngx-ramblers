@@ -1,12 +1,11 @@
-import { inject, Injectable, Injector } from "@angular/core";
-import { BehaviorSubject } from "rxjs";
-import { environment } from "../../../environments/environment";
+import { inject, Injectable, Injector, OnDestroy } from "@angular/core";
+import { BehaviorSubject, Subscription } from "rxjs";
+import { AuthService } from "../../auth/auth.service";
 import { Member, MemberCookie } from "../../models/member.model";
 import { CommitteeMember } from "../../models/committee.model";
 import { StoredValue } from "../../models/ui-actions";
 import { MemberService } from "./member.service";
-import { MemberResourcesReferenceDataService } from "./member-resources-reference-data.service";
-import { toMemberCookie, VIEW_AS_MEMBER_HEADER } from "../../functions/member-cookie";
+import { canViewAsMember, toMemberCookie, VIEW_AS_MEMBER_HEADER } from "../../functions/member-cookie";
 import { roleRecipientMemberIds } from "../../models/committee.model";
 import { viewAsLooksLikeMemberId, viewAsSlug, viewAsSlugCandidates } from "../../functions/view-as-slug";
 
@@ -14,7 +13,9 @@ const OPT_IN_KEY = "ngx-view-as-opt-in";
 const CHROME_KEY = "ngx-view-as-chrome";
 
 @Injectable({providedIn: "root"})
-export class ViewAsService {
+export class ViewAsService implements OnDestroy {
+  private subscriptions: Subscription[] = [];
+  private readonly chromeShortcut = (event: KeyboardEvent) => this.restoreChromeFromShortcut(event);
   private injector = inject(Injector);
   private viewedMember: Member | null = null;
   readonly optedInChanges = new BehaviorSubject<boolean>(window.localStorage.getItem(OPT_IN_KEY) === "true");
@@ -22,12 +23,25 @@ export class ViewAsService {
   readonly availableChanges = new BehaviorSubject<boolean>(false);
 
   constructor() {
-    window.addEventListener("keydown", event => this.restoreChromeFromShortcut(event));
+    window.addEventListener("keydown", this.chromeShortcut);
     queueMicrotask(() => {
-      this.injector.get(MemberResourcesReferenceDataService).platformAdminEnabledChanges().subscribe(on => {
-        this.availableChanges.next(!environment.production && on);
-      });
+      const auth = this.injector.get(AuthService);
+      this.refreshAvailability();
+      this.subscriptions.push(auth.authResponse().subscribe(() => this.refreshAvailability()));
+      this.subscriptions.push(auth.sessionChanges().subscribe(() => this.refreshAvailability()));
     });
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener("keydown", this.chromeShortcut);
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  private refreshAvailability(): void {
+    this.availableChanges.next(this.enabled());
+    if (!this.enabled()) {
+      this.viewedMember = null;
+    }
   }
 
   private memberService(): MemberService {
@@ -35,7 +49,7 @@ export class ViewAsService {
   }
 
   enabled(): boolean {
-    return this.availableChanges.value;
+    return canViewAsMember(this.injector.get(AuthService).parseAuthToken()) && !this.injector.get(AuthService).tokenExpired();
   }
 
   optedIn(): boolean {
@@ -43,7 +57,7 @@ export class ViewAsService {
   }
 
   barVisible(): boolean {
-    return this.enabled() && this.optedIn() && this.chromeVisible();
+    return this.enabled() && (this.optedIn() || !!this.memberIdFromLocation() || !!this.roleTypeFromLocation()) && this.chromeVisible();
   }
 
   chromeVisible(): boolean {
@@ -84,11 +98,11 @@ export class ViewAsService {
   }
 
   roleTypeFromLocation(): string | null {
-    return new URLSearchParams(window.location.search).get(StoredValue.VIEW_AS_ROLE);
+    return this.memberIdFromLocation() ? new URLSearchParams(window.location.search).get(StoredValue.VIEW_AS_ROLE) : null;
   }
 
   viewedCookie(): MemberCookie | null {
-    return this.viewedMember ? toMemberCookie(this.viewedMember) : null;
+    return this.enabled() && this.viewedMember ? toMemberCookie(this.viewedMember) : null;
   }
 
   currentMember(): Member | null {
@@ -117,7 +131,7 @@ export class ViewAsService {
     if (memberId) {
       this.memberService().getById(memberId).then(member => this.assignViewAs(viewAsSlug(member), role.type));
     } else {
-      this.assignViewAs(null, role?.type || null);
+      this.assignViewAs(null, null);
     }
   }
 

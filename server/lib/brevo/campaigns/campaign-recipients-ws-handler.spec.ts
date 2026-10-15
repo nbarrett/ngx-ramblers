@@ -1,3 +1,4 @@
+import {member} from "../../mongo/models/member";
 import expect from "expect";
 import {afterEach, beforeEach, describe, it} from "mocha";
 import sinon from "sinon";
@@ -11,16 +12,20 @@ import {handleCampaignRecipientExport} from "./campaign-recipients-ws-handler";
 describe("campaign recipient WebSocket authentication", () => {
   const sandbox = sinon.createSandbox();
   const secret = "fictional-test-secret";
+  const memberId = "aaaaaaaaaaaaaaaaaaaaaaaa";
   const request = {campaignId: 812, type: "delivered"};
 
-  beforeEach(() => sandbox.stub(envConfig, "auth").returns({secret}));
+  beforeEach(() => {
+    sandbox.stub(envConfig, "auth").returns({secret});
+    sandbox.stub(member, "findById").resolves({toObject: () => ({_id: memberId, firstName: "Alex", lastName: "Reed", groupMember: true})});
+  });
   afterEach(() => sandbox.restore());
 
   it("rejects missing, invalid and expired credentials before starting an export", async () => {
     const report = sandbox.stub(recipients, "recipientsReportFor").resolves({recipients: [], truncated: false});
     const send = sandbox.spy();
     const ws = {readyState: WebSocket.OPEN, send} as unknown as WebSocket;
-    const expired = jwt.sign({memberId: "fictional-member"}, secret, {expiresIn: -1});
+    const expired = jwt.sign({memberId}, secret, {expiresIn: -1});
     for (const token of [null, "invalid-token", expired]) {
       await handleCampaignRecipientExport(ws, request, token);
     }
@@ -29,12 +34,24 @@ describe("campaign recipient WebSocket authentication", () => {
     expect(send.args.every(([message]) => JSON.parse(message).type === MessageType.ERROR)).toBe(true);
   });
 
+  it("rejects a previously signed-in member whose login has since been revoked", async () => {
+    sandbox.restore();
+    sandbox.stub(envConfig, "auth").returns({secret});
+    sandbox.stub(member, "findById").resolves(null);
+    const report = sandbox.stub(recipients, "recipientsReportFor");
+    const send = sandbox.spy();
+    const ws = {readyState: WebSocket.OPEN, send} as unknown as WebSocket;
+    await handleCampaignRecipientExport(ws, request, jwt.sign({memberId}, secret, {expiresIn: 60}));
+    expect(report.called).toBe(false);
+    expect(JSON.parse(send.firstCall.args[0]).type).toBe(MessageType.ERROR);
+  });
+
   it("returns progress and recipients to a signed-in member", async () => {
     const result = {recipients: [{email: "alex.reed@example.com", date: "01-10-2026 12:01:00"}], truncated: false};
     const report = sandbox.stub(recipients, "recipientsReportFor").resolves(result);
     const send = sandbox.spy();
     const ws = {readyState: WebSocket.OPEN, send} as unknown as WebSocket;
-    const token = jwt.sign({memberId: "fictional-member"}, secret, {expiresIn: 60});
+    const token = jwt.sign({memberId}, secret, {expiresIn: 60});
     await handleCampaignRecipientExport(ws, request, token);
     expect(report.calledOnceWithExactly(request.campaignId, request.type)).toBe(true);
     expect(JSON.parse(send.firstCall.args[0]).type).toBe(MessageType.PROGRESS);
@@ -45,7 +62,7 @@ describe("campaign recipient WebSocket authentication", () => {
     sandbox.stub(recipients, "recipientsReportFor").rejects(new Error("Export failed"));
     const send = sandbox.spy();
     const socket = {readyState: WebSocket.OPEN as number, send};
-    const token = jwt.sign({memberId: "fictional-member"}, secret, {expiresIn: 60});
+    const token = jwt.sign({memberId}, secret, {expiresIn: 60});
     await handleCampaignRecipientExport(socket as unknown as WebSocket, request, token);
     expect(JSON.parse(send.lastCall.args[0]).type).toBe(MessageType.ERROR);
     socket.readyState = WebSocket.CLOSED;

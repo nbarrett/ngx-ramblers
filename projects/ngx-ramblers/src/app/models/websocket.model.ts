@@ -61,6 +61,7 @@ export enum MessageType {
   INBOX_NEW_MESSAGE = "inbox-new-message",
   INBOX_THREAD_UPDATED = "inbox-thread-updated",
   MEMBER_BULK_DELETE_PROGRESS = "member-bulk-delete-progress",
+  MEMBER_SESSION_CHANGED = "member-session-changed",
   MEMBER_SYNC_PROGRESS = "member-sync-progress",
   PROGRESS = "progress",
   SCHEDULED_TASK_UPDATED = "scheduled-task-updated",

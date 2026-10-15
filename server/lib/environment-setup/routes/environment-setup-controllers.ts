@@ -1,10 +1,11 @@
+import { MemberCookie } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { environmentDetailsRequest } from "../environment-details";
 import { environmentDefaults } from "../environment-defaults";
 import debug from "debug";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
 import { NextFunction, Request, Response } from "express";
 import { envConfig } from "../../env-config/env-config";
-import { hasAdminPrivilege, memberFromRequest } from "../../auth/request-member";
+import { hasAdminPrivilege } from "../../auth/request-member";
 import { Environment } from "../../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { groupDetails, listGroupsByAreaCode, validateRamblersApiKey } from "../ramblers-api-client";
 import {
@@ -94,7 +95,7 @@ const validateSetupAccess = (req: Request, res: Response): boolean => {
   } else if (!setupApiKey) {
     res.status(403).json({ error: `${Environment.ENVIRONMENT_SETUP_API_KEY} is not configured on this environment` });
     return false;
-  } else if (providedKey === setupApiKey || hasAdminPrivilege(memberFromRequest(req))) {
+  } else if (providedKey === setupApiKey || hasAdminPrivilege(req.user as MemberCookie)) {
     return true;
   } else {
     res.status(401).json({ error: "Invalid or missing setup API key" });

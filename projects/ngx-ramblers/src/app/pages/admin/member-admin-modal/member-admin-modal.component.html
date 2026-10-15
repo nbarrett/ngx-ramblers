@@ -266,6 +266,12 @@
                       </label>
                     </div>
                     <div class="form-check">
+                      <input [disabled]="!allowEdits" [(ngModel)]="member.viewAsMember"
+                             type="checkbox" class="form-check-input" id="can-view-as-member">
+                      <label class="form-check-label" for="can-view-as-member">View as another member (requires Member Admin)</label>
+                      <div class="form-text">Read-only testing. Member administrators can enable this for themselves or another member. Changes apply automatically to active sessions.</div>
+                    </div>
+                    <div class="form-check">
                       <input [disabled]="!allowEdits" [(ngModel)]="member.financeAdmin"
                              type="checkbox" class="form-check-input" id="is-finance-admin">
                       <label class="form-check-label"

@@ -18,7 +18,7 @@ export async function handleCampaignRecipientExport(ws: WebSocket, data: Campaig
       ws.send(JSON.stringify({type: messageType, data: payload}));
     }
   };
-  const authenticatedMember = memberFromRequest({headers: {authorization: authToken ? `Bearer ${authToken}` : ""}} as Request);
+  const authenticatedMember = await memberFromRequest({headers: {authorization: authToken ? `Bearer ${authToken}` : ""}} as Request);
   if (!authenticatedMember) {
     send(MessageType.ERROR, {campaignId, type, message: "Sign in before loading campaign recipients"});
   } else if (!Number.isInteger(campaignId) || campaignId <= 0 || !type) {

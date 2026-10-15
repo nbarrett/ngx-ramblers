@@ -1,8 +1,11 @@
+import { optionalAuthenticate } from "../../auth/auth-config";
 import express from "express";
 import * as controllers from "./environment-setup-controllers";
 import * as atlasClusters from "../atlas-clusters-controllers";
 
 const router = express.Router();
+
+router.use(optionalAuthenticate());
 
 router.post("/ramblers/groups-by-area", controllers.groupsByArea);
 router.post("/ramblers/group-details", controllers.groupDetailsRequest);

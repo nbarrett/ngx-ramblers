@@ -86,7 +86,7 @@ export async function writeMeetingMinutes(req: Request, res: Response): Promise<
           debug("writeMeetingMinutes: generated output was empty or unusable");
           res.status(400).json({message: "Nothing to write up yet"});
         } else {
-          const member = memberFromRequest(req);
+          const member = await memberFromRequest(req);
           const notify = req.body?.notify === true;
           const note = transforms.toObjectWithId(await persistAiNote(room, source, member));
           const published = await publishMeetingMinutes(room, source, false, true)
