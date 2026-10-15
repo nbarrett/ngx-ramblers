@@ -39,8 +39,8 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
       width: auto
 
     :host.compact .btn-group > .btn
-      min-height: 32px
-      height: 32px
+      min-height: var(--btn-min-height)
+      height: var(--btn-min-height)
       padding-top: 0
       padding-bottom: 0
       padding-left: 0.5rem

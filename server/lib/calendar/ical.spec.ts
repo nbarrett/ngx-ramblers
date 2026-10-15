@@ -49,6 +49,7 @@ describe("ical", () => {
     expect(document).toContain("BEGIN:VCALENDAR");
     expect(document).toContain("VERSION:2.0");
     expect(document).toContain("X-WR-CALNAME:Canterbury walks and events");
+    expect(document).toContain("X-WR-TIMEZONE:Europe/London");
     expect(document).toContain("BEGIN:VEVENT");
     expect(document).toContain("UID:abc123@example.org");
     expect(document).toContain("DTSTART:20260815T090000Z");
@@ -75,6 +76,17 @@ describe("ical", () => {
     const document = icalDocument([walk()], config, "https://example.org", "Calendar");
     expect(document.includes("\r\n")).toEqual(true);
     expect(document.endsWith("\r\n")).toEqual(true);
+  });
+
+  it("writes HTML descriptions as plain text", () => {
+    const document = icalDocument(
+      [walk({description: "<p>Meet at the Woolpack.</p><p>Bring boots.</p>"})],
+      config,
+      "https://example.org",
+      "Calendar"
+    );
+    expect(document).toContain("DESCRIPTION:Meet at the Woolpack.\\nBring boots.");
+    expect(document).not.toContain("<p");
   });
 
   it("uses the social events path for a group event", () => {

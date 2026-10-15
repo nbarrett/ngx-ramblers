@@ -9,8 +9,8 @@ import { systemConfig } from "../config/system-config";
 import { extendedGroupEvent } from "../mongo/models/extended-group-event";
 import { ExtendedGroupEvent } from "../../../projects/ngx-ramblers/src/app/models/group-event.model";
 import { SystemConfig } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { EventType, GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
-import { RamblersEventType, WalkStatus } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { GroupEventField } from "../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { RamblersEventType } from "../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
 import { ContentDisposition } from "../../../projects/ngx-ramblers/src/app/models/server-models";
 import { icalDocument, meetingIcalDocument } from "./ical";
 import { publicImageBaseUrl } from "../social/public-base-url";
@@ -26,22 +26,8 @@ const debugLog = debug(envConfig.logNamespace("calendar"));
 debugLog.enabled = false;
 const errorDebugLog = createErrorDebugLog("calendar");
 
-const FEED_MONTHS_AHEAD = 12;
 const MAXIMUM_FEED_EVENTS = 500;
 const CACHE_CONTROL = "public, max-age=1800";
-const FEED_EXCLUDED_STATUSES = [EventType.DELETED, WalkStatus.DRAFT];
-const CALENDAR_EVENT_SELECT = [
-  GroupEventField.TITLE,
-  GroupEventField.DESCRIPTION,
-  GroupEventField.STATUS,
-  GroupEventField.URL,
-  GroupEventField.ITEM_TYPE,
-  GroupEventField.START_DATE,
-  GroupEventField.END_DATE_TIME,
-  GroupEventField.START_LOCATION,
-  GroupEventField.LOCATION,
-  GroupEventField.DATE_UPDATED
-].join(" ");
 
 function calendarNameFor(config: SystemConfig, personal = false): string {
   const siteName = config?.group?.shortName || config?.group?.longName || "Ramblers";
@@ -144,19 +130,16 @@ export async function eventsCalendarFeed(req: Request, res: Response): Promise<v
       const leaderCriteria = subscriber
         ? {...walkLeaderIdsCriteria([memberId, subscriber.contactId]), [GroupEventField.ITEM_TYPE]: RamblersEventType.GROUP_WALK}
         : {};
-      const events = await extendedGroupEvent
-        .find({
-          ...leaderCriteria,
-          [GroupEventField.START_DATE]: {
-            $gte: dateTimeNow().startOf("day").toISO(),
-            $lte: dateTimeNow().plus({months: FEED_MONTHS_AHEAD}).toISO()
-          },
-          [GroupEventField.STATUS]: {$nin: FEED_EXCLUDED_STATUSES}
-        })
-        .select(CALENDAR_EVENT_SELECT)
-        .sort({[GroupEventField.START_DATE]: 1})
-        .limit(MAXIMUM_FEED_EVENTS)
-        .lean().exec() as ExtendedGroupEvent[];
+      const events = await extendedGroupEvent.aggregate([
+        {
+          $match: {
+            ...leaderCriteria,
+            [GroupEventField.START_DATE]: {$gte: dateTimeNow().startOf("day").toISO()}
+          }
+        },
+        {$sort: {[GroupEventField.START_DATE]: 1}},
+        {$limit: MAXIMUM_FEED_EVENTS}
+      ]).exec() as ExtendedGroupEvent[];
       debugLog("calendar feed returning", events.length, "events");
       if (events.length === MAXIMUM_FEED_EVENTS) {
         debugLog("calendar feed truncated at", MAXIMUM_FEED_EVENTS, "events");

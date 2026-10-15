@@ -5,6 +5,7 @@ import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date
 import { eventUrlFor } from "../shared/event-url";
 import { dateTimeFromIsoWithZone, dateTimeFromMillis, dateTimeNow, formatDateTime } from "../shared/dates";
 import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { htmlToPlainText } from "../shared/string-utils";
 
 const DEFAULT_EVENT_DURATION_HOURS = 3;
 const MAXIMUM_LINE_OCTETS = 75;
@@ -48,11 +49,7 @@ function endTimestampFor(event: ExtendedGroupEvent): string {
 }
 
 function plainTextDescription(event: ExtendedGroupEvent): string {
-  return (event?.groupEvent?.description || "")
-    .replace(/!\[[^\]]*]\([^)]*\)/g, "")
-    .replace(/\[([^\]]*)]\([^)]*\)/g, "$1")
-    .replace(/[*_`>#]/g, "")
-    .trim();
+  return htmlToPlainText(event?.groupEvent?.description || "").trim();
 }
 
 function locationDescription(event: ExtendedGroupEvent): string {
@@ -167,6 +164,7 @@ export function icalDocument(events: ExtendedGroupEvent[], config: SystemConfig,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     `X-WR-CALNAME:${escapeIcalText(calendarName)}`,
+    "X-WR-TIMEZONE:Europe/London",
     "X-PUBLISHED-TTL:PT6H"
   ]
     .concat(events.flatMap(event => vEventFor(event, config, baseUrl, stamp)))

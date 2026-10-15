@@ -4,8 +4,8 @@ import { envConfig } from "../../env-config/env-config";
 import { extendedGroupEvent } from "../models/extended-group-event";
 import * as crudController from "./crud-controller";
 import { EventSource, ExtendedGroupEvent, InputSource } from "../../../../projects/ngx-ramblers/src/app/models/group-event.model";
-import { RamblersEventType } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
-import { DocumentField, EventType, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
+import { RamblersEventType, WalkStatus } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-walks-manager";
+import { DocumentField, EventField, EventType, GroupEventField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
 import { ProgrammeOverviewStatus, ProgrammeStatusCounts, WalkProgrammeSummaryResponse } from "../../../../projects/ngx-ramblers/src/app/models/walk-programme.model";
 import { dateTimeFromMillis, dateTimeNow } from "../../shared/dates";
 import { parseError } from "./transforms";
@@ -30,6 +30,7 @@ const ALL_OVERVIEW_STATUSES: ProgrammeOverviewStatus[] = [
   ProgrammeOverviewStatus.AWAITING_WALK_DETAILS,
   ProgrammeOverviewStatus.AWAITING_APPROVAL,
   ProgrammeOverviewStatus.APPROVED,
+  ProgrammeOverviewStatus.ON_WEBSITE,
   ProgrammeOverviewStatus.DRAFT,
   ProgrammeOverviewStatus.PUBLISHED,
   ProgrammeOverviewStatus.CANCELLED
@@ -106,37 +107,43 @@ function derivedStatusStages(): any[] {
           ]
         },
         __isCancelled: {$eq: [{$toLower: {$ifNull: [`$${GroupEventField.STATUS}`, ""]}}, ProgrammeOverviewStatus.CANCELLED]},
+        __isRamblersConfirmed: {$eq: [{$toLower: {$ifNull: [`$${GroupEventField.STATUS}`, ""]}}, WalkStatus.CONFIRMED]},
         __isRamblersDraft: {$eq: [{$toLower: {$ifNull: [`$${GroupEventField.STATUS}`, ""]}}, ProgrammeOverviewStatus.DRAFT]},
         __isWalksManagerSourced: {$eq: [{$ifNull: [`$${DocumentField.SOURCE}`, null]}, EventSource.WALKS_MANAGER]},
         __hasRamblersPublicationIdentity: {
-          $and: [
-            {$gt: [{$strLenCP: {$trim: {input: {$ifNull: [`$${GroupEventField.ID}`, ""]}}}}, 0]},
+          $or: [
+            {$gt: [{$strLenCP: {$trim: {input: {$ifNull: [`$${DocumentField.RAMBLERS_ID}`, ""]}}}}, 0]},
             {
-              $or: [
+              $and: [
+                {$gt: [{$strLenCP: {$trim: {input: {$ifNull: [`$${GroupEventField.ID}`, ""]}}}}, 0]},
                 {
-                  $regexMatch: {
-                    input: {$ifNull: [`$${GroupEventField.URL}`, ""]},
-                    regex: "^https?://(?:www\\.)?ramblers\\.org\\.uk/",
-                    options: "i"
-                  }
-                },
-                {
-                  $gt: [
+                  $or: [
                     {
-                      $size: {
-                        $filter: {
-                          input: {$ifNull: ["$fields.links", []]},
-                          as: "link",
-                          cond: {
-                            $and: [
-                              {$eq: ["$$link.source", "ramblers"]},
-                              {$gt: [{$strLenCP: {$trim: {input: {$ifNull: ["$$link.href", ""]}}}}, 0]}
-                            ]
-                          }
-                        }
+                      $regexMatch: {
+                        input: {$ifNull: [`$${GroupEventField.URL}`, ""]},
+                        regex: "^https?://(?:www\\.)?ramblers\\.org\\.uk/",
+                        options: "i"
                       }
                     },
-                    0
+                    {
+                      $gt: [
+                        {
+                          $size: {
+                            $filter: {
+                              input: {$ifNull: ["$fields.links", []]},
+                              as: "link",
+                              cond: {
+                                $and: [
+                                  {$eq: ["$$link.source", "ramblers"]},
+                                  {$gt: [{$strLenCP: {$trim: {input: {$ifNull: ["$$link.href", ""]}}}}, 0]}
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        0
+                      ]
+                    }
                   ]
                 }
               ]
@@ -157,12 +164,29 @@ function derivedStatusStages(): any[] {
           $switch: {
             branches: [
               {case: "$__isCancelled", then: ProgrammeOverviewStatus.CANCELLED},
+              {case: "$__isRamblersConfirmed", then: EventType.PUBLISHED_TO_RAMBLERS},
               {case: {$or: ["$__publishedAfterStatus", "$__hasRamblersPublicationIdentity"]}, then: EventType.PUBLISHED_TO_RAMBLERS},
               {case: {$and: ["$__isWalksManagerSourced", "$__isRamblersDraft"]}, then: ProgrammeOverviewStatus.DRAFT},
               {case: "$__isWalksManagerSourced", then: EventType.PUBLISHED_TO_RAMBLERS}
             ],
             default: "$__baseStatus"
           }
+        }
+      }
+    },
+    {
+      $addFields: {
+        derivedStatus: {
+          $cond: [
+            {
+              $and: [
+                {$eq: ["$derivedStatus", EventType.APPROVED]},
+                {$ne: [{$ifNull: [`$${EventField.PUBLISHING_RAMBLERS_PUBLISH}`, false]}, true]}
+              ]
+            },
+            ProgrammeOverviewStatus.ON_WEBSITE,
+            "$derivedStatus"
+          ]
         }
       }
     },

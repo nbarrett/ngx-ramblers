@@ -1,13 +1,15 @@
 import { DateTime } from "luxon";
 import { EventSource, ExtendedGroupEvent } from "./group-event.model";
 import { WalksAdminSegment, WALKS_ADMIN_SEGMENT, WALKS_LEADER_SEGMENT } from "./walks-route-paths.model";
-import { LinkSource } from "./walk.model";
+import { DisplayedWalk, LinkSource } from "./walk.model";
+import { WalkStatus } from "./ramblers-walks-manager";
 
 export enum ProgrammeOverviewStatus {
   AWAITING_LEADER = "awaitingLeader",
   AWAITING_WALK_DETAILS = "awaitingWalkDetails",
   AWAITING_APPROVAL = "awaitingApproval",
   APPROVED = "approved",
+  ON_WEBSITE = "onWebsite",
   DRAFT = "draft",
   PUBLISHED = "publishedToRamblers",
   CANCELLED = "cancelled"
@@ -48,6 +50,32 @@ export interface WalkProgrammeSummaryRow {
   groupCode: string;
   groupName: string;
   thumbnailUrl: string;
+}
+
+export function walkProgrammeSummaryFromDisplayedWalk(displayedWalk: DisplayedWalk): WalkProgrammeSummaryRow {
+  const groupEvent = displayedWalk?.walk?.groupEvent;
+  const firstStyle = groupEvent?.media?.[0]?.styles?.[0];
+  const contact = displayedWalk?.walk?.fields?.contactDetails;
+  const startLatitude = groupEvent?.start_location?.latitude;
+  const locationLatitude = groupEvent?.location?.latitude;
+  return {
+    id: displayedWalk?.walk?.id,
+    status: displayedWalkProgrammeStatus(displayedWalk?.walk, displayedWalk?.status),
+    startDateTime: groupEvent?.start_date_time || "",
+    title: groupEvent?.title || "",
+    url: groupEvent?.url || "",
+    distanceMiles: groupEvent?.distance_miles ?? null,
+    gradeCode: groupEvent?.difficulty?.code || "",
+    gradeDescription: groupEvent?.difficulty?.description || "",
+    shape: groupEvent?.shape || "",
+    leaderName: contact?.displayName || groupEvent?.walk_leader?.name || "",
+    leaderMemberId: contact?.memberId || "",
+    hasLocation: !!(startLatitude || locationLatitude),
+    itemType: groupEvent?.item_type || "",
+    groupCode: groupEvent?.group_code || "",
+    groupName: groupEvent?.group_name || "",
+    thumbnailUrl: firstStyle?.url || ""
+  };
 }
 
 export interface WalkProgrammeSummaryPagination {
@@ -146,6 +174,15 @@ export const PROGRAMME_STATUS_DESCRIPTORS: ProgrammeStatusDescriptor[] = [
     localPopulationOnly: true
   },
   {
+    status: ProgrammeOverviewStatus.ON_WEBSITE,
+    title: "Website only",
+    shortTitle: "Website",
+    colour: "rgb(91, 140, 122)",
+    textColour: "#ffffff",
+    actionable: false,
+    localPopulationOnly: true
+  },
+  {
     status: ProgrammeOverviewStatus.DRAFT,
     title: "Draft",
     shortTitle: "Draft",
@@ -190,15 +227,17 @@ export const GROUP_EVENT_CALENDAR_COLOUR = "rgb(133, 173, 146)";
 export const COMMITTEE_EVENT_CALENDAR_COLOUR = "rgb(120, 144, 197)";
 
 export function hasRamblersPublicationIdentity(extendedGroupEvent: ExtendedGroupEvent): boolean {
+  const storedRamblersId = extendedGroupEvent?.ramblersId?.trim();
   const ramblersId = extendedGroupEvent?.groupEvent?.id?.trim();
   const eventUrl = extendedGroupEvent?.groupEvent?.url?.trim();
   const hasRamblersUrl = /^https?:\/\/(?:www\.)?ramblers\.org\.uk\//i.test(eventUrl || "")
     || (extendedGroupEvent?.fields?.links || []).some(link => link.source === LinkSource.RAMBLERS && !!link.href?.trim());
-  return !!ramblersId && hasRamblersUrl;
+  return !!storedRamblersId || (!!ramblersId && hasRamblersUrl);
 }
 
 export const MEMBER_FACING_PROGRAMME_STATUSES: ProgrammeOverviewStatus[] = [
   ProgrammeOverviewStatus.APPROVED,
+  ProgrammeOverviewStatus.ON_WEBSITE,
   ProgrammeOverviewStatus.PUBLISHED,
   ProgrammeOverviewStatus.CANCELLED
 ];
@@ -241,7 +280,7 @@ export function displayedWalkProgrammeStatus(extendedGroupEvent: ExtendedGroupEv
   const walksManagerSourced = extendedGroupEvent?.source === EventSource.WALKS_MANAGER;
   if (ramblersStatus === ProgrammeOverviewStatus.CANCELLED) {
     return ProgrammeOverviewStatus.CANCELLED;
-  } else if (derivedEventStatus === ProgrammeOverviewStatus.PUBLISHED || hasRamblersPublicationIdentity(extendedGroupEvent)) {
+  } else if (ramblersStatus === WalkStatus.CONFIRMED || derivedEventStatus === ProgrammeOverviewStatus.PUBLISHED || hasRamblersPublicationIdentity(extendedGroupEvent)) {
     return ProgrammeOverviewStatus.PUBLISHED;
   } else if (walksManagerSourced && ramblersStatus === ProgrammeOverviewStatus.DRAFT) {
     return ProgrammeOverviewStatus.DRAFT;
@@ -249,7 +288,13 @@ export function displayedWalkProgrammeStatus(extendedGroupEvent: ExtendedGroupEv
     return ProgrammeOverviewStatus.PUBLISHED;
   } else {
     const match = PROGRAMME_STATUS_DESCRIPTORS.find(descriptor => descriptor.status === derivedEventStatus);
-    return match ? match.status : ProgrammeOverviewStatus.APPROVED;
+    const status = match ? match.status : ProgrammeOverviewStatus.APPROVED;
+    const ramblersPublish = !!extendedGroupEvent?.fields?.publishing?.ramblers?.publish;
+    if (status === ProgrammeOverviewStatus.APPROVED && !ramblersPublish) {
+      return ProgrammeOverviewStatus.ON_WEBSITE;
+    } else {
+      return status;
+    }
   }
 }
 
