@@ -27,7 +27,7 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
     template: `
       <div [ngClass]="outerClasses()">
         <nav class="navbar navbar-expand-lg px-0">
-          <div class="container px-0 d-flex align-items-center">
+          <div class="container navbar-container d-flex align-items-center">
             <div class="brand-search-wrap">
               <a class="navbar-brand"
                  [class.me-0]="inlineNavBarVisible()"
@@ -43,11 +43,11 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
               }
             </div>
             <button type="button" aria-label="Toggle navigation"
-                    class="navbar-toggler border-0 rounded-0 ms-auto"
+                    class="navbar-toggler border-0 rounded-0"
                     [attr.aria-expanded]="navbarExpanded"
                     (click)="toggleNavBar()">
-              <app-svg [height]="27"
-                       [width]="27"
+              <app-svg [height]="24"
+                       [width]="24"
                        [colour]="systemConfig?.header?.navBar?.class==classBackgroundDark?colourCloudy:colourGranite"
                        [icon]="icon()"/>
             </button>
@@ -107,6 +107,8 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
     `,
     styles: [`
 @media (min-width: 992px)
+  .navbar-container
+    padding-inline: 0
   nav.navbar
     flex-wrap: nowrap
   .navbar-inline-content, .navbar-inline-menu
@@ -127,14 +129,32 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
   margin-left: 4px
 
 @media (max-width: 991px)
+  .navbar-container
+    padding-inline: var(--space-3)
+    gap: var(--space-2)
   .brand-search-wrap
     flex: 1 1 0
     min-width: 0
+    gap: var(--space-2)
   .navbar-brand
     min-width: 0
+    margin-right: 0
   .navbar-brand img
+    display: block
     max-width: 100%
     height: auto
+  .site-search-anchored, .navbar-toggler
+    flex: 0 0 auto
+    margin-left: 0
+  .navbar-toggler
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    min-width: 44px
+    min-height: 44px
+    padding: var(--space-2)
+  .navbar-toggler app-svg
+    display: inline-flex
 `],
     imports: [SvgComponent, SiteSearchComponent, NavbarContentComponent, HeaderButtonsComponent, LoginPanelComponent, NgClass, NgStyle, SocialMediaLinksComponent]
 })

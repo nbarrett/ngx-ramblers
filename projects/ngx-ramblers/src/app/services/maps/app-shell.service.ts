@@ -127,6 +127,11 @@ export class AppShellService {
     return platform === AppInstallPlatform.IOS || platform === AppInstallPlatform.ANDROID;
   }
 
+  tooltipsEnabled(): boolean {
+    return this.platform() === AppInstallPlatform.OTHER
+      && !!this.document.defaultView?.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+  }
+
   platform(): AppInstallPlatform {
     const agent = (this.document.defaultView?.navigator.userAgent || "").toLowerCase();
     if (/iphone|ipad|ipod/.test(agent) || this.isIosDesktopSafari(agent)) {

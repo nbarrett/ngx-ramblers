@@ -639,8 +639,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected importedOsMapsByKey: Record<string, OsMapsListedRoute> = {};
   protected previewPoints: Record<string, RouteFollowPoint[]> = {};
   protected customising = false;
-  protected readonly tooltipsEnabled = this.appShell.platform() === AppInstallPlatform.OTHER
-    && !!window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+  protected readonly tooltipsEnabled = this.appShell.tooltipsEnabled();
 
   protected walks: ExtendedGroupEvent[] = [];
   protected loading = true;
