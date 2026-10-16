@@ -48,24 +48,6 @@ import { StatusIconComponent } from "../../../pages/admin/status-icon";
       min-width: 200px
       --ng-option-height: 40px
 
-    .filename-select .ng-dropdown-panel
-      max-height: 70vh !important
-      max-width: 100% !important
-      width: 100% !important
-
-    .filename-select .ng-dropdown-panel .ng-option
-      height: var(--ng-option-height)
-      line-height: var(--ng-option-height)
-
-    ::ng-deep .filename-select .ng-dropdown-panel
-      max-height: 70vh !important
-      max-width: 100% !important
-      width: 100% !important
-
-    ::ng-deep .filename-select .ng-dropdown-panel .ng-option
-      height: var(--ng-option-height)
-      line-height: var(--ng-option-height)
-
     ::ng-deep ng-select.filename-select .ng-dropdown-panel
       max-height: 70vh !important
       max-width: 100% !important
@@ -73,14 +55,10 @@ import { StatusIconComponent } from "../../../pages/admin/status-icon";
 
     ::ng-deep ng-select.filename-select .ng-dropdown-panel .ng-option
       height: var(--ng-option-height)
-      line-height: var(--ng-option-height)
-
-    @media (max-width: 576px)
-      .filename-select .ng-dropdown-panel,
-      ::ng-deep .filename-select .ng-dropdown-panel,
-      ::ng-deep ng-select.filename-select .ng-dropdown-panel
-        width: 100% !important
-        max-width: 100% !important
+      display: flex
+      align-items: center
+      padding-block: 0
+      line-height: normal
   `]
 })
 export class UploadSessionSelectorComponent {
