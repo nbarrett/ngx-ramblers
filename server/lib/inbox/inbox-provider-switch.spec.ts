@@ -12,6 +12,8 @@ import * as systemConfigModule from "../config/system-config";
 import * as configController from "../mongo/controllers/config";
 import { inboxMailboxConnection } from "../mongo/models/inbox-mailbox-connection";
 import * as ingress from "../cloudflare/cloudflare-ingress-connection";
+import * as cloudflareConfig from "../cloudflare/cloudflare-config";
+import * as directInboxCatchAll from "../cloudflare/direct-inbox-catch-all";
 import * as gmailReader from "./gmail-inbox-reader";
 import * as aliases from "./inbox-aliases";
 import * as poller from "./inbox-poller";
@@ -42,6 +44,8 @@ describe("inbox provider switch", () => {
       {id: "g1", provider: InboxReaderProvider.GMAIL_API, enabled: true, oauthRefreshTokenEncrypted: "token", syncMode: InboxSyncMode.POLL}
     ]);
     sandbox.stub(ingress, "ensureCloudflareIngressConnection").resolves({id: "cf1"} as any);
+    sandbox.stub(cloudflareConfig, "configuredCloudflareForCurrentSite").resolves({zoneId: "zone-1"} as any);
+    sandbox.stub(directInboxCatchAll, "ensureDirectInboxCatchAll").resolves({changed: true, detail: "Catch-all now delivers to this site's inbox"});
     sandbox.stub(gmailReader, "stopGmailWatch").resolves();
     const updateMany = sandbox.stub(inboxMailboxConnection, "updateMany").resolves({modifiedCount: 1} as any);
 
@@ -53,9 +57,11 @@ describe("inbox provider switch", () => {
     expect(result.steps.map(step => step.step)).toEqual([
       InboxProviderSwitchStep.PROVIDER,
       InboxProviderSwitchStep.CLOUDFLARE_CONNECTION,
+      InboxProviderSwitchStep.CATCH_ALL,
       InboxProviderSwitchStep.GMAIL_POLLING
     ]);
     expect(result.steps.map(step => step.change)).toEqual([
+      InboxProviderSwitchChange.CHANGED,
       InboxProviderSwitchChange.CHANGED,
       InboxProviderSwitchChange.CHANGED,
       InboxProviderSwitchChange.CHANGED
@@ -74,6 +80,8 @@ describe("inbox provider switch", () => {
       {id: "g1", provider: InboxReaderProvider.GMAIL_API, enabled: false, oauthRefreshTokenEncrypted: "token"}
     ]);
     sandbox.stub(ingress, "ensureCloudflareIngressConnection").resolves({id: "cf1"} as any);
+    sandbox.stub(cloudflareConfig, "configuredCloudflareForCurrentSite").resolves({zoneId: "zone-1"} as any);
+    sandbox.stub(directInboxCatchAll, "ensureDirectInboxCatchAll").resolves({changed: false, detail: "Catch-all already delivers to this site's inbox"});
     sandbox.stub(inboxMailboxConnection, "updateMany").resolves({modifiedCount: 0} as any);
 
     const result = await applyInboxProviderSwitch(InboxReaderProvider.CLOUDFLARE_INGRESS, "member-1");

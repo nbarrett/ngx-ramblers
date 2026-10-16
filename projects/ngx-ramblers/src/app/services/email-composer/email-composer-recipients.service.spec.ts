@@ -3,7 +3,7 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 import {composerListToken, composerRecipientFromMember, defaultEmailComposerState} from "../../functions/email-composer";
 import {BrandingMode, ComposerExternalRecipient, RecipientField, RecipientMode} from "../../models/email-composer.model";
 import {Member} from "../../models/member.model";
-import {ListInfo} from "../../models/mail.model";
+import {ListInfo, MemberSelection, NotificationConfig} from "../../models/mail.model";
 import {MailListUpdaterService} from "../mail/mail-list-updater.service";
 import {EmailComposerSessionService} from "./email-composer-session.service";
 import {EmailComposerRecipientSourcesService} from "./email-composer-recipient-sources.service";
@@ -169,5 +169,46 @@ describe("composer list expansion", () => {
     expect(state.selectedListId).toBeNull();
     expect(state.narrowListId).toBe(list.id);
     expect(state.externalRecipients.some(recipient => recipient.email === person.email)).toBe(true);
+  });
+
+  it("keeps an existing mailing list when an email type is applied", () => {
+    const members = [{id: "alex", firstName: "Alex", lastName: "Reed", email: "alex.reed@example.com"} as Member];
+    const list = {id: 13, name: "Platform service alerts"} as ListInfo;
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.BRANDED;
+    state.recipientMode = RecipientMode.ENTIRE_LIST;
+    state.selectedListId = list.id;
+    state.selectedMemberIds = [];
+    state.externalRecipients = [];
+    const config = {
+      id: "newsletter",
+      defaultMemberSelection: MemberSelection.MAILING_LIST,
+      defaultListId: 1
+    } as NotificationConfig;
+    TestBed.configureTestingModule({providers: [
+      EmailComposerRecipientsService,
+      {provide: EmailComposerSessionService, useValue: {state, inboxReplyContext: null, syncStateToUrl: vi.fn()}},
+      {provide: MailListUpdaterService, useValue: {memberSubscribed: () => true}},
+      {provide: EmailComposerRecipientSourcesService, useValue: {
+        members,
+        allMembers: members,
+        committeeReferenceData: null,
+        candidateMembers: () => members,
+        nonEmptyLists: () => [list, {id: 1, name: "All Members"} as ListInfo],
+        unbrandedCommitteeLists: () => [],
+        subscribedMemberCount: () => members.length
+      }},
+      {provide: EmailComposerRecipientResolutionService, useValue: {
+        committeeRoleSendOffered: () => false,
+        committeeOnlyAudience: () => false,
+        sendingAsCampaign: () => true,
+        headerEmailSet: () => new Set(),
+        memberRecipientsForIds: () => []
+      }}
+    ]});
+    const service = TestBed.inject(EmailComposerRecipientsService);
+    service.applyRecipientDefaultsFrom(config);
+    expect(state.selectedListId).toBe(13);
+    expect(state.recipientMode).toBe(RecipientMode.ENTIRE_LIST);
   });
 });

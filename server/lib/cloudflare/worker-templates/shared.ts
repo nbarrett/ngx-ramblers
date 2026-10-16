@@ -25,12 +25,27 @@ export async function encodeRawMimeBase64(raw: ReadableStream<Uint8Array>): Prom
 
 export async function signAndPostWebhook(webhookUrl: string, body: string, sharedSecret: string): Promise<Response> {
   const signature = await hmacSign(body, sharedSecret);
-  return fetch(webhookUrl, {
+  const headers = {
+    "Content-Type": "application/json",
+    "X-NGX-Signature": signature
+  };
+  const posted = await fetch(webhookUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-NGX-Signature": signature
-    },
-    body
+    headers,
+    body,
+    redirect: "manual"
   });
+  const location = posted.headers.get("Location");
+  const redirected = posted.status === 301 || posted.status === 302 || posted.status === 307 || posted.status === 308;
+  if (redirected && location) {
+    const nextUrl = new URL(location, webhookUrl).toString();
+    return fetch(nextUrl, {
+      method: "POST",
+      headers,
+      body,
+      redirect: "manual"
+    });
+  } else {
+    return posted;
+  }
 }

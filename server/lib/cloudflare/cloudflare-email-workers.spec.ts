@@ -14,7 +14,9 @@ function expectSelfContainedWebhookWorker(script: string): void {
 
 describe("cloudflare email workers", () => {
   it("generates a self-contained shared inbox router", () => {
-    expectSelfContainedWebhookWorker(generateRouterWorkerScript());
+    const script = generateRouterWorkerScript();
+    expectSelfContainedWebhookWorker(script);
+    expect(script).toContain("redirect: \"manual\"");
   });
 
   it("generates a self-contained direct inbox worker", () => {

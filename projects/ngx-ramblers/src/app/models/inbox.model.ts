@@ -28,6 +28,7 @@ export enum InboxReaderProvider {
 export enum InboxProviderSwitchStep {
   PROVIDER = "provider",
   CLOUDFLARE_CONNECTION = "cloudflare-connection",
+  CATCH_ALL = "catch-all",
   GMAIL_POLLING = "gmail-polling"
 }
 

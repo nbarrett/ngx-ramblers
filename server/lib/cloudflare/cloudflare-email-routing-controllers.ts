@@ -262,7 +262,7 @@ export async function getCatchAllRule(req: Request, res: Response): Promise<void
 }
 
 export async function putCatchAllRule(req: Request, res: Response): Promise<void> {
-  const cloudflareConfig = await configuredCloudflare();
+  const cloudflareConfig = await configuredCloudflareForCurrentSite();
   const nsConfig = await nonSensitiveCloudflareConfig();
   await assertCatchAllOwnedByThisSite(cloudflareConfig, nsConfig.baseDomain || "");
   const request: UpdateCatchAllRequest = req.body;
@@ -299,7 +299,7 @@ export async function putCatchAllRule(req: Request, res: Response): Promise<void
 }
 
 export async function postCatchAllRouterRedeploy(req: Request, res: Response): Promise<void> {
-  const cloudflareConfig = await configuredCloudflare();
+  const cloudflareConfig = await configuredCloudflareForCurrentSite();
   const nsConfig = await nonSensitiveCloudflareConfig();
   await assertCatchAllOwnedByThisSite(cloudflareConfig, nsConfig.baseDomain || "");
   const scriptName = await ensureRouterWorker(cloudflareConfig);
