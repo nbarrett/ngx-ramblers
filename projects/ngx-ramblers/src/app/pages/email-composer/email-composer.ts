@@ -146,14 +146,12 @@ import { MemberBulkLoadAuditService } from "../../services/member/member-bulk-lo
 import {
   batchSendJobWasLost,
   batchSendRecipientSplit,
-  buildDefaultFragmentOrder,
   composerCommitteeRecipients,
   composerContentHasPersonalisation,
   composerRecipientAddressesArePrivate,
   composerRecipientCount,
   composerSendProgressDescription,
   composerSenderIdentities,
-  defaultAddresseeTypeForBranding,
   defaultBrandedSenderEmail,
   defaultEmailComposerState,
   defaultNewsletterSettings,
@@ -433,14 +431,14 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
         </ng-template>
         <ng-template #composerStatusAlerts>
           <app-alert-panel grouped compact class="mb-3"
-                           [attr.role]="inboxReplyLoading || drafting.creatingReleaseNoteUpdate ? 'status' : null"
-                           [attr.aria-live]="inboxReplyLoading || drafting.creatingReleaseNoteUpdate ? 'polite' : null">
-            @if (inboxReplyLoading) {
-              <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
-                                 title="Loading reply…" [icon]="faSpinner" [spinning]="true">
+                           [attr.role]="composerHydrating() || drafting.creatingReleaseNoteUpdate ? 'status' : null"
+                           [attr.aria-live]="composerHydrating() || drafting.creatingReleaseNoteUpdate ? 'polite' : null">
+            @if (composerHydrating()) {
+              <app-alert-message [messageKey]="composerHydrationTitle()"
+                                 [title]="composerHydrationTitle()" [icon]="faSpinner" [spinning]="true">
 
                 <div>
-                  <div>Fetching the conversation and preparing recipients, subject and quoted message.</div>
+                  <div>{{ composerHydrationMessage() }}</div>
                 </div>
 
               </app-alert-message>
@@ -753,7 +751,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
         </app-alert-panel>
 
       </ng-template>
-      @if (!inboxReplyLoading) {
+      @if (!composerHydrating()) {
       <div class="row mb-3">
         <div class="col-sm-12">
           <p-stepper class="mt-3" [value]="$any(stepperActiveTab)" (valueChange)="onStepperValueChange($event)" [linear]="false">
@@ -1518,6 +1516,32 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   protected readonly faCheckCircle = faCheckCircle;
   protected readonly faTableColumns = faTableColumns;
   protected inboxReplyLoading = false;
+  protected membersLoaded = false;
+  protected mailMessagingReady = false;
+
+  protected composerHydrating(): boolean {
+    return this.inboxReplyLoading || this.pendingDraftLoad || !this.membersLoaded || !this.mailMessagingReady;
+  }
+
+  protected composerHydrationTitle(): string {
+    if (this.inboxReplyLoading) {
+      return "Loading reply…";
+    } else if (this.pendingDraftLoad) {
+      return "Loading draft…";
+    } else {
+      return "Loading composer…";
+    }
+  }
+
+  protected composerHydrationMessage(): string {
+    if (this.inboxReplyLoading) {
+      return "Fetching the conversation and preparing recipients, subject and quoted message.";
+    } else if (this.pendingDraftLoad) {
+      return "Loading the saved email, mailing lists and templates. The composer will open when they are ready.";
+    } else {
+      return "Loading members, mailing lists and email types. The composer will open when they are ready.";
+    }
+  }
   private turndownService = new TurndownService({headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced"});
   protected readonly faCircleInfo = faCircleInfo;
   protected readonly faPlus = faPlus;
@@ -1530,6 +1554,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       this.host.nativeElement.addEventListener("change", this.markUserEditFromDom, true);
     });
     this.loadComposerPrefs();
+    const openingComposition = this.route.snapshot.queryParamMap.get(StoredValue.DRAFT_ID)
+      || this.route.snapshot.queryParamMap.get(StoredValue.COPY_OF);
+    this.pendingDraftLoad = !!openingComposition;
     this.session.notify = this.notifierService.createAlertInstance(this.session.notifyTarget);
     this.subscriptions.push(this.session.requestStep.subscribe(key => {
       this.goToStepKey(this.canAccessStep(key) ? key : EmailComposerStepKey.RECIPIENTS);
@@ -1561,6 +1588,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     }));
     this.subscriptions.push(this.mailMessagingService.events().subscribe(config => {
       this.recipientSources.mailMessagingConfig = config;
+      this.mailMessagingReady = true;
       void this.loadSendStatus();
       if (config.committeeReferenceData) {
         this.recipientSources.committeeReferenceData = config.committeeReferenceData as CommitteeReferenceData;
@@ -1596,6 +1624,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     await this.applyVolunteerAudience();
     this.recipientSources.members = this.recipientSources.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
     this.recipientSources.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
+    this.membersLoaded = true;
     if (!this.session.currentDraftId && !this.pendingDraftLoad) {
       this.recipients.applyDefaultListIfNeeded();
       if (this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
@@ -1807,7 +1836,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
         await this.loadDraft(draftId);
         this.pendingDraftLoad = false;
       } else if (copyOfId) {
+        this.pendingDraftLoad = true;
         await this.useAsTemplate(copyOfId);
+        this.pendingDraftLoad = false;
       }
     }
   }
@@ -2143,58 +2174,23 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   setBrandingMode(mode: BrandingMode, preserveRecipientMode = false): void {
+    void preserveRecipientMode;
     const previousMode = this.session.state.brandingMode;
     this.session.state.brandingMode = mode;
     if (previousMode !== mode) {
       this.unbrandedListSendWarningDismissed = false;
       this.unbrandedSenderAlertDismissed = false;
-      this.session.state.addresseeType = defaultAddresseeTypeForBranding(mode);
     }
     if (mode === BrandingMode.UNBRANDED) {
       this.recipients.recipientsPanelExpanded = true;
-      if (!preserveRecipientMode && this.session.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
-        this.recipients.setRecipientMode(RecipientMode.SELECTED_MEMBERS);
-      }
+      this.recipients.ensureSelectedListIsOnTo();
       if (this.stepperActiveTab === EmailComposerStepKey.EVENTS) {
         this.goToStepKey(EmailComposerStepKey.COMPOSE);
       }
-      this.session.state.signoffRoles = [];
-      this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-      this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-      this.session.state.selectedListId = null;
-      this.session.state.narrowListId = null;
-      this.session.state.preFilterKey = null;
-      this.session.state.selectedMemberIds = [];
-      if (previousMode !== BrandingMode.UNBRANDED) {
-        this.session.state.externalRecipients = [];
-        this.session.state.ccRecipients = [];
-        this.session.state.bccRecipients = [];
-        this.session.state.fragmentOrder = buildDefaultFragmentOrder(this.session.state, {unbranded: true});
-        this.fragmentEditor.expandedFragmentIds.add("intro");
-        this.session.state.notificationConfig = null;
-        this.session.state.bannerId = null;
-        this.forcedConfigId = null;
-        this.forcedConfigSlug = null;
-      } else {
-        this.recipients.clearUnbrandedBulkRecipients();
-      }
-    } else {
-      if (this.session.state.externalRecipients?.length) {
-        this.session.state.externalRecipients = [];
-      }
-      if (this.session.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
-        this.recipients.setRecipientMode(RecipientMode.ENTIRE_LIST);
-      }
+    } else if (!this.session.state.notificationConfig) {
       this.autoSelectNotificationConfig();
     }
-    const urlUpdates: Record<string, string | null> = {[StoredValue.BRANDING]: mode};
-    if (mode === BrandingMode.UNBRANDED) {
-      urlUpdates[StoredValue.CONFIG_ID] = null;
-      urlUpdates[StoredValue.LIST_ID] = null;
-      urlUpdates[StoredValue.PRE_FILTER] = null;
-      urlUpdates[StoredValue.EMAIL_TYPE] = kebabCase(RecipientMode.SELECTED_MEMBERS);
-    }
-    this.session.syncStateToUrl(urlUpdates);
+    this.session.syncStateToUrl({[StoredValue.BRANDING]: mode});
     if (this.rememberBranding) {
       this.uiActions.saveValueFor(StoredValue.BRANDING, mode);
     }
@@ -2322,18 +2318,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     if (!storedCompositionRoute && listId) {
       const numeric = Number(listId);
       if (!Number.isNaN(numeric)) {
-        const unbrandedListAllowed = this.session.state.brandingMode !== BrandingMode.UNBRANDED
-          || this.recipientSources.unbrandedCommitteeLists().some(list => list.id === numeric);
-        if (!unbrandedListAllowed) {
-          this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-          this.session.state.selectedListId = null;
-          this.session.state.narrowListId = null;
-          this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-          this.session.syncStateToUrl({
-            [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
-            [StoredValue.LIST_ID]: null
-          });
-        } else if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+        if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
           this.session.state.selectedListId = numeric;
         } else if (this.session.state.narrowListId !== numeric) {
           this.session.state.narrowListId = numeric;
@@ -3897,7 +3882,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
           [StoredValue.COPY_OF]: null,
           [StoredValue.CONFIG_ID]: this.configToSlug(this.session.state.notificationConfig),
           [StoredValue.BRANDING]: this.session.state.brandingMode,
-          [StoredValue.EMAIL_TYPE]: kebabCase(this.session.state.recipientMode)
+          [StoredValue.EMAIL_TYPE]: kebabCase(this.session.state.recipientMode),
+          [StoredValue.LIST_ID]: this.session.state.recipientMode === RecipientMode.ENTIRE_LIST
+            ? this.session.state.selectedListId?.toString() ?? null
+            : null
         });
         this.session.notify.success({title: "Draft loaded", message: draft.title});
       }

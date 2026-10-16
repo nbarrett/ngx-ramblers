@@ -27,26 +27,12 @@ export class EmailComposerRecipientsService {
     applyDefaultListIfNeeded(): void {
         if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST && this.pool.members.length > 0) {
             this.session.state.preFilterKey = null;
-            const unbranded = this.session.state.brandingMode === BrandingMode.UNBRANDED;
-            const lists = unbranded ? this.pool.unbrandedCommitteeLists() : this.pool.nonEmptyLists();
+            const lists = this.pool.nonEmptyLists();
             const selectionStillValid = this.session.state.selectedListId != null
                 && lists.some(list => list.id === this.session.state.selectedListId);
-            if (!selectionStillValid) {
-                if (unbranded) {
-                    this.session.state.selectedListId = null;
-                    this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-                    this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-                    this.session.state.externalRecipients = (this.session.state.externalRecipients ?? [])
-                        .filter(recipient => !recipient.listId || lists.some(list => list.id === recipient.listId));
-                    this.session.syncStateToUrl({
-                        [StoredValue.EMAIL_TYPE]: kebabCase(RecipientMode.SELECTED_MEMBERS),
-                        [StoredValue.LIST_ID]: null
-                    });
-                }
-                else if (lists.length > 0) {
-                    this.session.state.selectedListId = lists[0].id;
-                    this.recipientAddressModeTouched = false;
-                }
+            if (!selectionStillValid && lists.length > 0) {
+                this.session.state.selectedListId = lists[0].id;
+                this.recipientAddressModeTouched = false;
             }
             this.ensureSelectedListIsOnTo();
         }
@@ -58,15 +44,7 @@ export class EmailComposerRecipientsService {
         if (listId !== null && this.pool.members.length > 0) {
             const list = this.pool.nonEmptyLists().find(item => item.id === listId);
             if (list) {
-                const unbrandedDisallowed = this.session.state.brandingMode === BrandingMode.UNBRANDED
-                    && !this.pool.unbrandedCommitteeLists().some(item => item.id === list.id);
-                if (unbrandedDisallowed) {
-                    this.session.state.externalRecipients = (this.session.state.externalRecipients ?? []).filter(recipient => !recipient.listId
-                        || this.pool.unbrandedCommitteeLists().some(item => item.id === recipient.listId));
-                }
-                else {
-                    this.onUnbrandedToChange([composerListToken(list.id, list.name, this.pool.subscribedMemberCount(list))]);
-                }
+                this.onUnbrandedToChange([composerListToken(list.id, list.name, this.pool.subscribedMemberCount(list))]);
             }
         }
     }
@@ -726,36 +704,42 @@ export class EmailComposerRecipientsService {
     }
     applyRecipientDefaultsFrom(config: NotificationConfig | null): void {
         if (config) {
-            if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
-                this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-                this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-                this.session.state.preFilterKey = null;
-                this.session.state.selectedListId = null;
-                this.session.state.narrowListId = null;
-                this.session.state.selectedMemberIds = [];
-                this.expandedRecipientFilterKeys.clear();
-                this.expandedEveryoneSet = false;
-                this.clearUnbrandedBulkRecipients();
-            }
-            else if (config.defaultMemberSelection === MemberSelection.MAILING_LIST) {
-                this.session.state.recipientMode = RecipientMode.ENTIRE_LIST;
-                this.session.state.sendingChannel = SendingChannel.CAMPAIGN;
-                this.session.state.preFilterKey = null;
-                if (isNumber(config.defaultListId)) {
-                    this.session.state.selectedListId = config.defaultListId;
+            const hasList = this.session.state.selectedListId != null;
+            const hasMembers = (this.session.state.selectedMemberIds ?? []).length > 0;
+            const hasExternal = (this.session.state.externalRecipients ?? []).length > 0;
+            const hasPreFilter = this.session.state.preFilterKey != null;
+            if (!(hasList || hasMembers || hasExternal || hasPreFilter)) {
+                if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
+                    this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+                    this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+                    this.session.state.preFilterKey = null;
+                    this.session.state.selectedListId = null;
+                    this.session.state.narrowListId = null;
+                    this.session.state.selectedMemberIds = [];
+                    this.expandedRecipientFilterKeys.clear();
+                    this.expandedEveryoneSet = false;
+                    this.clearUnbrandedBulkRecipients();
                 }
-                this.session.state.selectedMemberIds = [];
-                this.applyDefaultListIfNeeded();
-            }
-            else {
-                this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
-                this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
-                this.session.state.preFilterKey = config.defaultMemberSelection ?? null;
-                this.session.state.selectedMemberIds = [];
-                this.session.state.narrowListId = null;
-                this.expandedRecipientFilterKeys.clear();
-                this.expandedEveryoneSet = false;
-                this.applyPreFilterAudienceToTo();
+                else if (config.defaultMemberSelection === MemberSelection.MAILING_LIST) {
+                    this.session.state.recipientMode = RecipientMode.ENTIRE_LIST;
+                    this.session.state.sendingChannel = SendingChannel.CAMPAIGN;
+                    this.session.state.preFilterKey = null;
+                    if (isNumber(config.defaultListId)) {
+                        this.session.state.selectedListId = config.defaultListId;
+                    }
+                    this.session.state.selectedMemberIds = [];
+                    this.applyDefaultListIfNeeded();
+                }
+                else {
+                    this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+                    this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+                    this.session.state.preFilterKey = config.defaultMemberSelection ?? null;
+                    this.session.state.selectedMemberIds = [];
+                    this.session.state.narrowListId = null;
+                    this.expandedRecipientFilterKeys.clear();
+                    this.expandedEveryoneSet = false;
+                    this.applyPreFilterAudienceToTo();
+                }
             }
             this.applyForcedMemberSelection();
             this.syncRecipientAddressMode();

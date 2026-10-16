@@ -149,7 +149,7 @@ import { booleanOf } from "../../../../functions/strings";
         cursor: default
         vertical-align: -0.05em
       :host ::ng-deep .list-sync-warning-tooltip .tooltip-inner
-        max-width: 360px
+        max-width: 440px
         text-align: left
         white-space: normal
     `],
@@ -192,7 +192,15 @@ export class MailListSettingsComponent implements OnInit {
   syncTooltip(): string {
     const local = this.listSubscriberService.subscriberCount(this.members, this.list.id);
     const brevo = this.list.uniqueSubscribers ?? 0;
-    return `This site shows ${local} subscribed, Brevo has ${brevo}. Run Update Brevo Mailing Lists to sync. A remaining difference is usually members without marketing consent (counted here, excluded from Brevo) or Brevo-side unsubscribes and bounces.`;
+    const gap = Math.abs(local - brevo);
+    const siteCount = this.stringUtilsService.pluraliseWithCount(local, "subscriber");
+    const extra = this.stringUtilsService.pluraliseWithCount(gap, "contact");
+    const verb = gap === 1 ? "is" : "are";
+    if (local > brevo) {
+      return `This site counts ${siteCount} on this list (hover the subscriber count for names). Brevo currently has ${brevo}, so ${extra} ${verb} subscribed here but not in Brevo. A campaign send uses the Brevo list, so those people will not receive it until they are on Brevo. Typical reasons: no Head office marketing consent (this site still counts them; Brevo will not), Update Brevo Mailing Lists has not been run since they were subscribed, or they unsubscribed or bounced in Brevo. Run Update Brevo Mailing Lists on Mail Settings to push this site's subscriptions to Brevo.`;
+    } else {
+      return `This site counts ${siteCount} on this list (hover the subscriber count for names). Brevo currently has ${brevo}, so ${extra} ${verb} on Brevo but not marked subscribed here. A campaign send uses the Brevo list, so that extra contact will receive the email. Typical reasons: someone was added or kept in Brevo without a matching subscribe on this site, a Brevo contact with no member record, or a subscribe that has not refreshed here yet. Run Update Brevo Mailing Lists on Mail Settings to make Brevo match this site, or open View to inspect the Brevo list.`;
+    }
   }
 
 

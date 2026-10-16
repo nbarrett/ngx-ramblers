@@ -19,6 +19,8 @@ import { createOrUpdateKey } from "../mongo/controllers/config";
 import { systemConfig } from "../config/system-config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { ensureCloudflareIngressConnection } from "../cloudflare/cloudflare-ingress-connection";
+import { configuredCloudflareForCurrentSite } from "../cloudflare/cloudflare-config";
+import { ensureDirectInboxCatchAll } from "../cloudflare/direct-inbox-catch-all";
 import { stopGmailWatch } from "./gmail-inbox-reader";
 import { activateConnectionAfterReconnect } from "./inbox-poller";
 import { requireInboxConfigurationAdministrator, requestMember } from "./inbox-access";
@@ -90,11 +92,17 @@ async function applyCloudflareSwitch(tenantSlug: string, memberId: string): Prom
         detail: `Stopped Gmail polling on ${enabledGmail.length} connection${enabledGmail.length === 1 ? "" : "s"}`
       };
     })();
+  const catchAll = await ensureDirectInboxCatchAll(await configuredCloudflareForCurrentSite());
   return [
     {
       step: InboxProviderSwitchStep.CLOUDFLARE_CONNECTION,
       change: existingCloudflare ? InboxProviderSwitchChange.ALREADY : InboxProviderSwitchChange.CHANGED,
       detail: existingCloudflare ? "Direct to inbox connection is already in place" : "Created the Direct to inbox connection"
+    },
+    {
+      step: InboxProviderSwitchStep.CATCH_ALL,
+      change: catchAll.changed ? InboxProviderSwitchChange.CHANGED : InboxProviderSwitchChange.ALREADY,
+      detail: catchAll.detail
     },
     gmailStep
   ];
