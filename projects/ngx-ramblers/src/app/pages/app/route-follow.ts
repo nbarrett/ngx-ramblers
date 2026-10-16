@@ -1106,8 +1106,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.pointerSize = followPointerSizeFrom(this.uiActions.initialValueFor(StoredValue.FOLLOW_POINTER_SIZE, FollowPointerSize.MEDIUM));
     this.followService.setPreviewSpeed(this.previewSpeed);
     this.showPreview = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-    this.tooltipsEnabled = this.appShell.platform() === AppInstallPlatform.OTHER
-      && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    this.tooltipsEnabled = this.appShell.tooltipsEnabled();
     this.subscriptions.push(this.appShell.appearance$.subscribe(appearance => {
       this.appearance = appearance;
     }));

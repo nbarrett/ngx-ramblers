@@ -47,15 +47,16 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
       }
       <router-outlet/>
       @if (showFloatingNavigation()) {
-        <button class="btn btn-primary btn-icon app-floating-navigation" type="button" (click)="navigateFloating()"
+        <button class="btn btn-primary btn-icon app-floating-navigation" type="button" (click)="navigationTooltip.hide(); navigateFloating()"
                 [attr.aria-label]="floatingNavLabel()"
-                [tooltip]="floatingNavLabel()">
+                [tooltip]="floatingNavLabel()" [isDisabled]="!appShell.tooltipsEnabled()" #navigationTooltip="bs-tooltip">
           <fa-icon [icon]="floatingBackAvailable() ? faArrowLeft : faHouse"/>
         </button>
       }
       @if (showFloatingShare()) {
-        <button class="btn btn-primary btn-icon app-floating-navigation app-floating-share" type="button" (click)="shareCurrentPage()"
-                [attr.aria-label]="shareFeedback || 'Share or copy link'" [tooltip]="shareFeedback || 'Share or copy link'">
+        <button class="btn btn-primary btn-icon app-floating-navigation app-floating-share" type="button" (click)="shareTooltip.hide(); shareCurrentPage()"
+                [attr.aria-label]="shareFeedback || 'Share or copy link'" [tooltip]="shareFeedback || 'Share or copy link'"
+                [isDisabled]="!appShell.tooltipsEnabled()" #shareTooltip="bs-tooltip">
           <fa-icon [icon]="shareFeedback === 'Link copied' ? faCheck : shareFeedback ? faCircleExclamation : faShareNodes"/>
         </button>
         <span class="visually-hidden" role="status">{{ shareFeedback }}</span>
