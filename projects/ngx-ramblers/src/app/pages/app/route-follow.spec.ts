@@ -33,6 +33,47 @@ describe("route follow compass pointer", () => {
     view["headingUp"] = false;
     expect(view["pointerHeading"]()).toBe(50);
   });
+
+  it.each([0, 90, 156, 172, 180, 270])("keeps the rendered Android pointer on the same %s degree bearing as the compass tape", heading => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    const chevron = document.createElement("div");
+    chevron.className = "follow-location-chevron";
+    const markerElement = document.createElement("div");
+    markerElement.appendChild(chevron);
+    view["appShell"] = {platform: () => AppInstallPlatform.ANDROID} as unknown as typeof view["appShell"];
+    view["followService"] = {compassAvailable: () => true} as unknown as typeof view["followService"];
+    view["progress"] = {heading, routeHeading: 80} as typeof view["progress"];
+    view["pointerMarker"] = {setLatLng: vi.fn(), getElement: () => markerElement} as unknown as typeof view["pointerMarker"];
+    view["refreshTape"]();
+    view["syncPointer"](51, 0, view["pointerHeading"]());
+    expect(view["compassHeadingText"]).toBe(`${heading}°`);
+    expect(chevron.style.transform).toBe(`rotate(${heading}deg)`);
+  });
+
+  it("adds route-up map rotation once while keeping the pointer on its compass bearing", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    const chevron = document.createElement("div");
+    chevron.className = "follow-location-chevron";
+    const markerElement = document.createElement("div");
+    markerElement.appendChild(chevron);
+    const gestures = {setBearing: vi.fn()};
+    view["gestures"] = gestures as unknown as typeof view["gestures"];
+    view["appShell"] = {platform: () => AppInstallPlatform.ANDROID} as unknown as typeof view["appShell"];
+    view["followService"] = {compassAvailable: () => true} as unknown as typeof view["followService"];
+    view["progress"] = {heading: 110, routeHeading: 80, position: {latitude: 51, longitude: 0}} as typeof view["progress"];
+    view["headingUp"] = true;
+    view["mapBearing"] = 0;
+    view["pointerMarker"] = {setLatLng: vi.fn(), getElement: () => markerElement} as unknown as typeof view["pointerMarker"];
+    view["refreshHeadingVisuals"]();
+    expect(gestures.setBearing).toHaveBeenCalledWith(-80, false);
+    expect(chevron.style.transform).toBe("rotate(110deg)");
+    expect(view["mapBearing"] + 110).toBe(30);
+    view["progress"] = {...view["progress"], heading: 50};
+    view["refreshHeadingVisuals"]();
+    expect(gestures.setBearing).toHaveBeenCalledTimes(1);
+    expect(chevron.style.transform).toBe("rotate(50deg)");
+    expect(view["mapBearing"] + 50).toBe(-30);
+  });
 });
 
 describe("route follow local restoration", () => {

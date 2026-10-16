@@ -4,7 +4,6 @@ import {
   compassCardinal,
   compassHeadingLabel,
   compassTapeMarks,
-  followPointerRotation,
   CompassCardinal,
   editExtendAfterIndex,
   firstCompleted,
@@ -204,23 +203,6 @@ describe("followPointerPixels", () => {
   it("makes medium larger than the original 18px pointer", () => {
     expect(followPointerPixels(FollowPointerSize.MEDIUM).width).toBeGreaterThan(18);
     expect(followPointerPixels(FollowPointerSize.LARGE).width).toBeGreaterThan(followPointerPixels(FollowPointerSize.MEDIUM).width);
-  });
-
-});
-
-describe("followPointerRotation", () => {
-
-  it("keeps iOS and web pointers on the compass heading and turns Android a half-turn", () => {
-    expect(followPointerRotation(344, AppInstallPlatform.IOS, true)).toBe(344);
-    expect(followPointerRotation(344, AppInstallPlatform.OTHER, true)).toBe(344);
-    expect(followPointerRotation(344, AppInstallPlatform.ANDROID, true)).toBe(164);
-    expect(followPointerRotation(180, AppInstallPlatform.ANDROID, true)).toBe(0);
-  });
-
-  it("preserves GPS and route bearings on Android when compass data is unavailable", () => {
-    expect(followPointerRotation(0, AppInstallPlatform.ANDROID, false)).toBe(0);
-    expect(followPointerRotation(90, AppInstallPlatform.ANDROID, false)).toBe(90);
-    expect(followPointerRotation(270, AppInstallPlatform.ANDROID, false)).toBe(270);
   });
 
 });

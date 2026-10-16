@@ -898,11 +898,6 @@ export function routeAlignedMapHeading(routeHeading: number | null, fallbackHead
   }
 }
 
-export function followPointerRotation(heading: number, platform: AppInstallPlatform, compassAvailable: boolean): number {
-  const offset = platform === AppInstallPlatform.ANDROID && compassAvailable ? 180 : 0;
-  return ((heading + offset) % 360 + 360) % 360;
-}
-
 export function compassHeadingLabel(degrees: number): string {
   if (!Number.isFinite(degrees)) {
     return "";

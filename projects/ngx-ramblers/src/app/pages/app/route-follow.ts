@@ -90,7 +90,6 @@ import {
   FollowMapScaleBar,
   compassHeadingLabel,
   compassTapeMarks,
-  followPointerRotation,
   routeAlignedMapHeading,
   FollowPointerSize,
   FOLLOW_POINTER_SIZES,
@@ -3356,7 +3355,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   private syncPointer(latitude: number, longitude: number, heading: number): void {
-    const rotation = followPointerRotation(heading || 0, this.appShell.platform(), this.followService.compassAvailable());
+    const rotation = heading || 0;
     if (this.pointerMarker) {
       this.pointerMarker.setLatLng([latitude, longitude]);
       const chevron = this.pointerMarker.getElement()?.querySelector(".follow-location-chevron") as HTMLElement | null;
