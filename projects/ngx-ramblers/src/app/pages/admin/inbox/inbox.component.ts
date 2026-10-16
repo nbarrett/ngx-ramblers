@@ -123,14 +123,60 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
               <option [ngValue]="InboxThreadFolder.DELETED">Deleted</option>
             </select>
           }
-          <div class="ms-auto d-flex align-items-center gap-2 inbox-toolbar-actions" [class.inbox-reading-actions]="readingOnMobile">
+          <div class="ms-auto inbox-toolbar-actions" [class.row]="layout.mobile" [class.g-2]="layout.mobile" [class.mx-0]="layout.mobile"
+               [class.d-flex]="!layout.mobile" [class.align-items-center]="!layout.mobile" [class.gap-2]="!layout.mobile">
           @if (!readingOnMobile) {
-            <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openComposer()" tooltip="Start a new email in the Email Composer">
-              <fa-icon [icon]="faPenToSquare"/>Compose
-            </button>
             @if (layout.mobile) {
-              <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="layout.mobileFiltersOpen = !layout.mobileFiltersOpen">
-                <fa-icon [icon]="faSliders"/>Filter and sort
+              <div class="col-6">
+                <button class="btn btn-quiet w-100 d-flex align-items-center justify-content-center gap-1 text-nowrap" type="button" (click)="openComposer()" tooltip="Start a new email in the Email Composer">
+                  <fa-icon [icon]="faPenToSquare"/>Compose
+                </button>
+              </div>
+              <div class="col-6">
+                <button class="btn btn-quiet w-100 d-flex align-items-center justify-content-center gap-1 text-nowrap" type="button" (click)="layout.mobileFiltersOpen = !layout.mobileFiltersOpen">
+                  <fa-icon [icon]="faSliders"/>Filter and sort
+                </button>
+              </div>
+              @if (layout.mobileFiltersOpen) {
+                <div class="col-6">
+                  <button type="button" class="btn btn-quiet w-100 inbox-filter-toggle" [class.active]="readFilter === InboxReadFilter.UNREAD" (click)="toggleUnreadFilter()">
+                    <fa-icon [icon]="faFilter" class="me-1"/>{{readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All'}}
+                  </button>
+                </div>
+                <div class="col-6">
+                  <button type="button" class="btn btn-quiet w-100" (click)="toggleMessageSort()">
+                    <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort" class="me-1"/>{{messageSortDescending ? 'Newest' : 'Oldest'}}
+                  </button>
+                </div>
+                <div class="col-6">
+                  <button type="button" class="btn btn-quiet w-100" (click)="layout.toggleDensity()">
+                    <fa-icon [icon]="layout.compactList ? faTableList : faGripLines" class="me-1"/>{{ layout.compactList ? 'Roomy' : 'Compact' }}
+                  </button>
+                </div>
+                <div class="col-6">
+                  <button type="button" class="btn btn-quiet w-100" (click)="syncAndRefresh()" [disabled]="busy">
+                    <fa-icon [icon]="faRotateRight" class="me-1"/>Refresh
+                  </button>
+                </div>
+                @if ((pushStatus$ | async); as pushStatus) {
+                  @if (pushStatus.supported && pushStatus.subscribed) {
+                    <div class="col-12">
+                      <button type="button" class="btn btn-quiet w-100" (click)="disableBrowserNotifications()" [disabled]="busy">
+                        <fa-icon [icon]="faBellSlash" class="me-1"/>Disable notifications
+                      </button>
+                    </div>
+                  } @else if (pushStatus.supported && pushStatus.permission !== 'denied') {
+                    <div class="col-12">
+                      <button type="button" class="btn btn-quiet w-100" (click)="enableBrowserNotifications()" [disabled]="busy">
+                        <fa-icon [icon]="faBell" class="me-1"/>Enable notifications
+                      </button>
+                    </div>
+                  }
+                }
+              }
+            } @else {
+              <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openComposer()" tooltip="Start a new email in the Email Composer">
+                <fa-icon [icon]="faPenToSquare"/>Compose
               </button>
             }
           }
@@ -182,33 +228,6 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
           }
           </div>
       </div>
-      @if (layout.mobile && layout.mobileFiltersOpen && !layout.mobileShowDetail) {
-        <div class="inbox-layout.mobile-filters">
-          <button type="button" class="btn btn-quiet inbox-filter-toggle" [class.active]="readFilter === InboxReadFilter.UNREAD" (click)="toggleUnreadFilter()">
-            <fa-icon [icon]="faFilter" class="me-1"/>{{readFilter === InboxReadFilter.UNREAD ? threadListUnreadCount + ' unread' : 'All'}}
-          </button>
-          <button type="button" class="btn btn-quiet" (click)="toggleMessageSort()">
-            <fa-icon [icon]="messageSortDescending ? faArrowDownWideShort : faArrowUpWideShort" class="me-1"/>{{messageSortDescending ? 'Newest' : 'Oldest'}}
-          </button>
-          <button type="button" class="btn btn-quiet" (click)="layout.toggleDensity()">
-            <fa-icon [icon]="layout.compactList ? faTableList : faGripLines" class="me-1"/>{{ layout.compactList ? 'Roomy' : 'Compact' }}
-          </button>
-          <button type="button" class="btn btn-quiet" (click)="syncAndRefresh()" [disabled]="busy">
-            <fa-icon [icon]="faRotateRight" class="me-1"/>Refresh
-          </button>
-          @if ((pushStatus$ | async); as pushStatus) {
-            @if (pushStatus.supported && pushStatus.subscribed) {
-              <button type="button" class="btn btn-quiet" (click)="disableBrowserNotifications()" [disabled]="busy">
-                <fa-icon [icon]="faBellSlash" class="me-1"/>Disable notifications
-              </button>
-            } @else if (pushStatus.supported && pushStatus.permission !== 'denied') {
-              <button type="button" class="btn btn-quiet" (click)="enableBrowserNotifications()" [disabled]="busy">
-                <fa-icon [icon]="faBell" class="me-1"/>Enable notifications
-              </button>
-            }
-          }
-        </div>
-      }
       <app-committee-unassigned-roles (reassigned)="refresh()"/>
       @if (!loadedOnce) {
         <div class="alert alert-warning inbox-alert d-flex align-items-center">
@@ -689,8 +708,32 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
         }
         @if (!viewingDrafts && (!layout.mobile || layout.mobileShowDetail)) {
         <div class="thumbnail-heading-frame-compact inbox-pane inbox-pane-messages">
+          @if (readingOnMobile) {
+            <div class="row g-2 inbox-reader-toolbar">
+              <div class="col-6">
+                <button class="btn btn-quiet w-100" type="button" (click)="backToList()" tooltip="Back to inbox">
+                  <fa-icon [icon]="faArrowLeft"/>Inbox
+                </button>
+              </div>
+              <div class="col-6">
+                <button class="btn btn-grey-danger w-100" type="button" (click)="deleteCurrentThread()" [disabled]="busy" tooltip="Delete this conversation and show the next one">
+                  <fa-icon [icon]="faTrash"/>Delete
+                </button>
+              </div>
+              <div class="col-6">
+                <button class="btn btn-quiet w-100" type="button" (click)="openAdjacentConversation(-1)" [disabled]="!hasAdjacentConversation(-1)" tooltip="Previous conversation">
+                  <fa-icon [icon]="faChevronLeft"/>Previous
+                </button>
+              </div>
+              <div class="col-6">
+                <button class="btn btn-quiet w-100" type="button" (click)="openAdjacentConversation(1)" [disabled]="!hasAdjacentConversation(1)" tooltip="Next conversation">
+                  Next<fa-icon [icon]="faChevronRight"/>
+                </button>
+              </div>
+            </div>
+          }
           @if (selectedThread) {
-            <div class="d-flex align-items-start gap-2 mb-3 inbox-detail-header" [class.compact]="layout.compactDetailHeader">
+            <div class="d-flex align-items-start gap-2 mb-3 inbox-detail-header">
               <div class="me-auto">
                 <h5 class="mb-1">{{selectedThread.subject || selectedThread.normalisedSubject || "(no subject)"}}</h5>
                 @if (threadFromLabel(); as fromLabel) {
@@ -722,7 +765,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
               }
             </div>
           }
-          <div class="inbox-detail" [attr.tabindex]="readingOnMobile ? 0 : null" role="region" aria-label="Conversation messages" (scroll)="onMessageScroll($event)">
+          <div class="inbox-detail" [attr.tabindex]="readingOnMobile ? 0 : null" role="region" aria-label="Conversation messages">
           @if (viewingDrafts) {
             <div class="text-muted">Drafts open in the email composer. Choose one on the left to carry on where you left off.</div>
           } @else if (!selectedThread) {
@@ -736,38 +779,6 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
             }
           }
           </div>
-          @if (readingOnMobile) {
-            <div class="inbox-sticky-actions">
-              <div class="d-flex flex-wrap gap-2 inbox-reader-navigation">
-                <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="backToList()" tooltip="Back to inbox">
-                  <fa-icon [icon]="faArrowLeft"/>Inbox
-                </button>
-                <button class="btn btn-grey-danger d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="deleteCurrentThread()" [disabled]="busy" tooltip="Delete this conversation and show the next one">
-                  <fa-icon [icon]="faTrash"/>Delete
-                </button>
-                <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openAdjacentConversation(-1)" [disabled]="!hasAdjacentConversation(-1)" tooltip="Previous conversation">
-                  <fa-icon [icon]="faChevronLeft"/>Previous
-                </button>
-                <button class="btn btn-quiet d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openAdjacentConversation(1)" [disabled]="!hasAdjacentConversation(1)" tooltip="Next conversation">
-                  Next<fa-icon [icon]="faChevronRight"/>
-                </button>
-                @if (nextUnreadConversation()) {
-                  <button class="btn btn-quiet inbox-next-unread d-flex align-items-center justify-content-center gap-1 text-nowrap flex-shrink-0" type="button" (click)="openNextUnread()" tooltip="Next unread conversation">
-                    <fa-icon [icon]="faEnvelope"/>Next unread
-                  </button>
-                }
-              </div>
-              @if (latestActionMessage(); as actionMessage) {
-                <div class="d-flex gap-2 inbox-reader-replies">
-                <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareReply(actionMessage)"><fa-icon [icon]="faReply"/> Reply</button>
-                @if (hasMultipleRecipients(actionMessage)) {
-                  <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareReplyAll(actionMessage)"><fa-icon [icon]="faReplyAll"/> Reply all</button>
-                }
-                <button class="btn btn-quiet" type="button" [disabled]="busy" (click)="prepareForward(actionMessage)"><fa-icon [icon]="faShare"/> Forward</button>
-                </div>
-              }
-            </div>
-          }
         </div>
         }
       </div>
@@ -1579,10 +1590,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   rememberListPosition(event: Event): void {
     this.listScrollTop = (event.target as HTMLElement).scrollTop;
-  }
-
-  onMessageScroll(event: Event): void {
-    this.layout.compactDetailHeader = this.layout.mobile && (event.target as HTMLElement).scrollTop > 32;
   }
 
   private currentConversationIndex(): number {

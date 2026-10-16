@@ -226,7 +226,7 @@
     left: 0
     right: 0
     bottom: 100%
-    height: env(safe-area-inset-top, 0px)
+    height: 4rem
     background: #fff
 
 :host ::ng-deep .tiptap-sticky-region-active
@@ -246,15 +246,18 @@
     box-shadow: none
 
 .composer-workspace-actions
-  display: grid !important
-  grid-auto-flow: column
-  grid-auto-columns: minmax(max-content, 1fr)
-  align-items: stretch
   width: 100%
   margin: 4px 0 0
   padding: 8px 0
   border-top: 1px solid rgba(0, 0, 0, 0.12)
   border-bottom: 1px solid rgba(0, 0, 0, 0.12)
+
+@media (max-width: 991.98px)
+  .composer-workspace-actions > :nth-last-child(1 of :not(.d-none)):nth-child(odd of :not(.d-none))
+    flex: 0 0 auto
+    width: 100%
+    max-width: 100%
+
 
 .composer-workspace-actions .composer-workspace-doc-tools,
 .composer-workspace-actions .composer-flow-tools,
@@ -264,8 +267,6 @@
 .composer-workspace-actions app-button-dropdown,
 .composer-workspace-actions .btn-group,
 .composer-workspace-actions .btn
-  min-width: max-content
-  max-width: none
   width: 100%
   height: var(--btn-min-height)
 
@@ -285,23 +286,6 @@
   white-space: nowrap
   transform: none
   box-shadow: none
-
-.composer-workspace-actions.is-maximised
-  display: flex !important
-  .composer-workspace-doc-tools,
-  .composer-flow-tools,
-  .composer-workspace-window-tools
-    display: flex
-    gap: 0.5rem
-  app-button-dropdown,
-  .btn-group,
-  .btn
-    flex: 0 0 auto
-    width: auto
-    min-width: 0
-    max-width: none
-  .composer-flow-tools
-    margin-left: auto
 
 .composer-workspace-actions .dropdown-menu .btn,
 .composer-workspace-actions .dropdown-item
@@ -577,12 +561,12 @@
     flex-wrap: nowrap
     justify-content: flex-start
     align-items: stretch
-    gap: 8px
+    gap: 0.5rem
 
   .email-composer-toolbar
-    display: grid
-    grid-template-columns: 1fr 1fr
-    gap: 8px
+    display: flex
+    flex-wrap: wrap
+    gap: 0.5rem
     width: 100%
 
   .composer-workspace-bar
@@ -592,60 +576,36 @@
     width: 100%
 
   .composer-workspace-actions
-    display: flex !important
-    flex-direction: row
-    flex-wrap: wrap
-    gap: 8px
     width: 100%
     margin-left: 0
 
-  .composer-workspace-actions .composer-workspace-doc-tools
-    flex: 1 1 100%
-    display: grid
-    grid-auto-flow: column
-    grid-auto-columns: minmax(0, 1fr)
-    gap: 8px
-    width: 100%
-
+  .composer-workspace-actions .composer-workspace-doc-tools,
   .composer-workspace-actions .composer-flow-tools,
   .composer-workspace-actions .composer-workspace-window-tools
     display: contents
 
-  .composer-workspace-actions .composer-flow-tools .btn,
-  .composer-workspace-actions .composer-flow-tools .btn-group,
-  .composer-workspace-actions .composer-workspace-window-tools .btn
-    flex: 1 1 auto
-    width: auto
-    min-width: max-content
-    max-width: none
-    margin-left: 0
-    white-space: nowrap
-    overflow: visible
-    padding-left: 10px
-    padding-right: 10px
-
-  .composer-workspace-actions .composer-workspace-doc-tools app-button-dropdown,
-  .composer-workspace-actions .composer-workspace-doc-tools .btn-group,
-  .composer-workspace-actions .composer-workspace-doc-tools .btn
+  .composer-workspace-actions app-button-dropdown,
+  .composer-workspace-actions .btn-group,
+  .composer-workspace-actions .btn
     width: 100%
     min-width: 0
-    flex: none
-    margin-left: 0
+    margin: 0
 
   .email-composer-toolbar .btn
-    width: 100%
-    min-height: 38px
+    flex: 1 1 calc(50% - 0.25rem)
+    min-height: 40px
 
   .stepper-nav
-    display: grid
-    grid-template-columns: 1fr 1fr
-    gap: 8px
+    display: flex
+    flex-wrap: wrap
+    gap: 0.5rem
     width: 100%
     margin-top: 0
 
   .stepper-nav .btn
-    width: 100%
-    min-height: 38px
+    flex: 1 1 calc(50% - 0.25rem)
+    width: auto
+    min-height: 40px
 
   .composer-add-row
     flex-direction: column
@@ -672,7 +632,7 @@
     font-size: 13px
 
   .email-composer-toolbar
-    grid-template-columns: 1fr
+    flex-wrap: wrap
 
   .stepper-nav
-    grid-template-columns: 1fr
+    flex-wrap: wrap
