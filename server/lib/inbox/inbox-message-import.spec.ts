@@ -7,7 +7,7 @@ import {
   InboxReaderProvider,
   InboxThreadFolder
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { autoReplyFromHeaders, buildQuotedForwardHtml, buildQuotedReplyHtml, folderAfterOwnSentReclassify, isOwnSentCopy, outboundCopyFromInbound, replyTargetExcludingViewer, resolveThreadExternalAddress, shouldRefreshUnreadForInbound, unreadAfterReclassify } from "./inbox-message-import";
+import { autoReplyFromHeaders, buildQuotedForwardHtml, buildQuotedReplyHtml, composeReplyAddress, folderAfterOwnSentReclassify, isOwnSentCopy, outboundCopyFromInbound, replyTargetExcludingViewer, resolveThreadExternalAddress, shouldRefreshUnreadForInbound, unreadAfterReclassify } from "./inbox-message-import";
 
 function address(email: string, name: string | null = null): InboxAddress {
   return {email, name};
@@ -46,13 +46,21 @@ describe("resolveThreadExternalAddress", () => {
     expect(result.email).toEqual("external@example.com");
   });
 
-  it("uses explicit counterparty when provided", () => {
+  it("uses the inbound sender rather than a leftover committee counterparty", () => {
     const result = resolveThreadExternalAddress(
       message(),
-      address("someone@example.com", "Someone"),
-      internalEmails
+      address("membership@example.co.uk", "Membership"),
+      new Set([...internalEmails, "membership@example.co.uk"])
     );
-    expect(result.email).toEqual("someone@example.com");
+    expect(result.email).toEqual("external@example.com");
+  });
+
+  it("keeps an existing outside counterparty when this message is only committee identities", () => {
+    const result = resolveThreadExternalAddress(message({
+      from: address("walks@example.co.uk", "Walks"),
+      to: [address("group.inbox@provider.example")]
+    }), address("walker@example.com", "Walker"), internalEmails);
+    expect(result.email).toEqual("walker@example.com");
   });
 
   it("picks first external To when From is an internal address", () => {
@@ -135,6 +143,43 @@ describe("quoted message dates", () => {
 
     expect(buildQuotedReplyHtml(outboundMessage)).toContain("On Sun, 09 Aug 2026 09:57:22 +0000, External");
     expect(buildQuotedForwardHtml(outboundMessage)).toContain("Date: Sun, 09 Aug 2026 09:57:22 +0000");
+  });
+});
+
+describe("composeReplyAddress", () => {
+  const internal = new Set(["chair@group.example.org.uk", "membership@group.example.org.uk"]);
+  const outside = address("morgan@example.com", "Morgan Lane");
+  const membership = address("membership@group.example.org.uk", "Membership");
+  const chair = address("chair@group.example.org.uk", "Chair");
+
+  it("replies to the inbound sender when they are outside the committee", () => {
+    const inbound = message({
+      direction: InboxMessageDirection.INBOUND,
+      from: outside,
+      to: [chair],
+      replyTo: null
+    });
+    expect(composeReplyAddress(inbound, internal, "viewer@example.com", membership).email).toEqual(outside.email);
+  });
+
+  it("replies to the committee sender even with an outside recipient and stored contact", () => {
+    const inbound = message({from: chair, to: [membership, outside], replyTo: null});
+    expect(composeReplyAddress(inbound, internal, "viewer@example.com", outside)).toEqual(chair);
+  });
+
+  it("honours an explicit committee Reply-To ahead of an outside sender", () => {
+    const inbound = message({from: outside, to: [chair], replyTo: membership});
+    expect(composeReplyAddress(inbound, internal, "viewer@example.com", outside)).toEqual(membership);
+  });
+
+  it("replies to the outbound recipient rather than a leftover committee address", () => {
+    const outbound = message({
+      direction: InboxMessageDirection.OUTBOUND,
+      from: chair,
+      to: [outside],
+      replyTo: null
+    });
+    expect(composeReplyAddress(outbound, internal, "viewer@example.com", membership).email).toEqual(outside.email);
   });
 });
 

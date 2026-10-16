@@ -2442,10 +2442,11 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
           const replyAll = queryParams.get(StoredValue.REPLY_ALL) === "true";
           const messages = threadMessages.messages ?? [];
           const messageId = queryParams.get(StoredValue.MESSAGE);
-          const target = inboxMessageMatchingId(messages, messageId) ?? newestInboxMessage(messages);
+          const target = messageId ? inboxMessageMatchingId(messages, messageId) : newestInboxMessage(messages);
           if (target) {
-            const reply = await this.inboxService.composeReply(threadId, {
-              threadId,
+            const replyThreadId = target.threadId || threadId;
+            const reply = await this.inboxService.composeReply(replyThreadId, {
+              threadId: replyThreadId,
               messageId: target.messageId,
               forward
             });
@@ -2484,25 +2485,25 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
     this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
     this.session.state.addresseeType = AddresseeType.NONE;
+    this.session.state.selectedMemberIds = [];
+    this.session.state.selectedListId = null;
+    this.session.state.narrowListId = null;
+    this.session.state.ccRecipients = [];
+    this.session.state.bccRecipients = [];
+    this.session.state.externalRecipients = reply.forward || !reply.to
+      ? []
+      : [{email: reply.to.email, name: reply.to.name ?? undefined, saveForReuse: false}];
     if (reply.forward) {
       this.recipients.replyCcSuggestion = [];
       this.applyForwardedAttachments(reply.attachments ?? []);
     } else {
-      if (reply.to) {
-        const recipient = {email: reply.to.email, name: reply.to.name ?? undefined, saveForReuse: false};
-        const alreadyPresent = this.session.state.externalRecipients.some(existing => existing.email.toLowerCase() === reply.to.email.toLowerCase());
-        if (!alreadyPresent) {
-          this.session.state.externalRecipients = [recipient, ...this.session.state.externalRecipients];
-        }
-      }
       const replyCc = (reply.cc ?? []).map(address => ({
         email: address.email,
         name: address.name ?? undefined,
         saveForReuse: false
       }));
       if (reply.replyAll) {
-        const existingCc = new Set(this.session.state.ccRecipients.map(existing => existing.email.toLowerCase()));
-        this.session.state.ccRecipients = [...this.session.state.ccRecipients, ...replyCc.filter(address => !existingCc.has(address.email.toLowerCase()))];
+        this.session.state.ccRecipients = replyCc;
         this.recipients.replyCcSuggestion = [];
       } else {
         this.recipients.replyCcSuggestion = replyCc;

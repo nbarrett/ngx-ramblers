@@ -7,7 +7,7 @@ import * as aliases from "./inbox-aliases";
 import { inboxMailboxConnection as connections } from "../mongo/models/inbox-mailbox-connection";
 import { inboxMessage as messages } from "../mongo/models/inbox-message";
 import { parseGmailMessage } from "./gmail-inbox-reader";
-import { resolveThreadExternalAddress, replyTargetExcludingViewer } from "./inbox-message-import";
+import { composeReplyAddress, resolveThreadExternalAddress } from "./inbox-message-import";
 import { withResolvedDisplayRecipients } from "./inbox-display-addresses";
 
 describe("inbox display addresses", () => {
@@ -37,7 +37,7 @@ describe("inbox display addresses", () => {
     expect(inboxThreadRowFrom(row)).toBe("Alex Reed <webmaster@group.example.org.uk>");
     expect(inboxThreadHeaderFrom([message])).toEqual(sender);
     expect(inboxThreadRowTo(row, recipient)).toBe("Support <support@group.example.org.uk>");
-    expect(replyTargetExcludingViewer(counterparty, message.from, recipient.email)).toEqual(sender);
+    expect(composeReplyAddress(message, internalEmails, recipient.email, counterparty)).toEqual(sender);
     expect(row.externalAddress).toEqual(counterparty);
   });
 

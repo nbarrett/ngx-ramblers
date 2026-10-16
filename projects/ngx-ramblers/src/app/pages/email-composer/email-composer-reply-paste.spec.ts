@@ -1,5 +1,8 @@
 import {describe, expect, it, vi} from "vitest";
+import {convertToParamMap} from "@angular/router";
+import {StoredValue} from "../../models/ui-actions";
 import {BrandingMode} from "../../models/mail.model";
+import {defaultEmailComposerState} from "../../functions/email-composer";
 import {EmailComposer} from "./email-composer";
 
 describe("composer reply paste", () => {
@@ -65,5 +68,97 @@ describe("composer reply paste", () => {
     EmailComposer.prototype["onIntroRawPaste"].call(context as unknown as EmailComposer, event);
     expect(context.session.state.subject).toBe("Re: Weekend plans");
     expect(event.consume).not.toHaveBeenCalled();
+  });
+});
+
+describe("composer reply recipients", () => {
+  const correspondent = {name: "Morgan Lane", email: "morgan@example.com"};
+  const copyRecipient = {name: "Casey Green", email: "casey.green@example.com"};
+
+  function composer() {
+    const instance = Object.create(EmailComposer.prototype);
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.UNBRANDED;
+    state.selectedMemberIds = ["unrelated-member"];
+    state.selectedListId = 17;
+    state.narrowListId = 18;
+    state.externalRecipients = [{email: "previous@example.com"}];
+    state.ccRecipients = [{email: "previous-cc@example.com"}];
+    state.bccRecipients = [{email: "previous-bcc@example.com"}];
+    Object.assign(instance, {
+      session: {state, inboxReplyContext: null},
+      recipients: {replyCcSuggestion: []},
+      logger: {info: vi.fn()},
+      htmlToReplyMarkdown: vi.fn(() => "Quoted message"),
+      applyForwardedAttachments: vi.fn(),
+      introEditorRef: null
+    });
+    return instance;
+  }
+
+  function reply() {
+    return {to: correspondent, cc: [copyRecipient], subject: "Re: Weekend plans", quotedHtml: "<p>Original message</p>", inboxMessageId: "message-1", threadId: "thread-1", attachments: []};
+  }
+
+  it("replaces previous recipients and offers Cc separately for a reply", () => {
+    const instance = composer();
+    instance.applyInboxReply(reply());
+    expect(instance.session.state.externalRecipients).toEqual([{...correspondent, saveForReuse: false}]);
+    expect(instance.session.state.selectedMemberIds).toEqual([]);
+    expect(instance.session.state.selectedListId).toBe(null);
+    expect(instance.session.state.narrowListId).toBe(null);
+    expect(instance.session.state.ccRecipients).toEqual([]);
+    expect(instance.session.state.bccRecipients).toEqual([]);
+    expect(instance.recipients.replyCcSuggestion).toEqual([{...copyRecipient, saveForReuse: false}]);
+  });
+
+  it("uses only the selected message Cc recipients for Reply all", () => {
+    const instance = composer();
+    instance.applyInboxReply({...reply(), replyAll: true});
+    expect(instance.session.state.ccRecipients).toEqual([{...copyRecipient, saveForReuse: false}]);
+    expect(instance.session.state.bccRecipients).toEqual([]);
+    expect(instance.recipients.replyCcSuggestion).toEqual([]);
+  });
+
+  it("starts a forward without any recipients from the earlier composition", () => {
+    const instance = composer();
+    instance.applyInboxReply({...reply(), forward: true});
+    expect(instance.session.state.externalRecipients).toEqual([]);
+    expect(instance.session.state.ccRecipients).toEqual([]);
+    expect(instance.session.state.bccRecipients).toEqual([]);
+    expect(instance.session.state.selectedMemberIds).toEqual([]);
+    expect(instance.recipients.replyCcSuggestion).toEqual([]);
+    expect(instance.applyForwardedAttachments).toHaveBeenCalledWith([]);
+  });
+});
+
+describe("rebuilding an inbox reply from its link", () => {
+  function composer() {
+    const instance = Object.create(EmailComposer.prototype);
+    Object.assign(instance, {
+      session: {inboxReplyContext: null},
+      inboxService: {
+        getThread: vi.fn().mockResolvedValue({thread: {id: "inbound-thread"}, messages: [{threadId: "inbound-thread", messageId: "original-message"}, {threadId: "inbound-thread", messageId: "later-reply"}]}),
+        composeReply: vi.fn().mockResolvedValue({threadId: "inbound-thread"})
+      },
+      applyInboxReply: vi.fn(),
+      logger: {error: vi.fn()}
+    });
+    return instance;
+  }
+
+  it("restores the original selected message even when a newer reply exists", async () => {
+    const instance = composer();
+    await instance.rebuildInboxReplyFromRoute(convertToParamMap({[StoredValue.THREAD]: "inbound-thread", [StoredValue.MESSAGE]: "original-message"}));
+    expect(instance.inboxService.composeReply).toHaveBeenCalledWith("inbound-thread", {threadId: "inbound-thread", messageId: "original-message", forward: false});
+    expect(instance.applyInboxReply).toHaveBeenCalled();
+  });
+
+  it("does not silently replace a missing selected message with a newer reply", async () => {
+    const instance = composer();
+    await instance.rebuildInboxReplyFromRoute(convertToParamMap({[StoredValue.THREAD]: "inbound-thread", [StoredValue.MESSAGE]: "missing-message"}));
+    expect(instance.inboxService.composeReply).not.toHaveBeenCalled();
+    expect(instance.applyInboxReply).not.toHaveBeenCalled();
+    expect(instance.inboxReplyLoading).toBe(false);
   });
 });

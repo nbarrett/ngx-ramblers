@@ -2800,7 +2800,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     try {
-      const threadId = this.selectedThreadId ?? "";
+      const threadId = target.threadId || this.selectedThreadId || "";
       const reply = await this.inboxService.composeReply(threadId, {threadId, messageId: target.messageId, forward: options.forward});
       this.markThreadsRead(this.siblingConversationThreads(this.selectedThread));
       if (options.replyAll) {
@@ -2814,7 +2814,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         queryParams: {
           [StoredValue.BRANDING]: BrandingMode.UNBRANDED,
           [StoredValue.TAB]: EmailComposerStepKey.COMPOSE,
-          [StoredValue.THREAD]: this.threadSlug(this.selectedThread),
+          [StoredValue.THREAD]: reply.threadId,
           [StoredValue.MESSAGE]: target.messageId,
           ...(options.replyAll ? {[StoredValue.REPLY_ALL]: "true"} : {}),
           ...(options.forward ? {[StoredValue.FORWARD]: "true"} : {}),

@@ -71,10 +71,6 @@ async function conversationKeyBySubject(tenantSlug: string, message: InboxMessag
   return conversationKey;
 }
 
-export function replyAddress(message: InboxMessage): InboxAddress {
-  return message.direction === InboxMessageDirection.INBOUND && message.replyTo?.email ? message.replyTo : message.from;
-}
-
 const AUTO_REPLY_SUBJECT_PATTERN = /^\s*(automatic reply|auto[- ]?reply|auto[- ]?response|out of (the )?office)\b/i;
 const AUTO_REPLY_PRECEDENCE = ["auto_reply", "auto-reply"];
 
@@ -273,25 +269,28 @@ export function replyTargetExcludingViewer(candidate: InboxAddress, messageSende
   return isViewer(candidate) ? (isViewer(messageSender) ? candidate : messageSender) : candidate;
 }
 
-export function resolveThreadExternalAddress(message: InboxMessage, counterparty?: InboxAddress, internalEmails?: Set<string>): InboxAddress {
+export function composeReplyAddress(message: InboxMessage, internalEmails: Set<string>, viewerEmail: string | null, threadExternal?: InboxAddress | null): InboxAddress {
+  const candidate = message.direction === InboxMessageDirection.INBOUND
+    ? statedReplyAddress(message) ?? (message.from?.email ? message.from : null) ?? resolveThreadExternalAddress(message, threadExternal, internalEmails)
+    : resolveThreadExternalAddress(message, threadExternal, internalEmails);
+  return replyTargetExcludingViewer(candidate, message.from, viewerEmail);
+}
+
+export function resolveThreadExternalAddress(message: InboxMessage, counterparty?: InboxAddress | null, internalEmails: Set<string> = new Set()): InboxAddress {
   const isInternal = (address?: InboxAddress | null) =>
-    Boolean(address?.email && internalEmails?.has(normaliseEmail(address.email)));
-  const sender = replyAddress(message);
+    Boolean(address?.email && internalEmails.has(normaliseEmail(address.email)));
   const recipients = [...(message.to ?? []), ...(message.cc ?? [])].filter(address => address?.email);
-  const preferred = message.direction === InboxMessageDirection.OUTBOUND
-    ? [
-      counterparty,
-      recipients.find(address => !isInternal(address)),
-      recipients[0],
-      sender
-    ].find(address => address?.email)
-    : [
-      counterparty,
-      isInternal(sender) ? null : sender,
-      recipients.find(address => !isInternal(address)),
-      recipients[0],
-      sender
-    ].find(address => address?.email);
+  const inbound = message.direction === InboxMessageDirection.INBOUND;
+  const outside = [
+    inbound ? statedReplyAddress(message) : null,
+    inbound ? message.from : null,
+    recipients.find(address => !isInternal(address)),
+    counterparty
+  ].find(address => address?.email && !isInternal(address));
+  const fallback = inbound
+    ? [recipients[0], message.from, counterparty]
+    : [recipients[0], counterparty, message.from];
+  const preferred = outside ?? fallback.find(address => address?.email) ?? {name: null, email: ""};
   return preferred?.email ? {name: preferred.name ?? null, email: preferred.email} : {name: null, email: "unknown@local"};
 }
 
@@ -375,7 +374,7 @@ async function storeReceivedInboundMessage(aliasConfig: InboxAliasConfig, messag
   const thread = existingThread ?? await createThread(aliasConfig, message, messageAt, folder, externalAddress, InboxMessageDirection.INBOUND, internalEmails);
   const threadId = thread.id ?? thread["_id"]?.toString() ?? "";
   if (existingThread && !isAutoReplyMessage(message)) {
-    const corrected = await correctThreadExternalAddress(threadId, replyAddress(message), internalEmails);
+    const corrected = await correctThreadExternalAddress(threadId, composeReplyAddress(message, internalEmails ?? new Set(), null), internalEmails);
     if (corrected) {
       thread.externalAddress = corrected;
     }
