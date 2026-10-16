@@ -1,6 +1,10 @@
 import expect from "expect";
 import { applyTextExclusions } from "../migration/text-exclusions";
-import { describe, it } from "mocha";
+import { afterEach, beforeEach, describe, it } from "mocha";
+import sinon from "sinon";
+import * as publicSiteFetch from "./public-site-fetch";
+import { SourceSiteUnavailableError } from "./source-site-limiter";
+import { HttpError } from "../shared/http-error";
 import {
   RegistrationPageType,
   RegistrationMigrationTemplate,
@@ -14,7 +18,7 @@ import {
 import { ParentPageMode } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 import { TransformationActionType } from "../../../projects/ngx-ramblers/src/app/models/page-transformation.model";
 import { PageContentType } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { withContactUsLinks, discoverRegistrationPages, isNgxRamblersSite, joinSplitLinkText, mergeAdjacentSameHrefLinks, mergeRegistrationPages, pagesFoundOn, proposedRegistrationNavigation, registrationHeaderButtons, registrationMigrationConfig, registrationPageType, registrationContentType, registrationSourceUrl, registrationTitleFromLink, earlierImportFilters, importedPagePath, pairedImageRows, repeatedLayoutImagePaths, uniqueLinksByHref, withIntroductionPhotos, withoutButtonsTo, withoutDuplicateHeadingImages, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
+import { withContactUsLinks, discoverRegistrationWebsite, discoverRegistrationPages, isCrawlableRegistrationPageUrl, isNgxRamblersSite, joinSplitLinkText, mergeAdjacentSameHrefLinks, mergeRegistrationPages, pagesFoundOn, proposedRegistrationNavigation, registrationHeaderButtons, registrationMigrationConfig, registrationPageType, registrationContentType, registrationSourceUrl, registrationTitleFromLink, earlierImportFilters, importedPagePath, pairedImageRows, repeatedLayoutImagePaths, uniqueLinksByHref, withIntroductionPhotos, withoutButtonsTo, withoutDuplicateHeadingImages, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
 import { assembleRegistrationPages, registrationPageTree, registrationPagesMoved, registrationPagesWithSelection } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import { SitemapMoveDirection } from "../../../projects/ngx-ramblers/src/app/models/sitemap.model";
 import { excludedImage, markdownSegments, migrateStaticSite, sourceFidelityGaps } from "../migration/migrate-static-site-engine";
@@ -112,6 +116,18 @@ describe("site registration content discovery", () => {
     expect(discovered.pages.map(page => page.path).sort()).toEqual(["faqs", "home", "what-we-do"]);
     expect(discovered.pages.find(page => page.path === "faqs").title).toBe("FAQs");
     expect(discovered.pages.find(page => page.path === "faqs").url).toContain("docs.google.com/document/d/abc123");
+  });
+
+  it("discovers linked PDF and Word documents on a hosted group page", () => {
+    const html = `<html><body><main><div class="type-group-hub">
+      <a href="https://group.example.org.uk/faqs.pdf">FAQs</a>
+      <a href="https://group.example.org.uk/handbook.docx">Handbook</a>
+      <a href="https://group.example.org.uk/photo.jpg">Photo</a>
+    </div></main></body></html>`;
+    const discovered = discoverRegistrationPages(html, "https://www.ramblers.org.uk/go-walking/ramblers-groups/hillside-district-group");
+    expect(discovered.pages.map(page => page.path).sort()).toEqual(["faqs", "handbook", "home"]);
+    expect(discovered.pages.find(page => page.path === "faqs").url).toBe("https://group.example.org.uk/faqs.pdf");
+    expect(discovered.pages.find(page => page.path === "handbook").url).toBe("https://group.example.org.uk/handbook.docx");
   });
 
   it("keeps a group's own documents out of the page scrape so they can be read as documents", () => {
@@ -540,6 +556,20 @@ describe("site registration page addresses and layout images", () => {
     expect(importedPagePath("about-us/about", pages, moved)).toEqual("contact/about");
   });
 
+  it("does not treat sentence-like relative links as pages to crawl", () => {
+    const sentenceHref = "See the Youtube introductory guide.";
+    const discovered = discoverRegistrationPages(`<html><body><nav>
+      <a href="/about.html">About us</a>
+      <a href="${sentenceHref}">${sentenceHref}</a>
+      <a href="mailto:committee@group.example.org.uk">Email us</a>
+    </nav></body></html>`, "https://group.example.org.uk/");
+    expect(isCrawlableRegistrationPageUrl(new URL(sentenceHref, "https://group.example.org.uk/"))).toBe(false);
+    expect(isCrawlableRegistrationPageUrl(new URL("https://group.example.org.uk/photos/walk.jpg"))).toBe(false);
+    expect(isCrawlableRegistrationPageUrl(new URL("https://group.example.org.uk/index.php?option=com_dpcalendar&task=ical.download&id=17"))).toBe(false);
+    expect(discovered.pages.map(page => page.path)).toEqual(["about-us"]);
+    expect(discovered.pages.some(page => /Youtube|See%20the/i.test(page.url))).toBe(false);
+  });
+
   it("treats a site root and its index page as the same page", () => {
     expect(registrationSourceUrl("https://group.example/index.html")).toEqual(registrationSourceUrl("https://group.example/"));
     expect(registrationSourceUrl("https://group.example/walks/default.aspx")).toEqual("https://group.example/walks/");
@@ -698,5 +728,36 @@ describe("site registration page addresses and layout images", () => {
     ]});
     const children = config.parentPages.flatMap(page => page.selectedChildren || []);
     expect(children.map(child => child.path)).toContain("https://group.example/flashgallery/mobile.php?20250112%20Haversham%20%26%20New%20Bradwell~January%202025__");
+  });
+});
+
+describe("registration website crawl failures", () => {
+  const sandbox = sinon.createSandbox();
+  const website = "https://group.example.org.uk/";
+
+  beforeEach(() => {
+    sandbox.stub(publicSiteFetch, "fetchPublicSitePage").resolves({url: website, html: '<nav><a href="/missing">Missing page</a><a href="/about">About us</a></nav>'});
+  });
+
+  afterEach(() => sandbox.restore());
+
+  it("continues discovering other pages after a broken link", async () => {
+    const fetch = sandbox.stub(publicSiteFetch, "fetchPublicSiteHtml");
+    fetch.withArgs(`${website}missing`).rejects(new HttpError(404, "Missing page"));
+    fetch.withArgs(`${website}about`).resolves('<nav><a href="/contact">Contact</a></nav>');
+    fetch.withArgs(`${website}contact`).resolves("<main>Contact us</main>");
+    const result = await discoverRegistrationWebsite(website);
+    expect(result.pages.some(page => page.url === `${website}contact`)).toBe(true);
+  });
+
+  it("stops when the source site limiter reports an unavailable host", async () => {
+    sandbox.stub(publicSiteFetch, "fetchPublicSiteHtml").rejects(new SourceSiteUnavailableError("group.example.org.uk", "Repeated failures"));
+    await expect(discoverRegistrationWebsite(website)).rejects.toBeInstanceOf(SourceSiteUnavailableError);
+  });
+
+  it("does not swallow discovery safety limits as broken links", async () => {
+    const links = [...new Set([..."abcdefghijklmnopqrstuvwxyz"].flatMap(first => [..."abcdefghij"].map(second => `${first}${second}`)))];
+    sandbox.stub(publicSiteFetch, "fetchPublicSiteHtml").resolves(`<nav>${links.map(link => `<a href="/${link}">${link}</a>`).join("")}</nav>`);
+    await expect(discoverRegistrationWebsite(website)).rejects.toThrow("250 internal page links");
   });
 });
