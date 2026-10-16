@@ -775,93 +775,128 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               <div class="email-composer-step-label">{{ currentStepTitle() }}</div>
               <div class="email-composer-step-hint">{{ stepHint(stepperActiveTab) }}</div>
             </div>
-      <div class="composer-workspace-actions d-flex gap-2 w-100 align-items-center"
-           [class.is-maximised]="composerPanel.maximised">
-          <div class="composer-workspace-doc-tools">
+      <div class="row g-2 mx-0 composer-workspace-actions w-100">
           @if (!sendComplete() || batchJobLost) {
-            <app-button-dropdown label="Save"
+            <div class="col-6 col-lg">
+            <app-button-dropdown fullWidth label="Save"
                                  [icon]="faLock"
                                  [items]="saveMenuItems()"
                                  [disabled]="!hasContentToDraft() && !session.currentDraftId"
                                  (itemSelect)="onSaveMenu($event)"/>
+            </div>
             @if (session.currentDraftId) {
-              <button type="button" class="btn btn-quiet"
+              <div class="col-6 col-lg">
+              <button type="button" class="btn btn-quiet w-100"
                       (click)="revertToSavedDraft()"
                       tooltip="Discard unsaved changes and reload the last saved version"
                       placement="bottom">
                 <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Revert
               </button>
+              </div>
             }
-            <app-button-dropdown label="Show"
+            <div class="col-6 col-lg">
+            <app-button-dropdown fullWidth label="Show"
                                  [icon]="faFolderOpen"
                                  [items]="showMenuItems()"
                                  (itemSelect)="onShowMenu($event)"/>
+            </div>
           }
-          </div>
-          <div class="composer-flow-tools">
             @switch (stepperActiveTab) {
               @case (EmailComposerStepKey.TEMPLATE) {
-                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!templateStepValid()" [title]="templateStepValidationMessage()">
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-primary w-100" (click)="goNext()" [disabled]="!templateStepValid()" [title]="templateStepValidationMessage()">
                   Next <fa-icon [icon]="faArrowRight"/>
                 </button>
+                </div>
               }
               @case (EmailComposerStepKey.RECIPIENTS) {
-                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!recipientsStepValid() && !emptyWorkflowNextConfig() && state.brandingMode !== BrandingMode.UNBRANDED" [title]="emptyWorkflowNextConfig() ? 'Continue to the next workflow email' : recipientsStepValid() ? '' : recipientsStepValidationMessage()">
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-primary w-100" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                </div>
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-primary w-100" (click)="goNext()" [disabled]="!recipientsStepValid() && !emptyWorkflowNextConfig() && state.brandingMode !== BrandingMode.UNBRANDED" [title]="emptyWorkflowNextConfig() ? 'Continue to the next workflow email' : recipientsStepValid() ? '' : recipientsStepValidationMessage()">
                   Next <fa-icon [icon]="faArrowRight"/>
                 </button>
+                </div>
               }
               @case (EmailComposerStepKey.COMPOSE) {
-                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!canGoToFollowingStep()" [title]="composeStepNextDisabledMessage()">
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-primary w-100" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                </div>
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-primary w-100" (click)="goNext()" [disabled]="!canGoToFollowingStep()" [title]="composeStepNextDisabledMessage()">
                   Next <fa-icon [icon]="faArrowRight"/>
                 </button>
+                </div>
               }
               @case (EmailComposerStepKey.EVENTS) {
-                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                <button type="button" class="btn btn-primary" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-primary w-100" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                </div>
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-primary w-100" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
+                </div>
               }
               @case (EmailComposerStepKey.REVIEW) {
-                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                <button type="button" class="btn btn-primary" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-primary w-100" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                </div>
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-primary w-100" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
+                </div>
               }
               @case (EmailComposerStepKey.SEND) {
                 @if (sendComplete()) {
                   @if (nextConfigAfterSend) {
-                    <button type="button" class="btn btn-primary" (click)="continueToNextConfig()"><fa-icon [icon]="faArrowRight"/> Continue to "{{ nextConfigAfterSend.subject?.text }}"</button>
+                    <div class="col-12 col-lg">
+                    <button type="button" class="btn btn-primary w-100" (click)="continueToNextConfig()"><fa-icon [icon]="faArrowRight"/> Continue to "{{ nextConfigAfterSend.subject?.text }}"</button>
+                    </div>
                   }
-                  <button type="button" class="btn btn-primary" (click)="newComposition()"><fa-icon [icon]="faFile"/> Start a new email</button>
-                  <button type="button" class="btn btn-quiet" (click)="closeAfterSend()"><fa-icon [icon]="faXmark"/> Close</button>
+                  <div class="col-6 col-lg">
+                  <button type="button" class="btn btn-primary w-100" (click)="newComposition()"><fa-icon [icon]="faFile"/> Start a new email</button>
+                  </div>
+                  <div class="col-6 col-lg">
+                  <button type="button" class="btn btn-quiet w-100" (click)="closeAfterSend()"><fa-icon [icon]="faXmark"/> Close</button>
+                  </div>
                 } @else {
-                  <button type="button" class="btn btn-primary" (click)="goPrev()" [disabled]="sendInProgress"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                  <div class="col-6 col-lg">
+                  <button type="button" class="btn btn-primary w-100" (click)="goPrev()" [disabled]="sendInProgress"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                  </div>
                 }
               }
             }
             @if (!sendComplete()) {
               @if (sendConfirm.notificationsOutstanding()) {
-                <button type="button" class="btn btn-sunset text-nowrap"
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-sunset text-nowrap w-100"
                         (click)="confirmAndSend()"
                         [disabled]="sendInProgress">
                   <fa-icon [icon]="faPaperPlane"/> Confirm send
                 </button>
-                <button type="button" class="btn btn-quiet"
+                </div>
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-quiet w-100"
                         (click)="cancelSendConfirm()"
                         [disabled]="sendInProgress">
                   <fa-icon [icon]="faXmark"/> Cancel
                 </button>
+                </div>
               } @else if (!sendDisabled() && !hasSendBlockers()) {
-                <button type="button" class="btn btn-sunset text-nowrap" (click)="armSend()" [title]="'Send ' + sendingChannelLabel()">
+                <div class="col-6 col-lg">
+                <button type="button" class="btn btn-sunset text-nowrap w-100" (click)="armSend()" [title]="'Send ' + sendingChannelLabel()">
                   <fa-icon [icon]="faPaperPlane"/> Send
                 </button>
+                </div>
               }
             }
-          </div>
-          <div class="composer-workspace-window-tools">
-          <button type="button" class="btn btn-quiet composer-maximise-toggle" (click)="composerPanel.toggle()"
+          <div class="col-6 col-lg d-none d-lg-block">
+          <button type="button" class="btn btn-quiet composer-maximise-toggle w-100" (click)="composerPanel.toggle()"
                   [tooltip]="composerPanel.maximised ? composerPanel.restoreTooltip : composerPanel.maximiseTooltip">
             <fa-icon [icon]="composerPanel.maximised ? faCompress : faExpand" class="me-1"/>{{ composerPanel.maximised ? 'Restore' : 'Maximise' }}
           </button>
-          <button type="button" class="btn btn-quiet" (click)="exitComposer()">
+          </div>
+          <div class="col-6 col-lg">
+          <button type="button" class="btn btn-quiet w-100" (click)="exitComposer()">
             <fa-icon [icon]="faXmark" class="me-1"/>Exit
           </button>
           </div>
@@ -1541,7 +1576,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       if (!this.userPickedEmailType && !this.session.currentDraftId && !this.pendingDraftLoad) {
         this.autoSelectNotificationConfig();
       }
-      this.recipients.applyDefaultListIfNeeded();
+      if (!this.session.currentDraftId && !this.pendingDraftLoad) {
+        this.recipients.applyDefaultListIfNeeded();
+      }
       this.recipients.syncRecipientAddressMode();
       this.changeDetector.markForCheck();
     }));
@@ -1557,12 +1594,14 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     await this.applyVolunteerAudience();
     this.recipientSources.members = this.recipientSources.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
     this.recipientSources.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
-    this.recipients.applyDefaultListIfNeeded();
-    if (this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
-      this.recipients.applyPreFilterAudienceToTo();
-    } else {
-      this.recipients.clearUnbrandedBulkRecipients();
-      this.session.state.externalRecipients = this.recipients.expandListChipsWhenMixedWithPeople(this.session.state.externalRecipients ?? []);
+    if (!this.session.currentDraftId && !this.pendingDraftLoad) {
+      this.recipients.applyDefaultListIfNeeded();
+      if (this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
+        this.recipients.applyPreFilterAudienceToTo();
+      } else {
+        this.recipients.clearUnbrandedBulkRecipients();
+        this.session.state.externalRecipients = this.recipients.expandListChipsWhenMixedWithPeople(this.session.state.externalRecipients ?? []);
+      }
     }
     this.recipients.syncRecipientAddressMode();
     await this.refreshDrafts();
@@ -2249,25 +2288,28 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
 
   private applyUrlStateToComposer(queryParams: ParamMap): void {
     this.composerSettingsOpen = queryParams.get(StoredValue.CONFIGURE) === "true";
+    const storedCompositionRoute = !!queryParams.get(StoredValue.DRAFT_ID) || !!queryParams.get(StoredValue.COPY_OF);
     const branding = queryParams.get(StoredValue.BRANDING);
     const storedBranding = this.uiActions.initialValueFor(StoredValue.BRANDING, BrandingMode.BRANDED);
-    if (branding === BrandingMode.UNBRANDED && this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
-      this.setBrandingMode(BrandingMode.UNBRANDED, true);
-    } else if (branding === BrandingMode.BRANDED && this.session.state.brandingMode !== BrandingMode.BRANDED) {
-      this.setBrandingMode(BrandingMode.BRANDED, true);
-    } else if (this.rememberBranding && !branding && storedBranding === BrandingMode.UNBRANDED && this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
-      this.setBrandingMode(BrandingMode.UNBRANDED, true);
-    } else if (this.rememberBranding && !branding && storedBranding === BrandingMode.BRANDED && this.session.state.brandingMode !== BrandingMode.BRANDED) {
-      this.setBrandingMode(BrandingMode.BRANDED, true);
+    if (!storedCompositionRoute) {
+      if (branding === BrandingMode.UNBRANDED && this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
+        this.setBrandingMode(BrandingMode.UNBRANDED, true);
+      } else if (branding === BrandingMode.BRANDED && this.session.state.brandingMode !== BrandingMode.BRANDED) {
+        this.setBrandingMode(BrandingMode.BRANDED, true);
+      } else if (this.rememberBranding && !branding && storedBranding === BrandingMode.UNBRANDED && this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
+        this.setBrandingMode(BrandingMode.UNBRANDED, true);
+      } else if (this.rememberBranding && !branding && storedBranding === BrandingMode.BRANDED && this.session.state.brandingMode !== BrandingMode.BRANDED) {
+        this.setBrandingMode(BrandingMode.BRANDED, true);
+      }
     }
     const emailType = queryParams.get(StoredValue.EMAIL_TYPE);
-    if (emailType === kebabCase(RecipientMode.ENTIRE_LIST) && this.session.state.brandingMode !== BrandingMode.UNBRANDED && this.session.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
+    if (!storedCompositionRoute && emailType === kebabCase(RecipientMode.ENTIRE_LIST) && this.session.state.brandingMode !== BrandingMode.UNBRANDED && this.session.state.recipientMode !== RecipientMode.ENTIRE_LIST) {
       this.session.state.recipientMode = RecipientMode.ENTIRE_LIST;
       this.session.state.sendingChannel = this.recipientResolution.sendingAsCampaign()
         ? SendingChannel.CAMPAIGN
         : SendingChannel.TRANSACTIONAL_BATCH;
       this.session.state.preFilterKey = null;
-    } else if (emailType === kebabCase(RecipientMode.SELECTED_MEMBERS) && this.session.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
+    } else if (!storedCompositionRoute && emailType === kebabCase(RecipientMode.SELECTED_MEMBERS) && this.session.state.recipientMode !== RecipientMode.SELECTED_MEMBERS) {
       const keepEventOnList = this.session.state.context?.source === EmailComposerContextSource.GROUP_EVENT && !this.recipients.userPickedRecipientMode;
       if (!keepEventOnList) {
         this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
@@ -2275,7 +2317,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       }
     }
     const listId = queryParams.get(StoredValue.LIST_ID);
-    if (listId) {
+    if (!storedCompositionRoute && listId) {
       const numeric = Number(listId);
       if (!Number.isNaN(numeric)) {
         const unbrandedListAllowed = this.session.state.brandingMode !== BrandingMode.UNBRANDED
@@ -2295,7 +2337,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
           this.session.state.narrowListId = numeric;
         }
       }
-    } else if (this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+    } else if (!storedCompositionRoute && this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
       this.recipients.applyDefaultListIfNeeded();
     }
     const tab = queryParams.get(StoredValue.TAB);
@@ -2342,7 +2384,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
         this.session.state.groupEventsFilter.toDate = this.dateUtils.asDateValue(toMillis);
       }
     }
-    const storedCompositionRoute = !!queryParams.get(StoredValue.DRAFT_ID) || !!queryParams.get(StoredValue.COPY_OF);
     if (!storedCompositionRoute && this.session.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.session.state.groupEventsFilter) {
       this.events.selectedDateRangePreset = this.events.matchPresetToCurrentRange();
       void this.events.populateGroupEvents();
@@ -3851,7 +3892,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
         this.session.syncStateToUrl({
           [StoredValue.DRAFT_ID]: draft.id,
           [StoredValue.COPY_OF]: null,
-          [StoredValue.CONFIG_ID]: this.configToSlug(this.session.state.notificationConfig)
+          [StoredValue.CONFIG_ID]: this.configToSlug(this.session.state.notificationConfig),
+          [StoredValue.BRANDING]: this.session.state.brandingMode,
+          [StoredValue.EMAIL_TYPE]: kebabCase(this.session.state.recipientMode)
         });
         this.session.notify.success({title: "Draft loaded", message: draft.title});
       }
@@ -3997,6 +4040,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     this.recipients.applyDefaultListIfNeeded();
     this.recipients.syncRecipientAddressMode();
     this.expandFragmentsWithContent();
+    this.introEditor?.syncValue(this.session.state.introMarkdown ?? "");
   }
 
   private expandFragmentsWithContent(): void {

@@ -36,6 +36,7 @@ export class HtmlFrameComponent implements OnDestroy {
   private fitContentToWidth = false;
   private resizeObserver: ResizeObserver | null = null;
   private mutationObserver: MutationObserver | null = null;
+  private lastFrameHeight = 0;
 
   @Input() set html(value: string) {
     this.renderHtml(value ?? "");
@@ -61,33 +62,36 @@ export class HtmlFrameComponent implements OnDestroy {
 
   private wrap(html: string): string {
     const base = `<base href="${window.location.origin}/" target="_blank">`;
-    const reset = `<style>html,body{margin:0;padding:0;background:#fff;}img{max-width:100%;height:auto;}table{max-width:100%;}blockquote{border-left:4px solid #9bc8ab;margin:16px 0;padding:12px 20px;background-color:#f7fbf8;color:#343a40;font-style:italic;}blockquote p:first-child{margin-top:0;}blockquote p:last-child{margin-bottom:0;}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;}body{overflow-wrap:anywhere;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5;}</style>`;
-    const responsive = this.fitContentToWidth ? `<style>html,body{width:100%;max-width:100%;overflow-x:hidden;}body *{box-sizing:border-box;max-width:100%!important;min-width:0!important;overflow-wrap:anywhere!important;}table{width:100%!important;table-layout:fixed!important;}td,th{white-space:normal!important;}pre{white-space:pre-wrap!important;}img,video{height:auto!important;}blockquote{margin-left:0!important;margin-right:0!important;padding:12px!important;}</style>` : "";
-    return `<!doctype html><html><head><meta charset="utf-8">${base}${reset}${responsive}</head><body>${html}</body></html>`;
+    const reset = `<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden;}img{max-width:100%;height:auto;}table{max-width:100%;}blockquote{border-left:4px solid #9bc8ab;margin:16px 0;padding:12px 20px;background-color:#f7fbf8;color:#343a40;font-style:italic;}blockquote p:first-child{margin-top:0;}blockquote p:last-child{margin-bottom:0;}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;}body{overflow-wrap:anywhere;transform-origin:0 0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5;}</style>`;
+    return `<!doctype html><html><head><meta charset="utf-8">${base}${reset}</head><body>${html}</body></html>`;
   }
 
   resize(): void {
     const frame = this.frame?.nativeElement;
     const doc = frame?.contentDocument;
     const applyHeight = () => {
-      const height = Math.max(
-        doc?.body?.scrollHeight || 0,
-        doc?.body?.offsetHeight || 0,
-        doc?.documentElement?.scrollHeight || 0
-      );
-      if (frame && height > 0) {
-        frame.style.height = `${height}px`;
+      if (!frame || !doc?.body) {
+      } else {
+        doc.body.style.transform = "";
+        const contentWidth = Math.max(doc.body.scrollWidth, doc.documentElement.scrollWidth, 1);
+        const contentHeight = Math.max(doc.body.scrollHeight, doc.body.offsetHeight, doc.documentElement.scrollHeight);
+        const frameWidth = frame.clientWidth || contentWidth;
+        const scale = this.fitContentToWidth && contentWidth > frameWidth ? frameWidth / contentWidth : 1;
+        if (scale < 1) {
+          doc.body.style.transform = `scale(${scale})`;
+        }
+        const nextHeight = Math.ceil(contentHeight * scale);
+        if (nextHeight > 0 && nextHeight !== this.lastFrameHeight) {
+          this.lastFrameHeight = nextHeight;
+          frame.style.height = `${nextHeight}px`;
+        }
       }
     };
     this.clearObservers();
     if (doc?.body && !isUndefined(ResizeObserver)) {
       this.resizeObserver = new ResizeObserver(() => applyHeight());
       this.resizeObserver.observe(doc.body);
-      this.resizeObserver.observe(doc.documentElement);
-    }
-    if (doc?.body && !isUndefined(MutationObserver)) {
-      this.mutationObserver = new MutationObserver(() => applyHeight());
-      this.mutationObserver.observe(doc.body, {childList: true, subtree: true, attributes: true, characterData: true});
+      this.resizeObserver.observe(frame);
     }
     doc?.querySelectorAll("img").forEach(image => image.addEventListener("load", applyHeight, {once: true}));
     window.setTimeout(applyHeight, 0);
