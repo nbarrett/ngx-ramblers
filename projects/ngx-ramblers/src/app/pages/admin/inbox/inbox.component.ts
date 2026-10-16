@@ -1721,7 +1721,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       const dx = event.clientX - this.rangeSelectStartX;
       const dy = event.clientY - this.rangeSelectStartY;
       const distance = Math.hypot(dx, dy);
-      const rangeMode = !this.rangeSelectAllowFile || this.rangeSelectAdditive;
+      const rangeMode = !this.rangeSelectPreferFile;
       const crossedRow = index >= 0 && index !== this.rangeSelectAnchorIndex
         && Math.abs(dy) >= InboxComponent.RANGE_SELECT_THRESHOLD_PX;
       if (rangeMode && !this.rangeSelectActive && crossedRow) {
@@ -1733,9 +1733,14 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         });
       } else if (rangeMode && this.rangeSelectActive && index >= 0 && index !== this.rangeSelectLastIndex) {
         this.ngZone.run(() => this.applyRangeSelect(this.rangeSelectAnchorIndex as number, index));
-      } else if (this.rangeSelectAllowFile && !this.rangeSelectActive && !rangeMode
+      } else if (this.rangeSelectPreferFile && !this.rangeSelectActive
         && distance >= InboxComponent.FILE_DRAG_THRESHOLD_PX) {
         this.ngZone.run(() => this.startFileDrag(event.clientX, event.clientY));
+      } else if (this.rangeSelectActive && this.rangeSelectAllowFile && this.dropFolderAtPoint(event.clientX, event.clientY)) {
+        this.ngZone.run(() => {
+          this.rangeSelectFileIds = this.selectedActionIds();
+          this.startFileDrag(event.clientX, event.clientY);
+        });
       }
     }
   }
