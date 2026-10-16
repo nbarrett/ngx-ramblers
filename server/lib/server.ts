@@ -439,7 +439,8 @@ async function startServer() {
       startScheduledTaskWatchdog();
     }).catch(error => {
       debugLog("❌ MongoDB connection failed:", error);
-      debugLog("⚠️ Server will continue but database operations will fail");
+      debugLog("❌ Stopping server so the runtime can restart and retry the database connection");
+      process.exit(1);
     });
   } catch (error) {
     debugLog("❌ Failed to start server:", error);
