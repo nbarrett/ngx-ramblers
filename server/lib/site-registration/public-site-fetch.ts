@@ -162,6 +162,7 @@ async function requestPublicSiteBodyViaRelay(value: string, accept: string, expe
     if (originStatus !== 200) {
       throw Object.assign(new HttpError(originStatus, publicSiteHttpErrorMessage(originUrl, originStatus)), {retryAfterSeconds: 0});
     } else if (expectedContentType && contentType && !contentType.includes(expectedContentType) && !contentType.includes("octet-stream") && !contentType.includes("binary")) {
+      debugLog("unexpected content type %s for %s", contentType, withoutQuery(originUrl));
       throw new Error(publicSiteHttpErrorMessage(originUrl, originStatus));
     } else {
       const body = Buffer.from(await response.arrayBuffer());
@@ -203,6 +204,7 @@ async function requestPublicSiteBody(value: string, redirects: number, accept: s
         reject(Object.assign(new HttpError(response.statusCode, publicSiteHttpErrorMessage(url.href, response.statusCode)), {retryAfterSeconds: retryAfterSeconds(response.headers["retry-after"])}));
       } else if (expectedContentType && response.headers["content-type"] && !response.headers["content-type"].includes(expectedContentType) && !response.headers["content-type"].includes("octet-stream") && !response.headers["content-type"].includes("binary")) {
         response.resume();
+        debugLog("unexpected content type %s for %s", response.headers["content-type"], withoutQuery(url.href));
         reject(new Error(publicSiteHttpErrorMessage(url.href, response.statusCode)));
       } else {
         const chunks: Uint8Array[] = [];

@@ -13,6 +13,7 @@ import { PageContent, PageContentRow, PageContentType } from "../../../projects/
 import { MigratedAlbum } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { fetchPublicSiteHtml, fetchPublicSitePage, publicSiteUrl, withoutQuery } from "./public-site-fetch";
+import { SourceSiteUnavailableError } from "./source-site-limiter";
 import { isDocumentUrl } from "./registration-documents";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
 import { systemConfig } from "../config/system-config";
@@ -193,6 +194,34 @@ export function ramblersHostedGroupPath(url: URL): string {
   return url?.hostname?.endsWith("ramblers.org.uk") && match ? match[1] : null;
 }
 
+function decodedPathname(pathname: string): string {
+  try {
+    return decodeURIComponent(pathname);
+  } catch (error) {
+    return pathname;
+  }
+}
+
+export function isCrawlableRegistrationPageUrl(url: URL): boolean {
+  const pathname = decodedPathname(url.pathname);
+  const lastSegment = pathname.split("/").filter(Boolean).pop() || "";
+  const words = lastSegment.split(/\s+/).filter(Boolean);
+  const query = (url.search || "").toLowerCase();
+  if (!["http:", "https:"].includes(url.protocol)) {
+    return false;
+  } else if (/\.(jpe?g|png|gif|webp|svg|pdf|zip|docx?|xlsx?|ics|xml|json|rss)$/i.test(pathname)) {
+    return false;
+  } else if (/task=ical|format=(feed|json|raw)|view=feed/.test(query)) {
+    return false;
+  } else if (/\.(html?|php|aspx?)$/i.test(lastSegment)) {
+    return true;
+  } else if (words.length >= 4 || /\s.+\.$/.test(lastSegment)) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
 export function discoverRegistrationPages(html: string, website: string): {pages: RegistrationPage[]; flavour: RegistrationSiteFlavour} {
   const document = new JSDOM(html, {url: website}).window.document;
   const base = publicSiteUrl(website);
@@ -205,10 +234,12 @@ export function discoverRegistrationPages(html: string, website: string): {pages
     try {
       const url = new URL(link.href, base);
       const samePublicHost = url.origin === base.origin && !url.username && !url.password && (!url.port || ["80", "443"].includes(url.port));
-      if (flavour === RegistrationSiteFlavour.RAMBLERS_HOSTED) {
+      const groupDocument = flavour === RegistrationSiteFlavour.RAMBLERS_HOSTED && ["http:", "https:"].includes(url.protocol) && isDocumentUrl(url.href) && !url.hostname.endsWith("ramblers.org.uk");
+      if (!isCrawlableRegistrationPageUrl(url) && !groupDocument) {
+        debugLog("skipping non-page source link %s", link.href);
+      } else if (flavour === RegistrationSiteFlavour.RAMBLERS_HOSTED) {
         const title = ramblersHostedLinkTitle(link);
         const ownPage = samePublicHost && url.pathname.startsWith(`${groupPath}/`);
-        const groupDocument = isDocumentUrl(url.href) && !url.hostname.endsWith("ramblers.org.uk");
         const sourceUrl = groupDocument ? url.href : registrationSourceUrl(url.href);
         if (title && (ownPage || groupDocument)) {
           discoveredLinks.push({url: sourceUrl, title, parentTitle: "", sourcePath: ownPage ? url.pathname.slice(groupPath.length + 1) : toKebabCase(title.toLowerCase())});
@@ -347,7 +378,15 @@ async function crawlRegistrationPages(pages: RegistrationPage[], flavour: Regist
     const batch = candidates.slice(0, Math.min(CRAWL_BATCH_SIZE, MAX_CRAWLED_PAGES - visited.size));
     const remaining = candidates.slice(batch.length);
     const discoveries = await Promise.all(batch.map(async url => {
-      const discovery = discoverRegistrationPages(await fetchPublicSiteHtml(url), url);
+      const html = await fetchPublicSiteHtml(url).catch(error => {
+        if (error instanceof SourceSiteUnavailableError) {
+          throw error;
+        } else {
+          debugLog("skipping unavailable source page %s: %s", withoutQuery(url), error instanceof Error ? error.message : error);
+          return null;
+        }
+      });
+      const discovery = html === null ? {pages: [] as RegistrationPage[], flavour} : discoverRegistrationPages(html, url);
       return {...discovery, pages: pagesFoundOn(pages, url, discovery.pages)};
     }));
     const nextPages = mergeRegistrationPages([...pages, ...discoveries.flatMap(discovery => discovery.pages)]);
