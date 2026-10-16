@@ -26,6 +26,10 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
     :host
       display: flex
       min-width: 0
+      position: relative
+
+    :host:has(.btn-group.show)
+      z-index: 1100
 
     :host.full-width
       width: 100%
@@ -114,6 +118,8 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
 
     .btn-group > .dropdown-menu
       min-width: 100%
+      background-color: var(--bs-dropdown-bg, #fff)
+      z-index: 1100
 
     .dropdown-item
       display: flex

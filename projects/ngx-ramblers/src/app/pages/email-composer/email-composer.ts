@@ -781,6 +781,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             <app-button-dropdown fullWidth label="Save"
                                  [icon]="faLock"
                                  [items]="saveMenuItems()"
+                                 [defaultItemId]="ComposerSaveAction.PRIVATE"
                                  [disabled]="!hasContentToDraft() && !session.currentDraftId"
                                  (itemSelect)="onSaveMenu($event)"/>
             </div>
@@ -1489,6 +1490,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   protected readonly EventInclusionMode = EventInclusionMode;
   protected readonly CommitteeFileEmailInclude = CommitteeFileEmailInclude;
   protected readonly ComposerFragmentKind = ComposerFragmentKind;
+  protected readonly ComposerSaveAction = ComposerSaveAction;
   protected readonly DragHoverPosition = DragHoverPosition;
   protected readonly PreviewStepDirection = PreviewStepDirection;
   protected readonly BrandingMode = BrandingMode;
