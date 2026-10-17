@@ -253,31 +253,52 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                           ({{ committeeMembersWithoutRole.length }})
                         }
                       </button>
-                      <button class="btn btn-quiet btn-sm d-inline-flex align-items-center gap-2" [disabled]="!!editingRoleDraft || !cloudflareZoneId || clearForwardsPending || clearForwardsConfirmPending"
-                              (click)="requestClearAllForwards()" tooltip="Delete every per-address Cloudflare rule for this domain. The catch-all is left.">
-                        <fa-icon [icon]="faTrash"/>Clear all forwards
-                      </button>
+                      <span class="d-inline-block" [tooltip]="domainForwardRules().length ? 'Delete every per-address Cloudflare rule for this domain. The catch-all is left.' : 'No per-address Cloudflare rules to delete. The catch-all is left as it is.'">
+                        <button class="btn btn-quiet btn-sm d-inline-flex align-items-center gap-2" [disabled]="!!editingRoleDraft || !cloudflareZoneId || clearForwardsPending || clearForwardsConfirmPending || !domainForwardRules().length"
+                                (click)="requestClearAllForwards()">
+                          <fa-icon [icon]="faTrash"/>Clear all forwards
+                        </button>
+                      </span>
                     </div>
                   </div>
+                  @if (cloudflareEmailRoutingService.emailForwardingAvailable() && cloudflareZoneId && domainRuleSummaries().length) {
+                    <div class="thumbnail-heading-frame mb-3">
+                      <div class="thumbnail-heading">Cloudflare address rules for {{ baseDomain }}</div>
+                      <p class="text-muted small mb-2">These are the per-address Email Routing rules Cloudflare has for this domain. The Email Forward column on each role is that role's setting. Clear all forwards deletes the rows below and leaves the catch-all.</p>
+                      <app-sortable-table
+                        [columns]="addressRuleColumns"
+                        [rows]="domainRuleSummaries()"
+                        defaultSortKey="address"
+                        emptyMessage="No per-address rules"
+                        [trackBy]="trackAddressRule">
+                      </app-sortable-table>
+                    </div>
+                  }
                   @if (clearForwardsConfirmPending) {
-                    <div class="alert alert-warning">
-                      <fa-icon [icon]="ALERT_ERROR.icon"></fa-icon>
-                      <strong class="ms-2">Clear all forwards for {{ baseDomain }}?</strong>
-                      <div class="mt-2">{{ clearForwardsKindLabel() }}</div>
-                      <div class="d-flex gap-2 mt-2">
-                        <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-2" [disabled]="clearForwardsPending"
-                                (click)="clearAllForwards()">
-                          @if (clearForwardsPending) {
-                            <fa-icon [icon]="faSpinner" animation="spin"/>
-                          } @else {
-                            <fa-icon [icon]="faTrash"/>
-                          }
-                          Delete
-                        </button>
-                        <button type="button" class="btn btn-sm btn-quiet d-inline-flex align-items-center gap-2" [disabled]="clearForwardsPending"
-                                (click)="cancelClearAllForwards()">
-                          <fa-icon [icon]="faTimes"/>Cancel
-                        </button>
+                    <div class="alert alert-warning d-flex align-items-start">
+                      <fa-icon [icon]="ALERT_ERROR.icon" class="me-2 mt-1"></fa-icon>
+                      <div class="flex-grow-1">
+                        <strong>Clear all forwards for {{ baseDomain }}?</strong>
+                        @if (domainRuleSummaries().length) {
+                          <div class="mt-2">This deletes {{ clearForwardsKindLabel() }} listed above. The catch-all is not deleted.</div>
+                        } @else {
+                          <div class="mt-2">There are no per-address Cloudflare rules for this domain. Nothing will be deleted. The catch-all is left as it is.</div>
+                        }
+                        <div class="d-flex gap-2 mt-2">
+                          <button type="button" class="btn btn-sm btn-danger d-inline-flex align-items-center gap-2" [disabled]="clearForwardsPending || !domainRuleSummaries().length"
+                                  (click)="clearAllForwards()">
+                            @if (clearForwardsPending) {
+                              <fa-icon [icon]="faSpinner" animation="spin"/>
+                            } @else {
+                              <fa-icon [icon]="faTrash"/>
+                            }
+                            Delete
+                          </button>
+                          <button type="button" class="btn btn-sm btn-quiet d-inline-flex align-items-center gap-2" [disabled]="clearForwardsPending"
+                                  (click)="cancelClearAllForwards()">
+                            <fa-icon [icon]="faTimes"/>Cancel
+                          </button>
+                        </div>
                       </div>
                     </div>
                   }
@@ -346,9 +367,6 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                         }
                       </div>
                     </div>
-                  }
-                  @if (domainForwardRules().length) {
-                    <p class="text-muted small mb-3">{{ clearForwardsKindLabel() }} on Cloudflare</p>
                   }
                   @if (committeeMembersLoaded && !editingRoleDraft && committeeMembersWithoutRole.length && !committeeRolesAlertDismissed) {
                     <div class="alert alert-warning committee-roles-alert">
@@ -1322,6 +1340,14 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
   readonly trackOrphanedWorker = (_index: number, row: OrphanedWorkerRow) => row.id;
 
+  readonly addressRuleColumns: SortableTableColumn<DomainRoutingRuleSummary>[] = [
+    {key: "address", label: "Address", sortKey: "address", cellGetter: row => row.address},
+    {key: "roleLabel", label: "Committee role", sortKey: "roleLabel", cellGetter: row => row.roleLabel || "Not a committee role mailbox"},
+    {key: "actionLabel", label: "What Cloudflare does", sortKey: "actionLabel", cellGetter: row => row.actionLabel}
+  ];
+
+  readonly trackAddressRule = (_index: number, row: DomainRoutingRuleSummary) => `${row.kind}-${row.address}`;
+
   get orphanedWorkerRows(): OrphanedWorkerRow[] {
     return this.orphanedWorkerScripts.map(script => ({
       id: script.id,
@@ -1553,11 +1579,11 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     try {
       this.cloudflareEmailRoutingService.invalidateCache();
       await this.cloudflareEmailRoutingService.queryRules();
+      this.clearForwardsConfirmPending = true;
     } catch (error) {
       this.notify.error(error);
     } finally {
       this.clearForwardsPending = false;
-      this.clearForwardsConfirmPending = true;
     }
   }
 
@@ -1618,7 +1644,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       parts.push(this.stringUtils.pluraliseWithCount(other, "other address rule"));
     }
     if (parts.length === 0) {
-      return "Mailbox forwards and inbox-router rules";
+      return "no per-address Cloudflare rules";
     } else if (parts.length === 1) {
       return parts[0];
     } else if (parts.length === 2) {

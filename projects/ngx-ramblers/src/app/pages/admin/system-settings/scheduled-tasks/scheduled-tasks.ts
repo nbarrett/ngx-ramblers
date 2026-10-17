@@ -172,7 +172,7 @@ import { MemberResourcesReferenceDataService } from "../../../../services/member
                   <table class="table table-sm mt-2 mb-0">
                     <thead><tr><th>Started</th><th>Completed</th><th>Duration</th><th>Status</th><th>Message</th></tr></thead>
                     <tbody>
-                      @for (run of task.history; track run.startedAt) {
+                      @for (run of task.history; track run.startedAt + "-" + $index) {
                         <tr>
                           <td>{{ formattedRunTime(run.startedAt, "-") }}</td>
                           <td>{{ formattedRunTime(run.completedAt, "-") }}</td>

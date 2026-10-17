@@ -7,7 +7,7 @@ import { InboxAddress, InboxMessage, InboxReplyComposeRequest, InboxReplyCompose
 import { CommitteeConfig, CommitteeMember, roleEmailAddresses } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
-import { inboxThreadId } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
+import { inboxMessageIdKey, inboxThreadId } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
 import * as config from "../mongo/controllers/config";
 import { requestMember } from "./inbox-access";
@@ -70,8 +70,18 @@ export async function composeInboxReply(req: Request, res: Response): Promise<vo
 }
 
 async function storedMessageForCompose(threadId: string, messageId: string | null): Promise<InboxMessage | null> {
-  const query = inboxMessageModel.findOne({threadId, ...(messageId ? {messageId} : {})});
-  return await query.sort({receivedAt: -1, sentAt: -1}).lean() as InboxMessage | null;
+  if (messageId) {
+    const exact = await inboxMessageModel.findOne({threadId, messageId}).sort({receivedAt: -1, sentAt: -1}).lean() as InboxMessage | null;
+    if (exact) {
+      return exact;
+    } else {
+      const key = inboxMessageIdKey(messageId);
+      const candidates = Array.from(new Set([messageId, key, `<${key}>`]));
+      return await inboxMessageModel.findOne({threadId, messageId: {$in: candidates}}).sort({receivedAt: -1, sentAt: -1}).lean() as InboxMessage | null;
+    }
+  } else {
+    return await inboxMessageModel.findOne({threadId}).sort({receivedAt: -1, sentAt: -1}).lean() as InboxMessage | null;
+  }
 }
 
 function buildComposeResponse(selectedMessage: InboxMessage, replyTo: InboxAddress, threadId: string, aliasId: string, mailboxConnectionId: string, senderRoleType: string, cc: InboxAddress[], forward = false, senderRoleEmail: string = null): InboxReplyComposeResponse {

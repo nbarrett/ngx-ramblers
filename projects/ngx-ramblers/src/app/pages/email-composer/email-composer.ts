@@ -76,6 +76,8 @@ import { EmailComposerFragmentsService } from "../../services/email-composer/ema
 import { EmailComposerEventsComponent } from "./email-composer-events.component";
 import { applyMediaSelection, clampMediaIndex } from "../../functions/email-composer-event-media";
 import { AdminMembersPath, AdminPath } from "../../models/admin-route-paths.model";
+import { PathSegment } from "../../models/content-text.model";
+import { RouterHistoryService } from "../../services/router-history.service";
 import {
   ChangeDetectorRef,
   Component,
@@ -433,16 +435,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           <app-alert-panel grouped compact class="mb-3"
                            [attr.role]="composerHydrating() || drafting.creatingReleaseNoteUpdate ? 'status' : null"
                            [attr.aria-live]="composerHydrating() || drafting.creatingReleaseNoteUpdate ? 'polite' : null">
-            @if (composerHydrating()) {
-              <app-alert-message [messageKey]="composerHydrationTitle()"
-                                 [title]="composerHydrationTitle()" [icon]="faSpinner" [spinning]="true">
-
-                <div>
-                  <div>{{ composerHydrationMessage() }}</div>
-                </div>
-
-              </app-alert-message>
-            } @else if (drafting.creatingReleaseNoteUpdate) {
+            @if (drafting.creatingReleaseNoteUpdate) {
               <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
                                  title="Generating update…" [icon]="faSpinner" [spinning]="true">
 
@@ -751,6 +744,16 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
         </app-alert-panel>
 
       </ng-template>
+      @if (composerHydrating()) {
+        <app-alert-panel grouped compact class="composer-hydration-alert mb-3" role="status" aria-live="polite">
+          <app-alert-message [messageKey]="composerHydrationTitle()"
+                             [title]="composerHydrationTitle()" [icon]="faSpinner" [spinning]="true">
+            <div>
+              <div>{{ composerHydrationMessage() }}</div>
+            </div>
+          </app-alert-message>
+        </app-alert-panel>
+      }
       @if (!composerHydrating()) {
       <div class="row mb-3">
         <div class="col-sm-12">
@@ -1394,6 +1397,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
 
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private routerHistory = inject(RouterHistoryService);
   private uiActions = inject(UiActionsService);
 
   private notifierService = inject(NotifierService);
@@ -1520,16 +1524,20 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   protected mailMessagingReady = false;
 
   protected composerHydrating(): boolean {
-    return this.inboxReplyLoading || this.pendingDraftLoad || !this.membersLoaded || !this.mailMessagingReady;
+    return this.inboxReplyLoading || this.pendingDraftLoad || !this.mailMessagingReady || (!this.membersLoaded && !this.openingInboxReply());
+  }
+
+  private openingInboxReply(): boolean {
+    return !!this.session.inboxReplyContext || !!this.route.snapshot.queryParamMap.get(StoredValue.THREAD);
   }
 
   protected composerHydrationTitle(): string {
     if (this.inboxReplyLoading) {
-      return "Loading reply…";
+      return "Loading reply";
     } else if (this.pendingDraftLoad) {
-      return "Loading draft…";
+      return "Loading draft";
     } else {
-      return "Loading composer…";
+      return "Loading composer";
     }
   }
 
@@ -1557,6 +1565,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     const openingComposition = this.route.snapshot.queryParamMap.get(StoredValue.DRAFT_ID)
       || this.route.snapshot.queryParamMap.get(StoredValue.COPY_OF);
     this.pendingDraftLoad = !!openingComposition;
+    this.inboxReplyLoading = !!this.route.snapshot.queryParamMap.get(StoredValue.THREAD);
     this.session.notify = this.notifierService.createAlertInstance(this.session.notifyTarget);
     this.subscriptions.push(this.session.requestStep.subscribe(key => {
       this.goToStepKey(this.canAccessStep(key) ? key : EmailComposerStepKey.RECIPIENTS);
@@ -1606,7 +1615,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       if (!this.userPickedEmailType && !this.session.currentDraftId && !this.pendingDraftLoad) {
         this.autoSelectNotificationConfig();
       }
-      if (!this.session.currentDraftId && !this.pendingDraftLoad) {
+      if (!this.session.currentDraftId && !this.pendingDraftLoad && !this.openingInboxReply()) {
         this.recipients.applyDefaultListIfNeeded();
       }
       this.recipients.syncRecipientAddressMode();
@@ -1620,12 +1629,22 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       this.changeDetector.markForCheck();
     }));
     await identityAndSalesforceConfig;
+    const membersReady = this.loadMembersForComposer();
+    if (this.openingInboxReply()) {
+      void membersReady;
+    } else {
+      await membersReady;
+    }
+    await this.refreshDrafts();
+  }
+
+  private async loadMembersForComposer(): Promise<void> {
     this.recipientSources.allMembers = await this.memberService.privilegedFields();
     await this.applyVolunteerAudience();
     this.recipientSources.members = this.recipientSources.allMembers.filter(this.memberService.filterFor.GROUP_MEMBERS);
     this.recipientSources.memberBulkLoadDateMap = await this.loadMemberBulkLoadDateMap();
     this.membersLoaded = true;
-    if (!this.session.currentDraftId && !this.pendingDraftLoad) {
+    if (!this.session.currentDraftId && !this.pendingDraftLoad && !this.openingInboxReply()) {
       this.recipients.applyDefaultListIfNeeded();
       if (this.session.state.brandingMode !== BrandingMode.UNBRANDED) {
         this.recipients.applyPreFilterAudienceToTo();
@@ -1635,7 +1654,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       }
     }
     this.recipients.syncRecipientAddressMode();
-    await this.refreshDrafts();
+    this.changeDetector.markForCheck();
   }
 
   private async loadMemberBulkLoadDateMap(): Promise<MemberBulkLoadDateMap | null> {
@@ -2454,6 +2473,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       } finally {
         this.inboxReplyLoading = false;
       }
+    } else {
+      this.inboxReplyLoading = false;
     }
   }
 
@@ -2471,6 +2492,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     }
     this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
     this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
+    this.session.state.recipientAddressMode = RecipientAddressMode.PERSONAL;
+    this.recipients.recipientAddressModeTouched = true;
     this.session.state.addresseeType = AddresseeType.NONE;
     this.session.state.selectedMemberIds = [];
     this.session.state.selectedListId = null;
@@ -2480,6 +2503,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     this.session.state.externalRecipients = reply.forward || !reply.to
       ? []
       : [{email: reply.to.email, name: reply.to.name ?? undefined, saveForReuse: false}];
+    this.recipients.syncRecipientAddressMode();
     if (reply.forward) {
       this.recipients.replyCcSuggestion = [];
       this.applyForwardedAttachments(reply.attachments ?? []);
@@ -2501,6 +2525,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       this.session.state.unbrandedSenderRoleType = reply.senderRoleType;
       this.session.state.unbrandedSenderEmail = reply.senderRoleEmail ?? null;
     }
+    this.fragmentEditor.addIntroFragment(this.session.state);
+    this.fragmentEditor.expandedFragmentIds.add("intro");
     const placeholder = "\n\n";
     const existingBody = this.session.state.introMarkdown ?? "";
     const quotedMarkdown = this.htmlToReplyMarkdown(reply.quotedHtml);
@@ -2529,6 +2555,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     } else {
       this.pendingIntroFocus = true;
     }
+    this.changeDetector.markForCheck();
   }
 
   private applyForwardedAttachments(attachments: InboxAttachment[]): void {
@@ -3538,7 +3565,41 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   private leaveComposer(): void {
-    this.navigateToInbox();
+    const previous = [...this.routerHistory.pageHistory].reverse().find(url => !this.composerLocation(url));
+    if (previous) {
+      void this.router.navigateByUrl(previous);
+    } else {
+      const path = this.router.url.split("?")[0].replace(/\/$/, "");
+      const inboxReply = !!this.route.snapshot.queryParamMap.get(StoredValue.THREAD)
+        && path === "/" + AdminPath.EMAIL_COMPOSER;
+      const parent = this.composerParentPath(this.router.url);
+      if (inboxReply) {
+        this.navigateToInbox();
+      } else if (parent) {
+        void this.router.navigateByUrl(parent);
+      } else {
+        void this.router.navigate(["/" + AdminPath.ADMIN]);
+      }
+    }
+  }
+
+  private composerLocation(url: string): boolean {
+    const path = url.split("?")[0].replace(/\/$/, "");
+    return path === "/" + AdminPath.EMAIL_COMPOSER || path.endsWith("/" + PathSegment.EMAIL_COMPOSER);
+  }
+
+  private composerParentPath(url: string): string | null {
+    const path = url.split("?")[0].replace(/\/$/, "");
+    if (path.endsWith("/" + PathSegment.EMAIL_COMPOSER)) {
+      const parent = path.slice(0, -(PathSegment.EMAIL_COMPOSER.length + 1));
+      if (parent) {
+        return parent;
+      } else {
+        return "/";
+      }
+    } else {
+      return null;
+    }
   }
 
   private navigateToInbox(): void {
@@ -3650,7 +3711,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       }
     } catch (error) {
       this.logger.error("useAsTemplate failed:", error);
-      this.session.notify.error({title: "Use as template failed", message: String(error)});
+      this.session.notify.error({title: "Use as template failed", message: this.session.errorMessage(error)});
     }
   }
 
@@ -3817,7 +3878,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
         return true;
       } catch (error) {
         this.logger.error("saveDraft failed:", error);
-        this.session.notify.error({title: "Save draft failed", message: String(error)});
+        this.session.notify.error({title: "Save draft failed", message: this.session.errorMessage(error)});
         return false;
       }
     }
@@ -3891,7 +3952,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       }
     } catch (error) {
       this.logger.error("loadDraft failed:", error);
-      this.session.notify.error({title: "Load draft failed", message: String(error)});
+      this.session.notify.error({title: "Load draft failed", message: this.session.errorMessage(error)});
     }
   }
 

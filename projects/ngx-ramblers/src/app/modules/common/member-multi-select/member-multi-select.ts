@@ -444,7 +444,14 @@ export class MemberMultiSelect implements OnChanges, OnDestroy {
     const expired = !noEmail && !suppressed && !!member.membershipExpiryDate && member.membershipExpiryDate < today;
     const memberGrouping = this.memberGroupingFor(noEmail, suppressed, consentMissing, expired);
     const memberName = this.fullNameWithAlias.transform(member);
-    const statusQualifier = noEmail ? "no email address" : consentMissing ? "without Head Office consent" : null;
+    const consentUnrecorded = !noEmail && !suppressed && !consentMissing && member.emailMarketingConsent !== true;
+    const statusQualifier = noEmail
+      ? "no email address"
+      : consentMissing
+        ? "without Head Office consent"
+        : consentUnrecorded
+          ? "Head Office consent not recorded"
+          : null;
     const contextualLabel = this.qualifierLabel(this.contextualQualifier(member, preFilterKey, memberGrouping));
     const memberQualifier = [statusQualifier, contextualLabel].filter(Boolean).join(", ");
     const memberInformation = memberQualifier ? `${memberName} (${memberQualifier})` : memberName;

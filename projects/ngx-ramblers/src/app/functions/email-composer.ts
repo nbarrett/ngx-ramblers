@@ -845,18 +845,22 @@ export function composerRecipientsForAddressMode(
     if (recipient.committeeRoleType || composerRecipientIsExpandableSet(recipient)) {
       return recipient;
     } else {
-      const member = (recipient.memberId && byId.get(recipient.memberId))
-        || (members ?? []).find(item => (item.email || "").toLowerCase() === (recipient.email || "").toLowerCase());
+      const member = composerMemberForRecipient(recipient, members, roles)
+        || (recipient.memberId ? byId.get(recipient.memberId) ?? null : null);
       if (!member) {
         return recipient;
       } else {
         const email = mode === RecipientAddressMode.COMMITTEE_ROLE
           ? (outboundEmailForMember(member, roles) || member.email || recipient.email)
           : (member.email || recipient.email);
-        if ((email || "").toLowerCase() === (recipient.email || "").toLowerCase()) {
+        const name = recipient.name || memberDisambiguatedLabel(member) || undefined;
+        const memberId = member.id || recipient.memberId;
+        if ((email || "").toLowerCase() === (recipient.email || "").toLowerCase()
+          && name === recipient.name
+          && memberId === recipient.memberId) {
           return recipient;
         } else {
-          return {...recipient, email, memberId: member.id || recipient.memberId};
+          return {...recipient, email, name, memberId};
         }
       }
     }

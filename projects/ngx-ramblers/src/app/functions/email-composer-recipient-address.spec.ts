@@ -685,6 +685,16 @@ describe("composer recipient lists", () => {
     expect(composerRecipientFromMember({id: "1", firstName: "Ada"} as Member)).toEqual(null);
   });
 
+  it("fills a missing display name from the matched member", () => {
+    const member = {id: "m1", firstName: "Alex", lastName: "Reed", email: "alex@home.example"} as Member;
+    expect(composerRecipientsForAddressMode(
+      [{email: "alex@home.example", saveForReuse: false}],
+      [member],
+      [],
+      RecipientAddressMode.PERSONAL
+    )).toEqual([{email: "alex@home.example", name: "Alex Reed", memberId: "m1", saveForReuse: false}]);
+  });
+
   it("rewrites a member chip to the committee role mailbox when sending to role addresses", () => {
     const member = {id: "m1", firstName: "Alex", lastName: "Reed", email: "alex@home.example"} as Member;
     const roles = [{type: "chair", description: "Chair", fullName: "Alex Reed", email: "chair@group.org", memberId: "m1", roleType: RoleType.COMMITTEE_MEMBER}];

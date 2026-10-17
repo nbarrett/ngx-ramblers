@@ -1459,6 +1459,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private subscriptions: Subscription[] = [];
   private openThreadRequestId = 0;
+  private refreshRequestId = 0;
   private mailboxViewInitialised = false;
 
   @HostListener("window:resize")
@@ -1894,6 +1895,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async refresh(reloadAccess = true): Promise<void> {
+    const requestId = this.refreshRequestId + 1;
+    this.refreshRequestId = requestId;
     this.busy = true;
     try {
       if (reloadAccess || this.aliases.length === 0) {
@@ -1910,6 +1913,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       void this.loadDrafts();
       await this.loadUserFolders();
+      if (requestId === this.refreshRequestId) {
       this.normaliseMailboxViewAfterFoldersLoad();
       if (this.viewingDrafts) {
         this.threads = [];
@@ -1966,13 +1970,16 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         await this.reloadVisibleConversation(requestedThread);
       }
+      }
     } catch (error) {
       this.notify.error({title: "Inbox", message: (error as Error).message});
       this.logger.error("Failed to refresh inbox:", error);
     } finally {
-      this.busy = false;
-      this.loadedOnce = true;
-      void this.inboxNotificationService.resync();
+      if (requestId === this.refreshRequestId) {
+        this.busy = false;
+        this.loadedOnce = true;
+        void this.inboxNotificationService.resync();
+      }
     }
   }
 
@@ -2804,22 +2811,17 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       this.notify.warning({title: actionTitle, message: `No message on this thread to ${actionTitle.toLowerCase()}`});
       return;
     }
+    this.busy = true;
     try {
       const threadId = target.threadId || this.selectedThreadId || "";
-      const reply = await this.inboxService.composeReply(threadId, {threadId, messageId: target.messageId, forward: options.forward});
       this.markThreadsRead(this.siblingConversationThreads(this.selectedThread));
-      if (options.replyAll) {
-        reply.cc = this.replyAllRecipients(reply, target);
-        reply.replyAll = true;
-      }
-      this.inboxReplyHandoff.queue(reply);
-      this.logger.info(actionTitle, "queued, navigating to composer:", JSON.stringify({to: reply.to, cc: reply.cc, senderRoleType: reply.senderRoleType, threadId: reply.threadId, inboxMessageId: reply.inboxMessageId}));
+      this.logger.info(actionTitle, "navigating to composer:", JSON.stringify({threadId, messageId: target.messageId, replyAll: !!options.replyAll, forward: !!options.forward}));
       const maximised = this.route.snapshot.queryParams[StoredValue.MAXIMISE] === "true";
       await this.router.navigate(["/" + AdminPath.EMAIL_COMPOSER], {
         queryParams: {
           [StoredValue.BRANDING]: BrandingMode.UNBRANDED,
           [StoredValue.TAB]: EmailComposerStepKey.COMPOSE,
-          [StoredValue.THREAD]: reply.threadId,
+          [StoredValue.THREAD]: threadId,
           [StoredValue.MESSAGE]: target.messageId,
           ...(options.replyAll ? {[StoredValue.REPLY_ALL]: "true"} : {}),
           ...(options.forward ? {[StoredValue.FORWARD]: "true"} : {}),
@@ -2829,6 +2831,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch (error) {
       this.notify.error({title: actionTitle, message: (error as Error).message});
       this.logger.error("Failed to prepare", actionTitle.toLowerCase(), ":", error);
+    } finally {
+      this.busy = false;
     }
   }
 

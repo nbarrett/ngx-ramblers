@@ -118,6 +118,7 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
 
     .btn-group > .dropdown-menu
       min-width: 100%
+      width: max-content
       background-color: var(--bs-dropdown-bg, #fff)
       z-index: 1100
 
@@ -125,6 +126,7 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
       display: flex
       align-items: center
       gap: var(--space-3)
+      white-space: nowrap
 
     .dropdown-item fa-icon
       display: inline-flex
@@ -139,7 +141,7 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
       flex-direction: column
       align-items: flex-start
       justify-content: center
-      min-width: 0
+      min-width: max-content
       flex: 1 1 auto
       line-height: 1.25
       text-align: left
@@ -221,7 +223,7 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
         </button>
       }
       @if (!disabled) {
-      <ul *dropdownMenu class="dropdown-menu" [class.w-100]="fullWidth" [class.dropdown-menu-end]="menuEnd"
+      <ul *dropdownMenu class="dropdown-menu" [class.dropdown-menu-end]="menuEnd"
           [ngClass]="menuClass" role="menu">
         @for (item of items; track item.id) {
           @if (!item.hidden) {

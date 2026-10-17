@@ -465,17 +465,51 @@ export function parseAddress(raw: string): InboxAddress {
   if (!raw) {
     return {name: null, email: ""};
   }
-  const angleMatch = raw.match(/^\s*(?:"?([^"<]*?)"?\s*)?<([^>]+)>\s*$/);
+  const angleMatch = raw.match(/^\s*(?:"?([^"]*?)"?\s*)?<([^>]+)>\s*$/);
   if (angleMatch) {
     const name = (angleMatch[1] ?? "").trim();
-    return {name: name.length > 0 ? name : null, email: angleMatch[2].trim()};
+    const email = angleMatch[2].trim();
+    if (email.includes("@")) {
+      return {name: name.length > 0 ? name : null, email};
+    } else {
+      return {name: name.length > 0 ? name : null, email: ""};
+    }
+  } else if (raw.includes("@")) {
+    return {name: null, email: raw.trim()};
+  } else {
+    return {name: raw.trim() || null, email: ""};
   }
-  return {name: null, email: raw.trim()};
+}
+
+function splitAddressList(raw: string): string[] {
+  const parts: string[] = [];
+  const progress = {current: "", inQuotes: false, inAngles: false};
+  Array.from(raw).forEach(char => {
+    if (char === "\"" && !progress.inAngles) {
+      progress.inQuotes = !progress.inQuotes;
+      progress.current += char;
+    } else if (char === "<" && !progress.inQuotes) {
+      progress.inAngles = true;
+      progress.current += char;
+    } else if (char === ">" && !progress.inQuotes) {
+      progress.inAngles = false;
+      progress.current += char;
+    } else if (char === "," && !progress.inQuotes && !progress.inAngles && (progress.current.includes("@") || progress.current.includes("<"))) {
+      parts.push(progress.current);
+      progress.current = "";
+    } else {
+      progress.current += char;
+    }
+  });
+  if (progress.current.trim()) {
+    parts.push(progress.current);
+  }
+  return parts;
 }
 
 export function parseAddressList(raw: string): InboxAddress[] {
   if (!raw) {
     return [];
   }
-  return raw.split(/,(?![^<]*>)/).map(entry => parseAddress(entry)).filter(addr => addr.email.length > 0);
+  return splitAddressList(raw).map(entry => parseAddress(entry)).filter(addr => addr.email.includes("@"));
 }

@@ -1,11 +1,34 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { GmailMessage } from "./gmail-inbox.model";
-import { isGmailCalendarPart, parseAuthenticationResults, parseGmailMessage } from "./gmail-inbox-reader";
+import { isGmailCalendarPart, parseAddressList, parseAuthenticationResults, parseGmailMessage } from "./gmail-inbox-reader";
 
 function messageWithHeaders(headers: { name: string; value: string }[]): GmailMessage {
   return {id: "m1", payload: {headers}};
 }
+
+describe("parseAddressList", () => {
+
+  it("keeps a display name that contains a comma as one address", () => {
+    expect(parseAddressList("Acme.io, Inc. <billing@payments.example.com>")).toEqual([
+      {name: "Acme.io, Inc.", email: "billing@payments.example.com"}
+    ]);
+  });
+
+  it("keeps a quoted display name that contains a comma as one address", () => {
+    expect(parseAddressList("\"Acme.io, Inc.\" <billing@payments.example.com>")).toEqual([
+      {name: "Acme.io, Inc.", email: "billing@payments.example.com"}
+    ]);
+  });
+
+  it("still splits two mailboxes on a comma", () => {
+    expect(parseAddressList("ada@example.com, bee@example.com")).toEqual([
+      {name: null, email: "ada@example.com"},
+      {name: null, email: "bee@example.com"}
+    ]);
+  });
+
+});
 
 describe("parseAuthenticationResults", () => {
 

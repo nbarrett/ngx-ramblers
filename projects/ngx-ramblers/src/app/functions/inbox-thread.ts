@@ -218,10 +218,28 @@ export function inboxThreadHeaderTo(messages: InboxMessage[] | null | undefined)
   return newestInboxMessage(messages)?.to ?? [];
 }
 
+export function inboxMessageIdKey(messageId: string): string {
+  if (messageId.startsWith("<") && messageId.endsWith(">") && messageId.length >= 2) {
+    return messageId.slice(1, -1);
+  } else {
+    return messageId;
+  }
+}
+
+export function inboxMessageIdsEqual(left: string | null | undefined, right: string | null | undefined): boolean {
+  if (!left || !right) {
+    return false;
+  } else {
+    return inboxMessageIdKey(left) === inboxMessageIdKey(right);
+  }
+}
+
 export function inboxMessageMatchingId(messages: InboxMessage[] | null | undefined, messageId: string | null | undefined): InboxMessage | null {
-  return messageId
-    ? ((messages || []).find(message => message.messageId === messageId) ?? null)
-    : null;
+  if (!messageId) {
+    return null;
+  } else {
+    return (messages || []).find(message => inboxMessageIdsEqual(message.messageId, messageId)) ?? null;
+  }
 }
 
 export function replyAllRecipients(reply: InboxReplyComposeResponse, target: InboxMessage, roleEmails: string[]): InboxAddress[] {

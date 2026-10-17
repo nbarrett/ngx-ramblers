@@ -6,10 +6,16 @@ export function memberChipQualifier(member: Member, nowMillis: number, includeEx
     return "no email address";
   } else if (member.emailMarketingConsent === false) {
     return "without Head Office consent";
+  } else if (member.emailMarketingConsent === true) {
+    if (includeExpired && member.membershipExpiryDate && member.membershipExpiryDate < nowMillis) {
+      return "expired members";
+    } else {
+      return "with Head Office consent";
+    }
   } else if (includeExpired && member.membershipExpiryDate && member.membershipExpiryDate < nowMillis) {
     return "expired members";
   } else {
-    return "with Head Office consent";
+    return "Head Office consent not recorded";
   }
 }
 

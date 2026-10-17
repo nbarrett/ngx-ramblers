@@ -167,9 +167,14 @@ describe("composeReplyAddress", () => {
     expect(composeReplyAddress(inbound, internal, "viewer@example.com", outside)).toEqual(chair);
   });
 
-  it("honours an explicit committee Reply-To ahead of an outside sender", () => {
+  it("ignores a committee Reply-To when the inbound sender is outside", () => {
     const inbound = message({from: outside, to: [chair], replyTo: membership});
-    expect(composeReplyAddress(inbound, internal, "viewer@example.com", outside)).toEqual(membership);
+    expect(composeReplyAddress(inbound, internal, "viewer@example.com", outside)).toEqual(outside);
+  });
+
+  it("honours an outside contact-form Reply-To ahead of a committee From", () => {
+    const inbound = message({from: chair, to: [membership], replyTo: outside});
+    expect(composeReplyAddress(inbound, internal, "viewer@example.com", membership)).toEqual(outside);
   });
 
   it("replies to the outbound recipient rather than a leftover committee address", () => {

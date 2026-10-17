@@ -49,7 +49,7 @@ function toInboxAddresses(field: AddressObject | AddressObject[] | undefined): I
   }
   const objects = isArray(field) ? field : [field];
   return objects.flatMap(object => (object.value ?? [])
-    .filter(entry => Boolean(entry.address))
+    .filter(entry => Boolean(entry.address && entry.address.includes("@")))
     .map(entry => ({name: entry.name?.trim() ? entry.name.trim() : null, email: (entry.address ?? "").trim()})));
 }
 

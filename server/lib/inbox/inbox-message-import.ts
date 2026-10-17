@@ -269,29 +269,41 @@ export function replyTargetExcludingViewer(candidate: InboxAddress, messageSende
   return isViewer(candidate) ? (isViewer(messageSender) ? candidate : messageSender) : candidate;
 }
 
+function mailboxAddress(address?: InboxAddress | null): InboxAddress | null {
+  return address?.email && address.email.includes("@") ? address : null;
+}
+
+function outsideMailbox(address: InboxAddress | null | undefined, internalEmails: Set<string>): InboxAddress | null {
+  const mailbox = mailboxAddress(address);
+  return mailbox && !internalEmails.has(normaliseEmail(mailbox.email)) ? mailbox : null;
+}
+
 export function composeReplyAddress(message: InboxMessage, internalEmails: Set<string>, viewerEmail: string | null, threadExternal?: InboxAddress | null): InboxAddress {
   const candidate = message.direction === InboxMessageDirection.INBOUND
-    ? statedReplyAddress(message) ?? (message.from?.email ? message.from : null) ?? resolveThreadExternalAddress(message, threadExternal, internalEmails)
+    ? outsideMailbox(statedReplyAddress(message), internalEmails)
+      ?? outsideMailbox(message.from, internalEmails)
+      ?? mailboxAddress(message.from)
+      ?? resolveThreadExternalAddress(message, threadExternal, internalEmails)
     : resolveThreadExternalAddress(message, threadExternal, internalEmails);
   return replyTargetExcludingViewer(candidate, message.from, viewerEmail);
 }
 
 export function resolveThreadExternalAddress(message: InboxMessage, counterparty?: InboxAddress | null, internalEmails: Set<string> = new Set()): InboxAddress {
   const isInternal = (address?: InboxAddress | null) =>
-    Boolean(address?.email && internalEmails.has(normaliseEmail(address.email)));
-  const recipients = [...(message.to ?? []), ...(message.cc ?? [])].filter(address => address?.email);
+    Boolean(mailboxAddress(address) && internalEmails.has(normaliseEmail(address.email)));
+  const recipients = [...(message.to ?? []), ...(message.cc ?? [])].filter(address => mailboxAddress(address));
   const inbound = message.direction === InboxMessageDirection.INBOUND;
   const outside = [
     inbound ? statedReplyAddress(message) : null,
     inbound ? message.from : null,
     recipients.find(address => !isInternal(address)),
     counterparty
-  ].find(address => address?.email && !isInternal(address));
+  ].find(address => mailboxAddress(address) && !isInternal(address));
   const fallback = inbound
     ? [recipients[0], message.from, counterparty]
     : [recipients[0], counterparty, message.from];
-  const preferred = outside ?? fallback.find(address => address?.email) ?? {name: null, email: ""};
-  return preferred?.email ? {name: preferred.name ?? null, email: preferred.email} : {name: null, email: "unknown@local"};
+  const preferred = outside ?? fallback.find(address => mailboxAddress(address)) ?? {name: null, email: ""};
+  return mailboxAddress(preferred) ? {name: preferred.name ?? null, email: preferred.email} : {name: null, email: "unknown@local"};
 }
 
 export function shouldRefreshUnreadForInbound(isJunk: boolean, messageAt: number, previousLastSeenAt: number | null | undefined, previousLastDirection: InboxMessageDirection | null = null): boolean {

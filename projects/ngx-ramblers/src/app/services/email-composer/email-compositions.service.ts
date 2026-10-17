@@ -71,13 +71,16 @@ export class EmailCompositionsService {
       kind: state.compositionKind ?? EmailCompositionKind.STANDARD,
       state: this.serialiseStateForStorage(state)
     };
-    if (shared !== undefined) body.shared = shared;
+    if (shared !== undefined) {
+      body.shared = shared;
+    }
     if (existingId) {
-      const apiResponse = await this.http.put<EmailCompositionSingleResponse>(`${this.BASE_URL}/${existingId}`, body).toPromise();
+      const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.put<EmailCompositionSingleResponse>(`${this.BASE_URL}/${existingId}`, body));
+      return this.toComposition(apiResponse.response);
+    } else {
+      const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<EmailCompositionSingleResponse>(this.BASE_URL, body));
       return this.toComposition(apiResponse.response);
     }
-    const apiResponse = await this.http.post<EmailCompositionSingleResponse>(this.BASE_URL, body).toPromise();
-    return this.toComposition(apiResponse.response);
   }
 
   serialiseStateForStorage(state: EmailComposerState): any {
