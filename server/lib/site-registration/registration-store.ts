@@ -1,8 +1,10 @@
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import { Collection } from "mongodb";
+import { Model } from "mongoose";
 import { RegistrationHistoryAction, RegistrationSettings, StoredSiteRegistration } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import { dateTimeNowAsValue } from "../shared/dates";
 import { siteRegistration, siteRegistrationConfig } from "../mongo/models/site-registration";
+import { ensureCollectionIndexes } from "../mongo/utils/collection-indexes";
 
 
 export function registrations(): Collection<StoredSiteRegistration> {
@@ -14,9 +16,7 @@ export async function recordRegistrationHistory(id: string, action: Registration
 }
 
 export async function ensureRegistrationIndexes(): Promise<void> {
-  await registrations().createIndex({"group.group_code": 1}, {unique: true});
-  await registrations().createIndex({resumeTokenHash: 1}, {unique: true});
-  await registrations().createIndex({state: 1, leaseUntil: 1});
+  await ensureCollectionIndexes(siteRegistration as Model<unknown>, true);
 }
 
 export async function registrationSettings(): Promise<RegistrationSettings> {

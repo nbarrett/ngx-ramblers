@@ -25,6 +25,7 @@ import {
   ExistingEnvironmentsResponse,
   GroupsByAreaResponse,
   MongoClusterInfo,
+  MongoClusterList,
   MongoDbConfig,
   PlatformSendControlResponse,
   RamblersAreaLookup,
@@ -34,6 +35,7 @@ import {
   ValidationResult
 } from "../../models/environment-setup.model";
 import { AtlasConfig, SiteUrlPreference } from "../../models/environment-config.model";
+import { EmptyCollectionCandidate, EmptyCollectionCleanupPreview, EmptyCollectionCleanupResult } from "../../models/environment-collection-cleanup.model";
 import {
   AtlasClusterCreateRequest,
   AtlasClusterRow,
@@ -241,13 +243,13 @@ export class EnvironmentSetupService {
     return response as unknown as EnvironmentDetails;
   }
 
-  async mongoClusters(): Promise<{ clusters: MongoClusterInfo[] }> {
+  async mongoClusters(): Promise<MongoClusterList> {
     const response = await this.commonDataService.responseFrom(
       this.logger,
       this.http.get<ApiResponse>(`${this.BASE_URL}/mongo-clusters`, this.opts),
       this.notifications
     );
-    return response as unknown as { clusters: MongoClusterInfo[] };
+    return response as unknown as MongoClusterList;
   }
 
   async atlasClusters(): Promise<AtlasClusterView> {
@@ -284,6 +286,24 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as {atlas: AtlasConfig};
+  }
+
+  async emptyCollectionCleanupPreview(cluster: string): Promise<EmptyCollectionCleanupPreview> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.get<ApiResponse>(`${this.BASE_URL}/collection-cleanup/preview?cluster=${encodeURIComponent(cluster)}`, this.opts),
+      this.notifications
+    );
+    return response as unknown as EmptyCollectionCleanupPreview;
+  }
+
+  async removeEmptyCollections(cluster: string, candidates: EmptyCollectionCandidate[]): Promise<EmptyCollectionCleanupResult> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/collection-cleanup`, {cluster, candidates}, this.opts),
+      this.notifications
+    );
+    return response as unknown as EmptyCollectionCleanupResult;
   }
 
   async existingEnvironments(): Promise<ExistingEnvironmentsResponse> {

@@ -75,6 +75,12 @@ export interface MongoClusterInfo {
   username: string;
   password: string;
   databases: string[];
+  environments: string[];
+}
+
+export interface MongoClusterList {
+  clusters: MongoClusterInfo[];
+  defaultCluster: string;
 }
 
 export interface BrevoConfig {
@@ -807,6 +813,7 @@ export interface SeedDatabaseParams {
   database: string;
   groupName: string;
   groupShortName?: string;
+  ngxLite?: boolean;
 }
 
 export interface ReinitDatabaseParams {

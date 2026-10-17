@@ -87,6 +87,13 @@ export class EnvironmentManagementLandingComponent implements OnInit, OnDestroy 
             accessLevel: AccessLevel.ENVIRONMENT_ADMIN
           },
           {
+            href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_COLLECTION_CLEANUP,
+            title: "MongoDB Collection Cleanup",
+            icon: "faDatabase",
+            contentText: "Review and remove only confirmed empty collections across Atlas clusters",
+            accessLevel: AccessLevel.ENVIRONMENT_ADMIN
+          },
+          {
             href: AdminPlatformPath.ENVIRONMENT_MANAGEMENT_BACKUP,
             title: "Backup & Restore",
             icon: "faDatabase",

@@ -12,6 +12,7 @@ export interface SortableTableColumn<T = any> {
   cellGetter?: (row: T) => any;
   headerClass?: string;
   cellClass?: string;
+  width?: string;
 }
 
 export interface SortableTableSortState {

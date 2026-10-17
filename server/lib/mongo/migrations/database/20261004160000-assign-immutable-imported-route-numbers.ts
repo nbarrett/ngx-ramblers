@@ -29,11 +29,13 @@ export async function up(db: Db, _client: MongoClient) {
       progress.next += 1;
     }
   }, Promise.resolve());
-  await db.collection<ImportedRouteNumberCounter>(COUNTERS_COLLECTION).updateOne(
-    {_id: ROUTE_NUMBER_COUNTER_ID},
-    {$max: {seq: progress.next - 1}},
-    {upsert: true}
-  );
+  if (routes.length > 0 || counter) {
+    await db.collection<ImportedRouteNumberCounter>(COUNTERS_COLLECTION).updateOne(
+      {_id: ROUTE_NUMBER_COUNTER_ID},
+      {$max: {seq: progress.next - 1}},
+      {upsert: true}
+    );
+  }
   debugLog("Route numbers ready: assigned=%d kept=%d next=%d", progress.assigned, progress.kept, progress.next);
 }
 

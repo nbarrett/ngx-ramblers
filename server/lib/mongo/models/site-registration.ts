@@ -136,5 +136,8 @@ const siteRegistrationSchema = new mongoose.Schema({
   leaseOwner: {type: String, default: null}
 }, {collection: "siteRegistrations"});
 
+siteRegistrationSchema.index({"group.group_code": 1}, {unique: true});
+siteRegistrationSchema.index({state: 1, leaseUntil: 1});
+
 export const siteRegistrationConfig = ensureModel<ConfigDocument>("site-registration-config", siteRegistrationSettingsSchema);
 export const siteRegistration = ensureModel<StoredSiteRegistration>("site-registration", siteRegistrationSchema);

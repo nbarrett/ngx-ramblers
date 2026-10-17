@@ -17,11 +17,13 @@ import {
   imports: [NgTemplateOutlet, FontAwesomeModule],
   template: `
     <div class="sortable-table-card" [class.sortable-table-flat]="flat" [class.scrollable]="!!maxHeight" [style.max-height]="maxHeight">
-      <table class="sortable-table">
+      <table class="sortable-table" [class.sortable-table-fixed-layout]="fixedLayout">
         <thead>
           <tr>
             @for (column of columns; track column.key) {
               <th [class]="headerClassFor(column)"
+                  [style.width]="column.width || null"
+                  [attr.title]="column.label || null"
                   [class.sortable]="!!column.sortKey"
                   (click)="column.sortKey && toggleSort(column.sortKey)">
                 @if (headerTemplateFor(column.key); as headerTemplate) {
@@ -62,7 +64,7 @@ import {
                   (click)="selectRow(row)"
                   (keydown.enter)="selectRow(row)">
                 @for (column of columns; track column.key) {
-                  <td [class]="cellClassFor(column)" [attr.data-label]="column.label || null">
+                  <td [class]="cellClassFor(column)" [style.width]="column.width || null" [attr.data-label]="column.label || null">
                     @if (templateFor(column.key); as cellTemplate) {
                       <ng-container *ngTemplateOutlet="cellTemplate; context: { $implicit: row, row: row }"></ng-container>
                     } @else {
@@ -127,6 +129,9 @@ import {
       border-spacing: 0
       margin-bottom: 0
 
+    .sortable-table.sortable-table-fixed-layout
+      table-layout: fixed
+
     .sortable-table th
       background: var(--rsm-table-header-bg)
       color: #495057
@@ -138,6 +143,14 @@ import {
       white-space: nowrap
     .sortable-table td.nowrap
       white-space: nowrap
+
+    .sortable-table-fixed-layout td.text-nowrap
+      overflow: hidden
+      text-overflow: ellipsis
+
+    .sortable-table-fixed-layout th
+      overflow: hidden
+      text-overflow: ellipsis
 
     .sortable-table th.sortable
       cursor: pointer
@@ -211,6 +224,9 @@ import {
         display: block
         width: 100%
 
+      .sortable-table-fixed-layout tbody tr td
+        width: 100% !important
+
       .sortable-table tbody tr
         border-bottom: 1px solid #e9ecef
 
@@ -251,6 +267,7 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
   @Input() columns: SortableTableColumn[] = [];
   @Input() rows: any[] = [];
   @Input() flat = false;
+  @Input() fixedLayout = false;
   @Input() maxHeight: string | null = null;
   @Input() defaultSortKey: string | null = null;
   @Input() defaultSortDirection: string = ASCENDING;

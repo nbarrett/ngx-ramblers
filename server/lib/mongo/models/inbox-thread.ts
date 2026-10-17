@@ -29,6 +29,7 @@ const inboxThreadSchema = new mongoose.Schema({
   conversationKey: {type: String, default: null, index: true}
 }, {collection: "inboxThreads"});
 
+inboxThreadSchema.index({tenantSlug: 1, slug: 1, lastSeenAt: -1});
 inboxThreadSchema.plugin(uniqueValidator);
 
 export const inboxThread: mongoose.Model<InboxThread> = ensureModel<InboxThread>("inbox-thread", inboxThreadSchema);

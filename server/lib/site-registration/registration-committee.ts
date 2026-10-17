@@ -10,6 +10,8 @@ import {generate} from "../ai/ai-generation";
 import {ConfigKey} from "../../../projects/ngx-ramblers/src/app/models/config.model";
 import {dateTimeNowAsValue} from "../shared/dates";
 import {generateUid} from "../shared/string-utils";
+import {member} from "../mongo/models/member";
+import {ensureCollectionIndexesInDatabase} from "../mongo/utils/collection-indexes";
 
 const COMMITTEE_ROLE_PATTERN = "chair(?:man|person)?|secretary|treasurer|membership secretary|walks? co-ordinator|walks? coordinator|social secretary|publicity officer|webmaster|committee member|footpath secretary|footpath officer|access officer|digital officer|walking environment officer|programme secretary|social media editor";
 const ROLE_HEADING = new RegExp(`^(${COMMITTEE_ROLE_PATTERN})$`, "i");
@@ -177,6 +179,7 @@ export async function importRegistrationCommittee(db: Db, pages: PageContent[], 
     return 0;
   } else {
     const assignments: CommitteeMember[] = [];
+    await ensureCollectionIndexesInDatabase(db, member);
     const members = db.collection<Member>("members");
     for (const candidate of candidates) {
       const member = memberFrom(candidate);

@@ -32,6 +32,8 @@ router.get("/atlas-clusters", controllers.requireSetupAccess, atlasClusters.list
 router.post("/atlas-clusters", controllers.requireSetupAccess, atlasClusters.createAtlasClusterRequest);
 router.post("/atlas-network-access", controllers.requireSetupAccess, atlasClusters.allowAtlasNetworkAccessRequest);
 router.put("/atlas-provisioning", controllers.requireSetupAccess, atlasClusters.saveAtlasProvisioningRequest);
+router.get("/collection-cleanup/preview", controllers.requireSetupAccess, atlasClusters.collectionCleanupPreview);
+router.post("/collection-cleanup", controllers.requireSetupAccess, atlasClusters.collectionCleanupRequest);
 router.post("/resume", controllers.resumeEnvironmentRequest);
 router.delete("/destroy/:environmentName", controllers.destroyEnvironmentRequest);
 router.post("/copy-assets/:environmentName", controllers.copyAssetsRequest);

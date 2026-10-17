@@ -9,6 +9,10 @@ import { assertRegistrationEditable } from "./registration-policy";
 import { registrationForToken } from "./registration-service";
 import { earlierImportFilters, importedPagePath, withRowsUnderHeading, pairedImageRows, registrationMigrationConfig, withContactUsLinks, withIntroductionPhotos, withoutButtonsTo, withoutDuplicateHeadingImages, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
 import { contentMetadata } from "../mongo/models/content-metadata";
+import { member as memberModel } from "../mongo/models/member";
+import { pageContent } from "../mongo/models/page-content";
+import { config } from "../mongo/models/config";
+import { ensureCollectionIndexesInDatabase } from "../mongo/utils/collection-indexes";
 import { createEnvironment } from "../environment-setup/environment-setup-service";
 import { environmentDetails } from "../environment-setup/environment-details";
 import { createEnvironmentMongoUser, platformAtlasAccess, waitForMongoLogin } from "../environment-setup/mongo-database-user";
@@ -323,6 +327,7 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
   const context = await loadEnvironmentContext(registration.environmentName);
   const migrationConnection = await connectToEnvironmentMongo(context.envConfigData);
   try {
+    await ensureCollectionIndexesInDatabase(migrationConnection.db, config);
     await migrationConnection.db.collection("config").updateOne({key: ConfigKey.MIGRATION}, {$set: {value: {sites: [{...migration, persistData: true, uploadTos3: false, enabled: false}]}}}, {upsert: true});
   } finally {
     await migrationConnection.client.close();
@@ -382,6 +387,7 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     .map(page => ({...page, rows: withoutDuplicateHeadingImages(page.rows || [])}));
   const connection = await connectToEnvironmentMongo(context.envConfigData);
   try {
+    await ensureCollectionIndexesInDatabase(connection.db, pageContent);
     const earlierImport = earlierImportFilters([...migratedPages, ...migrated.albums.map(album => album.pageContent)].filter(page => page?.path).map(page => page.path), migrated.albums.map(album => album.album.name));
     await connection.db.collection("pageContent").deleteMany(earlierImport.pages);
     await connection.db.collection(contentMetadata.collection.collectionName).deleteMany(earlierImport.albums);
@@ -618,6 +624,7 @@ async function inviteGroup(registration: StoredSiteRegistration): Promise<void> 
   try {
     const created = createAdminMember({adminUser: {firstName: registration.group.name, lastName: "Admin", email: registration.email}, groupCode: registration.group.group_code});
     created.member.passwordResetId = registrationToken();
+    await ensureCollectionIndexesInDatabase(connection.db, memberModel);
     await connection.db.collection("members").updateOne({email: registration.email}, {$set: created.member}, {upsert: true});
     const member = await connection.db.collection("members").findOne({email: registration.email});
     await sendRegistrationEmail(settings, RegistrationEmailType.INVITATION, registration.email, {

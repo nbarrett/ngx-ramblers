@@ -15,6 +15,8 @@ import {
   AtlasClusterTier,
   AtlasClusterView,
   AtlasNetworkAccessEntry,
+  NEW_ENVIRONMENT_COLLECTION_HEADROOM,
+  NEW_ENVIRONMENT_INDEX_HEADROOM,
   atlasTierFromInstanceSize,
   clusterCapacity
 } from "../../../projects/ngx-ramblers/src/app/models/atlas-cluster.model";
@@ -137,7 +139,9 @@ async function environmentRows(config: EnvironmentsConfig): Promise<AtlasCluster
 function rollupClusters(
   atlasClusters: AtlasClusterDescription[],
   rows: AtlasClusterEnvironmentRow[],
-  defaultCluster: string
+  defaultCluster: string,
+  templateCollections: number,
+  templateIndexes: number
 ): AtlasClusterRow[] {
   const byHost = new Map<string, AtlasClusterRow>();
   atlasClusters.forEach(cluster => {
@@ -189,7 +193,7 @@ function rollupClusters(
     }
   });
   return Array.from(byHost.values()).map(cluster => {
-    const capacity = clusterCapacity(cluster.instanceSize, cluster.collectionCount, cluster.indexCount, cluster.databaseCount);
+    const capacity = clusterCapacity(cluster.instanceSize, cluster.collectionCount, cluster.indexCount, cluster.databaseCount, templateCollections, templateIndexes);
     return {...cluster, environmentNames: rows.filter(row => row.cluster === cluster.host).map(row => row.environment).sort().join(", "), canAddEnvironment: capacity.canAdd, limitHeadline: capacity.headline};
   }).sort((left, right) => left.host.localeCompare(right.host));
 }
@@ -232,8 +236,11 @@ export async function atlasClusterView(): Promise<AtlasClusterView> {
       }
     }
   }
-  const clusters = rollupClusters(atlasState.clusters, rows, defaultCluster);
   const template = (config.environments || []).find(environment => environment.environment === settings.sourceEnvironmentName);
+  const templateUsage = rows.find(row => row.environment === settings.sourceEnvironmentName);
+  const templateCollections = templateUsage?.collections ?? NEW_ENVIRONMENT_COLLECTION_HEADROOM;
+  const templateIndexes = templateUsage?.indexes ?? NEW_ENVIRONMENT_INDEX_HEADROOM;
+  const clusters = rollupClusters(atlasState.clusters, rows, defaultCluster, templateCollections, templateIndexes);
   const registrationCluster = defaultCluster || template?.mongo?.cluster || "";
   const registration = clusters.find(cluster => cluster.host === registrationCluster);
   const registrationBlocked = !!registration && !registration.canAddEnvironment;

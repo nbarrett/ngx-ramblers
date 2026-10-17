@@ -301,6 +301,12 @@ const rp = adminRelativePath;
       canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
     },
     {
+      path: rp(AdminPlatformPath.ENVIRONMENT_MANAGEMENT_COLLECTION_CLEANUP),
+      loadComponent: () => import("../../pages/admin/environment-collection-cleanup/environment-collection-cleanup")
+        .then(m => m.EnvironmentCollectionCleanupComponent),
+      canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
+    },
+    {
       path: rp(AdminPlatformPath.CONTRIBUTOR_ENVIRONMENT),
       loadComponent: () => import("../../pages/admin/contributor-environment/contributor-environment.component")
         .then(m => m.ContributorEnvironmentComponent),
