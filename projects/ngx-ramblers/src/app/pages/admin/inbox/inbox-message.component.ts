@@ -1,7 +1,7 @@
 import {booleanAttribute, Component, EventEmitter, inject, Input, Output} from "@angular/core";
 import {CommonModule} from "@angular/common";
 import {FontAwesomeModule} from "@fortawesome/angular-fontawesome";
-import {faChevronDown, faChevronRight, faPaperclip, faReply, faReplyAll, faShare, faEye, faDownload} from "@fortawesome/free-solid-svg-icons";
+import {faChevronDown, faChevronRight, faPaperclip, faReply, faReplyAll, faShare, faEye, faDownload, faSpinner} from "@fortawesome/free-solid-svg-icons";
 import {TooltipDirective} from "ngx-bootstrap/tooltip";
 import {BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective} from "ngx-bootstrap/dropdown";
 import {InboxMessage, InboxMessageDirection, InboxAddress, InboxAttachment} from "../../../models/inbox.model";
@@ -48,19 +48,19 @@ import {InboxCalendarInviteComponent} from "./inbox-calendar-invite";
                   <div class="inbox-reply-actions d-flex gap-1 flex-shrink-0">
                     <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
                             tooltip="Reply in email composer" placement="left" container="body" (click)="$event.stopPropagation(); reply.emit(message)">
-                      <fa-icon [icon]="faReply"/>
+                      <fa-icon [icon]="busy ? faSpinner : faReply" [animation]="busy ? 'spin' : undefined"/>
                       <span class="inbox-reply-label">Reply</span>
                     </button>
                     @if (hasMultipleRecipients(message)) {
                       <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
                               tooltip="Reply all in email composer" placement="left" container="body" (click)="$event.stopPropagation(); replyAll.emit(message)">
-                        <fa-icon [icon]="faReplyAll"/>
+                        <fa-icon [icon]="busy ? faSpinner : faReplyAll" [animation]="busy ? 'spin' : undefined"/>
                         <span class="inbox-reply-label">Reply all</span>
                       </button>
                     }
                     <button class="btn inbox-reply-btn" type="button" [disabled]="busy"
                             tooltip="Forward in email composer with attachments" placement="left" container="body" (click)="$event.stopPropagation(); forward.emit(message)">
-                      <fa-icon [icon]="faShare"/>
+                      <fa-icon [icon]="busy ? faSpinner : faShare" [animation]="busy ? 'spin' : undefined"/>
                       <span class="inbox-reply-label">Forward</span>
                     </button>
                   </div>
@@ -125,6 +125,7 @@ export class InboxMessageComponent {
   protected readonly faShare = faShare;
   protected readonly faEye = faEye;
   protected readonly faDownload = faDownload;
+  protected readonly faSpinner = faSpinner;
 
   protected isMessageExpanded(): boolean {
     return this.expanded;

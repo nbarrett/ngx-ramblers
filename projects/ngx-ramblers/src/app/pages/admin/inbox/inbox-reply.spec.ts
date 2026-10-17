@@ -13,24 +13,23 @@ describe("replying to an earlier conversation message", () => {
       selectedThread: {id: sent.threadId},
       selectedThreadId: sent.threadId,
       selectedMessages: [inbound, sent],
-      inboxService: {composeReply: vi.fn().mockResolvedValue(reply)},
+      inboxService: {composeReply: vi.fn()},
       markThreadsRead: vi.fn(),
       siblingConversationThreads: vi.fn().mockReturnValue([]),
-      inboxReplyHandoff: {queue: vi.fn()},
       logger: {info: vi.fn(), error: vi.fn()},
       notify: {error: vi.fn()},
       route: {snapshot: {queryParams: {}}},
-      router: {navigate: vi.fn().mockResolvedValue(true)}
+      router: {navigate: vi.fn().mockResolvedValue(true)},
+      busy: false
     });
 
     await instance.prepareReply(inbound);
     await instance.prepareReply(inbound);
 
-    expect(instance.inboxService.composeReply).toHaveBeenCalledTimes(2);
-    expect(instance.inboxService.composeReply).toHaveBeenNthCalledWith(1, inbound.threadId, expect.objectContaining({threadId: inbound.threadId, messageId: inbound.messageId}));
-    expect(instance.inboxService.composeReply).toHaveBeenNthCalledWith(2, inbound.threadId, expect.objectContaining({threadId: inbound.threadId, messageId: inbound.messageId}));
+    expect(instance.inboxService.composeReply).not.toHaveBeenCalled();
+    expect(instance.router.navigate).toHaveBeenCalledTimes(2);
     expect(instance.router.navigate).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({queryParams: expect.objectContaining({[StoredValue.THREAD]: inbound.threadId, [StoredValue.MESSAGE]: inbound.messageId})}));
-    expect(instance.inboxReplyHandoff.queue).toHaveBeenCalledTimes(2);
     expect(instance.notify.error).not.toHaveBeenCalled();
+    expect(instance.busy).toBe(false);
   });
 });

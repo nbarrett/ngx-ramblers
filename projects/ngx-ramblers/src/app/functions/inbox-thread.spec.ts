@@ -326,6 +326,12 @@ describe("inboxMessageMatchingId", () => {
     expect(inboxMessageMatchingId([{messageId: "a"} as InboxMessage], "missing")).toBeNull();
   });
 
+  it("matches Message-IDs with or without wrapping angle brackets", () => {
+    const messages = [{messageId: "<abc@example.com>", receivedAt: 1} as InboxMessage];
+    expect(inboxMessageMatchingId(messages, "abc@example.com")?.messageId).toEqual("<abc@example.com>");
+    expect(inboxMessageMatchingId(messages, "<abc@example.com>")?.messageId).toEqual("<abc@example.com>");
+  });
+
 });
 
 describe("inboxMessageAt", () => {

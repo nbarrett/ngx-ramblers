@@ -52,7 +52,7 @@ import {TooltipDirective} from "ngx-bootstrap/tooltip";
       :host-context(.alert-panel-compact) .alert-message-title fa-icon
         margin-right: 8px
       :host-context(.alert-panel-compact) .alert-message-content:has(> .alert-message-body:not(:empty)) .alert-message-title::after
-        content: "—"
+        content: ":"
         margin: 0 0.4em
         font-weight: 400
       :host-context(.alert-panel-compact) .alert-message-body:empty

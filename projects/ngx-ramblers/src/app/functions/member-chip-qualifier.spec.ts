@@ -15,7 +15,11 @@ describe("memberChipQualifier", () => {
   });
 
   it("does not mark expiry unless that audience filter is in use", () => {
-    expect(memberChipQualifier(member({membershipExpiryDate: now - 1}), now)).toEqual("with Head Office consent");
+    expect(memberChipQualifier(member({emailMarketingConsent: true, membershipExpiryDate: now - 1}), now)).toEqual("with Head Office consent");
+  });
+
+  it("marks when Head Office has not supplied a consent value", () => {
+    expect(memberChipQualifier(member({}), now)).toEqual("Head Office consent not recorded");
   });
 
   it("marks expired members when the expired audience is selected", () => {

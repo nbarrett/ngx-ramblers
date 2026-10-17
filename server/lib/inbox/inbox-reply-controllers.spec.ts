@@ -47,8 +47,14 @@ describe("composeInboxReply", () => {
     const req = {params: {id: "committee-question"}, body: {messageId: selectedMessageId}, user: {memberId: "viewer"}} as unknown as Request;
     const res = {json, status: () => ({json})} as unknown as Response;
     await composeInboxReply(req, res);
-    expect(find.calledOnce).toBe(true);
+    expect(find.called).toBe(true);
     expect(find.firstCall.args[0]).toEqual({threadId: thread.id, ...(selectedMessageId ? {messageId: selectedMessageId} : {})});
+    if (missingOnThread && selectedMessageId) {
+      expect(find.secondCall.args[0].threadId).toBe(thread.id);
+      expect(find.secondCall.args[0].messageId.$in).toEqual(expect.arrayContaining([selectedMessageId]));
+    } else {
+      expect(find.calledOnce).toBe(true);
+    }
     expect((imports.correctThreadExternalAddress as sinon.SinonStub).called).toBe(false);
     return json.firstCall.args[0].response ?? json.firstCall.args[0];
   }

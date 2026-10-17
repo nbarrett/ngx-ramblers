@@ -3,6 +3,8 @@ import {convertToParamMap} from "@angular/router";
 import {StoredValue} from "../../models/ui-actions";
 import {BrandingMode} from "../../models/mail.model";
 import {defaultEmailComposerState} from "../../functions/email-composer";
+import {ComposerFragmentKind, RecipientAddressMode} from "../../models/email-composer.model";
+import {EmailComposerFragmentsService} from "../../services/email-composer/email-composer-fragments.service";
 import {EmailComposer} from "./email-composer";
 
 describe("composer reply paste", () => {
@@ -87,11 +89,18 @@ describe("composer reply recipients", () => {
     state.bccRecipients = [{email: "previous-bcc@example.com"}];
     Object.assign(instance, {
       session: {state, inboxReplyContext: null},
-      recipients: {replyCcSuggestion: []},
+      recipients: {replyCcSuggestion: [], recipientAddressModeTouched: false, syncRecipientAddressMode: vi.fn()},
       logger: {info: vi.fn()},
       htmlToReplyMarkdown: vi.fn(() => "Quoted message"),
       applyForwardedAttachments: vi.fn(),
-      introEditorRef: null
+      introEditorRef: null,
+      fragmentEditor: Object.assign(Object.create(EmailComposerFragmentsService.prototype), {expandedFragmentIds: new Set<string>()}),
+      changeDetector: {markForCheck: vi.fn()},
+      inboxReplyLoading: false,
+      pendingDraftLoad: false,
+      mailMessagingReady: true,
+      membersLoaded: false,
+      route: {snapshot: {queryParamMap: convertToParamMap({})}}
     });
     return instance;
   }
@@ -103,7 +112,12 @@ describe("composer reply recipients", () => {
   it("replaces previous recipients and offers Cc separately for a reply", () => {
     const instance = composer();
     instance.applyInboxReply(reply());
+    expect(instance.session.state.fragmentOrder.some((fragment: {kind: ComposerFragmentKind}) => fragment.kind === ComposerFragmentKind.INTRO)).toBe(true);
+    expect(instance.fragmentEditor.expandedFragmentIds.has("intro")).toBe(true);
+    expect(instance.session.state.introMarkdown).toContain("Quoted message");
     expect(instance.session.state.externalRecipients).toEqual([{...correspondent, saveForReuse: false}]);
+    expect(instance.session.state.recipientAddressMode).toBe(RecipientAddressMode.PERSONAL);
+    expect(instance.recipients.recipientAddressModeTouched).toBe(true);
     expect(instance.session.state.selectedMemberIds).toEqual([]);
     expect(instance.session.state.selectedListId).toBe(null);
     expect(instance.session.state.narrowListId).toBe(null);
@@ -130,6 +144,17 @@ describe("composer reply recipients", () => {
     expect(instance.recipients.replyCcSuggestion).toEqual([]);
     expect(instance.applyForwardedAttachments).toHaveBeenCalledWith([]);
   });
+
+  it("opens compose for an inbox reply before the member list has loaded", () => {
+    const instance = composer();
+    instance.applyInboxReply(reply());
+    expect(instance.composerHydrating()).toBe(false);
+  });
+
+  it("still waits for members when this is not an inbox reply", () => {
+    const instance = composer();
+    expect(instance.composerHydrating()).toBe(true);
+  });
 });
 
 describe("rebuilding an inbox reply from its link", () => {
@@ -151,6 +176,17 @@ describe("rebuilding an inbox reply from its link", () => {
     const instance = composer();
     await instance.rebuildInboxReplyFromRoute(convertToParamMap({[StoredValue.THREAD]: "inbound-thread", [StoredValue.MESSAGE]: "original-message"}));
     expect(instance.inboxService.composeReply).toHaveBeenCalledWith("inbound-thread", {threadId: "inbound-thread", messageId: "original-message", forward: false});
+    expect(instance.applyInboxReply).toHaveBeenCalled();
+  });
+
+  it("finds the selected message when the URL wraps the Message-ID in angle brackets", async () => {
+    const instance = composer();
+    instance.inboxService.getThread.mockResolvedValue({
+      thread: {id: "inbound-thread"},
+      messages: [{threadId: "inbound-thread", messageId: "abc@mail.example.com"}]
+    });
+    await instance.rebuildInboxReplyFromRoute(convertToParamMap({[StoredValue.THREAD]: "inbound-thread", [StoredValue.MESSAGE]: "<abc@mail.example.com>"}));
+    expect(instance.inboxService.composeReply).toHaveBeenCalledWith("inbound-thread", {threadId: "inbound-thread", messageId: "abc@mail.example.com", forward: false});
     expect(instance.applyInboxReply).toHaveBeenCalled();
   });
 

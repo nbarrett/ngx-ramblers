@@ -19,7 +19,7 @@ import { ListSubscriberCountComponent } from "../mail/list-subscriber-count";
 import { interpretRecipientDraft, isValidEmailAddress } from "../../../functions/email-addresses";
 import { committeeAudienceChipQualifier, combinedMemberChipQualifier } from "../../../functions/member-chip-qualifier";
 import { MemberBulkLoadDateMap } from "../../../models/member.model";
-import { composerMemberIdentityRecipients, composerRecipientFromSuggestion, composerRecipientIsExpandableSet, composerRecipientIsSamePerson, composerRecipientLacksMarketingConsent, composerRecipientMatchesQuery, composerSuggestionShowsEmail } from "../../../functions/email-composer";
+import { composerMemberIdentityRecipients, composerRecipientFromMember, composerRecipientFromSuggestion, composerRecipientIsExpandableSet, composerRecipientIsSamePerson, composerRecipientLacksMarketingConsent, composerRecipientMatchesQuery, composerSuggestionShowsEmail } from "../../../functions/email-composer";
 
 @Component({
   selector: "app-recipient-field",
@@ -51,7 +51,7 @@ import { composerMemberIdentityRecipients, composerRecipientFromSuggestion, comp
                       [tooltip]="chipTooltip(recipient)"
                       placement="bottom">
                   <button type="button" class="recipient-chip-label" (click)="expandableSet(recipient) ? expandList.emit({field: field.key, recipient}) : openEditor(field.key, idx)">
-                    <span class="recipient-chip-name">{{ recipient.name || recipient.email }}</span>
+                    <span class="recipient-chip-name">{{ displayName(recipient) }}</span>
                     @if (unavailableReasons[recipient.email.toLowerCase()]; as reason) {
                       <span class="recipient-chip-qualifier">{{ reason }}</span>
                     } @else if (recipient.listId) {
@@ -106,7 +106,7 @@ import { composerMemberIdentityRecipients, composerRecipientFromSuggestion, comp
                 <label class="recipient-editor-row">
                   <span class="recipient-editor-caption">Name</span>
                   <input type="text" class="recipient-editor-input"
-                         [ngModel]="edited.name || ''"
+                         [ngModel]="editorName(edited)"
                          (ngModelChange)="renameEditing($event)"
                          placeholder="Display name">
                 </label>
@@ -698,6 +698,29 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
       || !!member?.committee
       || !!(member?.id && addresses.some(address => address.memberId === member.id))
       || addresses.some(address => (address.email || "").trim().toLowerCase() === email);
+  }
+
+  protected displayName(recipient: ComposerExternalRecipient): string {
+    return this.resolvedName(recipient) || recipient.email;
+  }
+
+  protected editorName(recipient: ComposerExternalRecipient): string {
+    return this.resolvedName(recipient);
+  }
+
+  private resolvedName(recipient: ComposerExternalRecipient): string {
+    if (recipient.name) {
+      return recipient.name;
+    } else {
+      const member = this.memberFor(recipient);
+      const fromMember = member ? composerRecipientFromMember(member)?.name : null;
+      if (fromMember) {
+        return fromMember;
+      } else {
+        const saved = this.savedRecipients.find(item => item.email.toLowerCase() === (recipient.email || "").toLowerCase());
+        return saved?.name || "";
+      }
+    }
   }
 
   protected memberFor(recipient: ComposerExternalRecipient): Member | null {

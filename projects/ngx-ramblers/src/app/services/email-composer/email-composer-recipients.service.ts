@@ -605,7 +605,7 @@ export class EmailComposerRecipientsService {
     syncRecipientAddressMode(): void {
         this.session.state.recipientAddressMode = syncedRecipientAddressMode({
             committeeRoleSendOffered: this.resolver.committeeRoleSendOffered(),
-            preselectCommitteeRole: !this.recipientAddressModeTouched,
+            preselectCommitteeRole: !this.recipientAddressModeTouched && !this.session.inboxReplyContext,
             current: this.session.state.recipientAddressMode
         });
         this.applyChipSendAddresses();

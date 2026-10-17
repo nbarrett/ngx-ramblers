@@ -16,9 +16,10 @@ import { isUndefined } from "es-toolkit/compat";
       <iframe
         #frame
         title="Message content"
+        tabindex="-1"
         scrolling="no"
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads"
-        (load)="resize()"
+        (load)="onFrameLoad()"
         [src]="url"
         style="display:block;width:100%;border:0;background:#fff;"></iframe>
     }
@@ -37,6 +38,7 @@ export class HtmlFrameComponent implements OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
   private mutationObserver: MutationObserver | null = null;
   private lastFrameHeight = 0;
+  private focusOwner: Element | null = null;
 
   @Input() set html(value: string) {
     this.renderHtml(value ?? "");
@@ -54,9 +56,19 @@ export class HtmlFrameComponent implements OnDestroy {
     if (!unchanged) {
       this.lastHtml = next;
       this.lastFitToWidth = this.fitContentToWidth;
+      this.focusOwner = document.activeElement;
       this.clearObjectUrl();
       this.objectUrl = URL.createObjectURL(new Blob([this.wrap(next)], {type: "text/html"}));
       this.url = this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl);
+    }
+  }
+
+  onFrameLoad(): void {
+    this.resize();
+    const frame = this.frame?.nativeElement;
+    const owner = this.focusOwner;
+    if (frame && document.activeElement === frame && owner instanceof HTMLElement && owner !== frame) {
+      owner.focus();
     }
   }
 
