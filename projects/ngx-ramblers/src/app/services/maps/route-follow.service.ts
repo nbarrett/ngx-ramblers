@@ -1,4 +1,5 @@
-import { inject, Injectable } from "@angular/core";
+import { inject, Injectable, NgZone } from "@angular/core";
+import { Capacitor } from "@capacitor/core";
 import { isNumber } from "es-toolkit/compat";
 import { BehaviorSubject } from "rxjs";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -18,6 +19,7 @@ import {
   ROUTE_FOLLOW_WALKING_METRES_PER_MINUTE,
   ROUTE_FOLLOW_COMPASS_MIN_DELTA,
   ROUTE_FOLLOW_COMPASS_SMOOTHING,
+  ROUTE_FOLLOW_ANDROID_COMPASS_SMOOTHING,
   RouteFollowLocationError,
   RouteFollowMode,
   RouteFollowPoint,
@@ -36,7 +38,7 @@ import { NativeRouteError, NativeRouteFailure, NativeRoutePosition } from "../..
 import { generateUid } from "../../functions/numbers";
 import { StringUtilsService } from "../string-utils.service";
 import { DistanceUnit, FEET_PER_METRE, KM_PER_MILE } from "../../models/walk.model";
-import { compassHeading, smoothedCompassHeading } from "../../functions/compass-heading";
+import { compassHeading, compassScreenAngle, smoothedCompassHeading } from "../../functions/compass-heading";
 
 @Injectable({
   providedIn: "root"
@@ -45,6 +47,7 @@ export class RouteFollowService {
   private geoDistance = inject(GeoDistanceService);
   private nativeRecorder = inject(NativeRouteRecorderService);
   private stringUtils = inject(StringUtilsService);
+  private zone = inject(NgZone);
   private sessionId: string | null = null;
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowService", NgxLoggerLevel.ERROR);
   private track: RouteFollowPoint[] = [];
@@ -60,6 +63,7 @@ export class RouteFollowService {
   private compassHeading: number | null = null;
   private filteredCompassHeading: number | null = null;
   private orientationHandler: ((event: DeviceOrientationEvent) => void) | null = null;
+  private absoluteOrientationObserved = false;
   private recordingGap = false;
   private recordingCandidate: RouteFollowPoint | null = null;
   private lastRecordingPosition: RouteFollowPoint | null = null;
@@ -412,9 +416,13 @@ export class RouteFollowService {
   }
 
   async requestCompassPermission(): Promise<void> {
-    const orientation = DeviceOrientationEvent as unknown as {requestPermission?: () => Promise<string>};
+    const orientation = DeviceOrientationEvent as unknown as {requestPermission?: (absolute?: boolean) => Promise<string>};
     if (orientation.requestPermission) {
-      await orientation.requestPermission();
+      if (Capacitor.isNativePlatform()) {
+        await orientation.requestPermission();
+      } else {
+        await orientation.requestPermission(true);
+      }
     }
   }
 
@@ -532,7 +540,7 @@ export class RouteFollowService {
       longitude: position.coords.longitude,
       elevation: isNumber(position.coords.altitude) ? position.coords.altitude : null
     };
-    const heading = isNumber(position.coords.heading) && !isNaN(position.coords.heading)
+    const heading = isNumber(position.coords.heading) && Number.isFinite(position.coords.heading)
       ? position.coords.heading
       : this.headingFromLast(current);
     const recording = this.state.mode === RouteFollowMode.RECORDING;
@@ -608,7 +616,8 @@ export class RouteFollowService {
     this.state = {
       mode: this.state.mode,
       position,
-      heading: this.compassHeading ?? heading,
+      heading: this.compassHeading,
+      travelHeading: heading,
       accuracyMetres,
       snap,
       remainingMetres,
@@ -781,11 +790,13 @@ export class RouteFollowService {
 
   private async startCompass(): Promise<void> {
     this.stopCompass();
+    this.absoluteOrientationObserved = false;
     const handler = (event: DeviceOrientationEvent) => this.onOrientation(event);
     this.orientationHandler = handler;
-    const target = window as Window & {addEventListener: Window["addEventListener"]};
-    target.addEventListener("deviceorientationabsolute" as "deviceorientation", handler, true);
-    target.addEventListener("deviceorientation", handler, true);
+    this.zone.runOutsideAngular(() => {
+      window.addEventListener("deviceorientationabsolute", handler, true);
+      window.addEventListener("deviceorientation", handler, true);
+    });
   }
 
   private stopCompass(): void {
@@ -794,36 +805,41 @@ export class RouteFollowService {
       window.removeEventListener("deviceorientationabsolute", this.orientationHandler, true);
       this.orientationHandler = null;
     }
+    this.absoluteOrientationObserved = false;
   }
 
   private onOrientation(event: DeviceOrientationEvent): void {
     const webkitHeading = (event as DeviceOrientationEvent & {webkitCompassHeading?: number}).webkitCompassHeading;
     const fromWebkit = isNumber(webkitHeading) && Number.isFinite(webkitHeading);
     const fromAlpha = event.absolute === true && [event.alpha, event.beta, event.gamma].every(value => isNumber(value) && Number.isFinite(value));
+    if (event.type === "deviceorientationabsolute" && fromAlpha) {
+      this.absoluteOrientationObserved = true;
+    }
     if (fromWebkit) {
       this.setCompassHeading(webkitHeading);
-    } else if (fromAlpha) {
-      const heading = compassHeading(event.alpha, event.beta, event.gamma, window.screen.orientation?.angle ?? 0);
+    } else if (fromAlpha && (event.type === "deviceorientationabsolute" || !this.absoluteOrientationObserved)) {
+      const heading = compassHeading(event.alpha, event.beta, event.gamma,
+        compassScreenAngle(window.screen, (window as Window & {orientation?: number}).orientation ?? null));
       if (heading !== null) {
-        this.setCompassHeading(heading);
+        this.setCompassHeading(heading, ROUTE_FOLLOW_ANDROID_COMPASS_SMOOTHING);
       }
     }
   }
 
-  private setCompassHeading(next: number): void {
+  private setCompassHeading(next: number, smoothing = ROUTE_FOLLOW_COMPASS_SMOOTHING): void {
     const previous = this.compassHeading;
-    const smoothed = smoothedCompassHeading(this.filteredCompassHeading, next, ROUTE_FOLLOW_COMPASS_SMOOTHING);
+    const smoothed = smoothedCompassHeading(this.filteredCompassHeading, next, smoothing);
     this.filteredCompassHeading = smoothed;
     const delta = previous === null ? 360 : Math.min((smoothed - previous + 360) % 360, (previous - smoothed + 360) % 360);
     if (previous === null || delta >= ROUTE_FOLLOW_COMPASS_MIN_DELTA) {
       this.compassHeading = smoothed;
-      this.publishHeading();
+      this.zone.run(() => this.publishHeading());
     }
   }
 
   private publishHeading(): void {
     if (this.state.mode !== RouteFollowMode.EDITING && this.state.position) {
-      this.applyPosition(this.state.position, this.state.heading, this.state.accuracyMetres);
+      this.applyPosition(this.state.position, this.state.travelHeading ?? null, this.state.accuracyMetres);
     } else if (this.state.mode !== RouteFollowMode.EDITING) {
       this.state = {...this.state, heading: this.compassHeading};
       this.progressSubject.next(this.state);

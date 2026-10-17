@@ -377,9 +377,18 @@ describe("RouteFollowService", () => {
     expect(service.progress().heading).toBeLessThanOrEqual(4);
   });
 
+  it("publishes compass heading while a GPS fix is already on screen", () => {
+    service.listenForCompass();
+    service.applyPosition({latitude: 51.2, longitude: 1}, 90, 5);
+    expect(service.progress().heading).toBeNull();
+    window.dispatchEvent(Object.assign(new Event("deviceorientation"), {webkitCompassHeading: 45}));
+    expect(service.progress().heading).toBeCloseTo(45, 6);
+  });
+
   it("distinguishes GPS bearings from compass samples and clears the filter for another session", () => {
     service.applyPosition({latitude: 51.2, longitude: 1}, 90, 5);
     expect(service.compassAvailable()).toBe(false);
+    expect(service.progress().heading).toBeNull();
     service.listenForCompass();
     window.dispatchEvent(Object.assign(new Event("deviceorientation"), {webkitCompassHeading: 10}));
     expect(service.compassAvailable()).toBe(true);

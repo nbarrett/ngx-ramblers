@@ -684,6 +684,19 @@
   margin-bottom: 0
   flex-shrink: 0
 
+.follow-peek-actions
+  display: grid
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr))
+  gap: 8px
+  padding: 0 12px 8px
+  width: 100%
+  box-sizing: border-box
+
+.follow-peek-actions .follow-main-btn,
+.follow-peek-actions .follow-secondary-btn
+  min-height: 48px
+  font-size: 1rem
+
 .follow-sheet.is-minimised .follow-recording-tray[aria-expanded]
   touch-action: none
   cursor: grab

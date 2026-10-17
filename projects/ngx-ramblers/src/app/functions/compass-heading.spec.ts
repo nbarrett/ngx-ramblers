@@ -1,4 +1,4 @@
-import { compassHeading, smoothedCompassHeading } from "./compass-heading";
+import { compassHeading, compassScreenAngle, smoothedCompassHeading } from "./compass-heading";
 
 describe("compassHeading", () => {
   it("keeps north while the phone is raised from flat to upright", () => {
@@ -21,6 +21,22 @@ describe("compassHeading", () => {
   it("preserves the previous reading when the direction cannot be determined", () => {
     expect(compassHeading(Number.NaN, 0, 0, 0)).toBeNull();
     expect(compassHeading(0, 0, 90, 0)).toBeNull();
+  });
+
+  it("tracks a full turn when flat, tilted or upright without a calibration offset", () => {
+    [0, 30, 60, 85, 90].forEach(beta => {
+      [0, 45, 90, 135, 180, 225, 270, 315].forEach(heading => {
+        expect(compassHeading((360 - heading) % 360, beta, 0, 0)).toBeCloseTo(heading, 6);
+      });
+    });
+  });
+
+  it("reads the screen angle from the orientation API and falls back to window.orientation", () => {
+    expect(compassScreenAngle({orientation: {angle: 90}}, 0)).toBe(90);
+    expect(compassScreenAngle({orientation: {type: "landscape-primary"}}, null)).toBe(90);
+    expect(compassScreenAngle({orientation: {type: "landscape-secondary"}}, 0)).toBe(270);
+    expect(compassScreenAngle({}, 180)).toBe(180);
+    expect(compassScreenAngle({}, null)).toBe(0);
   });
 
   it("eases toward the next heading and takes the short turn across north", () => {

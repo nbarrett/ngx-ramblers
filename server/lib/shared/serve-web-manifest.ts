@@ -14,7 +14,7 @@ export async function serveWebManifest(_req: Request, res: Response, next: NextF
       : {
         start_url: "/app",
         display: "standalone",
-        background_color: "#102018",
+        background_color: "#FFFFFF",
         theme_color: "#1b4332",
         orientation: "portrait",
         icons: []
