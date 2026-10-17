@@ -404,9 +404,16 @@
   cursor: pointer
   touch-action: pan-y
   user-select: none
+  -webkit-user-drag: none
 
 .inbox-thread-row.inbox-thread-draggable
   cursor: grab
+
+:host(.inbox-filing)
+  cursor: grabbing
+
+:host(.inbox-filing) .inbox-thread-row
+  cursor: grabbing
 
 .inbox-list-range-selecting
   cursor: default

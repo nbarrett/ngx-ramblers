@@ -366,7 +366,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                 </div>
                 @if (foldersNodeExpanded) {
                   @for (folder of userFolders; track folder.id) {
-                    <div class="inbox-nav-folder-row" [class.active]="selectedMailboxView === inboxUserFolderView(folder)" [class.inbox-nav-folder-row-confirming]="folderPendingDeleteId === folder.id">
+                    <div class="inbox-nav-folder-row" [class.active]="selectedMailboxView === inboxUserFolderView(folder)" [class.inbox-nav-folder-row-confirming]="folderPendingDeleteId === folder.id" [class.inbox-nav-drop-target]="dropTargetView === inboxUserFolderView(folder)" [attr.data-drop-folder]="folder.id">
                       @if (renamingFolderId === folder.id) {
                         <form class="inbox-nav-node inbox-nav-child inbox-nav-rename-folder" (submit)="$event.preventDefault(); saveRenameFolder()">
                           <fa-icon [icon]="faFolder" class="inbox-nav-node-icon"/>
@@ -405,8 +405,6 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                       } @else {
                         <button class="inbox-nav-node inbox-nav-child" type="button"
                                 [class.active]="selectedMailboxView === inboxUserFolderView(folder)"
-                                [class.inbox-nav-drop-target]="dropTargetView === inboxUserFolderView(folder)"
-                                [attr.data-drop-folder]="folder.id"
                                 [tooltip]="'Click and hold to rename'"
                                     [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
                                 (click)="selectMailboxView(inboxUserFolderView(folder))"
@@ -936,6 +934,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     }, 300);
   }
 
+  @HostBinding("class.inbox-filing") get inboxFiling(): boolean {
+    return this.fileDragActive;
+  }
+
   @HostBinding("class.inbox-reading")
   get readingOnMobile(): boolean {
     return this.layout.mobile && this.layout.mobileShowDetail;
@@ -1177,7 +1179,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onFolderPointerDown(event: PointerEvent, folder: InboxUserFolderView): void {
-    if (event.button === 0) {
+    if (event.button === 0 && !this.fileDragActive) {
       this.clearFolderHoldTimer();
       this.folderHoldOrigin = {x: event.clientX, y: event.clientY};
       this.folderHoldTimer = setTimeout(() => {
@@ -1288,6 +1290,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         await this.inboxService.moveThreadsToFolder(threadIds, userFolderId);
         this.clearThreadSelection();
         await this.refresh(false);
+        const destination = userFolderId
+          ? this.userFolders.find(folder => folder.id === userFolderId)?.name ?? "folder"
+          : "Inbox";
+        this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(threadIds.length, "conversation")} moved to ${destination}`});
       } catch (error) {
         this.notify.error({title: "Move to folder", message: (error as Error).message});
       } finally {
@@ -1638,6 +1644,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onThreadRowPointerDown(event: PointerEvent, thread: InboxThread): void {
     if (event.pointerType !== "touch" && event.button === 0 && !(event.target as HTMLElement).closest("input, button, a, .inbox-col-resize")) {
+      event.preventDefault();
       const index = this.filteredThreads.findIndex(candidate => this.threadRowKey(candidate) === this.threadRowKey(thread));
       if (index >= 0) {
         this.beginRowGesture(event, index, thread, this.canDragThreads);
@@ -1682,8 +1689,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       : [id];
     this.fileDragActive = false;
     this.fileDropOverFolder = false;
-    const row = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-    row?.setPointerCapture(event.pointerId);
     this.ngZone.runOutsideAngular(() => {
       const move = (moveEvent: PointerEvent) => {
         if (moveEvent.pointerId === this.rangeSelectPointerId) {
@@ -1702,12 +1707,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
         document.removeEventListener("pointercancel", up);
-        if (row && this.rangeSelectPointerId !== null) {
-          try {
-            row.releasePointerCapture(this.rangeSelectPointerId);
-          } catch {
-          }
-        }
       };
     });
   }
@@ -1730,6 +1729,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
           this.rangeSelectActive = true;
           this.suppressThreadClick = true;
           this.suppressCheckboxClick = true;
+          this.foldersNodeExpanded = this.rangeSelectAllowFile || this.foldersNodeExpanded;
           this.applyRangeSelect(this.rangeSelectAnchorIndex as number, index);
         });
       } else if (rangeMode && this.rangeSelectActive && index >= 0 && index !== this.rangeSelectLastIndex) {
@@ -1737,7 +1737,9 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       } else if (this.rangeSelectPreferFile && !this.rangeSelectActive
         && distance >= InboxComponent.FILE_DRAG_THRESHOLD_PX) {
         this.ngZone.run(() => this.startFileDrag(event.clientX, event.clientY));
-      } else if (this.rangeSelectActive && this.rangeSelectAllowFile && this.dropFolderAtPoint(event.clientX, event.clientY)) {
+      } else if (this.rangeSelectActive && this.rangeSelectAllowFile
+        && this.selectedActionIds().length > 0
+        && this.pointerOverFolderNav(event.clientX, event.clientY)) {
         this.ngZone.run(() => {
           this.rangeSelectFileIds = this.selectedActionIds();
           this.startFileDrag(event.clientX, event.clientY);
@@ -1772,9 +1774,15 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.fileDragGhost = null;
   }
 
+  private elementsAtPoint(clientX: number, clientY: number): Element[] {
+    return [...document.elementsFromPoint(clientX, clientY)]
+      .filter(element => !element.closest(".inbox-drag-ghost"));
+  }
+
   private dropFolderAtPoint(clientX: number, clientY: number): {id: string | null} | null {
-    const hit = document.elementFromPoint(clientX, clientY);
-    const node = hit instanceof Element ? hit.closest("[data-drop-folder]") : null;
+    const node = this.elementsAtPoint(clientX, clientY)
+      .map(element => element.closest("[data-drop-folder]"))
+      .find(candidate => !!candidate);
     const raw = node?.getAttribute("data-drop-folder");
     if (raw === "inbox") {
       return {id: null};
@@ -1783,6 +1791,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       return null;
     }
+  }
+
+  private pointerOverFolderNav(clientX: number, clientY: number): boolean {
+    return this.elementsAtPoint(clientX, clientY).some(element => !!element.closest(".inbox-nav, .inbox-drawer"));
   }
 
   private updateFileDropAtPoint(clientX: number, clientY: number): void {
@@ -1814,8 +1826,9 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private threadIndexAtPoint(clientX: number, clientY: number): number {
-    const hit = document.elementFromPoint(clientX, clientY);
-    const row = hit instanceof Element ? hit.closest(".inbox-thread-row") : null;
+    const row = this.elementsAtPoint(clientX, clientY)
+      .map(element => element.closest(".inbox-thread-row"))
+      .find(candidate => !!candidate);
     const raw = row?.getAttribute("data-thread-index");
     const index = raw ? Number(raw) : -1;
     return Number.isFinite(index) ? index : -1;
