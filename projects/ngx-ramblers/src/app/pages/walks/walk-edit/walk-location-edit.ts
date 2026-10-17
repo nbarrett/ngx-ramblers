@@ -2,7 +2,7 @@ import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, View
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faMap, faMapLocationDot, faMapPin, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faChevronUp, faMap, faMapLocationDot, faMapPin, faPencil } from "@fortawesome/free-solid-svg-icons";
 import { formatGridReference } from "../../../functions/grid-reference";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -61,6 +61,26 @@ import { LatLng } from "leaflet";
             </div>
           </div>
         </div>
+        @if (showLocationPinHelp()) {
+          <div class="row thumbnail-heading-frame mt-3">
+            <div class="thumbnail-heading">How to set an exact {{ locationType | lowercase }} point</div>
+            <div class="col-12">
+              <button type="button" class="btn btn-quiet mb-2" (click)="toggleLocationHelp()">
+                <fa-icon class="me-2" [icon]="locationHelpOpen ? faChevronUp : faChevronDown"/>
+                {{ locationHelpOpen ? "Hide this help" : "Show this help" }}
+              </button>
+              @if (locationHelpOpen) {
+                <ol class="mb-0 ps-3">
+                  <li>In the search box, type the place (for example Junction of Hillside Lane and Station Approach, Hillside Park) and pick the first Google suggestion. That is only a first placement; the postcode it shows is the one Google has for that road, not necessarily the exact corner. If the postcode is already right, you can stop here.</li>
+                  <li>Stay on Pin (the OS map), not Google Map. Zoom in until you can see the roads.</li>
+                  <li>Drag the pin onto the exact spot people should meet. The form then looks up the nearest postcode and grid for that pin.</li>
+                  <li>If a yellow notice says the postcode has changed, that is expected. You can keep the new one or pick another from the {{ locationType }} Postcode list.</li>
+                  <li>Check the description under the search if you want the wording to stay as the place you typed, then save.</li>
+                </ol>
+              }
+            </div>
+          </div>
+        }
       }
       @if (!showLocationOnly) {
       <div class="row" [class.mt-3]="!hideLocationDropdown">
@@ -263,6 +283,9 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   public faMapPin = faMapPin;
   public faMap = faMap;
   public faMapLocationDot = faMapLocationDot;
+  public faChevronUp = faChevronUp;
+  public faChevronDown = faChevronDown;
+  public locationHelpOpen = true;
   public gridReferenceText = "";
   public showGoogleMapsView = false;
   public gridRefLookupBusy = false;
@@ -508,6 +531,14 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
     } else {
       return "Where people meet before the start. Search by name, postcode or place.";
     }
+  }
+
+  showLocationPinHelp(): boolean {
+    return !this.hideLocationDropdown && !this.showLocationOnly && !this.hideMap;
+  }
+
+  toggleLocationHelp() {
+    this.locationHelpOpen = !this.locationHelpOpen;
   }
 
   private syncSearchInputs() {
