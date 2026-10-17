@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, inject, Input, Output, ViewChild } from "@angular/core";
+import { booleanAttribute, Component, ElementRef, EventEmitter, inject, Input, Output, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { DrivingOriginMode } from "../../models/current-location.model";
@@ -15,6 +15,26 @@ import { CurrentLocationService } from "../../services/maps/current-location.ser
       width: 120px
   `],
   template: `
+    @if (stacked) {
+      <div class="d-grid gap-2 mt-3">
+        <label class="small text-muted" [for]="name + '-origin'">Starting point</label>
+        <select class="form-select form-select-sm" [id]="name + '-origin'" [disabled]="disabled"
+                [ngModel]="mode" [ngModelOptions]="{standalone: true}" (ngModelChange)="modeChange.emit($event)">
+          @if (currentLocation.available()) {
+            <option [ngValue]="DrivingOriginMode.MY_LOCATION">My current location</option>
+          }
+          <option [ngValue]="DrivingOriginMode.POSTCODE">A postcode</option>
+        </select>
+        @if (mode === DrivingOriginMode.POSTCODE) {
+          <label class="small text-muted" [for]="name + '-postcode'">Starting postcode</label>
+          <input #postcodeInput class="form-control form-control-sm text-uppercase" type="text" [id]="name + '-postcode'" [disabled]="disabled"
+                 [ngModel]="postcode" [ngModelOptions]="{standalone: true}" (ngModelChange)="postcodeChange.emit($event)" placeholder="Enter a postcode" autocomplete="postal-code"/>
+        }
+        @if (locating) {
+          <span class="small text-muted" role="status">Finding your location…</span>
+        }
+      </div>
+    } @else {
     <div class="form-check form-check-inline d-flex align-items-center">
       <input [id]="name + '-driving-from-postcode'" type="radio" class="form-check-input" [name]="name" [disabled]="disabled"
              [ngModel]="mode" [ngModelOptions]="{standalone: true}" (ngModelChange)="modeChange.emit($event)" [value]="DrivingOriginMode.POSTCODE"/>
@@ -35,9 +55,11 @@ import { CurrentLocationService } from "../../services/maps/current-location.ser
           }
         </label>
       </div>
+    }
     }`
 })
 export class DrivingOrigin {
+  @Input({transform: booleanAttribute}) stacked = false;
   @Input() name = "driving-origin";
   @Input() mode: DrivingOriginMode | null = null;
   @Input() postcode = "";

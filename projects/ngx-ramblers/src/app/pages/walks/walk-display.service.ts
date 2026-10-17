@@ -35,7 +35,7 @@ import { GroupEventService } from "../../services/walks-and-events/group-event.s
 import { ExtendedGroupEventQueryService } from "../../services/walks-and-events/extended-group-event-query.service";
 import { EventDefaultsService } from "../../services/event-defaults.service";
 import { WalksConfigService } from "../../services/system/walks-config.service";
-import { DEFAULT_GRID_REFERENCE_DIGITS, DEFAULT_REGULAR_WALK_DAY, DEFAULT_WALK_START_TIME, WalkDetailsMapProvider } from "../../models/walks-config.model";
+import { DEFAULT_GRID_REFERENCE_DIGITS, DEFAULT_REGULAR_WALK_DAY, DEFAULT_WALK_START_TIME, GridReferenceDigits, WalkDetailsMapProvider } from "../../models/walks-config.model";
 import { formatGridReference } from "../../functions/grid-reference";
 import { MemberResourcesReferenceDataService } from "../../services/member/member-resources-reference-data.service";
 import { WalksReferenceService } from "../../services/walks/walks-reference-data.service";
@@ -736,10 +736,14 @@ export class WalkDisplayService {
     return !walk?.groupEvent?.item_type || walk?.groupEvent?.item_type === RamblersEventType.GROUP_WALK;
   }
 
-  gridReferenceFrom(location: LocationDetails) {
+  formatGrid(raw: string, digits?: GridReferenceDigits): string {
     const config = this.walksConfigService.walksConfig();
+    return raw ? formatGridReference(raw, digits ?? config?.walkDetailsGridReferenceDigits ?? DEFAULT_GRID_REFERENCE_DIGITS, config?.walkDetailsGridReferenceSpaced !== false) : "";
+  }
+
+  gridReferenceFrom(location: LocationDetails) {
     const raw = location?.grid_reference_10 || location?.grid_reference_8 || location?.grid_reference_6 || "";
-    return raw ? formatGridReference(raw, config?.walkDetailsGridReferenceDigits ?? DEFAULT_GRID_REFERENCE_DIGITS, config?.walkDetailsGridReferenceSpaced !== false) : "";
+    return this.formatGrid(raw);
   }
 
   contactAccessLevelFieldsFor(event?: ExtendedGroupEvent): ContactAccessLevelFieldKeys {

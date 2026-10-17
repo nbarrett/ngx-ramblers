@@ -9,18 +9,9 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AddressQueryService } from "../../services/walks/address-query.service";
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { GridReferenceLookupResponse } from "../../models/address-model";
+import { LocationSuggestion } from "../../models/locate.model";
+import { GridReferenceService } from "../../services/maps/grid-reference.service";
 import { formattedUkPostcode, locationLabel } from "../../functions/locate";
-
-export interface LocationSuggestion {
-  label: string;
-  description?: string;
-  lat: number;
-  lng: number;
-  postcode?: string;
-  gridReference6?: string;
-  gridReference8?: string;
-  gridReference10?: string;
-}
 
 @Component({
   selector: "app-location-autocomplete",
@@ -52,6 +43,7 @@ export interface LocationSuggestion {
 export class LocationAutocompleteComponent implements OnInit, OnChanges {
   private logger: Logger = inject(LoggerFactory).createLogger("LocationAutocompleteComponent", NgxLoggerLevel.ERROR);
   private addressQueryService = inject(AddressQueryService);
+  private gridReferences = inject(GridReferenceService);
 
   @Input() placeholder = "Enter UK postcode or place name...";
   @Input() disabled = false;
@@ -91,39 +83,41 @@ export class LocationAutocompleteComponent implements OnInit, OnChanges {
       distinctUntilChanged(),
       tap(() => this.locationLoading = true),
       switchMap(term => {
+        const point = term ? this.gridReferences.fromSearch(term) : null;
         if (!term || term.length < this.minTermLength) {
           this.locationLoading = false;
           return of([]);
+        } else if (point) {
+          this.locationLoading = false;
+          return of([{
+            label: point.gridReference10,
+            lat: point.latitude,
+            lng: point.longitude,
+            gridReference6: point.gridReference6,
+            gridReference8: point.gridReference8,
+            gridReference10: point.gridReference10
+          }]);
+        } else {
+          return this.remoteSuggestions(term);
         }
-
-        const ukPostcodeRegex = /^[A-Z]{1,2}\d{1,2}\s?\d[A-Z]{2}$/i;
-        if (ukPostcodeRegex.test(term.trim())) {
-          this.logger.info(`Searching postcode: ${term}`);
-          return from(this.addressQueryService.gridReferenceLookup(term)).pipe(
-            map(response => [this.toLocationSuggestion(response, term)]),
-            tap(results => this.logger.info(`Postcode found:`, results)),
-            catchError(error => {
-              this.logger.warn("Postcode not found, trying place name search:", error);
-              return from(this.addressQueryService.placeNameLookup(term)).pipe(
-                map(response => [this.toLocationSuggestion(response, term)])
-              );
-            }),
-            tap(() => this.locationLoading = false)
-          );
-        }
-
-        this.logger.info(`Searching address: ${term}`);
-        return from(this.addressQueryService.placeNameLookup(term)).pipe(
-          map(response => [this.toLocationSuggestion(response, term)]),
-          tap(results => this.logger.info(`Address search returned ${results.length} results`)),
-          tap(() => this.locationLoading = false),
-          catchError(error => {
-            this.logger.error("Location search error:", error);
-            this.locationLoading = false;
-            return of([]);
-          })
-        );
       })
+    );
+  }
+
+  private remoteSuggestions(term: string): Observable<LocationSuggestion[]> {
+    const lookup = formattedUkPostcode(term)
+      ? from(this.addressQueryService.gridReferenceLookup(term)).pipe(catchError(error => {
+        this.logger.warn("Postcode lookup failed, trying place search:", error);
+        return from(this.addressQueryService.placeNameLookup(term));
+      }))
+      : from(this.addressQueryService.placeNameLookup(term));
+    return lookup.pipe(
+      map(response => response?.latlng && !response.error ? [this.toLocationSuggestion(response, term)] : []),
+      catchError(error => {
+        this.logger.warn("Location search failed:", error);
+        return of([]);
+      }),
+      tap(() => this.locationLoading = false)
     );
   }
 

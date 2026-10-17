@@ -1,7 +1,8 @@
 import { AfterContentInit, Component, ContentChild, ContentChildren, EventEmitter, Input, OnChanges, Output, QueryList, SimpleChanges, TemplateRef } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
+import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from "@angular/cdk/drag-drop";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faChevronDown, faChevronRight, faChevronUp } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faChevronRight, faChevronUp, faGripVertical } from "@fortawesome/free-solid-svg-icons";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { sortBy } from "../../../functions/arrays";
 import { SortableTableAlignment, SortableTableColumn, SortableTableGroup, SortableTableSortState } from "./sortable-table.model";
@@ -14,12 +15,15 @@ import {
 
 @Component({
   selector: "app-sortable-table",
-  imports: [NgTemplateOutlet, FontAwesomeModule],
+  imports: [NgTemplateOutlet, FontAwesomeModule, CdkDropList, CdkDrag, CdkDragHandle],
   template: `
     <div class="sortable-table-card" [class.sortable-table-flat]="flat" [class.scrollable]="!!maxHeight" [style.max-height]="maxHeight">
       <table class="sortable-table" [class.sortable-table-fixed-layout]="fixedLayout">
         <thead>
           <tr>
+            @if (showDragHandle) {
+              <th class="sortable-table-drag-heading" aria-hidden="true"></th>
+            }
             @for (column of columns; track column.key) {
               <th [class]="headerClassFor(column)"
                   [style.width]="column.width || null"
@@ -38,17 +42,17 @@ import {
             }
           </tr>
         </thead>
-        <tbody>
+        <tbody cdkDropList [cdkDropListDisabled]="!reorderable || !!groupBy" (cdkDropListDropped)="onReorder($event)">
           @if (sortedRows.length === 0) {
             <tr>
-              <td [attr.colspan]="columns.length" class="text-center text-muted py-3">{{ emptyMessage }}</td>
+              <td [attr.colspan]="columnCount" class="text-center text-muted py-3">{{ emptyMessage }}</td>
             </tr>
           }
           @for (group of groupedRows; track group.key) {
             @if (groupBy && groupHeaderTemplate) {
               <tr class="sortable-table-group-row" [class.collapsible]="collapsibleGroups"
                   (click)="collapsibleGroups && toggleGroupCollapsed(group.key)">
-                <td [attr.colspan]="columns.length">
+                <td [attr.colspan]="columnCount">
                   @if (collapsibleGroups) {
                     <fa-icon [icon]="groupCollapsed(group.key) ? faChevronRight : faChevronDown" class="me-2" size="xs"/>
                   }
@@ -58,11 +62,19 @@ import {
             }
             @if (!groupCollapsed(group.key)) {
             @for (row of group.rows; track trackRow($index, row)) {
-              <tr [class.selectable]="rowSelect.observed" [class.sortable-table-has-expanded-row]="expandedRowTemplate && expandedWhen(row)"
+              <tr cdkDrag [cdkDragDisabled]="!reorderable || !!groupBy"
+                  [class.selectable]="rowSelect.observed" [class.sortable-table-has-expanded-row]="expandedRowTemplate && expandedWhen(row)"
                   [attr.role]="rowSelect.observed ? 'button' : null"
                   [attr.tabindex]="rowSelect.observed ? 0 : null"
                   (click)="selectRow(row)"
                   (keydown.enter)="selectRow(row)">
+                @if (showDragHandle) {
+                  <td class="sortable-table-drag-cell" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+                    <button type="button" class="sortable-table-drag-handle" cdkDragHandle aria-label="Drag to reorder" (click)="$event.preventDefault()">
+                      <fa-icon [icon]="faGrip"/>
+                    </button>
+                  </td>
+                }
                 @for (column of columns; track column.key) {
                   <td [class]="cellClassFor(column)" [style.width]="column.width || null" [attr.data-label]="column.label || null">
                     @if (templateFor(column.key); as cellTemplate) {
@@ -75,7 +87,7 @@ import {
               </tr>
               @if (expandedRowTemplate && expandedWhen(row)) {
                 <tr class="sortable-table-expanded-row">
-                  <td [attr.colspan]="columns.length">
+                  <td [attr.colspan]="columnCount">
                     <ng-container *ngTemplateOutlet="expandedRowTemplate.template; context: { $implicit: row, row: row }"></ng-container>
                   </td>
                 </tr>
@@ -191,6 +203,31 @@ import {
     .sortable-table tbody tr.selectable
       cursor: pointer
 
+    .sortable-table-drag-heading
+      width: 2.25rem
+      padding: 12px 8px !important
+    .sortable-table-drag-cell
+      width: 2.25rem
+      padding: 12px 8px !important
+    .sortable-table-drag-handle
+      display: inline-flex
+      align-items: center
+      justify-content: center
+      width: 1.75rem
+      height: 1.75rem
+      border: 0
+      background: transparent
+      color: var(--rsm-muted, #6c757d)
+      cursor: grab
+    .sortable-table-drag-handle:active
+      cursor: grabbing
+    .sortable-table tbody tr.cdk-drag-preview
+      display: table
+      background: white
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16)
+    .sortable-table tbody tr.cdk-drag-placeholder td
+      background: rgba(155, 200, 171, 0.25)
+
     .sortable-table tbody tr.sortable-table-group-row td
       background: linear-gradient(to bottom, rgba(155, 200, 171, 0.25), rgba(155, 200, 171, 0.12))
       font-weight: 600
@@ -276,8 +313,10 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
   @Input() groupBy: ((row: any) => string) | null = null;
   @Input() collapsibleGroups = false;
   @Input() expandedWhen: (row: any) => boolean = () => false;
+  @Input() reorderable = false;
   @Output() sortChange = new EventEmitter<SortableTableSortState>();
   @Output() rowSelect = new EventEmitter<any>();
+  @Output() reorder = new EventEmitter<any[]>();
 
   @ContentChildren(SortableTableCellDirective) protected cellTemplates!: QueryList<SortableTableCellDirective>;
   @ContentChildren(SortableTableHeaderCellDirective) protected headerCellTemplates!: QueryList<SortableTableHeaderCellDirective>;
@@ -294,6 +333,15 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
   protected readonly faChevronUp = faChevronUp;
   protected readonly faChevronDown = faChevronDown;
   protected readonly faChevronRight = faChevronRight;
+  protected readonly faGrip = faGripVertical;
+
+  get showDragHandle(): boolean {
+    return this.reorderable && !this.groupBy;
+  }
+
+  get columnCount(): number {
+    return this.columns.length + (this.showDragHandle ? 1 : 0);
+  }
   protected collapsedGroupKeys = new Set<string>();
 
   protected toggleGroupCollapsed(key: string): void {
@@ -328,6 +376,14 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
       this.sortDirection = this.defaultSortDirection;
     }
     this.applySort();
+  }
+
+  protected onReorder(event: CdkDragDrop<any[]>): void {
+    if (this.reorderable && event.previousIndex !== event.currentIndex) {
+      const next = [...this.sortedRows];
+      moveItemInArray(next, event.previousIndex, event.currentIndex);
+      this.reorder.emit(next);
+    }
   }
 
   protected toggleSort(sortKey: string): void {

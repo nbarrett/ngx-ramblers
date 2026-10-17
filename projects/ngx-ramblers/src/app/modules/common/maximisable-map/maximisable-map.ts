@@ -4,6 +4,7 @@ import { Subscription } from "rxjs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCompress, faExpand, faMaximize } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { DELAYED_TOOLTIP_PROVIDERS } from "../tooltip-config";
 import { StoredValue } from "../../../models/ui-actions";
 import { UiActionsService } from "../../../services/ui-actions.service";
 
@@ -16,11 +17,13 @@ export interface MaximisableMapState {
   selector: "app-maximisable-map",
   exportAs: "maximisableMap",
   imports: [FontAwesomeModule, TooltipDirective],
+  providers: [...DELAYED_TOOLTIP_PROVIDERS],
+  host: {"[attr.title]": "null"},
   encapsulation: ViewEncapsulation.None,
   template: `
     <div class="maximisable-map" [class.position-relative]="!fullScreen" [class.map-full-screen-container]="fullScreen">
       @if (fullScreen) {
-        <div class="map-full-screen-bar">
+        <div class="map-full-screen-bar" [class.map-full-screen-toolbar-layout]="toolbarLayout">
           <div class="map-full-screen-bar-text">
             <div class="map-full-screen-bar-title">{{ title || "Map" }}</div>
             <div class="map-full-screen-bar-hint">Press Escape to leave full screen</div>
@@ -30,7 +33,8 @@ export interface MaximisableMapState {
           </div>
           <button type="button" class="btn btn-primary btn-sm map-full-screen-exit"
                   (click)="exitFullScreen()"
-                  title="Exit full screen"
+                  tooltip="Exit full screen"
+                  container="body"
                   aria-label="Exit full screen map">
             <fa-icon [icon]="faCompress" class="map-full-screen-exit-icon"/>
             <span class="map-full-screen-exit-label">Exit full screen</span>
@@ -64,6 +68,7 @@ export interface MaximisableMapState {
       width: 100%
     .maximisable-map
       min-width: 0
+      height: 100%
       width: 100%
     .map-full-screen-container
       position: fixed
@@ -90,6 +95,14 @@ export interface MaximisableMapState {
       border-radius: 8px
       background: #f4f6f8
       border: 1px solid rgba(29, 53, 87, 0.1)
+    .map-full-screen-container .map-full-screen-toolbar-layout
+      display: grid
+      grid-template-columns: auto minmax(0, 1fr) auto
+      align-items: start
+    .map-full-screen-toolbar-layout .map-full-screen-bar-text
+      padding-top: var(--space-2)
+    .map-full-screen-toolbar-layout .map-full-screen-exit
+      align-self: start
     .map-full-screen-container .map-full-screen-bar-text
       min-width: 0
       flex: 0 1 auto
@@ -132,6 +145,17 @@ export interface MaximisableMapState {
         min-height: 40px
         padding: 0.25rem 0.4rem 0.25rem 0.65rem
         gap: 0.5rem
+      .map-full-screen-container .map-full-screen-toolbar-layout
+        display: block
+        position: relative
+      .map-full-screen-toolbar-layout .map-full-screen-bar-actions
+        width: 100%
+      .map-full-screen-toolbar-layout .map-full-screen-exit
+        position: absolute
+        top: 0.25rem
+        right: 0.4rem
+      .map-full-screen-toolbar-layout .map-full-screen-bar-text
+        display: none
       .map-full-screen-container .map-full-screen-bar-hint
         display: none
       .map-full-screen-container .map-full-screen-exit-label
@@ -174,8 +198,10 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
   private fullScreenWrapper: HTMLElement | null = null;
 
   @Input() title = "";
+  @Input() toolbarLayout = false;
   @Input() allowExpanded = true;
   @Input() syncToUrl = false;
+  @Input() persistFullScreen: StoredValue | null = null;
   @Input() enabled = true;
   @Input() offsetTop = "28px";
   @Input() offsetRight = "25px";
@@ -279,7 +305,9 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
 
   private applyFromQuery(paramMap: ParamMap): void {
     const urlValue = this.urlValue;
-    const maximised = paramMap.get(StoredValue.MAXIMISE) === urlValue;
+    const maximiseParam = paramMap.get(StoredValue.MAXIMISE);
+    const storedFullScreen = this.persistFullScreen ? this.uiActions.initialBooleanValueFor(this.persistFullScreen) : false;
+    const maximised = maximiseParam === urlValue || (!maximiseParam && storedFullScreen);
     const expanded = !maximised && paramMap.get(StoredValue.EXPANDED) === urlValue;
     this.applyState(expanded, maximised);
   }
@@ -300,6 +328,9 @@ export class MaximisableMapComponent implements OnInit, OnDestroy {
           [StoredValue.EXPANDED]: this.expanded ? this.urlValue : null,
           [StoredValue.MAXIMISE]: this.fullScreen ? this.urlValue : null
         });
+      }
+      if (this.persistFullScreen) {
+        this.uiActions.saveValueFor(this.persistFullScreen, this.fullScreen);
       }
       this.sizeChange.emit({expanded: this.expanded, fullScreen: this.fullScreen});
     }
