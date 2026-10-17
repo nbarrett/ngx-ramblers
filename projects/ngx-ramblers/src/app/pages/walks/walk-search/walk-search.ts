@@ -10,8 +10,8 @@ import {
   Output,
   ViewChild
 } from "@angular/core";
-import { ActivatedRoute, ParamMap, Router, RouterLink } from "@angular/router";
-import { Location, NgTemplateOutlet } from "@angular/common";
+import { ActivatedRoute, ParamMap, RouterLink } from "@angular/router";
+import { NgTemplateOutlet } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
@@ -29,7 +29,7 @@ import { WalkDisplayService } from "../walk-display.service";
 import { walksLeaderPath } from "../../../models/walks-route-paths.model";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faPersonHiking, faSliders } from "@fortawesome/free-solid-svg-icons";
+import { faPersonHiking, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import {
   AdvancedSearchCriteria,
   createAllWalksPresetRanges,
@@ -59,6 +59,7 @@ import { DateTime } from "luxon";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { PresetSelect } from "../../../modules/common/preset-select/preset-select";
+import { AdvancedToggle } from "../../../shared/components/advanced-toggle";
 
 @Component({
     selector: "app-walks-search",
@@ -89,12 +90,6 @@ import { PresetSelect } from "../../../modules/common/preset-select/preset-selec
 
       .my-walks-label
         white-space: nowrap
-
-      .advanced-search-icon
-        transition: transform 0.3s ease-in-out
-
-        &.rotated
-          transform: rotate(90deg)
 
       .search-alert
         box-sizing: border-box
@@ -244,24 +239,22 @@ import { PresetSelect } from "../../../modules/common/preset-select/preset-selec
         </div>
         @if (showAdvancedSearch) {
           <div class="mb-1 mb-lg-0 flex-lg-shrink-0">
-            <button type="button" class="btn pager-btn rounded w-100" (click)="toggleAdvancedSearch()">
-              <fa-icon [icon]="faSliders" class="me-2 advanced-search-icon" [class.rotated]="advancedSearchExpanded"/>
-              Advanced Search
-            </button>
+            <app-advanced-toggle class="w-100" buttonClass="btn pager-btn rounded w-100" label="Advanced Search"
+                                 [expanded]="advancedSearchExpanded" (toggled)="toggleAdvancedSearch()"/>
           </div>
         }
-        @if (alertInline() && showAlerts && notifyTarget.showAlert) {
+        @if (alertInline() && showAlerts && notifyTarget.showAlert && !notifyTarget.busy) {
           <div class="mb-2 mb-lg-0 d-flex justify-content-end min-w-0">
             <ng-container *ngTemplateOutlet="searchAlert; context: {inline: true}"/>
           </div>
         }
       </div>
-      @if (showPagination || !alertInline()) {
+      @if (showPagination || !alertInline() || (showAlerts && notifyTarget.busy)) {
         <div class="d-flex full-width-pagination walk-search-pagination align-items-center gap-2 flex-wrap mt-1">
           @if (showPagination) {
             <ng-content/>
           }
-          @if (showAlerts && notifyTarget.showAlert) {
+          @if (showAlerts && (notifyTarget.showAlert || notifyTarget.busy)) {
             <div class="alert-wrapper flex-grow-1 min-w-0">
               <ng-container *ngTemplateOutlet="searchAlert; context: {inline: false}"/>
             </div>
@@ -272,12 +265,15 @@ import { PresetSelect } from "../../../modules/common/preset-select/preset-selec
       <ng-template #searchAlert let-inline="inline">
         <div class="alert {{notifyTarget.alertClass}} search-alert my-0 d-flex align-items-center gap-2"
              [class.search-alert-inline]="inline" [title]="inline ? notifyTarget.alertMessage : null">
-          <fa-icon [icon]="notifyTarget.alert.icon" class="flex-shrink-0"></fa-icon>
+          <fa-icon [icon]="notifyTarget.busy ? faSpinner : notifyTarget.alert.icon"
+                   [animation]="notifyTarget.busy ? 'spin' : undefined" class="flex-shrink-0"></fa-icon>
           <div class="search-alert-body">
             @if (notifyTarget.alertTitle) {
               <strong class="d-block">{{ notifyTarget.alertTitle }}</strong>
             }
-            @if (notifyTarget.alertMessage) {
+            @if (notifyTarget.busy) {
+              <div class="search-alert-message">Loading walks…</div>
+            } @else if (notifyTarget.alertMessage) {
               <div class="search-alert-message">{{ notifyTarget.alertMessage }}</div>
             }
           </div>
@@ -293,15 +289,13 @@ import { PresetSelect } from "../../../modules/common/preset-select/preset-selec
           (searchCriteriaChange)="onAdvancedSearchChange($event)"/>
       }
     }`,
-  imports: [FormsModule, FontAwesomeModule, AdvancedSearchPane, NgSelectModule, RouterLink, NgTemplateOutlet, PresetSelect],
+  imports: [FormsModule, FontAwesomeModule, AdvancedSearchPane, NgSelectModule, RouterLink, NgTemplateOutlet, PresetSelect, AdvancedToggle],
 })
 export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
 
   protected readonly faPersonHiking = faPersonHiking;
   private logger: Logger = inject(LoggerFactory).createLogger("WalkSearch", NgxLoggerLevel.ERROR);
   private route = inject(ActivatedRoute);
-  private router = inject(Router);
-  private location = inject(Location);
   private walksReferenceService = inject(WalksReferenceService);
   private displayService = inject(WalkDisplayService);
   private memberLoginService = inject(MemberLoginService);
@@ -334,7 +328,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
 
   advancedSearchExpanded = false;
   private queryParamsActive = false;
-  faSliders = faSliders;
+  faSpinner = faSpinner;
   dateRangePresets: DateRangePreset[] = [];
   selectedDateRangePreset: DateRangePreset | null = null;
   private dataMinDate: DateTime = this.dateUtils.dateTimeNowNoTime().minus({years: 5});
@@ -350,18 +344,6 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   alertInline(): boolean {
     return !this.showPagination && !hasAdvancedCriteria(this.advancedCriteria);
   }
-
-  logAlertDebug(location: string) {
-    this.logger.off(`logAlertDebug walk-search ${location}:`, {
-      showAlerts: this.showAlerts,
-      showPagination: this.showPagination,
-      showAlert: this.notifyTarget.showAlert,
-      alertMessage: this.notifyTarget.alertMessage,
-      busy: this.notifyTarget.busy
-    });
-    return "";
-  }
-
 
   ngOnInit(): void {
     void this.loadDateRange();

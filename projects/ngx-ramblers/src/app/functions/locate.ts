@@ -50,6 +50,17 @@ export function locateSuggestionFor(query: string): LocateSuggestion | null {
   }
 }
 
+export function briefPlaceName(description: string | null | undefined): string {
+  const parts = (description || "").split(",").map(part => part.trim()).filter(part => part && !/^(england|scotland|wales|uk|united kingdom)$/i.test(part) && !UK_POSTCODE_PATTERN.test(part));
+  return (parts[0] || "").slice(0, 40);
+}
+
+export function savedPointName(postcode: string | null | undefined, description: string | null | undefined, fallback = ""): string {
+  const place = briefPlaceName(description);
+  const post = formattedUkPostcode(postcode) || (postcode || "").trim();
+  return (place || post || (fallback || "").trim()).slice(0, 40);
+}
+
 export function locationLabel(postcode: string | null | undefined, description: string | null | undefined, fallback = ""): string {
   const trimmedPostcode = formattedUkPostcode(postcode) || (postcode || "").trim();
   const trimmedDescription = (description || "").trim();

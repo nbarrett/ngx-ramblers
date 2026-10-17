@@ -11,6 +11,9 @@ const GRID_LETTERS = [
   ["NL", "NM", "NN", "NO", "NP", "OL", "OM"],
   ["NF", "NG", "NH", "NJ", "NK", "OF", "OG"],
   ["NA", "NB", "NC", "ND", "NE", "OA", "OB"],
+  ["HL", "HM", "HN", "HO", "HP", "JL", "JM"],
+  ["HQ", "HR", "HS", "HT", "HU", "JQ", "JR"],
+  ["HV", "HW", "HX", "HY", "HZ", "JV", "JW"],
 ];
 
 export function gridCodeFrom(eastings: number, northings: number): string {
@@ -34,16 +37,16 @@ export function gridReferenceFrom(eastings: number, northings: number, digits: n
     throw new Error("Invalid eastings or northings value");
   }
 
-  const eastingStr = eastings.toString().padStart(6, "0");
-  const northingStr = northings.toString().padStart(6, "0");
+  const eastingStr = Math.floor(eastings % 100000).toString().padStart(5, "0");
+  const northingStr = Math.floor(northings % 100000).toString().padStart(5, "0");
   const gridCode = gridCodeFrom(eastings, northings);
 
   if (!gridCode) {
     throw new Error("Grid code not found for the given coordinates");
   }
 
-  const eastingPart = eastingStr.substring(1, 1 + digits / 2);
-  const northingPart = northingStr.substring(1, 1 + digits / 2);
+  const eastingPart = eastingStr.substring(0, digits / 2);
+  const northingPart = northingStr.substring(0, digits / 2);
 
   return `${gridCode}${eastingPart}${northingPart}`;
 }
@@ -80,7 +83,7 @@ export function parseGridReference(gridRef: string): {eastings: number; northing
   const digits = match ? match[2] : "";
   const halfLength = digits.length / 2;
   const square = GRID_LETTERS.map((row, rowIndex) => ({rowIndex, columnIndex: row.indexOf(gridCode)})).find(item => item.columnIndex !== -1) || null;
-  if (!match || digits.length % 2 !== 0 || !square) {
+  if (!match || digits.length > 10 || digits.length % 2 !== 0 || !square) {
     return null;
   } else {
     const precision = Math.pow(10, 5 - halfLength);

@@ -3,7 +3,7 @@ import { Component, Input } from "@angular/core";
 @Component({
     selector: "[app-related-link]",
     template: `
-      <div class="related-link-row">
+      <div class="related-link-row" [class.stacked]="stacked">
         <div class="related-link-title" [style.min-width.px]="mediaWidth">
           <ng-content select="[title]"/>
         </div>
@@ -22,6 +22,20 @@ import { Component, Input } from "@angular/core";
       .related-link-title
         flex: 0 0 auto
 
+      .related-link-row.stacked
+        flex-direction: column
+        align-items: flex-start
+        gap: var(--space-1)
+        padding-bottom: var(--space-3)
+
+      .related-link-row.stacked .related-link-title
+        font-size: .75rem
+        color: var(--rsm-muted)
+
+      .related-link-row.stacked .related-link-content
+        margin-left: 0
+        font-variant-numeric: tabular-nums
+
       .related-link-content
         flex: 1 1 auto
         min-width: 0
@@ -32,5 +46,7 @@ export class RelatedLinkComponent {
 
   @Input()
   public mediaWidth: number;
+
+  @Input() stacked = false;
 
 }

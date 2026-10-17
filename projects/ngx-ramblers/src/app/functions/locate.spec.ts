@@ -1,4 +1,4 @@
-import { directionsLinks, formattedUkPostcode, locatePagePath, locateParentPath, locateSuggestionFor, osMapsUrl, wazeEmbedUrl, locationLabel } from "./locate";
+import { directionsLinks, formattedUkPostcode, locatePagePath, locateParentPath, locateSuggestionFor, osMapsUrl, wazeEmbedUrl, locationLabel, savedPointName } from "./locate";
 import { DirectionsApp } from "../models/locate.model";
 import { AppInstallPlatform } from "../models/route-follow.model";
 
@@ -34,6 +34,25 @@ describe("locate links", () => {
   it("builds the OS Maps and Waze embed addresses from the point", () => {
     expect(osMapsUrl(51.27338, 1.21436)).toBe("https://explore.osmaps.com/?lat=51.27338&lon=1.21436&zoom=16&style=Leisure");
     expect(wazeEmbedUrl(51.27338, 1.21436)).toBe("https://embed.waze.com/iframe?zoom=16&lat=51.273380&lon=1.214360&pin=1");
+  });
+});
+
+describe("savedPointName", () => {
+  it("uses the first locality from a long reverse-geocode description", () => {
+    expect(savedPointName("DA2 7BB", "Wilmington, Sutton-at-Hone & Hawley, Dartford", "TQ 53633 72731")).toBe("Wilmington");
+    expect(savedPointName("", "Woolwich Common, Greenwich", "")).toBe("Woolwich Common");
+  });
+
+  it("prefers the place description over the postcode", () => {
+    expect(savedPointName("SS7 4JR", "Castle Point, Essex", "SU 12345 67890")).toBe("Castle Point");
+  });
+
+  it("uses the postcode when no description is known", () => {
+    expect(savedPointName("aa11 1aa", "", "SU 12345 67890")).toBe("AA11 1AA");
+  });
+
+  it("falls back to the grid reference when nothing else is known", () => {
+    expect(savedPointName("", "", "SU 12345 67890")).toBe("SU 12345 67890");
   });
 });
 

@@ -6,6 +6,7 @@ export const LOCATE_PAGE_TITLE = "Locate a place";
 export const UK_POSTCODE_PATTERN = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 export const LOCATE_POINT_ZOOM = EPSG_27700_LEISURE_NATIVE_ZOOM;
 export const LOCATE_OVERVIEW_ZOOM = 6;
+export const LOCATE_SIDEBAR_WIDTH_MIN = 352;
 export const LOCATE_MAP_HEIGHT_DEFAULT = 520;
 export const LOCATE_MAP_HEIGHT_MIN = 240;
 export const LOCATE_MAP_HEIGHT_MAX = 1200;
@@ -45,4 +46,50 @@ export enum DirectionsApp {
 export interface DirectionsLink {
   app: DirectionsApp;
   url: string;
+}
+
+export interface LocationSuggestion {
+  label: string;
+  description?: string;
+  lat: number;
+  lng: number;
+  postcode?: string;
+  gridReference6?: string;
+  gridReference8?: string;
+  gridReference10?: string;
+}
+
+export interface LocateCoordinateInputs {
+  gridReference: string;
+  latitude: string;
+  longitude: string;
+  eastings: string;
+  northings: string;
+}
+
+export interface LocateSavedPoint {
+  id: string;
+  number: number;
+  name: string;
+  point: LocatePoint;
+  postcode: string;
+  description: string;
+}
+
+export interface LocatePinSelection {
+  id: string | null;
+  latitude: number;
+  longitude: number;
+  settled: boolean;
+}
+
+export interface LocatePointNameChange {
+  id: string;
+  name: string;
+}
+
+export enum LocateCoordinateFormat {
+  GRID_REFERENCE = "grid-reference",
+  LATITUDE_LONGITUDE = "latitude-longitude",
+  EASTINGS_NORTHINGS = "eastings-northings"
 }
