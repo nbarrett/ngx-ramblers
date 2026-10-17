@@ -15,6 +15,7 @@ import { NgxLiteService } from "../../services/ngx-lite.service";
 import { UrlService } from "../../services/url.service";
 import { RouterLink } from "@angular/router";
 import { AppPath } from "../../models/route-follow.model";
+import { AppShellService } from "../../services/maps/app-shell.service";
 import { DynamicContentComponent } from "../../modules/common/dynamic-content/dynamic-content";
 import { FacebookComponent } from "../facebook/facebook.component";
 import { InstagramComponent } from "../instagram/instagram.component";
@@ -33,10 +34,12 @@ import { BuiltInAnchor } from "../../models/content-text.model";
         </div>
       </div>
     }
-    <a class="btn btn-primary btn-icon app-floating-navigation d-lg-none" [routerLink]="'/' + AppPath.ROOT"
-       aria-label="Open on your phone" tooltip="Open on your phone">
-      <fa-icon [icon]="faMobileScreenButton"/>
-    </a>
+    @if (!appShell.installed()) {
+      <a class="btn btn-primary btn-icon app-floating-navigation d-lg-none" [routerLink]="'/' + AppPath.ROOT"
+         aria-label="Open on your phone" tooltip="Open on your phone">
+        <fa-icon [icon]="faMobileScreenButton"/>
+      </a>
+    }
     <app-dynamic-content [anchor]="BuiltInAnchor.HOME_CONTENT" contentPathReadOnly/>
     <div class="row g-4">
       @if (externalSystems?.facebook?.showFeed) {
@@ -58,6 +61,7 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("HomeComponent", NgxLoggerLevel.ERROR);
   pageService = inject(PageService);
+  protected appShell = inject(AppShellService);
   private systemConfigService = inject(SystemConfigService);
   private pageContentService = inject(PageContentService);
   private urlService = inject(UrlService);
