@@ -279,7 +279,7 @@ import { AdvancedToggle } from "../../../shared/components/advanced-toggle";
           </div>
         </div>
       </ng-template>
-      @if (showAdvancedSearch) {
+      @if (showAdvancedSearch && (advancedSearchInitialised || advancedSearchExpanded || advancedCriteria)) {
         <app-advanced-search-panel
           [class.show]="advancedSearchExpanded"
           [criteria]="advancedCriteria"
@@ -327,6 +327,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   filterStateChange = new EventEmitter<FilterStateEvent>();
 
   advancedSearchExpanded = false;
+  protected advancedSearchInitialised = false;
   private queryParamsActive = false;
   faSpinner = faSpinner;
   dateRangePresets: DateRangePreset[] = [];
@@ -431,7 +432,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   toggleAdvancedSearch() {
-    this.advancedSearchExpanded = !this.advancedSearchExpanded;
+    this.updateAdvancedSearchExpanded(!this.advancedSearchExpanded);
     this.queryParamsActive = true;
     const paramValue = this.advancedSearchExpanded ? "true" : "false";
     this.replaceQueryParams({
@@ -442,7 +443,12 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
 
   private applyAdvancedSearchQueryParam(params: ParamMap) {
     const value = params.get(this.stringUtils.kebabCase(StoredValue.ADVANCED_SEARCH));
-    this.advancedSearchExpanded = value === "true";
+    this.updateAdvancedSearchExpanded(this.ui.booleanOf(value));
+  }
+
+  private updateAdvancedSearchExpanded(expanded: boolean): void {
+    this.advancedSearchExpanded = expanded;
+    this.advancedSearchInitialised = this.advancedSearchInitialised || expanded;
   }
 
   private applyQueryDrivenSearchState(params: ParamMap) {
