@@ -254,14 +254,16 @@ export function create<T>(model: Model<T>, debugEnabled = false, atomicObjectPat
         const usePagination = isNumber(page) && isNumber(limit);
 
         if (usePagination) {
-          const total = await model.countDocuments(parameters.criteria).exec();
           const skip = (page - 1) * limit;
           const query = model.find(parameters.criteria).select(parameters.select).sort(parameters.sort).skip(skip).limit(limit).lean();
           const allowDisk = (query as any).allowDiskUse;
           if (isFunction(allowDisk)) {
             allowDisk.call(query, true);
           }
-          const results = await query.exec();
+          const [total, results] = await Promise.all([
+            model.countDocuments(parameters.criteria).exec(),
+            query.exec()
+          ]);
           const totalPages = Math.ceil(total / limit);
 
           debugLog(req.query, "paginated find - criteria:found", results.length, "of", total, "documents, page", page, "of", totalPages);

@@ -165,25 +165,27 @@ export class Events implements OnInit, OnDestroy {
   }
 
   public refreshEvents() {
-    this.persistFilterQueryParams();
-    this.notify.progress({title: "Events", message: "Querying events"}, true);
-    const dataQueryOptions: DataQueryOptions = {criteria: this.criteria(), sort: this.sort()};
-    this.logger.info("refreshEvents:dataQueryOptions", dataQueryOptions, "eventIds:", this?.eventsData?.eventIds);
-    this.queryAndReturnEvents(dataQueryOptions)
-      .then((extendedGroupEvents: ExtendedGroupEvent[]) => {
-        this.display.confirm.clear();
-        this.extendedGroupEvents = this.filterByEventIds(extendedGroupEvents);
-        this.logger.info("received extendedGroupEvents:", extendedGroupEvents.length, "after filtering by eventIds:", this.extendedGroupEvents.length);
-        this.applyFilterToGroupEvents();
-      })
-      .catch(error => {
-        this.logger.error("received error:", error);
-        this.notify.error({
-          title: "Problem viewing events",
-          message: error,
-          continue: true
+    if (!this.eventsData?.allow?.viewSelector) {
+      this.persistFilterQueryParams();
+      this.notify.progress({title: "Events", message: "Querying events"}, true);
+      const dataQueryOptions: DataQueryOptions = {criteria: this.criteria(), sort: this.sort()};
+      this.logger.info("refreshEvents:dataQueryOptions", dataQueryOptions, "eventIds:", this?.eventsData?.eventIds);
+      this.queryAndReturnEvents(dataQueryOptions)
+        .then((extendedGroupEvents: ExtendedGroupEvent[]) => {
+          this.display.confirm.clear();
+          this.extendedGroupEvents = this.filterByEventIds(extendedGroupEvents);
+          this.logger.info("received extendedGroupEvents:", extendedGroupEvents.length, "after filtering by eventIds:", this.extendedGroupEvents.length);
+          this.applyFilterToGroupEvents();
+        })
+        .catch(error => {
+          this.logger.error("received error:", error);
+          this.notify.error({
+            title: "Problem viewing events",
+            message: error,
+            continue: true
+          });
         });
-      });
+    }
   }
 
   private filterByEventIds(events: ExtendedGroupEvent[]): ExtendedGroupEvent[] {
@@ -382,15 +384,17 @@ export class Events implements OnInit, OnDestroy {
   }
 
   applyFilterToGroupEvents(searchTerm?: NamedEvent<string>) {
-    this.logger.info("applyFilterToGroupEvents:searchTerm:", searchTerm, "filterParameters.quickSearch:", this.filterParameters.quickSearch);
-    this.persistFilterQueryParams();
-    this.notify.setBusy();
-    this.filteredExtendedGroupEvents = this.searchFilterPipe.transform(this.extendedGroupEvents, this.filterParameters.quickSearch);
-    this.pageNumber = 1;
-    this.applyPagination();
-    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pages.length > 1));
-    this.notify.clearBusy();
-    this.verifyReady();
+    if (!this.eventsData?.allow?.viewSelector) {
+      this.logger.info("applyFilterToGroupEvents:searchTerm:", searchTerm, "filterParameters.quickSearch:", this.filterParameters.quickSearch);
+      this.persistFilterQueryParams();
+      this.notify.setBusy();
+      this.filteredExtendedGroupEvents = this.searchFilterPipe.transform(this.extendedGroupEvents, this.filterParameters.quickSearch);
+      this.pageNumber = 1;
+      this.applyPagination();
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.SHOW_PAGINATION, this.pages.length > 1));
+      this.notify.clearBusy();
+      this.verifyReady();
+    }
   }
 
   private verifyReady() {

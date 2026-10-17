@@ -595,6 +595,8 @@ export class EventsFull implements OnInit, OnDestroy {
         dataQueryOptions.limit = this.pageSize;
         if (!this.memberLoginService.memberLoggedIn()) {
           dataQueryOptions.select = PUBLIC_GROUP_EVENT_SELECT;
+        } else {
+          dataQueryOptions.select = {[EventEventField.DATA]: 0};
         }
       }
       const response = await this.localWalksAndEventsService.allWithPagination(dataQueryOptions);
