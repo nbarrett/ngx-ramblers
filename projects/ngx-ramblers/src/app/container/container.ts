@@ -40,7 +40,9 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
     }
     <div [class.app-shell]="appShellActive" [class.container]="!appShellActive">
       @if (!appShellActive) {
-        <app-navbar/>
+        @if (config) {
+          <app-navbar/>
+        }
         <app-view-as-bar/>
         <app-rejoin-meeting-banner/>
         <app-new-version-banner/>
