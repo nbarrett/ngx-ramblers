@@ -1,10 +1,12 @@
-import { Component, inject, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCircleExclamation, faExternalLinkAlt, faFloppyDisk, faKey, faPlus, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faCircleExclamation, faExternalLinkAlt, faFloppyDisk, faGlobe, faKey, faLayerGroup, faList, faPlus, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { NgxLoggerLevel } from "ngx-logger";
+import { Subscription } from "rxjs";
 import {
   AtlasAwsRegion,
   AtlasClusterCreateRequest,
@@ -14,7 +16,9 @@ import {
   AtlasClusterRow,
   AtlasClusterState,
   AtlasClusterTier,
-  AtlasClusterView
+  AtlasClusterView,
+  EnvironmentAtlasClusterTab,
+  EnvironmentAtlasTab
 } from "../../../models/atlas-cluster.model";
 import { AdminPlatformPath } from "../../../models/admin-route-paths.model";
 import { EnvironmentSetupTab } from "../../../models/environment-setup.model";
@@ -25,6 +29,8 @@ import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { SortableTableAlignment, SortableTableColumn, SortableTableSortState } from "../../../modules/common/sortable-table/sortable-table.model";
 import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
 import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
+import { SectionToggle } from "../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { VendorBrandMarkComponent } from "../../../modules/common/vendor-brand-mark/vendor-brand-mark.component";
 import { ConsoleAccessLinksComponent } from "../../../modules/common/console-access-links/console-access-links";
 import { ConsoleAccessUrlIconKey, MONGODB_ATLAS_CONSOLE_URLS } from "../../../models/environment-setup.model";
@@ -42,9 +48,12 @@ import { AlertTarget } from "../../../models/alert-target.model";
     TooltipDirective,
     FontAwesomeModule,
     RouterLink,
+    TabsetComponent,
+    TabDirective,
     PageComponent,
     SortableTableComponent,
     SortableTableCellDirective,
+    SectionToggle,
     VendorBrandMarkComponent,
     ConsoleAccessLinksComponent
   ],
@@ -109,10 +118,12 @@ import { AlertTarget } from "../../../models/alert-target.model";
           <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
           <div>
             <strong>New group registration will fail</strong>
-            <div>{{ view.registrationBlockReason }} New sites currently go to <code>{{ view.registrationCluster }}</code>. Create a cluster below and set it as the default.</div>
+            <div>{{ view.registrationBlockReason }} New sites currently go to <code>{{ view.registrationCluster }}</code>. Create a cluster in Clusters and set it as the default.</div>
           </div>
         </div>
       }
+      <tabset class="custom-tabset">
+      <tab heading="Provisioning" [active]="activeTab === EnvironmentAtlasTab.PROVISIONING" (selectTab)="selectTab(EnvironmentAtlasTab.PROVISIONING)">
       <div class="row thumbnail-heading-frame mb-4">
         <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
           <app-vendor-brand-mark serviceId="mongodbAtlas" [sizePx]="26"/>
@@ -171,6 +182,15 @@ import { AlertTarget } from "../../../models/alert-target.model";
           </div>
         }
       </div>
+      </tab>
+      <tab heading="Clusters" [active]="activeTab === EnvironmentAtlasTab.CLUSTERS" (selectTab)="selectTab(EnvironmentAtlasTab.CLUSTERS)">
+      <div class="thumbnail-heading-frame thumbnail-heading-frame-compact mb-3">
+        <app-section-toggle
+          [tabs]="clusterTabs"
+          [(selectedTab)]="activeClusterTab"
+          [queryParamKey]="StoredValue.SUB_TAB"/>
+      </div>
+      @if (activeClusterTab === EnvironmentAtlasClusterTab.CREATE) {
       <div class="row thumbnail-heading-frame mb-4">
         <div class="thumbnail-heading">Create cluster</div>
         <p class="mb-3">Choose AWS Ireland for a free M0, or London for a dedicated tier. Atlas permits one M0 per project; choose a separate project for each group site. Start with a free M0 to prove cluster creation, credential storage and environment migration. Check storage and collection capacity before moving existing sites. You can upgrade or move databases later. Dedicated tiers require Atlas billing. Nothing is created in Atlas until you press Create cluster.</p>
@@ -214,20 +234,28 @@ import { AlertTarget } from "../../../models/alert-target.model";
           <button type="button" class="btn btn-primary" [disabled]="creating || !view?.keysConfigured || !projectId" (click)="createCluster()">
             @if (creating) {
               <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
+            } @else {
+              <fa-icon [icon]="faPlus" class="me-1"/>
             }
             Create cluster
           </button>
         </div>
       </div>
+      } @else {
       <div class="row thumbnail-heading-frame mb-4">
         <div class="thumbnail-heading">Clusters</div>
+        <div class="mb-3">
+          <a class="btn btn-primary" [routerLink]="'/' + AdminPlatformPath.ENVIRONMENT_MANAGEMENT_COLLECTION_CLEANUP">
+            <fa-icon [icon]="faLayerGroup" class="me-1"/>Clean up empty collections
+          </a>
+        </div>
         <app-sortable-table
           [columns]="clusterColumns"
           [rows]="view?.clusters || []"
           [defaultSortKey]="clusterSortKey"
           [defaultSortDirection]="clusterSortDirection"
           [trackBy]="trackCluster"
-          emptyMessage="No clusters yet. Create one above, or existing group clusters will appear here from environment configuration."
+          emptyMessage="No clusters yet. Choose Create cluster above, or existing group clusters will appear here from environment configuration."
           (sortChange)="clusterSortChanged($event)">
           <ng-template [appSortableTableCell]="AtlasClusterSortField.NAME" let-row>
             {{ row.name }}
@@ -261,12 +289,15 @@ import { AlertTarget } from "../../../models/alert-target.model";
           </ng-template>
         </app-sortable-table>
         <div class="mt-3">
-          <button type="button" class="btn btn-quiet" [disabled]="!view?.keysConfigured || !projectId" (click)="allowNetwork()">Allow Fly connections</button>
+          <button type="button" class="btn btn-quiet" [disabled]="!view?.keysConfigured || !projectId" (click)="allowNetwork()"><fa-icon [icon]="faGlobe" class="me-1"/>Allow Fly connections</button>
           @if (view?.networkAccess?.length) {
             <div class="small text-muted mt-2">Network access: {{ networkAccessSummary() }}</div>
           }
         </div>
       </div>
+      }
+      </tab>
+      <tab heading="Environments" [active]="activeTab === EnvironmentAtlasTab.ENVIRONMENTS" (selectTab)="selectTab(EnvironmentAtlasTab.ENVIRONMENTS)">
       <div class="row thumbnail-heading-frame mb-4">
         <div class="thumbnail-heading">Environments</div>
         <app-sortable-table
@@ -296,25 +327,33 @@ import { AlertTarget } from "../../../models/alert-target.model";
           </ng-template>
         </app-sortable-table>
       </div>
+      </tab>
+      </tabset>
     </app-page>
   `
 })
-export class EnvironmentAtlasComponent implements OnInit {
+export class EnvironmentAtlasComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("EnvironmentAtlasComponent", NgxLoggerLevel.ERROR);
   private environmentSetupService = inject(EnvironmentSetupService);
   private notifierService = inject(NotifierService);
   private router = inject(Router);
   private activatedRoute = inject(ActivatedRoute);
+  private subscriptions: Subscription[] = [];
   private notify: AlertInstance;
   public notifyTarget: AlertTarget = {};
 
   protected readonly faSpinner = faSpinner;
   protected readonly faPlus = faPlus;
+  protected readonly faLayerGroup = faLayerGroup;
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
   protected readonly faFloppyDisk = faFloppyDisk;
+  protected readonly faGlobe = faGlobe;
   protected readonly faKey = faKey;
+  protected readonly StoredValue = StoredValue;
   protected readonly AdminPlatformPath = AdminPlatformPath;
+  protected readonly EnvironmentAtlasTab = EnvironmentAtlasTab;
+  protected readonly EnvironmentAtlasClusterTab = EnvironmentAtlasClusterTab;
   protected readonly environmentSetupGlobalQueryParams = {[StoredValue.TAB]: toKebabCase(EnvironmentSetupTab.SETTINGS), [StoredValue.SUB_TAB]: EnvironmentSettingsSubTab.GLOBAL};
   protected readonly AtlasClusterTier = AtlasClusterTier;
   protected readonly AtlasAwsRegion = AtlasAwsRegion;
@@ -329,10 +368,16 @@ export class EnvironmentAtlasComponent implements OnInit {
   errorMessage: string | null = null;
   projectId = "";
   defaultCluster = "";
-  clusterSortKey = AtlasClusterSortField.HOST;
-  clusterSortDirection = ASCENDING;
+  clusterSortKey = AtlasClusterSortField.DEFAULT_FOR_NEW_SITES;
+  clusterSortDirection = DESCENDING;
   environmentSortKey = AtlasEnvironmentSortField.ENVIRONMENT;
   environmentSortDirection = ASCENDING;
+  activeTab = EnvironmentAtlasTab.PROVISIONING;
+  activeClusterTab = EnvironmentAtlasClusterTab.INVENTORY;
+  clusterTabs: SectionToggleTab[] = [
+    {value: EnvironmentAtlasClusterTab.INVENTORY, label: "Cluster inventory", icon: faList},
+    {value: EnvironmentAtlasClusterTab.CREATE, label: "Create cluster", icon: faPlus}
+  ];
   createRequest: AtlasClusterCreateRequest = {
     name: "group-sites",
     tier: AtlasClusterTier.M0,
@@ -360,16 +405,40 @@ export class EnvironmentAtlasComponent implements OnInit {
 
   ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    const params = this.activatedRoute.snapshot.queryParams;
-    this.clusterSortKey = params[StoredValue.ATLAS_CLUSTER_SORT] || AtlasClusterSortField.HOST;
-    this.clusterSortDirection = params[StoredValue.ATLAS_CLUSTER_SORT_ORDER] === DESCENDING ? DESCENDING : ASCENDING;
-    this.environmentSortKey = params[StoredValue.ATLAS_ENVIRONMENT_SORT] || AtlasEnvironmentSortField.ENVIRONMENT;
-    this.environmentSortDirection = params[StoredValue.ATLAS_ENVIRONMENT_SORT_ORDER] === DESCENDING ? DESCENDING : ASCENDING;
+    this.subscriptions.push(this.activatedRoute.queryParams.subscribe(params => {
+      this.activeTab = params[StoredValue.TAB] === EnvironmentAtlasTab.CLUSTERS || params[StoredValue.TAB] === EnvironmentAtlasTab.ENVIRONMENTS
+        ? params[StoredValue.TAB]
+        : EnvironmentAtlasTab.PROVISIONING;
+      this.activeClusterTab = params[StoredValue.SUB_TAB] === EnvironmentAtlasClusterTab.CREATE
+        ? EnvironmentAtlasClusterTab.CREATE
+        : EnvironmentAtlasClusterTab.INVENTORY;
+      this.clusterSortKey = params[StoredValue.ATLAS_CLUSTER_SORT] || AtlasClusterSortField.DEFAULT_FOR_NEW_SITES;
+      this.clusterSortDirection = params[StoredValue.ATLAS_CLUSTER_SORT_ORDER] === DESCENDING
+        ? DESCENDING
+        : params[StoredValue.ATLAS_CLUSTER_SORT_ORDER] === ASCENDING
+          ? ASCENDING
+          : this.clusterSortKey === AtlasClusterSortField.DEFAULT_FOR_NEW_SITES ? DESCENDING : ASCENDING;
+      this.environmentSortKey = params[StoredValue.ATLAS_ENVIRONMENT_SORT] || AtlasEnvironmentSortField.ENVIRONMENT;
+      this.environmentSortDirection = params[StoredValue.ATLAS_ENVIRONMENT_SORT_ORDER] === DESCENDING ? DESCENDING : ASCENDING;
+    }));
     this.load();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   trackCluster = (_index: number, row: AtlasClusterRow) => row.host || row.name;
   trackEnvironment = (_index: number, row: AtlasClusterEnvironmentRow) => row.environment;
+
+  selectTab(tab: EnvironmentAtlasTab): void {
+    this.activeTab = tab;
+    void this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: {[StoredValue.TAB]: tab, [StoredValue.SUB_TAB]: null},
+      queryParamsHandling: "merge"
+    });
+  }
 
   clusterConsoleLinks(row: AtlasClusterRow) {
     return this.atlasRowLinks({

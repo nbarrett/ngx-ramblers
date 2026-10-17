@@ -16,6 +16,7 @@ import {
 import { migrateMongoConfig } from "./migrations-config";
 import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 import * as mongooseClient from "../mongoose-client";
+import { indexExistingCollections } from "../utils/collection-indexes";
 import { systemConfig } from "../../config/system-config";
 import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 
@@ -458,6 +459,8 @@ export class MigrationRunner {
 
       if (filesToRun.length === 0) {
         debugLog("No pending or failed migrations to apply (manual migrations skipped)");
+        const client = await mongoClient();
+        await indexExistingCollections(client.db());
         return { success: true, appliedFiles: [] };
       }
 
@@ -539,11 +542,13 @@ export class MigrationRunner {
               appliedAt: dateTimeNow().toJSDate(),
               error: errorMessage
             });
+            await indexExistingCollections(db);
             return { success: false, error: `Migration ${fileName} failed: ${errorMessage}`, appliedFiles };
           }
         }
       }
 
+      await indexExistingCollections(db);
       debugLog(`Successfully applied ${appliedFiles.length} migration(s)`);
       return { success: true, appliedFiles };
     } catch (error) {
@@ -589,6 +594,7 @@ export class MigrationRunner {
       }
 
       const upResult: MigrationUpResult = await migration.up(db, client) || {};
+      await indexExistingCollections(db);
 
       const changelogEntry: Record<string, any> = { fileName: normalisedName, startedAt, appliedAt: dateTimeNow().toJSDate() };
 
@@ -619,6 +625,7 @@ export class MigrationRunner {
           appliedAt: dateTimeNow().toJSDate(),
           skippedReason
         });
+        await indexExistingCollections(db);
         return { success: true, appliedFiles: [normalisedName] };
       }
       await changelogCollection.insertOne({
@@ -627,6 +634,7 @@ export class MigrationRunner {
         appliedAt: dateTimeNow().toJSDate(),
         error: errorMessage
       });
+      await indexExistingCollections(db);
       return { success: false, error: errorMessage, appliedFiles: [] };
     }
   }

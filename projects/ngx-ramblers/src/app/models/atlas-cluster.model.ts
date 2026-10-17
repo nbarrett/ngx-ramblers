@@ -1,4 +1,5 @@
 export enum AtlasClusterSortField {
+  DEFAULT_FOR_NEW_SITES = "isDefault",
   NAME = "name",
   HOST = "host",
   SIZE = "instanceSize",
@@ -11,6 +12,14 @@ export enum AtlasEnvironmentSortField {
   CLUSTER = "cluster",
   DATABASE = "database",
   COLLECTIONS = "collections"
+}
+
+export enum EmptyCollectionCleanupSortField {
+  CONTENT_COLLECTION_COUNT = "contentCollectionCount",
+  ENVIRONMENT = "environment",
+  CLUSTER = "cluster",
+  DATABASE = "database",
+  COLLECTION_COUNT = "collectionCount"
 }
 
 export enum AtlasClusterTier {
@@ -35,6 +44,17 @@ export enum AtlasClusterState {
   DELETING = "DELETING",
   DELETED = "DELETED",
   UNKNOWN = "UNKNOWN"
+}
+
+export enum EnvironmentAtlasTab {
+  PROVISIONING = "provisioning",
+  CLUSTERS = "clusters",
+  ENVIRONMENTS = "environments"
+}
+
+export enum EnvironmentAtlasClusterTab {
+  INVENTORY = "inventory",
+  CREATE = "create"
 }
 
 export const ATLAS_M0_MAX_COLLECTIONS = 500;
@@ -127,17 +147,17 @@ export function atlasTierFromInstanceSize(instanceSize: string | null | undefine
   }
 }
 
-export function clusterCapacity(instanceSize: AtlasClusterTier, collections: number, indexes: number, databases: number): {canAdd: boolean; headline: string} {
-  const nextCollections = collections + NEW_ENVIRONMENT_COLLECTION_HEADROOM;
-  const nextCombined = collections + indexes + NEW_ENVIRONMENT_COLLECTION_HEADROOM + NEW_ENVIRONMENT_INDEX_HEADROOM;
+export function clusterCapacity(instanceSize: AtlasClusterTier, collections: number, indexes: number, databases: number, newEnvironmentCollections = NEW_ENVIRONMENT_COLLECTION_HEADROOM, newEnvironmentIndexes = NEW_ENVIRONMENT_INDEX_HEADROOM): {canAdd: boolean; headline: string} {
+  const nextCollections = collections + newEnvironmentCollections;
+  const nextCombined = collections + indexes + newEnvironmentCollections + newEnvironmentIndexes;
   const recommended = ATLAS_RECOMMENDED_COLLECTION_AND_INDEX_LIMIT[instanceSize];
   if (instanceSize === AtlasClusterTier.M0 || instanceSize === AtlasClusterTier.FLEX) {
     if (databases >= ATLAS_M0_MAX_DATABASES) {
       return {canAdd: false, headline: `Free clusters allow ${ATLAS_M0_MAX_DATABASES} databases. Create another cluster before adding a site.`};
     } else if (nextCollections > ATLAS_M0_MAX_COLLECTIONS) {
-      return {canAdd: false, headline: `Free clusters allow ${ATLAS_M0_MAX_COLLECTIONS} collections in total. This cluster has ${collections}, and a new site needs about ${NEW_ENVIRONMENT_COLLECTION_HEADROOM} more. Create another cluster.`};
+      return {canAdd: false, headline: `Free clusters allow ${ATLAS_M0_MAX_COLLECTIONS} collections in total. This cluster has ${collections}, and the registration template has ${newEnvironmentCollections} collections. Create another cluster.`};
     } else {
-      return {canAdd: true, headline: `${collections} of ${ATLAS_M0_MAX_COLLECTIONS} collections used. A new site needs about ${NEW_ENVIRONMENT_COLLECTION_HEADROOM}.`};
+      return {canAdd: true, headline: `${collections} of ${ATLAS_M0_MAX_COLLECTIONS} collections used. The registration template has ${newEnvironmentCollections} collections.`};
     }
   } else if (recommended) {
     if (nextCombined > recommended) {

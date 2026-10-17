@@ -76,6 +76,7 @@ import { EventType, MessageType } from "../../../models/websocket.model";
 import { SessionLogsComponent } from "../../../shared/components/session-logs";
 import { EnvironmentSettings } from "../../../modules/common/environment-settings/environment-settings";
 import { EnvironmentManagement } from "../../../modules/common/environment-management/environment-management";
+import { MongoClusterSelectComponent } from "../../../modules/common/selectors/mongo-cluster-select";
 import { MongoUriInputComponent, MongoUriParseResult } from "../../../modules/common/mongo-uri-input/mongo-uri-input";
 import { AreaSelector } from "../../walks/walk-edit/area-selector";
 
@@ -536,14 +537,7 @@ import { AreaSelector } from "../../walks/walk-edit/area-selector";
                                   <div class="row mb-2">
                                     <div class="col-md-8">
                                       <label for="existing-cluster">Use existing cluster</label>
-                                      <ng-select id="existing-cluster"
-                                                 [items]="mongoClusters"
-                                                 bindLabel="label"
-                                                 [clearable]="true"
-                                                 dropdownPosition="bottom"
-                                                 placeholder="Select an existing cluster or enter details manually"
-                                                 (change)="onClusterSelected($event)">
-                                      </ng-select>
+                                      <app-mongo-cluster-select id="existing-cluster" [clusters]="mongoClusters" [selected]="selectedCluster" placeholder="Select an existing cluster or enter details manually" (selectedChange)="onClusterSelected($event)"/>
                                     </div>
                                   </div>
                                   @if (selectedCluster) {
@@ -1022,7 +1016,7 @@ import { AreaSelector } from "../../walks/walk-edit/area-selector";
       </app-page>
     `,
   styleUrls: ["./environment-setup.sass"],
-  imports: [PageComponent, FormsModule, NgClass, FontAwesomeModule, StepperModule, NgSelectComponent, StatusIconComponent, AreaSelector, SecretInputComponent, SessionLogsComponent, TabsetComponent, TabDirective, EnvironmentSettings, EnvironmentManagement, MongoUriInputComponent, RouterLink]
+  imports: [PageComponent, FormsModule, NgClass, FontAwesomeModule, StepperModule, NgSelectComponent, StatusIconComponent, AreaSelector, SecretInputComponent, SessionLogsComponent, TabsetComponent, TabDirective, EnvironmentSettings, EnvironmentManagement, MongoUriInputComponent, RouterLink, MongoClusterSelectComponent]
 })
 export class EnvironmentSetupComponent implements OnInit, OnDestroy {
 
@@ -1333,11 +1327,7 @@ export class EnvironmentSetupComponent implements OnInit, OnDestroy {
   private async loadMongoClusters(): Promise<void> {
     try {
       const response = await this.environmentSetupService.mongoClusters();
-      this.mongoClusters = (response.clusters || []).map(cluster => ({
-        ...cluster,
-        databases: cluster.databases.sort(),
-        label: `${cluster.cluster} (${cluster.databases.sort().join(", ")})`
-      })).sort(sortBy("label"));
+      this.mongoClusters = (response.clusters || []).sort(sortBy("cluster"));
       this.logger.info("Loaded MongoDB clusters:", this.mongoClusters.length);
     } catch (error) {
       this.logger.error("Failed to load MongoDB clusters:", error);

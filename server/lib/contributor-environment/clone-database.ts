@@ -1,6 +1,7 @@
 import debug from "debug";
 import mongoose from "mongoose";
 import { envConfig } from "../env-config/env-config";
+import { copyCollectionIndexes } from "../mongo/utils/collection-indexes";
 
 const debugLog = debug(envConfig.logNamespace("contributor-environment:clone-database"));
 debugLog.enabled = true;
@@ -20,6 +21,7 @@ export async function cloneDatabase(sourceDatabase: string, targetDatabase: stri
   for (const collection of collections) {
     const documents = await source.collection(collection.name).find().toArray();
     if (documents.length > 0) {
+      await copyCollectionIndexes(source.collection(collection.name), target.collection(collection.name));
       await target.collection(collection.name).insertMany(documents);
     }
     debugLog("Cloned %d documents into %s.%s", documents.length, targetDatabase, collection.name);

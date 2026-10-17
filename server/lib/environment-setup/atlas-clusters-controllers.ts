@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { isArray, isString } from "es-toolkit/compat";
 import { createErrorDebugLog } from "../shared/error-debug-log";
 import {
   allowAtlasNetworkAccess,
@@ -8,6 +9,8 @@ import {
 } from "./atlas-clusters";
 import { AtlasAwsRegion, AtlasClusterCreateRequest, AtlasClusterTier } from "../../../projects/ngx-ramblers/src/app/models/atlas-cluster.model";
 import { AtlasConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { EmptyCollectionCandidate } from "../../../projects/ngx-ramblers/src/app/models/environment-collection-cleanup.model";
+import { emptyCollectionCleanupPreview, removeEmptyCollections } from "./collection-cleanup";
 
 const errorDebugLog = createErrorDebugLog("atlas-clusters-controllers");
 
@@ -64,5 +67,24 @@ export async function saveAtlasProvisioningRequest(req: Request, res: Response):
   } catch (error) {
     errorDebugLog("saveAtlasProvisioning:", error?.message || error);
     res.status(400).json({error: error?.message || "Could not save Atlas settings"});
+  }
+}
+
+export async function collectionCleanupPreview(req: Request, res: Response): Promise<void> {
+  try {
+    res.json(await emptyCollectionCleanupPreview(isString(req.query.cluster) ? req.query.cluster : ""));
+  } catch (error) {
+    errorDebugLog("collectionCleanupPreview:", error?.message || error);
+    res.status(500).json({error: error?.message || "Could not inspect empty collections"});
+  }
+}
+
+export async function collectionCleanupRequest(req: Request, res: Response): Promise<void> {
+  try {
+    const selected = isArray(req.body?.candidates) ? req.body.candidates as EmptyCollectionCandidate[] : [];
+    res.json(await removeEmptyCollections(isString(req.body?.cluster) ? req.body.cluster : "", selected));
+  } catch (error) {
+    errorDebugLog("collectionCleanupRequest:", error?.message || error);
+    res.status(500).json({error: error?.message || "Could not remove empty collections"});
   }
 }

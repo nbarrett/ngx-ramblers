@@ -12,6 +12,7 @@ const inboxFolderSchema = new mongoose.Schema({
   createdByMemberId: {type: String, default: null}
 }, {collection: INBOX_FOLDERS_COLLECTION});
 
+inboxFolderSchema.index({tenantSlug: 1, slug: 1}, {unique: true, name: "tenantSlug_1_slug_1"});
 inboxFolderSchema.plugin(uniqueValidator);
 
 export const inboxFolder: mongoose.Model<InboxUserFolder> = ensureModel<InboxUserFolder>("inbox-folder", inboxFolderSchema);

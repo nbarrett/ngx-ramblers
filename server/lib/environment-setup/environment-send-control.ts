@@ -8,6 +8,8 @@ import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.
 import { PlatformSendControl, PlatformSendControlRequest } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { dateTimeNow } from "../shared/dates";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import { config as configModel } from "../mongo/models/config";
+import { ensureCollectionIndexesInDatabase } from "../mongo/utils/collection-indexes";
 
 const debugLog = debug(envConfig.logNamespace("environment-send-control"));
 const errorDebugLog = createErrorDebugLog(envConfig.logNamespace("environment-send-control"));
@@ -29,6 +31,7 @@ async function writeSendControl(environmentName: string, control: PlatformSendCo
   const {envConfigData} = await loadEnvironmentContext(environmentName);
   const {client, db} = await connectToEnvironmentMongo(envConfigData);
   try {
+    await ensureCollectionIndexesInDatabase(db, configModel);
     await db.collection("config").updateOne(
       {key: ConfigKey.PLATFORM_SEND_CONTROL},
       {$set: {key: ConfigKey.PLATFORM_SEND_CONTROL, value: control}},

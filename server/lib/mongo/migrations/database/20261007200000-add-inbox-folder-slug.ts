@@ -29,7 +29,10 @@ export async function up(db: Db, _client: MongoClient): Promise<void> {
       }
     }, Promise.resolve());
   }, Promise.resolve());
-  await folders.createIndex({tenantSlug: 1, slug: 1}, {unique: true, name: "tenantSlug_1_slug_1"});
+  const foldersExist = await db.listCollections({name: INBOX_FOLDERS_COLLECTION}, {nameOnly: true}).hasNext();
+  if (foldersExist) {
+    await folders.createIndex({tenantSlug: 1, slug: 1}, {unique: true, name: "tenantSlug_1_slug_1"});
+  }
   debugLog(`backfilled slug on ${progress.updated} inbox folder(s)`);
 }
 

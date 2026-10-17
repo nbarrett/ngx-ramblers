@@ -241,6 +241,7 @@ Every button is **filled** with a Ramblers palette colour. Never Bootstrap defau
 2. **Default = primary** — reach for `btn-primary` first; use `btn-quiet` only when the button is not the default action in that group.
 3. **If it looks blue, the class is wrong** — fix to `btn-primary` (or `btn-quiet` if non-default) before shipping.
 4. **Copy from a nearby admin screen** that already uses the correct filled classes rather than inventing Bootstrap class combinations.
+5. **Every button has an icon.** Include a Font Awesome icon on text buttons as well as icon-only buttons; choose an icon that clearly communicates the action. Keep icon-only actions labelled with an accessible name and tooltip.
 
 ## Testing
 

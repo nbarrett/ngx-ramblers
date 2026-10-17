@@ -21,8 +21,10 @@ import { createEnvironment, listSessions, sessionStatus, validateSetupRequest } 
 import { EnvironmentStatusCheck, HostnameHealth, HostnameOrigin } from "../../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
 import { EnvironmentSetupRequest, RamblersAreaLookup, RamblersGroupLookup } from "../types";
 import { configuredEnvironments, findEnvironmentFromDatabase } from "../../environments/environments-config";
+import { registrationSettings } from "../../site-registration/registration-store";
 import { extendedGroupEvent } from "../../mongo/models/extended-group-event";
 import { pageContent as pageContentModel } from "../../mongo/models/page-content";
+import { ensureCollectionIndexesInDatabase } from "../../mongo/utils/collection-indexes";
 import { liteHomeTemplatePageContent, LITE_HOME_TEMPLATE_PATH } from "../../../../projects/ngx-ramblers/src/app/models/home-content.model";
 import { PageContent } from "../../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { GroupEventField, DocumentField } from "../../../../projects/ngx-ramblers/src/app/models/walk.model";
@@ -152,6 +154,7 @@ async function applyLiteTemplateToEnvironment(environment: string, template: Pag
   const context = await loadEnvironmentContext(environment);
   const connection = await connectToEnvironmentMongo(context.envConfigData);
   try {
+    await ensureCollectionIndexesInDatabase(connection.db, pageContentModel);
     await connection.db.collection("pageContent").updateOne(
       { path: LITE_HOME_TEMPLATE_PATH },
       { $set: { path: LITE_HOME_TEMPLATE_PATH, rows: template.rows } },
@@ -571,7 +574,8 @@ export async function mongoClusters(req: Request, res: Response) {
   try {
     const environmentsConfig = await configuredEnvironments();
     const environments = environmentsConfig.environments || [];
-    const clusterMap = new Map<string, { cluster: string; username: string; password: string; databases: string[] }>();
+    const settings = await registrationSettings();
+    const clusterMap = new Map<string, { cluster: string; username: string; password: string; databases: string[]; environments: string[] }>();
 
     environments.forEach(env => {
       const cluster = env.mongo?.cluster;
@@ -581,20 +585,24 @@ export async function mongoClusters(req: Request, res: Response) {
           if (env.mongo?.db && !existing.databases.includes(env.mongo.db)) {
             existing.databases.push(env.mongo.db);
           }
+          existing.environments.push(env.environment);
         } else {
           clusterMap.set(cluster, {
             cluster,
             username: env.mongo?.username || "",
             password: env.mongo?.password || "",
-            databases: env.mongo?.db ? [env.mongo.db] : []
+            databases: env.mongo?.db ? [env.mongo.db] : [],
+            environments: [env.environment]
           });
         }
       }
     });
 
-    const clusters = Array.from(clusterMap.values());
+    const clusters = Array.from(clusterMap.values()).map(cluster => ({...cluster, databases: cluster.databases.sort(), environments: cluster.environments.sort()}));
+    const template = environments.find(environment => environment.environment === settings.sourceEnvironmentName);
+    const defaultCluster = environmentsConfig.atlas?.defaultCluster || template?.mongo?.cluster || "";
     debugLog("Returning MongoDB clusters:", clusters.length);
-    res.json({ clusters });
+    res.json({clusters, defaultCluster});
   } catch (error) {
     errorDebugLog("Error listing MongoDB clusters:", error);
     res.status(500).json({ error: error.message });

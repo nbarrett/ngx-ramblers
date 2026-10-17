@@ -1,5 +1,5 @@
 import debug from "debug";
-import { indexExistingCollections } from "../mongo/utils/collection-indexes";
+import { ensureCollectionIndexesInDatabase, indexExistingCollections } from "../mongo/utils/collection-indexes";
 import { pluraliseWithCount } from "../shared/string-utils";
 import { toPairs, keys } from "es-toolkit/compat";
 import { Db, MongoClient } from "mongodb";
@@ -29,6 +29,9 @@ import { seedMissingDefaultContentText } from "../mongo/migrations/shared/seed-d
 import { BannerPictureStore } from "./banner-picture.model";
 import { NEW_ENVIRONMENT_MEMBER_SYNC_POLICY } from "../../../projects/ngx-ramblers/src/app/models/member-sync-policy.model";
 import { recaptchaKeys } from "../config/recaptcha-keys";
+import { member as memberModel } from "../mongo/models/member";
+import { pageContent as pageContentModel } from "../mongo/models/page-content";
+import { config as configModel } from "../mongo/models/config";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:database-initialiser"));
 debugLog.enabled = true;
@@ -120,6 +123,7 @@ export async function validateMongoConnection(params: MongoDbConnectionParams): 
 }
 
 async function upsertConfigDocument(db: Db, key: ConfigKey, value: unknown): Promise<void> {
+  await ensureCollectionIndexesInDatabase(db, configModel);
   const collection = db.collection(COLLECTIONS.CONFIG);
   await collection.updateOne(
     { key },
@@ -200,6 +204,7 @@ export async function initialiseDatabase(
       adminUser: request.adminUser,
       groupCode: request.ramblersInfo.groupCode
     });
+    await ensureCollectionIndexesInDatabase(db, memberModel);
     const membersCollection = db.collection(COLLECTIONS.MEMBERS);
     const existingAdmin = await membersCollection.findOne({ email: adminMember.email.toLowerCase() });
     if (existingAdmin) {
@@ -225,7 +230,8 @@ export async function initialiseDatabase(
     reportProgress("Cleaning up incorrect page content", SetupStepStatus.Completed);
 
     reportProgress("Creating sample pages", SetupStepStatus.Running);
-    await seedSamplePages(db, request.ramblersInfo.groupName, groupShortName);
+    await ensureCollectionIndexesInDatabase(db, pageContentModel);
+    await seedSamplePages(db, request.ramblersInfo.groupName, groupShortName, request.options.ngxLite === true);
     reportProgress("Creating sample pages", SetupStepStatus.Completed);
 
     if (request.options.includeNotificationConfigs) {
@@ -298,8 +304,8 @@ export async function runMigrations(mongoUri: string, reportProgress: (step: str
   }
 }
 
-export async function seedSamplePages(db: Db, groupName: string, groupShortName: string): Promise<{ upsertedCount: number; totalCount: number }> {
-  const pageContents = createAllSamplePageContent({ groupName, groupShortName });
+export async function seedSamplePages(db: Db, groupName: string, groupShortName: string, ngxLite = false): Promise<{ upsertedCount: number; totalCount: number }> {
+  const pageContents = createAllSamplePageContent({ groupName, groupShortName, ngxLite });
   const pageContentCollection = db.collection(COLLECTIONS.PAGE_CONTENT);
   let upsertedCount = 0;
   for (const pageContent of pageContents) {
@@ -456,7 +462,8 @@ export async function seedSampleData(
     reportProgress("Cleaning up incorrect page content", SetupStepStatus.Completed);
 
     reportProgress("Seeding sample pages", SetupStepStatus.Running);
-    await seedSamplePages(db, params.groupName, groupShortName);
+    await ensureCollectionIndexesInDatabase(db, pageContentModel);
+    await seedSamplePages(db, params.groupName, groupShortName, params.ngxLite === true);
     reportProgress("Seeding sample pages", SetupStepStatus.Completed);
 
     reportProgress("Seeding default banner", SetupStepStatus.Running);

@@ -39,7 +39,10 @@ async function backfillInboxThreadSlugs(db: Db) {
       progress.updated += 1;
     }
   }, Promise.resolve());
-  await threads.createIndex({tenantSlug: 1, slug: 1, lastSeenAt: -1});
+  const threadsExist = await db.listCollections({name: "inboxThreads"}, {nameOnly: true}).hasNext();
+  if (threadsExist) {
+    await threads.createIndex({tenantSlug: 1, slug: 1, lastSeenAt: -1});
+  }
   debugLog(`backfilled slug on ${progress.updated} inbox thread(s)`);
 }
 

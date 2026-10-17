@@ -1,5 +1,5 @@
 import debug from "debug";
-import { copyCollectionIndexes } from "../mongo/utils/collection-indexes";
+import { copyCollectionIndexes, ensureCollectionIndexesInDatabase } from "../mongo/utils/collection-indexes";
 import { Db } from "mongodb";
 import { envConfig } from "../env-config/env-config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
@@ -19,6 +19,7 @@ import { buildMongoUri } from "../shared/mongodb-uri";
 import { configuredEnvironments } from "../environments/environments-config";
 import { connectToEnvironmentMongo } from "./environment-context";
 import { stagingHostForSiteHref } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
+import { member as memberModel } from "../mongo/models/member";
 
 const debugLog = debug(envConfig.logNamespace("environment-setup:full-duplicate"));
 debugLog.enabled = true;
@@ -209,6 +210,7 @@ export async function ensureAdminMemberOnClone(db: Db, request: EnvironmentSetup
     adminUser: request.adminUser,
     groupCode: request.ramblersInfo.groupCode
   });
+  await ensureCollectionIndexesInDatabase(db, memberModel);
   const members = db.collection("members");
   const existing = await members.findOne({ email: member.email });
   if (existing) {

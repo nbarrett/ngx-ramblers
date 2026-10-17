@@ -1,7 +1,7 @@
 import { CollectionIndexCache } from "./collection-indexes.model";
 import mongoose, { Model, Query, Schema } from "mongoose";
 import { Collection, CollectionInfo, CreateIndexesOptions, Db, IndexDescriptionInfo, IndexDirection, IndexSpecification } from "mongodb";
-import { fromPairs, isEqual, toPairs, values } from "es-toolkit/compat";
+import { fromPairs, isEqual, sortBy, toPairs, values } from "es-toolkit/compat";
 
 const legacyCollectionIndexes = new WeakMap<Schema, [IndexSpecification, CreateIndexesOptions, CreateIndexesOptions][]>();
 
@@ -10,6 +10,24 @@ export function registerLegacyCollectionIndex(schema: Schema, keys: IndexSpecifi
   if (canonicalOptions) {
     legacyCollectionIndexes.set(schema, [...(legacyCollectionIndexes.get(schema) ?? []), [keys, canonicalOptions as CreateIndexesOptions, options]]);
   }
+}
+
+export function collectionIndexesMatchSchema(model: Model<unknown> | null, existing: IndexDescriptionInfo[]): boolean {
+  const schemaIndexes = [
+    {key: {_id: 1}, name: "_id_"},
+    ...(model?.schema.indexes() || []).map(([keys, options]) => ({
+      ...options,
+      key: keys,
+      name: options.name || toPairs(keys).map(([field, direction]) => `${field}_${direction}`).join("_")
+    }))
+  ];
+  return isEqual(sortBy(existing.map(comparableCollectionIndex), "name"), sortBy(schemaIndexes.map(comparableCollectionIndex), "name"));
+}
+
+function comparableCollectionIndex(index: Record<string, unknown>): Record<string, unknown> {
+  return fromPairs(toPairs(index)
+    .filter(([option]) => !["v", "ns", "background"].includes(option))
+    .map(([option, value]) => [option, option === "key" ? toPairs(value as Record<string, unknown>) : value]));
 }
 
 function acceptedLegacyIndex(schema: Schema, keys: IndexSpecification, options: CreateIndexesOptions, existing: IndexDescriptionInfo[]): boolean {
@@ -92,18 +110,22 @@ export function lazyCollectionIndexes(schema: Schema): void {
 export async function indexExistingCollections(database: Db): Promise<void> {
   const collections = new Set((await database.listCollections({}, {nameOnly: true}).toArray()).map(collection => collection.name));
   const models = values(mongoose.models).filter(model => collections.has(model.collection.name));
-  await Promise.all(models.map(async model => {
+  await Promise.all(models.map(model => ensureCollectionIndexesInDatabase(database, model, false)));
+}
+
+export async function ensureCollectionIndexesInDatabase<T>(database: Db, model: Model<T>, createIfMissing = true): Promise<void> {
+  const schemaIndexes = model.schema.indexes();
+  const collectionInfo = await database.listCollections<CollectionInfo>({name: model.collection.name}, {nameOnly: false}).next();
+  if (schemaIndexes.length > 0 && (collectionInfo || createIfMissing)) {
     const collection = database.collection(model.collection.name);
-    const existing = await collection.indexes();
-    for (const [keys, options] of model.schema.indexes()) {
-      const present = existing.some(index => isEqual(collectionIndexKeys(index), keys) && toPairs(options)
+    const existing = collectionInfo ? await collection.indexes() : [];
+    const missing = schemaIndexes.filter(([keys, options]) => !existing.some(index =>
+      isEqual(collectionIndexKeys(index), keys) && toPairs(options)
         .filter(([option]) => option !== "name" && option !== "background")
-        .every(([option, value]) => isEqual(index[option], value)));
-      if (!present && !acceptedLegacyIndex(model.schema, keys as IndexSpecification, options as CreateIndexesOptions, existing)) {
-        await collection.createIndex(keys as IndexSpecification, options as CreateIndexesOptions);
-      }
-    }
-  }));
+        .every(([option, value]) => isEqual(index[option], value))) &&
+      !acceptedLegacyIndex(model.schema, keys as IndexSpecification, options as CreateIndexesOptions, existing));
+    await Promise.all(missing.map(([keys, options]) => collection.createIndex(keys as IndexSpecification, options as CreateIndexesOptions)));
+  }
 }
 
 export async function copyCollectionIndexes(source: Collection, target: Collection): Promise<void> {
