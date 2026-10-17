@@ -1,13 +1,22 @@
 import { WalkProgrammeCalendarComponent } from "../../../pages/walks/walk-programme-calendar/walk-programme-calendar";
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, ParamMap, Router } from "@angular/router";
-import { Location } from "@angular/common";
+import { JsonPipe, Location, NgTemplateOutlet } from "@angular/common";
 import { range } from "es-toolkit";
-import { toPairs, isArray, isNull, isUndefined, keys } from "es-toolkit/compat";
+import { isArray, isNull, keys } from "es-toolkit/compat";
 import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
 import { NgxLoggerLevel } from "ngx-logger";
-import { Subscription } from "rxjs";
-import { faBug, faCalendarDays, faCalendarPlus, faCheck, faImages, faPeopleGroup, faTableCells, faWalking } from "@fortawesome/free-solid-svg-icons";
+import { firstValueFrom, Subscription } from "rxjs";
+import {
+  faBug,
+  faCalendarDays,
+  faCalendarPlus,
+  faCheck,
+  faImages,
+  faPeopleGroup,
+  faTableCells,
+  faWalking
+} from "@fortawesome/free-solid-svg-icons";
 import { BsDropdownDirective, BsDropdownMenuDirective, BsDropdownToggleDirective } from "ngx-bootstrap/dropdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { FormsModule } from "@angular/forms";
@@ -16,7 +25,15 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { LoginResponse } from "../../../models/member.model";
 import { DeviceSize } from "../../../models/page.model";
 import { EventPopulation } from "../../../models/system.model";
-import { DisplayedWalk, EventEventField, EventField, GroupEventField, PUBLIC_GROUP_EVENT_SELECT, WalkListView, WalkViewMode } from "../../../models/walk.model";
+import {
+  DisplayedWalk,
+  EventEventField,
+  EventField,
+  GroupEventField,
+  PUBLIC_GROUP_EVENT_SELECT,
+  WalkListView,
+  WalkViewMode
+} from "../../../models/walk.model";
 import { EventsData } from "../../../models/group-events.model";
 import { CalendarMonthSummary } from "../../../models/walk-programme.model";
 import { BroadcastService } from "../../../services/broadcast-service";
@@ -40,15 +57,27 @@ import { WalkCardListComponent } from "../../../pages/walks/walk-view/walk-card-
 import { WalksMapView } from "../../../pages/walks/walk-list/walks-map-view";
 import { WalkViewComponent } from "../../../pages/walks/walk-view/walk-view";
 import { EventTableView } from "./event-table-view";
-import { AdvancedSearchCriteria, DateRangePresetLabel, DEFAULT_FILTER_PARAMETERS, FilterParameters, FilterStateEvent, resolvePresetByLabel } from "../../../models/search.model";
+import {
+  AdvancedSearchCriteria,
+  DateRangePresetLabel,
+  DEFAULT_FILTER_PARAMETERS,
+  FilterParameters,
+  FilterStateEvent,
+  resolvePresetByLabel
+} from "../../../models/search.model";
 import { EM_DASH_WITH_SPACES } from "../../../models/content-text.model";
 import { InputSource } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
-import { JsonPipe, NgTemplateOutlet } from "@angular/common";
 import { DataQueryOptions, FilterCriteria, SortOrder } from "../../../models/api-request.model";
 import { MAP_VIEW_MAX_EVENTS, MAP_VIEW_SELECT } from "../../../models/map.model";
 import { buildAdvancedSearchCriteria } from "../../../functions/walks/advanced-search-criteria-builder";
-import { advancedCriteriaQueryParams, advancedSearchCriteriaFromParams, advancedSearchSummary, hasAdvancedCriteria, savedCriteriaToAdvancedCriteria } from "../../../functions/walks/advanced-search";
+import {
+  advancedCriteriaQueryParams,
+  advancedSearchCriteriaFromParams,
+  advancedSearchSummary,
+  hasAdvancedCriteria,
+  savedCriteriaToAdvancedCriteria
+} from "../../../functions/walks/advanced-search";
 import { AuthService } from "../../../auth/auth.service";
 import { environment } from "../../../../environments/environment";
 
@@ -144,7 +173,7 @@ import { environment } from "../../../../environments/environment";
         @if (walkListView === WalkListView.TABLE) {
           <app-event-table-view [currentPageEvents]="currentPageWalks"/>
         }
-        
+
       </div>
     </div>
     <ng-template #paginationControls>
@@ -257,6 +286,9 @@ export class EventsFull implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
+    this.notify.setBusy();
+    const systemConfig = await firstValueFrom(this.systemConfigService.events());
+    this.defaultWalkListView = systemConfig.group.defaultWalkListView;
     this.pageSize = 10;
     this.pageNumber = 1;
     this.subscriptions.push(this.route.queryParamMap.subscribe(params => {
