@@ -551,6 +551,7 @@ export interface RouteFollowProgress {
   mode: RouteFollowMode;
   position: RouteFollowPoint | null;
   heading: number | null;
+  travelHeading?: number | null;
   accuracyMetres: number | null;
   snap: RouteFollowSnap | null;
   remainingMetres: number;
@@ -752,6 +753,7 @@ export const ROUTE_FOLLOW_ENDS_JOINED_SPAN = 0.0002;
 export const ROUTE_FOLLOW_WALKED_MUTED = "#8aa0c8";
 export const ROUTE_FOLLOW_COMPASS_MIN_DELTA = 1.5;
 export const ROUTE_FOLLOW_COMPASS_SMOOTHING = 0.18;
+export const ROUTE_FOLLOW_ANDROID_COMPASS_SMOOTHING = 0.06;
 export const ROUTE_FOLLOW_HEADING_UP_MIN_DELTA = 0.5;
 export const FOLLOW_MAP_SCALE_TARGET_PX = 160;
 export const FOLLOW_MAP_SCALE_MAX_PX = 200;

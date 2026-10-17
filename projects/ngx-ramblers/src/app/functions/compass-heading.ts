@@ -1,3 +1,25 @@
+import { isNumber } from "es-toolkit/compat";
+
+export function compassScreenAngle(screen: {orientation?: {angle?: number; type?: string}} | null, legacyOrientation: number | null): number {
+  const angle = screen?.orientation?.angle;
+  if (isNumber(angle) && Number.isFinite(angle)) {
+    return ((angle % 360) + 360) % 360;
+  } else {
+    const type = screen?.orientation?.type;
+    if (type === "landscape-primary") {
+      return 90;
+    } else if (type === "landscape-secondary") {
+      return 270;
+    } else if (type === "portrait-secondary") {
+      return 180;
+    } else if (isNumber(legacyOrientation) && Number.isFinite(legacyOrientation)) {
+      return ((legacyOrientation % 360) + 360) % 360;
+    } else {
+      return 0;
+    }
+  }
+}
+
 export function smoothedCompassHeading(previous: number | null, next: number, factor: number): number {
   if (previous === null || !Number.isFinite(previous) || !Number.isFinite(factor) || factor >= 1) {
     return (next + 360) % 360;

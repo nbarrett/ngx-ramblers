@@ -77,7 +77,7 @@ import { MemberLoginService } from "../../services/member/member-login.service";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { LoginModalComponent } from "../login/login-modal/login-modal.component";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
-import { nativeApiUrl } from "../../functions/native-walking";
+import { nativeApiUrl, reloadNativeShell } from "../../functions/native-walking";
 import { NativeSiteService } from "../../services/maps/native-site.service";
 import { AuthService } from "../../auth/auth.service";
 import { VisibilityObserverDirective } from "../../notifications/common/visibility-observer.directive";
@@ -758,7 +758,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     this.siteError = null;
     try {
       await this.nativeSite.connect(this.siteUrlDraft, this.siteUrlEntry ? null : this.siteGroupCode || this.siteAreaCode || null);
-      window.location.reload();
+      reloadNativeShell();
     } catch (error) {
       this.siteError = error instanceof Error ? error.message : "Could not reach that website.";
       this.connectingSite = false;
@@ -795,7 +795,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
 
   changeGroupSite(): void {
     this.nativeSite.clear();
-    window.location.reload();
+    reloadNativeShell();
   }
 
   ngOnInit(): void {

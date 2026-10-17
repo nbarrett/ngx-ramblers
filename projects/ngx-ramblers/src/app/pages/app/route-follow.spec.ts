@@ -319,6 +319,38 @@ describe("restricted session restoration", () => {
   });
 });
 
+describe("saved route delete", () => {
+  it("asks before deleting a saved maps route and then returns home", async () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["payload"] = {source: RouteFollowSource.OS_MAPS, osMapsRouteId: "recording-fictional"} as RouteFollowPayload;
+    view["canEditRoute"] = true;
+    view["progress"] = {mode: RouteFollowMode.IDLE} as typeof view["progress"];
+    view["followService"] = {recordingSession: () => false} as unknown as typeof view["followService"];
+    view["osMapsExport"] = {deleteRoute: vi.fn().mockResolvedValue({deleted: true})} as unknown as typeof view["osMapsExport"];
+    view["logger"] = {error: vi.fn()} as unknown as typeof view["logger"];
+    view.expandSheet = vi.fn();
+    view.closeFollow = vi.fn();
+    expect(view.canDeleteSavedRoute()).toBe(true);
+    view.requestRouteDelete();
+    expect(view["confirmingRouteDelete"]).toBe(true);
+    expect(view.expandSheet).toHaveBeenCalledOnce();
+    await view.confirmRouteDelete();
+    expect(view["osMapsExport"].deleteRoute).toHaveBeenCalledWith("recording-fictional");
+    expect(view.closeFollow).toHaveBeenCalledWith(true);
+    expect(view["confirmingRouteDelete"]).toBe(false);
+  });
+
+  it("does not delete when the route is still an unsaved recording", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["payload"] = {source: RouteFollowSource.RECORDING, osMapsRouteId: null} as RouteFollowPayload;
+    view["canEditRoute"] = true;
+    view["progress"] = {mode: RouteFollowMode.IDLE} as typeof view["progress"];
+    view["followService"] = {recordingSession: () => true} as unknown as typeof view["followService"];
+    view.requestRouteDelete();
+    expect(view["confirmingRouteDelete"]).toBeFalsy();
+  });
+});
+
 describe("desktop follow panel", () => {
   it("titles the panel Edit route while editing", () => {
     const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;

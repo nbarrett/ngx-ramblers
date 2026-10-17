@@ -38,6 +38,15 @@ export function nativeWalkingStorageKey(key: string): string {
   return site ? `${key}:${site}` : key;
 }
 
+export function reloadNativeShell(): void {
+  const root = `${window.location.origin}/`;
+  if (window.location.pathname === "/" || window.location.pathname === "/index.html") {
+    window.location.reload();
+  } else {
+    window.location.replace(root);
+  }
+}
+
 export function saveNativeWalkingSite(origin: string | null): void {
   if (origin) {
     window.localStorage.setItem(StoredValue.APP_SITE_ORIGIN, origin);

@@ -569,10 +569,24 @@ import { RouterHistoryService } from "../../services/router-history.service";
           </div>
           }
           @if (sheetMinimised && !followPanelWide && hasLine && payload?.source !== RouteFollowSource.RECORDING && !recordingSession && progress?.mode !== RouteFollowMode.EDITING) {
-            <button class="btn btn-primary follow-main-btn follow-recording-tray" type="button" (click)="onPeekAction($event)" [disabled]="savingRoute || startingFollow">
-              <fa-icon [icon]="startControlIcon()"/>
-              {{ startControlLabel() }}
-            </button>
+            <div class="follow-recording-tray follow-peek-actions">
+              <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)" [disabled]="savingRoute || startingFollow">
+                <fa-icon [icon]="startControlIcon()"/>
+                {{ startControlLabel() }}
+              </button>
+              @if (canEditRoute) {
+                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="onPeekEdit($event)">
+                  <fa-icon [icon]="faPencil"/>
+                  Edit
+                </button>
+              }
+              @if (canDeleteSavedRoute()) {
+                <button class="btn btn-grey-danger follow-secondary-btn" type="button" (click)="onPeekDelete($event)" [disabled]="savingRoute">
+                  <fa-icon [icon]="faTrash"/>
+                  Delete
+                </button>
+              }
+            </div>
           }
           <div class="follow-sheet-body-slot" appSwipeable
                [swipeAxis]="SwipeAxis.VERTICAL" [swipeDownAtTopOnly]="true"
@@ -754,10 +768,22 @@ import { RouterHistoryService } from "../../services/router-history.service";
               <div><strong class="d-block">Discard this recording?</strong>Discarding deletes this unsaved recording and cannot be undone.</div>
             </div>
           }
+          @if (confirmingRouteDelete) {
+            <div class="alert alert-warning d-flex align-items-start" role="alert">
+              <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+              <div><strong class="d-block">Delete this route?</strong>This removes it from the group's Maps list and cannot be undone.</div>
+            </div>
+          }
           <div class="follow-actions">
             @if (confirmingRecordingDiscard) {
               <button class="btn btn-primary follow-main-btn" type="button" (click)="confirmingRecordingDiscard = false">Back to recording</button>
               <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="confirmRecordingDiscard()">Confirm discard</button>
+            } @else if (confirmingRouteDelete) {
+              <button class="btn btn-primary follow-main-btn" type="button" (click)="confirmingRouteDelete = false" [disabled]="deletingRoute">Keep route</button>
+              <button class="btn btn-danger follow-secondary-btn" type="button" (click)="confirmRouteDelete()" [disabled]="deletingRoute">
+                <fa-icon [icon]="faTrash"/>
+                {{ deletingRoute ? "Deleting" : "Confirm delete" }}
+              </button>
             } @else {
             @if (!followPanelWide && payload && hasLine && !recordingSession) {
               <button class="btn btn-primary follow-main-btn" [class.follow-actions-span]="progress?.mode === RouteFollowMode.EDITING" type="button" (click)="toggleFollowExtraSettings()">
@@ -859,6 +885,12 @@ import { RouterHistoryService } from "../../services/router-history.service";
                         [class.btn-primary]="creatingLine" [class.btn-quiet]="!creatingLine">
                   <fa-icon [icon]="faPencil"/>
                   {{ hasLine ? "Edit" : "Draw" }}
+                </button>
+              }
+              @if (canDeleteSavedRoute()) {
+                <button class="btn btn-grey-danger follow-secondary-btn" type="button" (click)="requestRouteDelete()" [disabled]="savingRoute">
+                  <fa-icon [icon]="faTrash"/>
+                  Delete
                 </button>
               }
             }
@@ -1080,6 +1112,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private loadSequence = 0;
   protected sessionStorageError: string | null = null;
   protected confirmingRecordingDiscard = false;
+  protected confirmingRouteDelete = false;
+  protected deletingRoute = false;
   protected recordingDetailsOpen = false;
 
   @ViewChild("directionsList") private directionsList: ElementRef<HTMLOListElement> | null = null;
@@ -1779,6 +1813,55 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     } else {
       void this.start();
     }
+  }
+
+  onPeekEdit(event: Event): void {
+    event.stopPropagation();
+    this.editRoute();
+  }
+
+  onPeekDelete(event: Event): void {
+    event.stopPropagation();
+    this.requestRouteDelete();
+  }
+
+  canDeleteSavedRoute(): boolean {
+    return !!this.canEditRoute && !!this.payload?.osMapsRouteId && !this.recordingSession
+      && this.progress?.mode === RouteFollowMode.IDLE
+      && (this.payload.source === RouteFollowSource.OS_MAPS || this.payload.source === RouteFollowSource.RECORDING);
+  }
+
+  requestRouteDelete(): void {
+    if (this.canDeleteSavedRoute()) {
+      this.confirmingRouteDelete = true;
+      this.expandSheet();
+    }
+  }
+
+  async confirmRouteDelete(): Promise<void> {
+    const routeId = this.payload?.osMapsRouteId;
+    if (!this.canDeleteSavedRoute() || !routeId) {
+      this.confirmingRouteDelete = false;
+    } else {
+      this.deletingRoute = true;
+      this.persistError = null;
+      try {
+        await this.osMapsExport.deleteRoute(routeId);
+        this.confirmingRouteDelete = false;
+        this.closeFollow(true);
+      } catch (error) {
+        this.logger.error("confirmRouteDelete failed:", error);
+        this.persistError = this.deleteFailureMessage(error);
+        this.confirmingRouteDelete = false;
+      } finally {
+        this.deletingRoute = false;
+      }
+    }
+  }
+
+  private deleteFailureMessage(error: unknown): string {
+    const body = (error as {error?: {error?: string; message?: string}})?.error;
+    return body?.error || body?.message || "The route could not be deleted. Try again.";
   }
 
   onSheetHandlePointerDown(event: PointerEvent): void {
