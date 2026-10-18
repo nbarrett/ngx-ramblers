@@ -1,15 +1,12 @@
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
-import { uniq } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { SiteMapPagesApiResponse, SiteMapPagesOutcome, SiteSearchApiResponse, SiteSearchGroup, SiteSearchIndexStatus, SiteSearchIndexStatusApiResponse, SiteSearchOutcome, SiteSearchResult, SiteSearchResultType } from "../../models/site-search.model";
-import { StoredValue } from "../../models/ui-actions";
+import { RecentSearchesService } from "./recent-searches.service";
 import { escapeHtml, isQuoted, unquote } from "../../functions/strings";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
-
-const RECENT_SEARCH_LIMIT = 5;
 
 @Injectable({
   providedIn: "root"
@@ -20,6 +17,7 @@ export class SiteSearchService {
   private http = inject(HttpClient);
   private commonDataService = inject(CommonDataService);
   private sanitizer = inject(DomSanitizer);
+  private history = inject(RecentSearchesService);
   private readonly BASE_URL = "/api/database/search";
 
   private readonly groupTitles: { type: SiteSearchResultType; title: string }[] = [
@@ -77,25 +75,15 @@ export class SiteSearchService {
   }
 
   recentSearches(): string[] {
-    try {
-      const stored = localStorage.getItem(StoredValue.SITE_SEARCH_RECENT);
-      return stored ? JSON.parse(stored) : [];
-    } catch (error) {
-      this.logger.error("failed to read recent searches:", error);
-      return [];
-    }
+    return this.history.recentSearches();
   }
 
   addRecentSearch(query: string): void {
-    const trimmed = (query || "").trim();
-    if (trimmed.length > 0) {
-      const recent = uniq([trimmed, ...this.recentSearches()]).slice(0, RECENT_SEARCH_LIMIT);
-      localStorage.setItem(StoredValue.SITE_SEARCH_RECENT, JSON.stringify(recent));
-    }
+    this.history.addRecentSearch(query);
   }
 
   clearRecentSearches(): void {
-    localStorage.removeItem(StoredValue.SITE_SEARCH_RECENT);
+    this.history.clearRecentSearches();
   }
 
   highlight(text: string, query: string): SafeHtml {

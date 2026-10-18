@@ -3,7 +3,7 @@ import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { SafeHtml } from "@angular/platform-browser";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faClockRotateLeft, faMagnifyingGlass, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faMagnifyingGlass, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { from, of, Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged, switchMap, tap } from "rxjs/operators";
 import { SiteSearchGroup, SiteSearchOutcome, SiteSearchResult, SiteSearchResultType } from "../../../models/site-search.model";
@@ -12,6 +12,7 @@ import { SiteSearchService } from "../../../services/search/site-search.service"
 import { UrlService } from "../../../services/url.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
+import { RecentSearchesComponent } from "../../../shared/components/recent-searches";
 import { StoredValue } from "../../../models/ui-actions";
 
 const MIN_QUERY_LENGTH = 2;
@@ -96,12 +97,7 @@ const PANEL_MARGIN = 16;
                 <div class="site-search-message">No results for "{{ query.trim() }}". Try a different word or spelling.</div>
               }
             } @else if (recent.length) {
-              <div class="site-search-group-title">Recent searches</div>
-              @for (term of recent; track term) {
-                <button type="button" class="site-search-result site-search-recent" (click)="applyRecent(term)">
-                  <fa-icon [icon]="faClockRotateLeft" class="me-2"/>{{ term }}
-                </button>
-              }
+              <app-recent-searches (searchSelected)="applyRecent($event)"/>
             } @else {
               <div class="site-search-message">Type at least {{ minQueryLength }} characters to search.</div>
             }
@@ -110,7 +106,7 @@ const PANEL_MARGIN = 16;
       }
     </div>`,
   styleUrls: ["./site-search.sass"],
-  imports: [FormsModule, RouterLink, FontAwesomeModule]
+  imports: [RecentSearchesComponent, FormsModule, RouterLink, FontAwesomeModule]
 })
 export class SiteSearchComponent implements OnInit, OnDestroy {
 
@@ -123,7 +119,6 @@ export class SiteSearchComponent implements OnInit, OnDestroy {
 
   faMagnifyingGlass = faMagnifyingGlass;
   faXmark = faXmark;
-  faClockRotateLeft = faClockRotateLeft;
   minQueryLength = MIN_QUERY_LENGTH;
 
   open = false;
