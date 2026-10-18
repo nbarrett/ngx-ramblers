@@ -840,7 +840,8 @@ export class WalkEditComponent implements OnInit, OnDestroy {
   }
 
   private updateGoogleMapsUrl() {
-    this.googleMapsUrl = this.display.googleMapsUrl(false, this.displayedWalk?.walk?.groupEvent?.start_location?.postcode, this.displayedWalk?.walk?.groupEvent?.start_location?.postcode);
+    const start = this.displayedWalk?.walk?.groupEvent?.start_location;
+    this.googleMapsUrl = this.display.googleMapsUrl(false, start?.postcode, start?.postcode, start);
   }
 
   private toLogJson(value: unknown): string {

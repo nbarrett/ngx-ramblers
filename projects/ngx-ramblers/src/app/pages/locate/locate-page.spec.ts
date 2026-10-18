@@ -1,11 +1,12 @@
 import { TestBed } from "@angular/core/testing";
+import { of } from "rxjs";
 import { ActivatedRoute, convertToParamMap } from "@angular/router";
 import * as L from "leaflet";
 import proj4 from "proj4";
 import { EPSG_27700_PROJ4, MapProjectionCode } from "../../common/maps/map-projection.constants";
 import { GridReferenceLookupResponse } from "../../models/address-model";
 import { formatGridReference } from "../../functions/grid-reference";
-import { LOCATE_OVERVIEW_CENTRE } from "../../models/locate.model";
+import { PostcodeNavigationStatus, PostcodeRoadCheckStatus } from "../../models/postcode-navigation.model";
 import { StoredValue } from "../../models/ui-actions";
 import { ClipboardService } from "../../services/clipboard.service";
 import { GoogleMapsService } from "../../services/google-maps.service";
@@ -14,6 +15,7 @@ import { CurrentLocationService } from "../../services/maps/current-location.ser
 import { LocateMarkersService } from "../../services/maps/locate-markers.service";
 import { GridReferenceService } from "../../services/maps/grid-reference.service";
 import { MapMarkerStyleService } from "../../services/maps/map-marker-style.service";
+import { MapDefaultsService } from "../../services/maps/map-defaults.service";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { PageService } from "../../services/page.service";
@@ -25,28 +27,40 @@ import { LocatePageComponent } from "./locate-page";
 
 describe("Locate pin interaction", () => {
   const lookup = vi.fn();
+  const localCentre: [number, number] = [51.6, -0.2];
+  const route = {snapshot: {queryParamMap: convertToParamMap({})}};
   const updateQueryParameters = vi.fn().mockResolvedValue(true);
   const state: {component: LocatePageComponent; map: L.Map; grid: GridReferenceService} = {component: null, map: null, grid: null};
 
   beforeEach(() => {
+    route.snapshot.queryParamMap = convertToParamMap({});
     lookup.mockReset().mockResolvedValue([]);
     updateQueryParameters.mockClear();
     TestBed.configureTestingModule({providers: [
       LocateMarkersService,
-      {provide: ActivatedRoute, useValue: {snapshot: {queryParamMap: convertToParamMap({})}}},
-      {provide: UiActionsService, useValue: {initialValueFor: () => null, updateQueryParameters}},
+      {provide: ActivatedRoute, useValue: route},
+      {provide: UiActionsService, useValue: {initialValueFor: () => null, queryValueForAlias: () => null, updateQueryParameters}},
+      {provide: MapDefaultsService, useValue: {center: () => localCentre, zoom: () => 11, resolve: () => Promise.resolve()}},
       {provide: MapTilesService, useValue: {
         initializeProjections: () => proj4.defs(MapProjectionCode.BRITISH_NATIONAL_GRID, EPSG_27700_PROJ4),
-        matchingZoom: () => 16
+        matchingZoom: (_from, _style, zoom) => zoom,
+        hasOsApiKey: () => false,
+        createBaseLayer: () => L.layerGroup(),
+        crsForStyle: () => L.CRS.EPSG3857,
+        maxZoomForStyle: () => 20
       }},
-      {provide: MapMarkerStyleService, useValue: {markerIcon: () => L.divIcon(), numberedMarkerIcon: () => L.divIcon(), previewPinHtml: () => "<svg></svg>"}},
+      {provide: MapMarkerStyleService, useValue: {markerIcon: () => L.divIcon(), numberedMarkerIcon: (label: string) => L.divIcon({html: label}), numberedMarkerColour: () => "#453C90", previewPinHtml: () => "<svg></svg>"}},
       {provide: AddressQueryService, useValue: {gridReferenceLookupFromLatLng: lookup}},
       {provide: LoggerFactory, useValue: {createLogger: () => ({warn: vi.fn()})}},
       {provide: WalkDisplayService, useValue: {
         googleDirectionsAvailable: () => false,
         formatGrid: (grid, digits) => formatGridReference(grid, digits, true)
       }},
-      ...[PageService, UrlService, CurrentLocationService, GoogleMapsService, MemberLoginService, ClipboardService]
+      {provide: PageService, useValue: {setTitle: vi.fn()}},
+      {provide: UrlService, useValue: {relativeUrl: () => "/locate"}},
+      {provide: GoogleMapsService, useValue: {events: () => of({})}},
+      {provide: MemberLoginService, useValue: {memberLoggedIn: () => false}},
+      ...[CurrentLocationService, ClipboardService]
         .map(provide => ({provide, useValue: {}}))
     ]});
     state.component = TestBed.runInInjectionContext(() => new LocatePageComponent());
@@ -60,14 +74,35 @@ describe("Locate pin interaction", () => {
     state.component.ngOnDestroy();
   });
 
-  it("resets the map to the overview without removing the selected location", async () => {
+  it("opens the group area without selecting a pin or requesting the visitor's location", async () => {
+    const useMyLocation = vi.spyOn(state.component, "useMyLocation");
+    await state.component.ngOnInit();
+    expect(state.component.options.center).toEqual(L.latLng(localCentre));
+    expect(state.component.options.zoom).toBe(11);
+    expect(state.component.point).toBeNull();
+    expect(state.component.location).toBeNull();
+    expect(useMyLocation).not.toHaveBeenCalled();
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("keeps an explicitly linked location selected instead of replacing it with the group centre", async () => {
+    route.snapshot.queryParamMap = convertToParamMap({
+      [StoredValue.LAT]: "51.51", [StoredValue.LON]: "-0.12", [StoredValue.POSTCODE]: "AB1 2CD"
+    });
+    await state.component.ngOnInit();
+    expect(state.component.options.center).toEqual(L.latLng(51.51, -0.12));
+    expect(state.component.point.latitude).toBe(51.51);
+    expect(state.component.location.postcode).toBe("AB1 2CD");
+  });
+
+  it("resets the map to the group area without removing the selected location", async () => {
     state.component.onMapClick({latlng: L.latLng(51.5, -0.1)} as L.LeafletMouseEvent);
     const point = state.component.point;
     const moved = new Promise<void>(resolve => state.map.once("moveend", () => resolve()));
     state.component.resetView();
     await moved;
-    expect(state.map.getCenter().lat).toBeCloseTo(LOCATE_OVERVIEW_CENTRE[0], 3);
-    expect(state.map.getCenter().lng).toBeCloseTo(LOCATE_OVERVIEW_CENTRE[1], 3);
+    expect(state.map.getCenter().lat).toBeCloseTo(localCentre[0], 3);
+    expect(state.map.getCenter().lng).toBeCloseTo(localCentre[1], 3);
     expect(state.component.point).toEqual(point);
   });
 
@@ -165,6 +200,24 @@ describe("Locate pin interaction", () => {
     expect(state.component.savedPoints[0].number).toBe(2);
   });
 
+  it("updates pin numbers when saved points are reordered", () => {
+    state.component.onMapClick({latlng: L.latLng(51.5, -0.1)} as L.LeafletMouseEvent);
+    state.component.addPoint();
+    state.component.onMapClick({latlng: L.latLng(51.501, -0.102)} as L.LeafletMouseEvent);
+    state.component.addPoint();
+    const [first, second] = state.component.savedPoints;
+    state.component.reorderSavedPoints([second, first]);
+    expect(state.component.savedPoints.map(saved => saved.number)).toEqual([1, 2]);
+    expect(state.component.savedPoints[0].id).toBe(second.id);
+    const labels: string[] = [];
+    state.map.eachLayer(layer => {
+      if (layer instanceof L.Marker) {
+        labels.push((layer.getIcon() as L.DivIcon).options.html as string);
+      }
+    });
+    expect(labels).toEqual(expect.arrayContaining(["1", "2"]));
+  });
+
   it("renames saved points and clears the selected pin when it is removed", () => {
     state.component.onMapClick({latlng: L.latLng(51.5, -0.1)} as L.LeafletMouseEvent);
     state.component.addPoint();
@@ -176,6 +229,31 @@ describe("Locate pin interaction", () => {
     expect(state.component.activeSavedPointId).toBeNull();
     expect(state.component.point).toBeNull();
     expect(new URL(state.component.shareUrl).searchParams.has(StoredValue.LOCATE_POINTS)).toBe(false);
+  });
+
+  it("shows a postcode comparison in the current map and reuses existing saved points", () => {
+    state.component.onLocationChange({postcode: "AB1 2CD", description: "Hillside Park", latlng: {lat: 51.5, lng: -0.1}});
+    const location = state.component.location;
+    const flyToBounds = vi.spyOn(state.map, "flyToBounds");
+    const check = {location: {...location}, postcode: "AB1 2CD", postcodePoint: {lat: 51.5, lng: -0.0812},
+      separationMetres: 1300, drivingMetres: null, status: PostcodeNavigationStatus.SEPARATED, roadStatus: PostcodeRoadCheckStatus.NOT_CHECKED};
+    state.component.comparePostcode(check);
+    expect(state.component.savedPoints.length).toBe(2);
+    expect(state.component.savedPoints[0].name).toBe("Meeting point");
+    expect(state.component.savedPoints[1].point.longitude).toBe(-0.0812);
+    expect(state.component.location).toBe(location);
+    expect(flyToBounds).toHaveBeenCalledOnce();
+    state.component.comparePostcode(check);
+    expect(state.component.savedPoints.length).toBe(2);
+    expect(flyToBounds).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the selected postcode and exact coordinates together in shared links", () => {
+    state.component.onLocationChange({postcode: "AB1 2CD", description: "Hillside Park", latlng: {lat: 51.5012345, lng: -0.1023456}});
+    const shared = new URL(state.component.shareUrl);
+    expect(shared.searchParams.get(StoredValue.POSTCODE)).toBe("AB1 2CD");
+    expect(shared.searchParams.get(StoredValue.LAT)).toBe("51.5012345");
+    expect(shared.searchParams.get(StoredValue.LON)).toBe("-0.1023456");
   });
 
   it("names a saved point from the nearest place", async () => {

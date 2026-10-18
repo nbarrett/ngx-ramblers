@@ -2,7 +2,8 @@ import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, View
 import { SafeResourceUrl } from "@angular/platform-browser";
 import { ActivatedRoute } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faChevronDown, faChevronUp, faMap, faMapLocationDot, faMapPin, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faChevronUp, faDiamondTurnRight, faMap, faMapLocationDot, faMapPin, faPencil } from "@fortawesome/free-solid-svg-icons";
+import { googleDrivingDirectionsUrl, withoutTrailingPostcode } from "../../../functions/locate";
 import { formatGridReference } from "../../../functions/grid-reference";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -31,7 +32,10 @@ import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { LocationType } from "../../../models/map.model";
 import { VenueAutocompleteComponent } from "../walk-venue/venue-autocomplete";
 import { VenueWithUsageStats } from "../../../models/event-venue.model";
-import { LatLng } from "leaflet";
+import { resultPlaceName } from "../../../functions/venue";
+import { PostcodeNavigationCheckComponent } from "../../../shared/components/postcode-navigation-check";
+import { PostcodeMapPreview, PostcodeNavigationCheck } from "../../../models/postcode-navigation.model";
+import { GridReferenceService } from "../../../services/maps/grid-reference.service";
 
 @Component({
     selector: "app-walk-location-edit",
@@ -54,6 +58,7 @@ import { LatLng } from "leaflet";
                 [placeholder]="locationSearchPlaceholder()"
                 [startingPoint]="searchStartingPoint"
                 [initialVenue]="searchInitialVenue"
+                [showSelectionHint]="false"
                 (venueSelected)="onVenueSelected($event)"/>
               @if (!disabled) {
                 <small class="form-text text-muted">{{ locationSearchHint() }}</small>
@@ -75,7 +80,7 @@ import { LatLng } from "leaflet";
                   <li>Stay on Pin (the OS map), not Google Map. Zoom in until you can see the roads.</li>
                   <li>Drag the pin onto the exact spot people should meet. The form then looks up the nearest postcode and grid for that pin.</li>
                   <li>If a yellow notice says the postcode has changed, that is expected. You can keep the new one or pick another from the {{ locationType }} Postcode list.</li>
-                  <li>Check the description under the search if you want the wording to stay as the place you typed, then save.</li>
+                  <li>If the result name differs from what you typed, you can keep your wording or use the result. The pin, postcode and grid still come from the result.</li>
                 </ol>
               }
             </div>
@@ -86,10 +91,10 @@ import { LatLng } from "leaflet";
       <div class="row" [class.mt-3]="!hideLocationDropdown">
         <div class="col-sm-6">
           <div class="form-group mb-0">
-            <label for="post-code">{{ locationType }} Postcode</label>
+            <label [attr.for]="'location-postcode-' + locationType">{{ locationType }} Postcode</label>
             <div class="input-group">
               @if (showPostcodeSelect) {
-                <ng-select id="post-code"
+                <ng-select [id]="'location-postcode-' + locationType"
                   class="postcode-select"
                   [items]="postcodeSelectItems"
                   [clearable]="true"
@@ -99,6 +104,7 @@ import { LatLng } from "leaflet";
                   bindLabel="label"
                   bindValue="postcode"
                   [(ngModel)]="locationDetails.postcode"
+                  [ngModelOptions]="{standalone: true}"
                   (ngModelChange)="onPostcodeSelected()"
                   (clear)="showPostcodeSelect = false"
                   placeholder="Select postcode">
@@ -120,9 +126,18 @@ import { LatLng } from "leaflet";
               }
               @if (!showPostcodeSelect) {
                 <input [disabled]="disabled" [(ngModel)]="locationDetails.postcode"
+                  [ngModelOptions]="{standalone: true}"
                   (ngModelChange)="postcodeChange()"
                   [class.is-invalid]="locationDetails.postcode && !postcodeValid()"
-                  type="text" class="form-control input-sm" id="post-code"
+                  type="text" class="form-control input-sm"
+                  [id]="'location-postcode-' + locationType"
+                  [attr.name]="'location-postcode-' + locationType"
+                  autocomplete="one-time-code"
+                  autocapitalize="characters"
+                  autocorrect="off"
+                  spellcheck="false"
+                  data-lpignore="true"
+                  data-form-type="other"
                   placeholder="Enter Postcode here">
               }
               <button type="button" class="btn btn-outline-secondary"
@@ -157,16 +172,12 @@ import { LatLng } from "leaflet";
           </div>
         </div>
       </div>
-      <div class="row mt-3">
-        <div class="col-sm-12">
-          <div class="form-group mb-0 d-flex align-items-baseline gap-2">
-            <label for="lat-long-{{locationType}}" class="mb-0">{{ locationType }} Lat/Long:</label>
-            <div id="lat-long-{{locationType}}">{{ numberUtils.asNumber(locationDetails.latitude, 4) }} / {{ numberUtils.asNumber(locationDetails.longitude, 4) }}</div>
-          </div>
-        </div>
-      </div>
+      <app-postcode-navigation-check [latitude]="locationDetails.latitude" [longitude]="locationDetails.longitude"
+        [postcode]="locationDetails.postcode" [compareInPlace]="true"
+        [comparisonActive]="!!comparisonPreview" (compare)="showPostcodeComparison($event)"
+        (clearComparison)="hidePostcodeComparison()"/>
       @if (!hideMap) {
-      <div class="row">
+      <div class="row mt-3">
         <div class="col-sm-12">
           <div class="btn-group walk-location-map-toggle w-100 mb-2" role="group" aria-label="Toggle Google Maps View">
             <button type="button" class="btn btn-primary text-nowrap" [class.active]="!showGoogleMapsView"
@@ -181,9 +192,12 @@ import { LatLng } from "leaflet";
             </button>
           </div>
           @if (showGoogleMapsView) {
-            <p>The map below is a preview of where postcode
-              <strong>{{ locationDetails.postcode }}</strong>
-            will appear on Google Maps. This map will be displayed in the detail view of the walk.</p>
+            <p>Google Map shows the pin you set ({{ numberUtils.asNumber(locationDetails.latitude, 4) }}, {{ numberUtils.asNumber(locationDetails.longitude, 4) }}). Directions use these coordinates, not the postcode.</p>
+            @if (googleDirectionsHref) {
+              <a class="btn btn-primary mb-2" [href]="googleDirectionsHref" target="_blank" rel="noopener">
+                <fa-icon class="me-2" [icon]="faDiamondTurnRight"/>Get directions
+              </a>
+            }
             @if (googleMapsUrl) {
               <iframe allowfullscreen class="map-walk-location-edit" style="border:0;border-radius: 10px;"
               [src]="googleMapsUrl"></iframe>
@@ -191,21 +205,25 @@ import { LatLng } from "leaflet";
               <div class="alert alert-warning d-flex align-items-start mb-0">
                 <fa-icon [icon]="faMap" class="flex-shrink-0 mt-1"/>
                 <div class="ms-2">
-                  <strong class="d-block">No postcode yet</strong>
-                  Choose a starting location or enter a postcode, then open Google Map again.
+                  <strong class="d-block">No pin yet</strong>
+                  Choose a starting location or place the pin, then open Google Map again.
                 </div>
               </div>
             }
           }
           @if (showLeafletView) {
             <div [class.d-none]="showGoogleMapsView">
-              @if (!disabled) {
-                <p>Use the map below to drag the pin to accurately pinpoint the location.</p>
-              }
+              <p class="mb-2" id="lat-long-{{locationType}}">
+                @if (!disabled) {
+                  Drag the pin to pinpoint the location.
+                }
+                {{ locationType }} lat/long: {{ numberUtils.asNumber(locationDetails.latitude, 4) }} / {{ numberUtils.asNumber(locationDetails.longitude, 4) }}
+              </p>
               <div app-map-edit class="map-walk-location-edit" [locationType]="locationType"
                 [locationDetails]="locationDetails"
                 [endLocationDetails]="endLocationDetails"
                 [showCombinedMap]="showCombinedMap"
+                [comparisonPreview]="comparisonPreview"
                 [gpxFile]="gpxFile"
                 [routeColor]="routeColor"
                 [routeWeight]="routeWeight"
@@ -224,13 +242,14 @@ import { LatLng } from "leaflet";
       }
     }`,
     styleUrls: ["./walk-edit.component.sass"],
-    imports: [FormsModule, LowerCasePipe, TooltipDirective, MapEditComponent, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, CopyIconComponent, VenueAutocompleteComponent, FontAwesomeModule]
+    imports: [PostcodeNavigationCheckComponent, FormsModule, LowerCasePipe, TooltipDirective, MapEditComponent, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, CopyIconComponent, VenueAutocompleteComponent, FontAwesomeModule]
 })
 export class WalkLocationEditComponent implements OnInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("WalkLocationEditComponent", NgxLoggerLevel.ERROR);
   googleMapsService = inject(GoogleMapsService);
   private addressQueryService = inject(AddressQueryService);
+  private gridReferences = inject(GridReferenceService);
   private broadcastService = inject<BroadcastService<string>>(BroadcastService);
   route = inject(ActivatedRoute);
   protected dateUtils = inject(DateUtilsService);
@@ -279,7 +298,9 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   public postcodeOptions: {postcode: string, distance: number}[] = [];
   public postcodeSelectItems: {postcode: string, distance: number, label: string, distanceLabel: string}[] = [];
   public googleMapsUrl: SafeResourceUrl | null = null;
+  public googleDirectionsHref: string | null = null;
   public faPencil = faPencil;
+  public faDiamondTurnRight = faDiamondTurnRight;
   public faMapPin = faMapPin;
   public faMap = faMap;
   public faMapLocationDot = faMapLocationDot;
@@ -291,6 +312,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   public gridRefLookupBusy = false;
   public searchStartingPoint: { latitude: number; longitude: number } | null = null;
   public searchInitialVenue: Partial<VenueWithUsageStats> | null = null;
+  public comparisonPreview: PostcodeMapPreview | null = null;
 
   gridReferenceValid(): boolean {
     const gridRef = this.locationDetails?.grid_reference_10?.trim();
@@ -344,10 +366,12 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
 
   protected updateGoogleMapsUrl() {
     const postcode = this.locationDetails?.postcode?.trim();
-    if (postcode) {
-      this.googleMapsUrl = this.display.googleMapsUrl(false, postcode, postcode);
+    if (isNumber(this.locationDetails?.latitude) && isNumber(this.locationDetails?.longitude)) {
+      this.googleMapsUrl = this.display.googleMapsUrl(false, postcode, postcode, this.locationDetails);
+      this.googleDirectionsHref = googleDrivingDirectionsUrl(this.locationDetails.latitude, this.locationDetails.longitude);
     } else {
       this.googleMapsUrl = null;
+      this.googleDirectionsHref = null;
     }
   }
 
@@ -357,69 +381,51 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
     return /^[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}$/i.test(postcode);
   }
 
-  async postcodeChange() {
-    this.locationDetails.longitude = null;
-    this.locationDetails.latitude = null;
-    this.locationDetails.grid_reference_6 = null;
-    this.locationDetails.grid_reference_8 = null;
-    this.locationDetails.grid_reference_10 = null;
-
-    if (this.locationType === LocationType.STARTING && this.locationDetails.postcode?.length >= 5) {
-      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_STARTING_POSTCODE_UPDATED, this.locationDetails.postcode));
-    }
-
-    if (!this.postcodeValid() && this.locationDetails.postcode?.length >= 5) {
-      this.notify?.warning({
-        title: "Invalid format",
-        message: "UK postcode must be  1-2 letters, 1-2 digits, optional letter, space (optional), digit, 2 letters"
-      });
-      this.showLeafletView = false;
-      this.updateGoogleMapsUrl();
-      return Promise.resolve();
-    }
-
-    if (this.locationDetails.postcode.length >= 5) {
-      const postcode = this.locationDetails.postcode;
-      this.locationDetails.postcode = postcode?.toUpperCase()?.trim();
-      const gridReferenceLookupResponse: GridReferenceLookupResponse = await this.addressQueryService.gridReferenceLookup(postcode);
-
-      if (gridReferenceLookupResponse?.error) {
-        this.notify?.warning({
-          title: "Invalid postcode",
-          message: gridReferenceLookupResponse.error
-        });
-        this.showLeafletView = false;
-        this.updateGoogleMapsUrl();
-        return Promise.resolve();
+  async postcodeChange(): Promise<void> {
+    const postcode = this.locationDetails.postcode?.toUpperCase()?.trim() || null;
+    this.locationDetails.postcode = postcode;
+    const hasCoordinates = isNumber(this.locationDetails.latitude) && isNumber(this.locationDetails.longitude);
+    if (postcode && !this.postcodeValid()) {
+      this.notify?.warning({title: "Invalid postcode", message: "Enter a complete UK postcode. The pin and grid reference have been kept."});
+    } else if (!hasCoordinates && postcode) {
+      try {
+        const result = await this.addressQueryService.gridReferenceLookup(postcode);
+        if (this.locationDetails.postcode === postcode && !isNumber(this.locationDetails.latitude) && !isNumber(this.locationDetails.longitude)) {
+          if (result?.error || !result?.latlng) {
+            this.notify?.warning({title: "Postcode not found", message: result?.error || "No location data found for that postcode."});
+          } else {
+            this.applyPlaceLookupResult(result, postcode);
+          }
+        }
+      } catch (error) {
+        this.logger.error("Postcode lookup failed:", error);
+        this.notify?.warning({title: "Postcode lookup unavailable", message: "Choose a place or set the pin on the map."});
       }
+    }
+    this.showLeafletView = this.shouldShowLeafletView();
+    this.formatGridReferenceText();
+    this.updateGoogleMapsUrl();
+    this.syncSearchInputs();
+    if (this.locationType === LocationType.STARTING && postcode && this.postcodeValid()) {
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_STARTING_POSTCODE_UPDATED, postcode));
+    }
+    this.locationDetailsChange.emit(cloneDeep(this.locationDetails));
+  }
 
-      if (!gridReferenceLookupResponse?.latlng) {
-        this.notify?.warning({
-          title: "Postcode not found",
-          message: `No location data found for postcode "${postcode}"`
-        });
-        this.showLeafletView = false;
-        this.updateGoogleMapsUrl();
-        return Promise.resolve();
-      }
-
-      this.notify?.clearBusy();
-      this.locationDetails.grid_reference_6 = gridReferenceLookupResponse.gridReference6;
-      this.locationDetails.grid_reference_8 = gridReferenceLookupResponse.gridReference8;
-      this.locationDetails.grid_reference_10 = gridReferenceLookupResponse.gridReference10;
-      this.locationDetails.latitude = gridReferenceLookupResponse.latlng.lat;
-      this.locationDetails.longitude = gridReferenceLookupResponse.latlng.lng;
+  showPostcodeComparison(check: PostcodeNavigationCheck): void {
+    if (check.postcodePoint) {
+      this.comparisonPreview = {
+        latitude: check.postcodePoint.lat,
+        longitude: check.postcodePoint.lng,
+        postcode: check.postcode
+      };
       this.showLeafletView = true;
-      this.formatGridReferenceText();
-      this.updateGoogleMapsUrl();
-      setTimeout(() => this.mapComponent?.invalidateSize(), 0);
-      return Promise.resolve();
-    } else {
-      this.notify?.clearBusy();
-      this.showLeafletView = false;
-      this.updateGoogleMapsUrl();
-      return Promise.resolve();
+      this.selectPinView();
     }
+  }
+
+  hidePostcodeComparison(): void {
+    this.comparisonPreview = null;
   }
 
   gridReferenceInput(value: string) {
@@ -442,6 +448,11 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
   onMapLocationChange(): void {
     this.formatGridReferenceText();
     this.updateGoogleMapsUrl();
+    this.locationDetailsChange.emit(this.locationDetails);
+    const postcode = this.locationDetails?.postcode;
+    if (this.locationType === LocationType.STARTING && postcode && this.postcodeValid()) {
+      this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.WALK_STARTING_POSTCODE_UPDATED, postcode));
+    }
   }
 
   formatGridReferenceText(): void {
@@ -504,7 +515,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
     if (result.postcode) {
       this.locationDetails.postcode = result.postcode;
     }
-    this.locationDetails.description = result.description || fallbackDescription;
+    this.locationDetails.description = fallbackDescription || result.description;
     this.showLeafletView = true;
     this.formatGridReferenceText();
     this.updateGoogleMapsUrl();
@@ -525,7 +536,7 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
 
   locationSearchHint(): string {
     if (this.locationType === LocationType.STARTING) {
-      return "The walk start sent to Ramblers: pin, postcode and grid. If you set a venue first, the start is filled from that. You can also search here.";
+      return "Pin, postcode and grid for the start. If you set a venue first, the start is filled from that. You can also search here.";
     } else if (this.locationType === LocationType.FINISHING || this.locationType === LocationType.END) {
       return "Where the walk finishes. Search by name, postcode or place.";
     } else {
@@ -548,13 +559,14 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
       this.searchStartingPoint = null;
     }
     const postcode = this.locationDetails?.postcode || "";
-    const description = (this.locationDetails?.description || "").trim();
+    const description = withoutTrailingPostcode(this.locationDetails?.description);
     const name = description && description.toUpperCase() !== postcode.toUpperCase() ? description : postcode;
     if (name) {
-      if (this.searchInitialVenue?.name !== name || this.searchInitialVenue?.postcode !== postcode) {
+      if (this.searchInitialVenue?.ngSelectLabel !== name && this.searchInitialVenue?.name !== name) {
         this.searchInitialVenue = {
           name,
-          postcode: this.locationDetails.postcode,
+          enteredName: name,
+          ngSelectLabel: name,
           lat: this.locationDetails.latitude,
           lon: this.locationDetails.longitude
         };
@@ -573,26 +585,28 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
     }
   }
 
+  private locationDescriptionFromVenue(venue: VenueWithUsageStats): string {
+    const entered = withoutTrailingPostcode(venue.enteredName);
+    const fromResult = resultPlaceName(venue);
+    if (entered) {
+      return entered;
+    } else {
+      return fromResult;
+    }
+  }
+
   private async applyVenueToLocation(venue: VenueWithUsageStats) {
-    const description = [venue.name, venue.address1].filter(Boolean).join(", ");
+    const description = this.locationDescriptionFromVenue(venue);
     const hasCoords = isNumber(venue.lat) && isNumber(venue.lon);
     if (hasCoords) {
       this.locationDetails.latitude = venue.lat;
       this.locationDetails.longitude = venue.lon;
-      if (venue.postcode) {
-        this.locationDetails.postcode = venue.postcode;
-      }
+      this.locationDetails.postcode = venue.postcode || null;
       this.locationDetails.description = description || this.locationDetails.description;
-      const lookups = await this.addressQueryService.gridReferenceLookupFromLatLng(new LatLng(venue.lat, venue.lon));
-      const grid = lookups?.[0];
-      if (grid) {
-        this.locationDetails.grid_reference_6 = grid.gridReference6 || null;
-        this.locationDetails.grid_reference_8 = grid.gridReference8 || null;
-        this.locationDetails.grid_reference_10 = grid.gridReference10 || null;
-        if (!this.locationDetails.postcode && grid.postcode) {
-          this.locationDetails.postcode = grid.postcode;
-        }
-      }
+      const grid = this.gridReferences.fromLatLng(venue.lat, venue.lon);
+      this.locationDetails.grid_reference_6 = grid?.gridReference6 || null;
+      this.locationDetails.grid_reference_8 = grid?.gridReference8 || null;
+      this.locationDetails.grid_reference_10 = grid?.gridReference10 || null;
       this.showLeafletView = true;
       this.formatGridReferenceText();
       this.updateGoogleMapsUrl();
@@ -627,50 +641,9 @@ export class WalkLocationEditComponent implements OnInit, OnDestroy {
     }));
   }
 
-  async onPostcodeSelected() {
-    this.updateGoogleMapsUrl();
-    if (!this.locationDetails?.postcode) {
-      return;
-    }
-
-    const isFromList = this.postcodeOptions.some(opt => opt.postcode === this.locationDetails.postcode);
-
-    if (!isFromList) {
-      this.showPostcodeSelect = false;
-      return this.postcodeChange();
-    }
-
-    try {
-      const result = await this.addressQueryService.gridReferenceLookup(this.locationDetails.postcode);
-      if (result?.error) {
-        this.notify?.warning({
-          title: "Partial update",
-          message: `Postcode ${this.locationDetails.postcode} selected but full details unavailable`
-        });
-        return;
-      }
-      if (result?.latlng) {
-        this.locationDetails.latitude = result.latlng.lat;
-        this.locationDetails.longitude = result.latlng.lng;
-      }
-      this.locationDetails.grid_reference_6 = result?.gridReference6 || null;
-      this.locationDetails.grid_reference_8 = result?.gridReference8 || null;
-      this.locationDetails.grid_reference_10 = result?.gridReference10 || null;
-      this.showPostcodeSelect = false;
-      this.formatGridReferenceText();
-      this.updateGoogleMapsUrl();
-      setTimeout(() => this.mapComponent?.invalidateSize(), 0);
-      this.notify?.success({
-        title: "Postcode updated",
-        message: `${this.locationType} location updated to ${this.locationDetails.postcode}`
-      });
-    } catch (error: any) {
-      this.logger.error("onPostcodeSelected:error", error);
-      this.notify?.error({
-        title: "Lookup failed",
-        message: error?.message || "Unable to look up postcode details"
-      });
-    }
+  async onPostcodeSelected(): Promise<void> {
+    this.showPostcodeSelect = false;
+    await this.postcodeChange();
   }
 
   private postcodeLabel(option: {postcode: string, distance: number}): string {

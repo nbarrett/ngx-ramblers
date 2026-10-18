@@ -126,7 +126,7 @@ import { StoredValue } from "../../../models/ui-actions";
                   <div content>
                     <a
                       tooltip="Click to locate postcode {{groupEvent?.groupEvent?.location?.postcode}} on Google Maps"
-                      [href]="walkDisplay.postcodeLink(groupEvent?.groupEvent?.location?.postcode)">{{ groupEvent?.groupEvent?.location?.postcode }}</a>
+                      [href]="walkDisplay.postcodeLink(groupEvent?.groupEvent?.location?.postcode, groupEvent?.groupEvent?.location)">{{ groupEvent?.groupEvent?.location?.postcode }}</a>
                   </div>
                 </div>
                 @if (links.meetup) {

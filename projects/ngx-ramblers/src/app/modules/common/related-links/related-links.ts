@@ -2,7 +2,6 @@ import { Component, EventEmitter, inject, Input, OnChanges, OnDestroy, OnInit, O
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faDiamondTurnRight, faMapLocationDot, faRoute } from "@fortawesome/free-solid-svg-icons";
 import { AddToCalendarLinkComponent } from "./add-to-calendar-link";
-import { nativeShareSupported, shareOrOpen } from "../../../functions/native-share";
 import { RelatedLinkComponent } from "./related-link";
 import { directionsLinks } from "../../../functions/locate";
 import { AppShellService } from "../../../services/maps/app-shell.service";
@@ -69,8 +68,7 @@ import { FileNameData } from "../../../models/aws-object.model";
       <div app-related-link [mediaWidth]="display.relatedLinksMediaWidth" class="col-sm-12">
         <fa-icon title [icon]="faDirections" class="fa-icon"/>
         <a content [href]="directionsToStart()[0].url" target="_blank" rel="noopener"
-           (click)="shareDirections($event)"
-           tooltip="Directions to the start from where you are - opens your maps app">Directions to the start</a>
+           tooltip="Drive to the exact start pin set on the OS map, using your current location as the origin">Drive to the start in Google Maps</a>
       </div>
     }
     @if (gpxDownloadUrl() && showLink('relatedLinkShowGpx')) {
@@ -213,7 +211,7 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
   locateStartLink(): string | null {
     const start = this.displayedWalk?.walk?.groupEvent?.start_location;
     const gridReference = this.display.gridReferenceFrom(start);
-    return gridReference ? this.display.gridReferenceLink(gridReference) : (start?.postcode ? this.display.postcodeLink(start.postcode) : null);
+    return gridReference ? this.display.gridReferenceLink(gridReference) : (start?.postcode ? this.display.postcodeLink(start.postcode, start) : null);
   }
 
   directionsToStart(): DirectionsLink[] {
@@ -223,11 +221,13 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
 
   private startCoordinates(): { latitude: number; longitude: number } | null {
     const start = this.displayedWalk?.walk?.groupEvent?.start_location;
-    const latitude = Number(start?.latitude);
-    const longitude = Number(start?.longitude);
+    const latitude = start?.latitude;
+    const longitude = start?.longitude;
     const valid = !!start
       && Number.isFinite(latitude)
       && Number.isFinite(longitude)
+      && Math.abs(latitude) <= 90
+      && Math.abs(longitude) <= 180
       && !(latitude === 0 && longitude === 0);
     return valid ? {latitude, longitude} : null;
   }
@@ -257,15 +257,6 @@ export class RelatedLinksComponent implements OnInit, OnChanges, OnDestroy {
 
   calendarOrganiserEmail(): string {
     return this.display.showMailtoEmail(this.displayedWalk?.walk) ? this.displayedWalk?.walk?.fields?.contactDetails?.email || null : null;
-  }
-
-  shareDirections(event: MouseEvent): void {
-    const link = this.directionsToStart()[0];
-    if (this.appShell.mobilePlatform() && nativeShareSupported() && link) {
-      event.preventDefault();
-      const title = `Directions to ${this.displayedWalk?.walk?.groupEvent?.title || "the start"}`;
-      void shareOrOpen({title, url: link.url}, link.url);
-    }
   }
 
   gpxDownloadFileName(): string {

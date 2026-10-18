@@ -12,11 +12,35 @@ export function milesFromStart(metres: number): string {
   return `${(metres / 1609.344).toFixed(1)} miles from the start`;
 }
 
+export const MAP_PIN_POPUP_OPTIONS: PopupOptions = {...ROUTE_STEP_POPUP_OPTIONS, autoClose: true, closeOnClick: true};
+
+export function mapPinPopupHtml(parts: {label?: string; colour: string; headingHtml?: string; instruction?: string; note?: string}): string {
+  const number = parts.label ? `<span class="route-guide-number" style="background:${parts.colour}">${escapeHtml(parts.label)}</span>` : "";
+  const heading = parts.headingHtml ? `<span class="route-guide-distance">${parts.headingHtml}</span>` : "";
+  const instruction = parts.instruction ? `<span class="route-step-instruction">${escapeHtml(parts.instruction)}</span>` : "";
+  const note = parts.note ? `<span class="route-guide-note">${escapeHtml(parts.note)}</span>` : "";
+  return `<div class="route-step-card">${number}<span class="route-guide-body">${heading}${instruction}${note}</span></div>`;
+}
+
+export function locationPinPopupHtml(colour: string, title: string, details: (string | null)[], label = ""): string {
+  return mapPinPopupHtml({
+    label,
+    colour,
+    instruction: title,
+    note: details.filter(detail => isString(detail) && detail.trim()).join("\n")
+  });
+}
+
 export function routeStepPopupHtml(marker: MapMarker, entry: RouteGuideEntry | undefined, colour: string): string {
   const [width, height, , , pathData] = faArrowUp.icon;
   const path = isString(pathData) ? pathData : pathData.join(" ");
   const turn = marker.turn ? `<svg class="route-guide-turn" viewBox="0 0 ${width} ${height}" width="12" height="12" style="transform:rotate(${turnRotationDegrees(marker.turn)}deg)" aria-hidden="true"><path fill="currentColor" d="${path}"/></svg>` : "";
   const distance = entry && entry.distanceMetres !== null ? escapeHtml(milesFromStart(entry.distanceMetres)) : "";
-  const note = marker.note ? `<span class="route-guide-note">${escapeHtml(marker.note)}</span>` : "";
-  return `<div class="route-step-card"><span class="route-guide-number" style="background:${colour}">${escapeHtml(marker.label || "")}</span><span class="route-guide-body"><span class="route-guide-distance">${turn}${distance}</span><span class="route-step-instruction">${escapeHtml(marker.instruction || "")}</span>${note}</span></div>`;
+  return mapPinPopupHtml({
+    label: marker.label || "",
+    colour,
+    headingHtml: `${turn}${distance}`,
+    instruction: marker.instruction,
+    note: marker.note
+  });
 }

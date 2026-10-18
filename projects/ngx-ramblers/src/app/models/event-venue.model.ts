@@ -63,6 +63,11 @@ export interface Venue {
   url?: string;
 }
 
+export interface PlaceNameChoice {
+  typed: string;
+  fromResult: string;
+}
+
 export interface VenueType {
   type: string;
   displayName: string;
@@ -70,6 +75,7 @@ export interface VenueType {
 }
 
 export interface VenueWithUsageStats extends Venue {
+  enteredName?: string;
   usageCount: number;
   lastUsed?: string;
   ngSelectLabel?: string;

@@ -80,7 +80,7 @@ import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
               <dt class="font-weight-bold me-2">Postcode:</dt>
               <dd><a class="rams-text-decoration-pink"
                      tooltip="Click to locate postcode {{displayedWalk?.walk?.groupEvent?.start_location?.postcode}} on Google Maps"
-                     [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.start_location?.postcode)">
+                     [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.start_location?.postcode, displayedWalk?.walk?.groupEvent?.start_location)">
                 {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</a></dd>
             </dl>
           }

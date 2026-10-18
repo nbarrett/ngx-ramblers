@@ -68,7 +68,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
             <div content>
               <a
                 tooltip="Show postcode {{displayedWalk?.walk?.groupEvent?.start_location?.postcode}} on the map"
-                [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.start_location?.postcode)"
+                [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.start_location?.postcode, displayedWalk?.walk?.groupEvent?.start_location)"
                 >
                 {{ displayedWalk?.walk?.groupEvent?.start_location?.postcode }}</a>
             </div>
@@ -101,7 +101,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
               <div content>
                 <a
                   tooltip="Show finish postcode {{displayedWalk?.walk?.groupEvent?.end_location?.postcode}} on the map"
-                  [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.end_location?.postcode)"
+                  [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.end_location?.postcode, displayedWalk?.walk?.groupEvent?.end_location)"
                   >
                   {{ displayedWalk?.walk?.groupEvent?.end_location?.postcode }}</a>
               </div>
@@ -165,7 +165,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
                 <fa-icon [icon]="faMapMarkerAlt" class="fa-icon me-2"></fa-icon>
                 Meeting Point
               </p>
-              <div>@if (displayedWalk?.walk?.groupEvent?.meeting_date_time) {Meet at: {{ dateUtils.displayTime(displayedWalk?.walk?.groupEvent?.meeting_date_time) }}}@if (displayedWalk?.walk?.groupEvent?.meeting_date_time && (displayedWalk?.walk?.groupEvent?.meeting_location?.description || displayedWalk?.walk?.groupEvent?.meeting_location?.postcode)) { — }{{ displayedWalk?.walk?.groupEvent?.meeting_location?.description }}@if (displayedWalk?.walk?.groupEvent?.meeting_location?.description && displayedWalk?.walk?.groupEvent?.meeting_location?.postcode) {, }@if (displayedWalk?.walk?.groupEvent?.meeting_location?.postcode) {<a [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.meeting_location?.postcode)"
+              <div>@if (displayedWalk?.walk?.groupEvent?.meeting_date_time) {Meet at: {{ dateUtils.displayTime(displayedWalk?.walk?.groupEvent?.meeting_date_time) }}}@if (displayedWalk?.walk?.groupEvent?.meeting_date_time && (displayedWalk?.walk?.groupEvent?.meeting_location?.description || displayedWalk?.walk?.groupEvent?.meeting_location?.postcode)) { — }{{ displayedWalk?.walk?.groupEvent?.meeting_location?.description }}@if (displayedWalk?.walk?.groupEvent?.meeting_location?.description && displayedWalk?.walk?.groupEvent?.meeting_location?.postcode) {, }@if (displayedWalk?.walk?.groupEvent?.meeting_location?.postcode) {<a [href]="display.postcodeLink(displayedWalk?.walk?.groupEvent?.meeting_location?.postcode, displayedWalk?.walk?.groupEvent?.meeting_location)"
                    tooltip="Click to locate meeting point {{displayedWalk?.walk?.groupEvent?.meeting_location?.postcode}} on Google Maps">{{ displayedWalk?.walk?.groupEvent?.meeting_location?.postcode }}</a>}</div>
             </div>
           }

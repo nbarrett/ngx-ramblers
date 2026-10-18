@@ -49,7 +49,7 @@ import { GridReferenceDigits } from "../../../models/walks-config.model";
             } @else if (!location.postcode) {
               <span class="text-muted">Unavailable</span>
             } @else {
-            <a [href]="display.postcodeLink(location.postcode)"
+            <a [href]="display.postcodeLink(location.postcode, location)"
                tooltip="Show postcode {{ location.postcode }} on the map">
               {{ location.postcode }}
               <small class="text-muted ms-1">(Map)</small>

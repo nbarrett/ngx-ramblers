@@ -336,7 +336,7 @@ export class VenueLookupComponent implements OnInit {
 
   onVenueSelected(venue: VenueWithUsageStats) {
     this.logger.info("Venue selected:", venue);
-    this.venueLookup.emit(venue);
+    this.venueLookup.emit({...venue, name: venue.enteredName || venue.name});
   }
 
   onNewVenueCreated(venue: Partial<Venue>) {
