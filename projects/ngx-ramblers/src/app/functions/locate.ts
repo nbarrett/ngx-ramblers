@@ -10,9 +10,18 @@ export function locateParentPath(path: string): string {
   return trimmed.endsWith(`/${LOCATE_PAGE_PATH}`) ? trimmed.slice(0, -(LOCATE_PAGE_PATH.length + 1)) : trimmed;
 }
 
+export function googleMapsDestination(latitude: number, longitude: number): string | null {
+  return Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180
+    ? `${latitude.toFixed(7)},${longitude.toFixed(7)}`
+    : null;
+}
+
 export function locatePagePath(params: LocateLinkParams, basePath = ""): string {
+  const pin = googleMapsDestination(params.lat, params.lon);
   const query = [
     params.gridRef ? `${StoredValue.GRID_REF}=${encodeURIComponent(params.gridRef.replace(/\s+/g, ""))}` : "",
+    pin ? `${StoredValue.LAT}=${Number(params.lat).toFixed(7)}` : "",
+    pin ? `${StoredValue.LON}=${Number(params.lon).toFixed(7)}` : "",
     params.postcode ? `${StoredValue.POSTCODE}=${encodeURIComponent(params.postcode)}` : "",
     params.zoom ? `${StoredValue.MAP_ZOOM}=${params.zoom}` : "",
     params.provider ? `${StoredValue.MAP_PROVIDER}=${encodeURIComponent(params.provider)}` : ""
@@ -22,6 +31,16 @@ export function locatePagePath(params: LocateLinkParams, basePath = ""): string 
 
 export function wazeEmbedUrl(latitude: number, longitude: number, zoom = 16): string {
   return `https://embed.waze.com/iframe?zoom=${zoom}&lat=${latitude.toFixed(6)}&lon=${longitude.toFixed(6)}&pin=1`;
+}
+
+export function withoutTrailingPostcode(text: string | null | undefined): string {
+  const trimmed = (text || "").trim();
+  const match = trimmed.match(/,?\s*([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})$/i);
+  if (match && match.index > 0) {
+    return trimmed.slice(0, match.index).replace(/,\s*$/, "").trim();
+  } else {
+    return trimmed;
+  }
 }
 
 export function formattedUkPostcode(value: string | null | undefined): string | null {
@@ -78,8 +97,20 @@ export function directionsLinks(latitude: number, longitude: number, platform: A
   const destination = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
   const onPhone = platform !== AppInstallPlatform.OTHER;
   return [
-    {app: DirectionsApp.GOOGLE_MAPS, url: `https://www.google.com/maps/dir/?api=1&destination=${destination}`},
+    {app: DirectionsApp.GOOGLE_MAPS, url: googleDrivingDirectionsUrl(latitude, longitude)},
     ...(platform === AppInstallPlatform.IOS ? [{app: DirectionsApp.APPLE_MAPS, url: `https://maps.apple.com/?daddr=${destination}`}] : []),
     {app: DirectionsApp.WAZE, url: onPhone ? `https://waze.com/ul?ll=${destination}&navigate=yes` : `https://www.waze.com/live-map/directions?navigate=yes&to=ll.${latitude.toFixed(6)}%2C${longitude.toFixed(6)}`}
   ];
+}
+
+export function googleDrivingDirectionsUrl(latitude: number, longitude: number): string | null {
+  const destination = googleMapsDestination(latitude, longitude);
+  return destination
+    ? `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving&dir_action=navigate`
+    : null;
+}
+
+export function googleMapsPlaceUrl(latitude: number, longitude: number): string | null {
+  const destination = googleMapsDestination(latitude, longitude);
+  return destination ? `https://www.google.com/maps/search/?api=1&query=${destination}` : null;
 }

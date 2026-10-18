@@ -1,29 +1,37 @@
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewChild } from "@angular/core";
 import { AsyncPipe, DecimalPipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
+import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgHeaderTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { from, Observable, of, Subject, Subscription } from "rxjs";
 import { catchError, debounceTime, distinctUntilChanged, map, startWith, switchMap, tap } from "rxjs/operators";
 import { NgxLoggerLevel } from "ngx-logger";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faGoogle } from "@fortawesome/free-brands-svg-icons";
+import { RecentSearchesComponent } from "../../../shared/components/recent-searches";
+import { SearchHistoryDirective } from "../../../shared/directives/search-history.directive";
+import { StoredValue } from "../../../models/ui-actions";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { VenueService } from "../../../services/venue/venue.service";
 import { GeoDistanceService } from "../../../services/maps/geo-distance.service";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
-import { VenueSource, VenueTypeValue, VenueWithDistance, VenueWithUsageStats } from "../../../models/event-venue.model";
+import { UK_POSTCODE_PATTERN } from "../../../models/locate.model";
+import { withoutTrailingPostcode } from "../../../functions/locate";
+import { PlaceNameChoiceComponent } from "../../../shared/components/place-name-choice";
+import { PlaceNameChoice, VenueSource, VenueTypeValue, VenueWithDistance, VenueWithUsageStats } from "../../../models/event-venue.model";
+import { placeNameChoiceFor } from "../../../functions/venue";
 import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
 
 @Component({
   selector: "app-venue-autocomplete",
-  imports: [FormsModule, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, AsyncPipe, DecimalPipe, FontAwesomeModule, VenueIconPipe],
+  imports: [SearchHistoryDirective, RecentSearchesComponent, FormsModule, NgHeaderTemplateDirective, NgSelectComponent, NgOptionTemplateDirective, NgLabelTemplateDirective, AsyncPipe, DecimalPipe, FontAwesomeModule, VenueIconPipe, PlaceNameChoiceComponent],
   template: `
-    <ng-select
+    <ng-select #select appSearchHistory #history="appSearchHistory" [searchHistoryKey]="StoredValue.LOCATION_SEARCH_RECENT"
       [items]="venueSuggestions$ | async"
       [typeahead]="venueInput$"
       [loading]="venueLoading"
       [multiple]="false"
       [searchable]="true"
+      [editableSearchTerm]="true"
       [clearable]="clearable"
       [minTermLength]="minTermLength"
       [disabled]="disabled"
@@ -31,6 +39,7 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
       bindLabel="ngSelectLabel"
       [placeholder]="placeholder"
       [(ngModel)]="selectedVenue"
+      (focus)="repeatSelectedSearch()"
       (ngModelChange)="onVenueSelected($event)"
       [inputAttrs]="{ autocomplete: 'one-time-code', 'data-lpignore': 'true', 'data-form-type': 'other' }">
       <ng-template ng-label-tmp let-item="item">
@@ -58,7 +67,16 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
           </div>
         </div>
       </ng-template>
+      <ng-template ng-header-tmp>
+        <app-recent-searches [visible]="showRecentSearches" [storageKey]="StoredValue.LOCATION_SEARCH_RECENT" (searchSelected)="history.applyRecent($event)"/>
+      </ng-template>
     </ng-select>
+    @if (showSelectionHint && selectionRequired) {
+      <small class="form-text text-muted" role="status">Choose a result from the list to set the location. Typing alone does not update the map.</small>
+    } @else if (showSelectionHint && selectedVenue) {
+      <small class="form-text text-muted">Edit this text to search again, then choose a replacement result.</small>
+    }
+    <app-place-name-choice [choice]="placeNameChoice" (keep)="keepTypedPlaceName()" (useResult)="useResultPlaceName()"/>
   `,
   styles: [`
     :host ::ng-deep .ng-select .ng-value-container
@@ -73,6 +91,10 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
     :host ::ng-deep .ng-select.ng-select-single .ng-select-container .ng-value-container .ng-value
       display: flex !important
       align-items: center !important
+    :host ::ng-deep .ng-dropdown-header
+      background: #fff
+      border-bottom: 1px solid var(--rsm-border, #d9dee3)
+      padding: 0.25rem 0.5rem 0.5rem
     .venue-option
       display: flex
       align-items: center
@@ -110,12 +132,14 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
   private venueService = inject(VenueService);
   private geoDistanceService = inject(GeoDistanceService);
   private addressQueryService = inject(AddressQueryService);
+  protected readonly StoredValue = StoredValue;
   private subscriptions: Subscription[] = [];
 
   faGoogle = faGoogle;
   protected VenueSource = VenueSource;
 
   @Input() placeholder = "Type venue name to search...";
+  @Input() showSelectionHint = true;
   @Input() disabled = false;
   @Input() clearable = true;
   @Input() minTermLength = 2;
@@ -125,6 +149,7 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
       this.applyingInitial = true;
       this.selectedVenue = {
         ...venue,
+        ngSelectLabel: venue.enteredName || venue.ngSelectLabel || VenueService.buildNgSelectLabel(venue),
         usageCount: venue.usageCount || 0,
         type: venue.type || this.venueService.inferVenueType(venue.name)
       } as VenueWithDistance;
@@ -138,8 +163,13 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
   venueInput$ = new Subject<string>();
   venueSuggestions$!: Observable<VenueWithDistance[]>;
   venueLoading = false;
+  selectionRequired = false;
+  showRecentSearches = true;
   selectedVenue: VenueWithDistance | null = null;
+  placeNameChoice: PlaceNameChoice | null = null;
+  @ViewChild("select") private select: NgSelectComponent;
   private applyingInitial = false;
+  private lastSearchTerm = "";
 
   ngOnInit() {
     this.setupVenueSearch();
@@ -149,8 +179,15 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
-  venueLabel(item: { name?: string; address1?: string; postcode?: string }): string {
-    return VenueService.buildNgSelectLabel(item);
+  venueLabel(item: { name?: string; address1?: string; postcode?: string; enteredName?: string; ngSelectLabel?: string }): string {
+    const entered = (item?.enteredName || "").trim();
+    if (entered) {
+      return entered;
+    } else if ((item?.ngSelectLabel || "").trim()) {
+      return item.ngSelectLabel.trim();
+    } else {
+      return VenueService.buildNgSelectLabel(item);
+    }
   }
 
   venueAddress(item: { name?: string; address1?: string; postcode?: string }): string {
@@ -159,12 +196,25 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
 
   private setupVenueSearch() {
     this.venueSuggestions$ = this.venueInput$.pipe(
-      tap(term => this.logger.info(`Venue search input: "${term}"`)),
+      tap(term => {
+        const typed = (term || "").trim();
+        if (!this.applyingInitial && typed && typed !== this.selectedVenue?.ngSelectLabel && typed !== this.selectedVenue?.enteredName) {
+          this.lastSearchTerm = typed;
+        }
+        this.logger.info(`Venue search input: "${term}"`);
+      }),
       debounceTime(300),
       distinctUntilChanged(),
       startWith(""),
-      tap(() => this.venueLoading = true),
+      tap(() => {
+        this.venueLoading = true;
+        this.selectionRequired = false;
+      }),
       switchMap(term => {
+        const query = (term || "").trim();
+        if (query && query !== this.selectedVenue?.ngSelectLabel) {
+          this.lastSearchTerm = query;
+        }
         return this.venueService.venues().pipe(
           switchMap(venues => {
             let storedResults: VenueWithUsageStats[];
@@ -174,8 +224,7 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
               storedResults = this.venueService.searchVenues(term);
             }
             const sortedStored = this.sortByProximity(storedResults).slice(0, 15);
-            const ukPostcodeRegex = /^[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}$/i;
-            if (term && ukPostcodeRegex.test(term.trim())) {
+            if (term && UK_POSTCODE_PATTERN.test(term.trim())) {
               return from(this.addressQueryService.gridReferenceLookup(term)).pipe(
                 map(response => {
                   const fromPostcode = this.venueFromPostcodeLookup(response, term);
@@ -202,7 +251,12 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
               );
             }
           }),
-          tap(results => this.logger.info(`Venue search returned ${results.length} results`)),
+          map(results => results.map(venue => ({...venue, ngSelectLabel: VenueService.buildNgSelectLabel(venue)}))),
+          tap(results => {
+            this.logger.info(`Venue search returned ${results.length} results`);
+            this.selectionRequired = !!term && term.length >= this.minTermLength && results.length > 0;
+            this.showRecentSearches = !this.selectionRequired;
+          }),
           tap(() => this.venueLoading = false)
         );
       })
@@ -316,12 +370,64 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
 
   onVenueSelected(venue: VenueWithUsageStats | null) {
     if (venue && !this.applyingInitial) {
+      this.selectionRequired = false;
+      const enteredName = this.preservedSearchText();
+      if (enteredName) {
+        venue.enteredName = enteredName;
+        venue.ngSelectLabel = enteredName;
+        this.placeNameChoice = placeNameChoiceFor(enteredName, venue);
+      } else {
+        this.placeNameChoice = null;
+      }
+      this.selectedVenue = venue as VenueWithDistance;
+      this.showTypedLabel(enteredName);
       this.logger.info("Venue selected:", venue);
       this.venueSelected.emit(venue);
     }
   }
 
+  keepTypedPlaceName(): void {
+    this.placeNameChoice = null;
+  }
+
+  useResultPlaceName(): void {
+    if (this.selectedVenue && this.placeNameChoice) {
+      const fromResult = this.placeNameChoice.fromResult;
+      this.selectedVenue.enteredName = null;
+      this.selectedVenue.ngSelectLabel = fromResult;
+      this.placeNameChoice = null;
+      this.showTypedLabel(fromResult);
+      this.venueSelected.emit(this.selectedVenue);
+    }
+  }
+
+  private preservedSearchText(): string {
+    const typed = withoutTrailingPostcode(this.lastSearchTerm);
+    if (!typed || typed.length < this.minTermLength || UK_POSTCODE_PATTERN.test(typed)) {
+      return "";
+    } else {
+      return typed;
+    }
+  }
+
+  private showTypedLabel(enteredName: string): void {
+    if (enteredName) {
+      setTimeout(() => {
+        const input = this.select?.element?.querySelector("input") as HTMLInputElement;
+        if (input) {
+          input.value = enteredName;
+        }
+      }, 0);
+    }
+  }
+
   clear() {
     this.selectedVenue = null;
+  }
+
+  repeatSelectedSearch(): void {
+    if (this.selectedVenue?.ngSelectLabel) {
+      this.venueInput$.next(this.selectedVenue.ngSelectLabel);
+    }
   }
 }

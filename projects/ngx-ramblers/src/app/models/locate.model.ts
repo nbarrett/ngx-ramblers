@@ -26,6 +26,8 @@ export interface LocatePoint {
 export interface LocateLinkParams {
   gridRef?: string;
   postcode?: string;
+  lat?: number;
+  lon?: number;
   zoom?: number;
   provider?: string;
 }
@@ -92,4 +94,9 @@ export enum LocateCoordinateFormat {
   GRID_REFERENCE = "grid-reference",
   LATITUDE_LONGITUDE = "latitude-longitude",
   EASTINGS_NORTHINGS = "eastings-northings"
+}
+
+export interface LocatePinPopup {
+  title: string;
+  note: string;
 }

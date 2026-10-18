@@ -1,4 +1,4 @@
-import { locatePagePath } from "../../functions/locate";
+import { googleMapsDestination, locatePagePath } from "../../functions/locate";
 import { LOCATE_DEFAULT_BASE_PATH } from "../../models/locate.model";
 import { Location } from "@angular/common";
 import { inject, Injectable } from "@angular/core";
@@ -52,7 +52,6 @@ import { EventSource, ExtendedGroupEvent, InputSource } from "../../models/group
 import { AccessLevel } from "../../models/member-resource.model";
 import { eventAccessPermitted } from "../../functions/event-access-level";
 import { AppPath } from "../../models/route-follow.model";
-import { DEFAULT_WALKS_AREA } from "../../models/walks-route-paths.model";
 import { FeaturesService } from "../../services/features.service";
 import { validEmail } from "../../functions/strings";
 import { eventSlug } from "../../functions/walks/event-slug";
@@ -240,12 +239,14 @@ export class WalkDisplayService {
     return expandedWalk && expandedWalk.mode === WalkViewMode.EDIT;
   }
 
-  googleMapsUrl(showDrivingDirections: boolean, fromPostcode: string, toPostcode: string): SafeResourceUrl {
+  googleMapsUrl(showDrivingDirections: boolean, fromPostcode: string, toPostcode: string, destination?: LocationDetails): SafeResourceUrl {
     this.logger.debug("googleMapsUrl:showDrivingDirections:", showDrivingDirections, "fromPostcode:", fromPostcode, "toPostcode:", toPostcode);
     if (this.googleMapsConfig?.apiKey && this.googleMapsConfig?.zoomLevel) {
+      const pin = googleMapsDestination(destination?.latitude, destination?.longitude);
+      const zoom = pin ? Math.max(this.googleMapsConfig?.zoomLevel || 12, 16) : (this.googleMapsConfig?.zoomLevel || 12);
       const googleMapsUrl = showDrivingDirections ?
-        this.googleDirectionsEmbedUrl(fromPostcode, toPostcode) :
-        this.googlePlaceEmbedUrl(toPostcode, this.googleMapsConfig?.zoomLevel || 12);
+        this.googleDirectionsEmbedUrl(fromPostcode, pin || toPostcode) :
+        this.googlePlaceEmbedUrl(pin || toPostcode, zoom);
       this.logger.debug("given showDrivingDirections:", showDrivingDirections, "googleMapsUrl set to:", googleMapsUrl);
       return googleMapsUrl;
     } else {
@@ -261,7 +262,11 @@ export class WalkDisplayService {
 
   googlePlaceEmbedUrl(query: string, zoom: number): SafeResourceUrl | null {
     if (this.googleMapsConfig?.apiKey && query) {
-      return this.sanitiser.bypassSecurityTrustResourceUrl(`https://www.google.com/maps/embed/v1/place?q=${encodeURIComponent(query)}&zoom=${zoom}&key=${this.googleMapsConfig.apiKey}`);
+      const pin = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(query.trim());
+      const url = pin
+        ? `https://www.google.com/maps/embed/v1/view?center=${encodeURIComponent(query)}&zoom=${zoom}&maptype=roadmap&key=${this.googleMapsConfig.apiKey}`
+        : `https://www.google.com/maps/embed/v1/place?q=${encodeURIComponent(query)}&zoom=${zoom}&key=${this.googleMapsConfig.apiKey}`;
+      return this.sanitiser.bypassSecurityTrustResourceUrl(url);
     } else {
       return null;
     }
@@ -449,8 +454,13 @@ export class WalkDisplayService {
     return `${this.urlService.baseUrl()}${locatePagePath({gridRef: gridReference}, LOCATE_DEFAULT_BASE_PATH)}`;
   }
 
-  postcodeLink(postcode: string): string {
-    return locatePagePath({postcode, provider: WalkDetailsMapProvider.GOOGLE_MAPS}, this.urlService.relativeUrl());
+  postcodeLink(postcode: string, location?: LocationDetails): string {
+    return locatePagePath({
+      postcode,
+      lat: location?.latitude,
+      lon: location?.longitude,
+      provider: WalkDetailsMapProvider.GOOGLE_MAPS
+    }, this.urlService.relativeUrl());
   }
 
   toWalkAccessMode(walk: ExtendedGroupEvent): WalkAccessMode {
@@ -686,7 +696,7 @@ export class WalkDisplayService {
   }
 
   private walksListArea(): string {
-    return (this.groupEventArea() || DEFAULT_WALKS_AREA).replace(/^\/+/, "");
+    return (this.group?.walksBasePath || this.groupEventArea() || this.walksArea() || "").replace(/^\/+|\/+$/g, "");
   }
 
   private isFollowPath(url: string): boolean {

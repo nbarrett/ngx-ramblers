@@ -22,6 +22,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { Venue } from "../walk-venue/venue";
+import { VenueFromStartPostcodePromptComponent } from "../walk-venue/venue-from-start-postcode-prompt";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
 import { SectionToggle } from "../../../shared/components/section-toggle";
@@ -43,8 +44,10 @@ import { UrlService } from "../../../services/url.service";
 import { HttpClient } from "@angular/common/http";
 import { FileNameData } from "../../../models/aws-object.model";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faCloudArrowUp, faMap, faPencil, faRightLeft, faTableColumns, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { faCloudArrowUp, faMap, faPencil, faRightLeft, faRoute, faTableColumns, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import { LatLng } from "leaflet";
+import { RouteFollowPayloadService } from "../../../services/maps/route-follow-payload.service";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
 
 @Component({
   selector: "app-walk-edit-details",
@@ -58,13 +61,15 @@ import { LatLng } from "leaflet";
     NgOptionTemplateDirective,
     NgLabelTemplateDirective,
     Venue,
+    VenueFromStartPostcodePromptComponent,
     SectionToggle,
     MapEditComponent,
     RouteDirectionsEditor,
     WalkGradeSelect,
     MaximisableMapComponent,
     TimePicker,
-    FontAwesomeModule
+    FontAwesomeModule,
+    TooltipDirective
   ],
   template: `
     @if (displayedWalk?.walk?.groupEvent) {
@@ -78,6 +83,9 @@ import { LatLng } from "leaflet";
                      [hasSeparateMeetingPoint]="hasSeparateMeetingPoint"
                      (venuePostcodeChange)="onVenuePostcodeChange($event)"
                      (useVenueAsMeetingPoint)="onUseVenueAsMeetingPoint($event)"/>
+        }
+        @if (selectedTab === DetailsTab.ROUTE) {
+          <app-venue-from-start-postcode-prompt [event]="displayedWalk.walk" [canEdit]="!inputDisabled"/>
         }
         @if (selectedTab === DetailsTab.ROUTE || selectedTab === DetailsTab.VENUE_ROUTE_AND_DIRECTIONS) {
           <div class="row thumbnail-heading-frame">
@@ -211,13 +219,15 @@ import { LatLng } from "leaflet";
                     }
                     Upload New GPX
                   </button>
-                  <button
-                    type="button"
-                    class="btn btn-quiet"
-                    [disabled]="inputDisabled"
-                    (click)="openFollowEditor()">
-                    <fa-icon class="me-2" [icon]="faPencil"/>Record or edit
-                  </button>
+                  <span class="d-inline-block" [tooltip]="followEditorTooltip">
+                    <button
+                      type="button"
+                      class="btn btn-quiet"
+                      [disabled]="inputDisabled || !canOpenFollowEditor"
+                      (click)="openFollowEditor()">
+                      <fa-icon class="me-2" [icon]="followEditorHasRoute ? faPencil : faRoute"/>{{ followEditorLabel }}
+                    </button>
+                  </span>
                   @if (displayedWalk?.walk?.fields?.gpxFile?.awsFileName) {
                     <button
                       type="button"
@@ -411,6 +421,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
   public inputDisabled = false;
   protected readonly faCloudArrowUp = faCloudArrowUp;
   protected readonly faPencil = faPencil;
+  protected readonly faRoute = faRoute;
   protected readonly faTableColumns = faTableColumns;
   protected readonly faMap = faMap;
   protected readonly faRightLeft = faRightLeft;
@@ -440,6 +451,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
 
 
   private walkGpxService = inject(WalkGpxService);
+  private payloadService = inject(RouteFollowPayloadService);
   private router = inject(Router);
   public gpxFiles: GpxFileListItem[] = [];
   public selectedGpxFile: GpxFileListItem | null = null;
@@ -681,9 +693,31 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
     this.gpxProposals = [];
   }
 
+  get followEditorHasRoute(): boolean {
+    return this.payloadService.walkHasGpx(this.displayedWalk?.walk);
+  }
+
+  get canOpenFollowEditor(): boolean {
+    return this.payloadService.walkHasStart(this.displayedWalk?.walk);
+  }
+
+  get followEditorLabel(): string {
+    return this.followEditorHasRoute ? "Edit" : "Plot";
+  }
+
+  get followEditorTooltip(): string {
+    if (!this.canOpenFollowEditor) {
+      return "Set a start point on the map before plotting a route";
+    } else if (this.followEditorHasRoute) {
+      return "Edit the existing route";
+    } else {
+      return "Plot a route from the start point";
+    }
+  }
+
   openFollowEditor(): void {
     const slug = this.display.walkSlug(this.displayedWalk?.walk);
-    if (slug) {
+    if (slug && this.canOpenFollowEditor) {
       this.display.rememberFollowReturnUrl();
       void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.ROUTE], {
         queryParams: {[StoredValue.WALK_ID]: slug}

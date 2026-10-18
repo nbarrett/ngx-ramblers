@@ -903,7 +903,8 @@ export class WalkViewComponent implements OnInit, OnDestroy {
 
   updateGoogleMapIfApplicable() {
     if (this.showGoogleMapsView) {
-      this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.drivingOrigin(), this.showEndPoint() ? this.displayedWalk?.walk?.groupEvent?.end_location?.postcode : this.displayedWalk?.walk?.groupEvent?.start_location?.postcode);
+      const destination = this.showEndPoint() ? this.displayedWalk?.walk?.groupEvent?.end_location : this.displayedWalk?.walk?.groupEvent?.start_location;
+      this.googleMapsUrl = this.display.googleMapsUrl(!this.drivingDirectionsDisabled() && this.showDrivingDirections(), this.drivingOrigin(), destination?.postcode, destination);
       this.logger.info("updateGoogleMap:Should show details - rendering googleMapsUrl:", this.googleMapsUrl);
       if (!this.suppressMapToggle) {
         this.toggleGoogleOrLeafletMapViewAndBack();

@@ -19,9 +19,11 @@ import { UK_POSTCODE_PATTERN } from "../../../models/locate.model";
 import { formattedUkPostcode } from "../../../functions/locate";
 import { isString } from "es-toolkit/compat";
 import { LocationDetails, WalkStatus } from "../../../models/ramblers-walks-manager";
+import { PostcodeMapPreview } from "../../../models/postcode-navigation.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { sortBy } from "../../../functions/arrays";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
+import { GridReferenceService } from "../../../services/maps/grid-reference.service";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
 import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.service";
 import { GpxParserService } from "../../../services/maps/gpx-parser.service";
@@ -29,11 +31,10 @@ import { UrlService } from "../../../services/url.service";
 import { HttpClient } from "@angular/common/http";
 import { FileNameData } from "../../../models/aws-object.model";
 import { MapMarker, PaletteColor, RouteGuideEntry } from "../../../models/content-text.model";
-import { ROUTE_STEP_POPUP_OPTIONS, routeStepPopupHtml } from "../../../functions/route-step-popup";
+import { MAP_PIN_POPUP_OPTIONS, locationPinPopupHtml, ROUTE_STEP_POPUP_OPTIONS, routeStepPopupHtml } from "../../../functions/route-step-popup";
 import { MapZoomService } from "../../../services/maps/map-zoom.service";
 import { isUndefined } from "es-toolkit/compat";
 import { RouteFollowPoint, RouteFollowWaypoint } from "../../../models/route-follow.model";
-import { escapeHtml } from "../../../functions/strings";
 
 const COMBINED_MAP_BOUNDS_PADDING = 0.25;
 
@@ -91,6 +92,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   @Input() walkStatus?: WalkStatus;
   @Input() endLocationDetails: LocationDetails | null = null;
   @Input() showCombinedMap = false;
+  @Input() comparisonPreview: PostcodeMapPreview | null = null;
   public clickPlacesMissingPin = false;
   @Input("clickPlacesMissingPin") set clickPlacesMissingPinValue(value: boolean) {
     this.clickPlacesMissingPin = coerceBooleanProperty(value);
@@ -125,6 +127,8 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   private resizeFitTimer: ReturnType<typeof setTimeout> | null = null;
   private walksConfigService = inject(WalksConfigService);
   private addressQueryService = inject(AddressQueryService);
+  private gridReferences = inject(GridReferenceService);
+  private locationLookups = new WeakMap<LocationDetails, number>();
   protected dateUtils = inject(DateUtilsService);
   public display = inject(WalkDisplayService);
   public stringUtils = inject(StringUtilsService);
@@ -141,6 +145,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   private gpxLoadSequence = 0;
   private startMarker: L.Marker | null = null;
   private endMarker: L.Marker | null = null;
+  private comparisonMarker: L.Marker | null = null;
   private waypointLayers = new Map<string, L.Marker>();
   private provider: MapProvider = MapProvider.OSM;
   private providerStyle = "";
@@ -182,6 +187,9 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     }
     if (changes["activeWaypointId"]) {
       this.focusActiveWaypoint();
+    }
+    if (changes["comparisonPreview"]) {
+      this.applyComparisonPreview();
     }
   }
 
@@ -328,11 +336,16 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     this.layers = [];
     this.startMarker = null;
     this.endMarker = null;
+    this.comparisonMarker = null;
     if (hasStart) {
       const markerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
-      this.startMarker = L.marker(startLatLng, { draggable: !this.readonly, icon: markerIcon as any }).on("dragend", (event) =>
-        this.zone.run(() => this.onMarkerDragEnd(event))
-      );
+      this.startMarker = L.marker(startLatLng, {
+        draggable: !this.readonly,
+        icon: markerIcon as any
+      });
+      this.startMarker.on("dragstart", () => this.startMarker?.closePopup());
+      this.startMarker.on("drag", (event) => this.zone.run(() => this.previewPinLocation((event.target as L.Marker).getLatLng(), this.locationDetails)));
+      this.startMarker.on("dragend", (event) => this.zone.run(() => this.onMarkerDragEnd(event)));
       this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
       this.layers.push(this.startMarker);
     }
@@ -341,17 +354,22 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
       this.endMarker = L.marker(endLatLng, {
         draggable: !this.readonly,
         icon: endMarkerIcon as any
-      }).on("dragend", (event) => this.zone.run(() => this.onEndMarkerDragEnd(event)));
+      }).on("dragstart", () => this.endMarker?.closePopup())
+        .on("drag", (event) => this.zone.run(() => this.previewPinLocation((event.target as L.Marker).getLatLng(), this.endLocationDetails)))
+        .on("dragend", (event) => this.zone.run(() => this.onEndMarkerDragEnd(event)));
       this.bindLocationPopup(this.endMarker, this.endLocationDetails, this.endPinRole());
       this.layers.push(this.endMarker);
     }
 
     this.renderWaypoints();
-    this.fitBounds = bounds as any;
+    this.applyComparisonPreview();
+    if (!this.comparisonPreview) {
+      this.fitBounds = bounds as any;
+    }
 
     if (this.map) {
-      if (bounds) {
-        this.mapZoom.applyBoundsToMap(this.map, bounds, { maxZoom: 15 });
+      if (this.fitBounds) {
+        this.mapZoom.applyBoundsToMap(this.map, this.fitBounds, { maxZoom: 15 });
       } else {
         this.map.setView(center, this.map.getZoom());
       }
@@ -451,7 +469,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
         this.zone.run(() => {
           const zoomLevel = map.getZoom();
           this.logger.info("Map zoom level changed:", zoomLevel);
-          if (!this.showCombinedMap && !this.gpxFile?.awsFileName && this.locationDetails?.latitude && this.locationDetails?.longitude) {
+          if (!this.showCombinedMap && !this.gpxFile?.awsFileName && !this.comparisonPreview && this.locationDetails?.latitude && this.locationDetails?.longitude) {
             map.panTo(L.latLng(this.locationDetails.latitude, this.locationDetails.longitude));
           }
           if (this.referenceZoom != null) {
@@ -529,6 +547,8 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     } else if (this.map) {
       const markerIcon = this.markerStyle.markerIcon(this.provider, this.providerStyle, this.walkStatus);
       this.startMarker = L.marker(latlng, {draggable: !this.readonly, icon: markerIcon as any})
+        .on("dragstart", () => this.startMarker?.closePopup())
+        .on("drag", (event) => this.zone.run(() => this.previewPinLocation((event.target as L.Marker).getLatLng(), this.locationDetails)))
         .on("dragend", (event) => this.zone.run(() => this.onMarkerDragEnd(event)));
       this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
       this.startMarker.addTo(this.map);
@@ -542,6 +562,8 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     } else if (this.map && this.endLocationDetails) {
       const markerIcon = this.markerStyle.markerIcon(this.provider, this.providerStyle, this.walkStatus);
       this.endMarker = L.marker(latlng, {draggable: !this.readonly, icon: markerIcon as any})
+        .on("dragstart", () => this.endMarker?.closePopup())
+        .on("drag", (event) => this.zone.run(() => this.previewPinLocation((event.target as L.Marker).getLatLng(), this.endLocationDetails)))
         .on("dragend", (event) => this.zone.run(() => this.onEndMarkerDragEnd(event)));
       this.bindLocationPopup(this.endMarker, this.endLocationDetails, this.endPinRole());
       this.endMarker.addTo(this.map);
@@ -549,104 +571,84 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     }
   }
 
-  private async updateWalkLocation(latlng: LatLng) {
-    const previousLatitude = this.locationDetails.latitude;
-    const previousLongitude = this.locationDetails.longitude;
-    this.notify?.hide();
-    this.locationDetails.latitude = latlng.lat;
-    this.locationDetails.longitude = latlng.lng;
+  private previewPinLocation(latlng: LatLng, location: LocationDetails): void {
+    const grid = this.gridReferences.fromLatLng(latlng.lat, latlng.lng);
+    location.latitude = latlng.lat;
+    location.longitude = latlng.lng;
+    location.grid_reference_6 = grid?.gridReference6 || null;
+    location.grid_reference_8 = grid?.gridReference8 || null;
+    location.grid_reference_10 = grid?.gridReference10 || null;
+  }
 
-    this.addressQueryService.gridReferenceLookupFromLatLng(latlng)
-      .then((responses: GridReferenceLookupResponse[]) => {
-        const sortedResponses = responses.filter(item => this.usablePostcode(item.postcode)).sort(sortBy("distance"));
-        this.logger.info("gridReferenceLookupFromLatLng: Received", this.stringUtils.pluraliseWithCount(sortedResponses.length, "response"), sortedResponses);
+  private updateWalkLocation(latlng: LatLng): Promise<void> {
+    return this.updatePinLocation(latlng, this.locationDetails, LocationType.START);
+  }
+
+  private updateEndLocation(latlng: LatLng): Promise<void> {
+    return this.updatePinLocation(latlng, this.endLocationDetails, LocationType.END);
+  }
+
+  private emitPinLocation(location: LocationDetails, locationType: LocationType): void {
+    const marker = locationType === LocationType.END ? this.endMarker : this.startMarker;
+    if (marker) {
+      marker.setLatLng([location.latitude, location.longitude]);
+      this.bindLocationPopup(marker, location, locationType === LocationType.END ? this.endPinRole() : this.primaryPinRole());
+    }
+    if (locationType === LocationType.END) {
+      this.endLocationChange.emit(location);
+    } else {
+      this.locationChange.emit(location);
+    }
+  }
+
+  private async updatePinLocation(latlng: LatLng, location: LocationDetails, locationType: LocationType): Promise<void> {
+    const sequence = (this.locationLookups.get(location) || 0) + 1;
+    this.locationLookups.set(location, sequence);
+    this.notify?.hide();
+    const grid = this.gridReferences.fromLatLng(latlng.lat, latlng.lng);
+    location.latitude = latlng.lat;
+    location.longitude = latlng.lng;
+    location.grid_reference_6 = grid?.gridReference6 || null;
+    location.grid_reference_8 = grid?.gridReference8 || null;
+    location.grid_reference_10 = grid?.gridReference10 || null;
+    const previousPostcode = location.postcode;
+    location.postcode = null;
+    this.showPostcodeSelectChange.emit(false);
+    this.emitPinLocation(location, locationType);
+
+    try {
+      const responses = await this.addressQueryService.gridReferenceLookupFromLatLng(latlng);
+      const currentLocation = locationType === LocationType.END ? this.endLocationDetails : this.locationDetails;
+      if (!this.destroyed && currentLocation === location && this.locationLookups.get(location) === sequence && location.latitude === latlng.lat && location.longitude === latlng.lng) {
+        const sortedResponses = (responses || []).filter(item => !item.error && this.usablePostcode(item.postcode)).sort(sortBy("distance"));
         if (sortedResponses.length === 0) {
-          this.locationDetails.latitude = previousLatitude;
-          this.locationDetails.longitude = previousLongitude;
-          if (this.startMarker && previousLatitude && previousLongitude) {
-            this.startMarker.setLatLng(L.latLng(previousLatitude, previousLongitude));
-          }
-          this.notify.warning({
-            title: "No postcode here",
-            message: "Move the pin onto a place that has a postcode."
+          this.notify?.warning({
+            title: "No nearby postcode",
+            message: "The pin and grid reference have been kept. Add clear directions so people can find this location."
           });
         } else {
           const closestResponse = sortedResponses[0];
-          const previousPostcode = this.locationDetails.postcode;
-          this.updateLocationWith(closestResponse);
-          if (this.postcodeChangeOffersSelect && this.usablePostcode(previousPostcode) && closestResponse.postcode !== previousPostcode) {
+          location.postcode = formattedUkPostcode(closestResponse.postcode) || closestResponse.postcode.trim();
+          location.description = location.description || closestResponse.description;
+          if (locationType !== LocationType.END && this.postcodeChangeOffersSelect && this.usablePostcode(previousPostcode) && closestResponse.postcode !== previousPostcode) {
             const postcodeOptions = sortedResponses.map(item => ({postcode: item.postcode, distance: item.distance}));
             const previousStillListed = postcodeOptions.some(option => option.postcode === previousPostcode);
-            this.notify.warning({
+            this.notify?.warning({
               title: "New pin location",
-              message: `The ${this.locationType} postcode has changed from ${previousPostcode} to ${closestResponse.postcode}, the closest to the pin. You can choose a different nearby postcode from the ${this.locationType} Postcode dropdown.`
+              message: `The ${this.locationType} postcode has changed from ${previousPostcode} to ${closestResponse.postcode}, the closest to the pin. Check that it provides suitable road access.`
             });
             this.postcodeOptionsChange.emit(previousStillListed ? postcodeOptions : [...postcodeOptions, {postcode: previousPostcode, distance: null}]);
             this.showPostcodeSelectChange.emit(true);
           }
         }
-      })
-      .catch(error => {
-        this.logger.error("gridReferenceLookupFromLatLng:error", error);
-        this.notify.error({title: "Error looking up grid reference", message: error?.message || error});
-        return {error: error?.message || error};
-      });
-  }
-
-  private updateLocationWith(response: GridReferenceLookupResponse) {
-    this.showPostcodeSelectChange.emit(false);
-    if (this.usablePostcode(response.postcode)) {
-      this.locationDetails.postcode = formattedUkPostcode(response.postcode) || response.postcode.trim();
+        this.emitPinLocation(location, locationType);
+      }
+    } catch (error) {
+      this.logger.error("Pin postcode lookup failed:", error);
+      if (!this.destroyed && this.locationLookups.get(location) === sequence && location.latitude === latlng.lat && location.longitude === latlng.lng) {
+        this.notify?.warning({title: "Postcode lookup unavailable", message: "The pin and grid reference have been kept. Check the postcode before saving."});
+      }
     }
-    this.locationDetails.grid_reference_6 = response.gridReference6;
-    this.locationDetails.grid_reference_8 = response.gridReference8;
-    this.locationDetails.grid_reference_10 = response.gridReference10;
-    this.locationDetails.description = response.description;
-    if (this.startMarker) {
-      this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
-    }
-    this.locationChange.emit(this.locationDetails);
-  }
-
-  private async updateEndLocation(latlng: LatLng) {
-    const previousLatitude = this.endLocationDetails.latitude;
-    const previousLongitude = this.endLocationDetails.longitude;
-    this.notify?.hide();
-    this.endLocationDetails.latitude = latlng.lat;
-    this.endLocationDetails.longitude = latlng.lng;
-    this.addressQueryService.gridReferenceLookupFromLatLng(latlng)
-      .then((responses: GridReferenceLookupResponse[]) => {
-        const sortedResponses = responses.filter(item => this.usablePostcode(item.postcode)).sort(sortBy("distance"));
-        this.logger.info("end pin gridReferenceLookupFromLatLng: Received", this.stringUtils.pluraliseWithCount(sortedResponses.length, "response"), sortedResponses);
-        if (sortedResponses.length === 0) {
-          this.endLocationDetails.latitude = previousLatitude;
-          this.endLocationDetails.longitude = previousLongitude;
-          if (this.endMarker && previousLatitude && previousLongitude) {
-            this.endMarker.setLatLng(L.latLng(previousLatitude, previousLongitude));
-          }
-          this.notify.warning({
-            title: "No postcode here",
-            message: "Move the pin onto a place that has a postcode."
-          });
-        } else {
-          const closestResponse = sortedResponses[0];
-          this.endLocationDetails.postcode = this.usablePostcode(closestResponse.postcode)
-            ? (formattedUkPostcode(closestResponse.postcode) || closestResponse.postcode.trim())
-            : this.endLocationDetails.postcode;
-          this.endLocationDetails.grid_reference_6 = closestResponse.gridReference6;
-          this.endLocationDetails.grid_reference_8 = closestResponse.gridReference8;
-          this.endLocationDetails.grid_reference_10 = closestResponse.gridReference10;
-          this.endLocationDetails.description = closestResponse.description;
-          if (this.endMarker) {
-            this.bindLocationPopup(this.endMarker, this.endLocationDetails, this.endPinRole());
-          }
-          this.endLocationChange.emit(this.endLocationDetails);
-        }
-      })
-      .catch(error => {
-        this.logger.error("end pin gridReferenceLookupFromLatLng:error", error);
-        this.notify.error({title: "Error looking up grid reference", message: error?.message || error});
-      });
   }
 
   private primaryPinRole(): string {
@@ -663,22 +665,60 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     return LocationType.FINISH;
   }
 
-  private bindLocationPopup(marker: L.Marker, location: LocationDetails, role: string): void {
-    marker.bindPopup(this.locationPopupHtml(role, location), {maxWidth: 280, autoPanPadding: [16, 16]});
+  private applyComparisonPreview(): void {
+    if (this.comparisonMarker) {
+      const index = this.layers.indexOf(this.comparisonMarker);
+      if (index > -1) {
+        this.layers.splice(index, 1);
+      }
+      this.comparisonMarker.remove();
+      this.comparisonMarker = null;
+    }
+    const preview = this.comparisonPreview;
+    if (preview && this.hasCoords(this.locationDetails)) {
+      const start = L.latLng(this.locationDetails.latitude, this.locationDetails.longitude);
+      const postcode = L.latLng(preview.latitude, preview.longitude);
+      const grid = this.gridReferences.fromLatLng(preview.latitude, preview.longitude);
+      this.comparisonMarker = L.marker(postcode, {
+        draggable: false,
+        icon: this.markerStyle.markerIcon(this.provider, this.providerStyle, this.walkStatus) as any
+      });
+      this.bindLocationPopup(this.comparisonMarker, {
+        latitude: preview.latitude,
+        longitude: preview.longitude,
+        postcode: preview.postcode,
+        description: "Not saved with this walk",
+        grid_reference_6: grid?.gridReference6 || null,
+        grid_reference_8: grid?.gridReference8 || null,
+        grid_reference_10: grid?.gridReference10 || null,
+        w3w: null
+      }, "Postcode", "2");
+      if (this.startMarker) {
+        this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole(), "1");
+      }
+      this.layers = [...this.layers, this.comparisonMarker];
+      this.fitBounds = L.latLngBounds(start, postcode).pad(0.35);
+      if (this.map) {
+        this.comparisonMarker.addTo(this.map);
+        this.map.invalidateSize();
+        this.mapZoom.applyBoundsToMap(this.map, this.fitBounds, {maxZoom: 15});
+      }
+    } else if (this.map && this.startMarker) {
+      this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
+      this.map.setView(this.startMarker.getLatLng(), this.map.getZoom());
+    }
   }
 
-  private locationPopupHtml(role: string, location: LocationDetails): string {
-    const description = location?.description?.trim();
-    const postcode = location?.postcode?.trim();
-    const grid = this.display.gridReferenceFrom(location);
-    const descriptionHtml = description ? `<div class="small">${escapeHtml(description)}</div>` : "";
-    const postcodeHtml = postcode
-      ? `<div class="small"><a href="${escapeHtml(this.display.postcodeLink(postcode))}">${escapeHtml(postcode)}</a></div>`
-      : "";
-    const gridHtml = grid
-      ? `<div class="small"><a href="${escapeHtml(this.display.gridReferenceLink(grid, this.map?.getZoom()))}">${escapeHtml(grid)}</a></div>`
-      : "";
-    return `<div class="map-pin-popup"><div class="small fw-bold mb-1">${escapeHtml(role)}</div>${descriptionHtml}${postcodeHtml}${gridHtml}</div>`;
+  private bindLocationPopup(marker: L.Marker, location: LocationDetails, role: string, label = ""): void {
+    marker.bindPopup(
+      locationPinPopupHtml(
+        this.markerStyle.numberedMarkerColour(this.provider),
+        role,
+        [location?.description, location?.postcode, this.display.gridReferenceFrom(location)],
+        label
+      ),
+      MAP_PIN_POPUP_OPTIONS
+    );
   }
 
   onMapZoom($event: LeafletEvent) {

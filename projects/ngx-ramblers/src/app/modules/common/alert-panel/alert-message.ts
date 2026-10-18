@@ -26,6 +26,12 @@ import {TooltipDirective} from "ngx-bootstrap/tooltip";
       gap: 8px
       margin-bottom: var(--space-2, 8px)
       font-size: inherit
+      line-height: 1.2
+    .alert-message-title fa-icon
+      display: inline-flex
+      align-items: center
+      line-height: 1
+      flex-shrink: 0
     .alert-message-body
       display: flex
       flex-direction: column

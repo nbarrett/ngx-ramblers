@@ -4,7 +4,7 @@ import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { firstValueFrom, Observable, ReplaySubject } from "rxjs";
-import { shareReplay } from "rxjs/operators";
+import { shareReplay, timeout } from "rxjs/operators";
 import { LatLngLiteral } from "leaflet";
 import { DrivingDistanceResponse, GoogleMapsConfig } from "../models/walk.model";
 import { CommonDataService } from "./common-data-service";
@@ -63,7 +63,7 @@ export class GoogleMapsService {
       ...(toLatLng ? {toLat: toLatLng.lat, toLng: toLatLng.lng} : {})
     });
     const apiResponse = await firstValueFrom(
-      this.http.get<DrivingDistanceResponse>(`${this.BASE_URL}/driving-distance`, {params})
+      this.http.get<DrivingDistanceResponse>(`${this.BASE_URL}/driving-distance`, {params}).pipe(timeout(15000))
     );
     this.logger.debug("drivingDistanceMiles:", from, to, fromLatLng, toLatLng, apiResponse);
     return isNumber(apiResponse?.miles) ? apiResponse.miles : null;

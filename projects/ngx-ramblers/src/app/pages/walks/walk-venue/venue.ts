@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, inject, Input, OnInit, Output } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { faCircleExclamation, faCopy, faMapMarkerAlt } from "@fortawesome/free-solid-svg-icons";
 import { Venue as VenueModel, VenueType, VenueWithUsageStats } from "../../../models/event-venue.model";
@@ -13,13 +13,11 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
 import { VenueLookupComponent } from "./venue-lookup";
+import { VenueFromStartPostcodePromptComponent } from "./venue-from-start-postcode-prompt";
 import { VenueTypeSelect } from "./venue-type-select";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { CopyIconComponent } from "../../../modules/common/copy-icon/copy-icon";
 import { isBoolean, isEmpty } from "es-toolkit/compat";
-import { Subscription } from "rxjs";
-import { BroadcastService } from "../../../services/broadcast-service";
-import { NamedEventType } from "../../../models/broadcast.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 
 @Component({
@@ -79,20 +77,9 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
             </div>
           </div>
         }
-        @if (showWalkLocationPrompts && showVenueFromStartingPointPrompt) {
-          <div class="col-sm-12 mb-3">
-            <div class="alert alert-warning d-flex align-items-center justify-content-between py-2 mb-0">
-              <div class="d-flex align-items-center ms-2">
-                <fa-icon [icon]="faMapMarkerAlt" class="me-2"></fa-icon>
-                <span><strong class="me-2">Venue Postcode:</strong>Use starting point postcode <strong>{{ pendingStartingPostcode || currentStartingPointPostcode }}</strong> for venue?</span>
-              </div>
-              <div class="btn-group btn-group-sm ms-2">
-                <button type="button" class="btn btn-primary" (click)="applyStartingPostcodeToVenue()">Apply</button>
-                <button type="button" class="btn btn-outline-secondary" (click)="dismissVenueFromStartingPointPrompt()">Dismiss</button>
-              </div>
-            </div>
-          </div>
-        }
+        <div class="col-sm-12">
+          <app-venue-from-start-postcode-prompt [event]="event" [showWalkLocationPrompts]="showWalkLocationPrompts" [canEdit]="allowEdits()"/>
+        </div>
         <div class="col-sm-12">
           <div class="row">
             <div class="col-sm-4 mb-3">
@@ -225,16 +212,15 @@ import { ExtendedGroupEvent } from "../../../models/group-event.model";
         </div>
       </div>
     `,
-    imports: [ContentTextEditor, FormsModule, FontAwesomeModule, TooltipDirective, VenueIconPipe, VenueLookupComponent, VenueTypeSelect, CopyIconComponent]
+    imports: [ContentTextEditor, FormsModule, FontAwesomeModule, TooltipDirective, VenueIconPipe, VenueLookupComponent, VenueTypeSelect, CopyIconComponent, VenueFromStartPostcodePromptComponent]
 })
-export class Venue implements OnInit, OnDestroy {
+export class Venue implements OnInit {
 
   private logger: Logger = inject(LoggerFactory).createLogger("Venue", NgxLoggerLevel.ERROR);
   private memberLoginService = inject(MemberLoginService);
   private venueService = inject(VenueService);
   public display: WalkDisplayService = inject(WalkDisplayService);
   private walksReferenceService = inject(WalksReferenceService);
-  private broadcastService = inject<BroadcastService<string>>(BroadcastService);
 
   @Input() event: ExtendedGroupEvent;
   @Input() canEdit: boolean | null = null;
@@ -255,11 +241,7 @@ export class Venue implements OnInit, OnDestroy {
   public selectedVenueType: VenueType;
   public disabledInput: boolean;
   public showStartingPointPrompt = false;
-  public showVenueFromStartingPointPrompt = false;
   private dismissedForPostcode: string | null = null;
-  private dismissedVenueFromStartingPointForPostcode: string | null = null;
-  protected pendingStartingPostcode: string | null = null;
-  private subscriptions: Subscription[] = [];
   protected faMapMarkerAlt = faMapMarkerAlt;
   protected faCopy = faCopy;
   protected faCircleExclamation = faCircleExclamation;
@@ -290,18 +272,6 @@ export class Venue implements OnInit, OnDestroy {
     this.selectedVenueType = this.venueTypes.find(vt => vt.type === this.event.fields.venue?.type) || this.venueTypes[0];
     this.logger.info("venue is", this.event.fields.venue, "venueTypes", this.venueTypes, "selectedVenueType", this.selectedVenueType);
     this.updateDisabledInput();
-    this.checkVenueFromStartingPointPrompt();
-    this.subscriptions.push(
-      this.broadcastService.on(NamedEventType.WALK_STARTING_POSTCODE_UPDATED, (event) => {
-        this.logger.info("WALK_STARTING_POSTCODE_UPDATED received:", event.data);
-        this.pendingStartingPostcode = event.data;
-        this.checkVenueFromStartingPointPrompt();
-      })
-    );
-  }
-
-  ngOnDestroy() {
-    this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
   onVenueTypeChange(venueType: VenueType) {
@@ -365,7 +335,6 @@ export class Venue implements OnInit, OnDestroy {
 
   onPostcodeChange(postcode: string) {
     this.checkStartingPointPrompt(postcode);
-    this.checkVenueFromStartingPointPrompt();
   }
 
   private checkStartingPointPrompt(venuePostcode: string) {
@@ -420,43 +389,6 @@ export class Venue implements OnInit, OnDestroy {
 
   dismissMeetingPointPrompt() {
     this.dismissedMeetingPointForPostcode = this.venueService.normalizePostcode(this.event.fields.venue.postcode);
-  }
-
-  private checkVenueFromStartingPointPrompt() {
-    const canOffer = this.showWalkLocationPrompts && this.allowEdits() && !this.display.walkPopulationWalksManager();
-    if (!canOffer) {
-      this.showVenueFromStartingPointPrompt = false;
-    } else {
-      const venuePostcode = this.venueService.normalizePostcode(this.event?.fields?.venue?.postcode);
-      const startingPostcode = this.pendingStartingPostcode || this.currentStartingPointPostcode;
-      const normalizedStartingPostcode = this.venueService.normalizePostcode(startingPostcode);
-      const hasStartingPostcode = !isEmpty(normalizedStartingPostcode);
-      const venuePostcodeEmpty = isEmpty(venuePostcode);
-      const wasDismissedForThisPostcode = this.dismissedVenueFromStartingPointForPostcode === normalizedStartingPostcode;
-      if (hasStartingPostcode && venuePostcodeEmpty && !wasDismissedForThisPostcode) {
-        this.venueService.ensureVenue(this.event);
-        this.venueService.seedVenueFromLocation(this.event.fields.venue, this.event.groupEvent?.start_location);
-        this.applyStartingPostcodeToVenue();
-      } else {
-        this.showVenueFromStartingPointPrompt = hasStartingPostcode && venuePostcodeEmpty && !wasDismissedForThisPostcode;
-      }
-      this.logger.debug("checkVenueFromStartingPointPrompt: startingPostcode:", normalizedStartingPostcode, "venuePostcode:", venuePostcode, "showPrompt:", this.showVenueFromStartingPointPrompt);
-    }
-  }
-
-  applyStartingPostcodeToVenue() {
-    const postcode = this.pendingStartingPostcode || this.currentStartingPointPostcode;
-    this.logger.info("applyStartingPostcodeToVenue:", postcode);
-    if (postcode) {
-      this.event.fields.venue.postcode = postcode.toUpperCase().trim();
-      this.showVenueFromStartingPointPrompt = false;
-    }
-  }
-
-  dismissVenueFromStartingPointPrompt() {
-    const postcode = this.pendingStartingPostcode || this.currentStartingPointPostcode;
-    this.dismissedVenueFromStartingPointForPostcode = this.venueService.normalizePostcode(postcode);
-    this.showVenueFromStartingPointPrompt = false;
   }
 
   isMeetingPlaceChanged($event: any) {

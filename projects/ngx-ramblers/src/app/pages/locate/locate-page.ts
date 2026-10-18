@@ -21,7 +21,7 @@ import { briefPlaceName, locateParentPath, locationLabel, osMapsUrl, savedPointN
 import { asNumber, generateUid } from "../../functions/numbers";
 import { sortBy } from "../../functions/arrays";
 import { GridReferenceLookupResponse } from "../../models/address-model";
-import { DirectionsApp, GOOGLE_MAPS_PROVIDER_LABEL, LOCATE_OVERVIEW_CENTRE, LOCATE_OVERVIEW_ZOOM, LOCATE_POINT_ZOOM, LOCATE_SIDEBAR_WIDTH_MIN, LocatePoint } from "../../models/locate.model";
+import { DirectionsApp, GOOGLE_MAPS_PROVIDER_LABEL, LOCATE_POINT_ZOOM, LOCATE_SIDEBAR_WIDTH_MIN, LocatePoint } from "../../models/locate.model";
 import { DEFAULT_GRID_REFERENCE_DIGITS, GRID_REFERENCE_DIGIT_OPTIONS, GridReferenceDigits, WalkDetailsMapProvider } from "../../models/walks-config.model";
 import { KeyValue } from "../../functions/enums";
 import { DEFAULT_OS_STYLE, MapProvider, osStyleForKey } from "../../models/map.model";
@@ -32,6 +32,7 @@ import { LocationLinksComponent } from "../../modules/common/location-links/loca
 import { Logger, LoggerFactory } from "../../services/logger-factory.service";
 import { GridReferenceService } from "../../services/maps/grid-reference.service";
 import { CurrentLocationService } from "../../services/maps/current-location.service";
+import { MapDefaultsService } from "../../services/maps/map-defaults.service";
 import { MapTilesService } from "../../services/maps/map-tiles.service";
 import { PageService } from "../../services/page.service";
 import { UiActionsService } from "../../services/ui-actions.service";
@@ -41,6 +42,8 @@ import { DirectionsPill } from "../../shared/components/directions-pill";
 import { DrivingOrigin } from "../../shared/components/driving-origin";
 import { DrivingOriginMode } from "../../models/current-location.model";
 import { MemberLoginService } from "../../services/member/member-login.service";
+import { PostcodeNavigationCheckComponent } from "../../shared/components/postcode-navigation-check";
+import { PostcodeNavigationCheck } from "../../models/postcode-navigation.model";
 import { LocationAutocompleteComponent } from "../../shared/components/location-autocomplete";
 import { MapControls, MapControlsConfig, MapControlsState } from "../../shared/components/map-controls";
 import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modules/common/resizer/resizer";
@@ -55,7 +58,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../modules/common/tooltip-config";
 @Component({
   selector: "app-locate-page",
   providers: [LocateMarkersService, ...DELAYED_TOOLTIP_PROVIDERS],
-  imports: [LocatePointsListComponent, FormsModule, TooltipDirective, CopyIconComponent, FontAwesomeModule, LeafletModule, RouterLink, NgTemplateOutlet, LocationAutocompleteComponent, LocationLinksComponent, DirectionsPill, MapControls, ResizerComponent, DrivingOrigin, MaximisableMapComponent, AdvancedToggle],
+  imports: [PostcodeNavigationCheckComponent, LocatePointsListComponent, FormsModule, TooltipDirective, CopyIconComponent, FontAwesomeModule, LeafletModule, RouterLink, NgTemplateOutlet, LocationAutocompleteComponent, LocationLinksComponent, DirectionsPill, MapControls, ResizerComponent, DrivingOrigin, MaximisableMapComponent, AdvancedToggle],
   styles: [`
     .locate-map-stack
       position: relative
@@ -253,11 +256,11 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../modules/common/tooltip-config";
           <div class="locate-readout" aria-label="Selected location">
             <fa-icon [icon]="faPin" class="colour-mintcake" size="lg"/>
             <div>
-              <div class="locate-readout-label">
-                Grid reference format
-                <select class="form-select form-select-sm d-inline-block w-auto ms-2" [(ngModel)]="gridDigits" [attr.aria-label]="'Grid reference length for this view'">
+              <div class="locate-readout-label d-flex flex-wrap align-items-center gap-2 mb-3">
+                <span>Grid reference format</span>
+                <select class="form-select form-select-sm w-auto" [(ngModel)]="gridDigits" [attr.aria-label]="'Grid reference length for this view'">
                   @for (option of gridReferenceDigitOptions; track option.value) {
-                    <option [ngValue]="option.value">{{ option.value }} figure</option>
+                    <option [ngValue]="option.value">{{ option.value }} figures · {{ option.precisionMetres }} m</option>
                   }
                 </select>
               </div>
@@ -269,7 +272,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../modules/common/tooltip-config";
               <div class="locate-grid-reference">{{ formattedGridReference }} <app-copy-icon [value]="formattedGridReference" elementName="Grid reference"/></div>
             </div>
             <div class="flex-grow-1 locate-nearest" [attr.aria-busy]="describing">
-              <div class="locate-readout-label">Nearest address</div>
+              <div class="locate-readout-label">Location</div>
               <div class="locate-nearest-content" role="status" [title]="searchLabel || addressMessage">
                 @if (describing) {
                   <span class="text-muted small"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Finding the nearest address…</span>
@@ -416,10 +419,12 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../modules/common/tooltip-config";
           @if (location) {
         <div class="thumbnail-heading-frame thumbnail-heading-frame-compact mb-3">
           <div class="thumbnail-heading">Location details</div>
-          <app-location-links [location]="location" [stacked]="true" [mediaWidth]="0" [showDescription]="false" [postcodeIsNearest]="true" [postcodePending]="describing" [showPostcodePlaceholder]="true"
+          <app-location-links [location]="location" [stacked]="true" [mediaWidth]="0" [showDescription]="false" [postcodePending]="describing" [showPostcodePlaceholder]="true"
                               [showGridReferenceVariants]="true" [showNationalGridCoordinates]="true"
                               [nationalGridCoordinates]="nationalGridCoordinates" [coordinatePrecision]="6"/>
-          <p class="small text-muted mt-2 mb-0">Grid sizes describe the reference square, not GPS accuracy. The nearest postcode may be some distance from your pin.</p>
+          <app-postcode-navigation-check [latitude]="location.latitude" [longitude]="location.longitude" [postcode]="location.postcode"
+            [compareInPlace]="true" (compare)="comparePostcode($event)"/>
+          <p class="small text-muted mt-2 mb-0">Grid sizes describe the reference square, not GPS accuracy. The postcode may be some distance from your pin.</p>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-3">
           <ng-container *ngTemplateOutlet="directionsTemplate"/>
@@ -515,6 +520,7 @@ export class LocatePageComponent implements OnInit, OnDestroy {
   private uiActions = inject(UiActionsService);
   private urlService = inject(UrlService);
   private mapTiles = inject(MapTilesService);
+  private mapDefaults = inject(MapDefaultsService);
   private markers = inject(LocateMarkersService);
   savedPoints: LocateSavedPoint[] = [];
   activeSavedPointId: string | null = null;
@@ -524,7 +530,7 @@ export class LocatePageComponent implements OnInit, OnDestroy {
   protected display = inject(WalkDisplayService);
   private map: L.Map | null = null;
   private mapResizeObserver: ResizeObserver | null = null;
-  private zoom = LOCATE_OVERVIEW_ZOOM;
+  private zoom = this.mapDefaults.zoom();
   protected readonly faReset = faRotateLeft;
   protected readonly faBack = faArrowLeft;
   protected readonly faAllPins = faObjectGroup;
@@ -553,15 +559,17 @@ export class LocatePageComponent implements OnInit, OnDestroy {
   locating = false;
   protected readonly DirectionsApp = DirectionsApp;
   private memberLoginService = inject(MemberLoginService);
-  private lastView: {centre: L.LatLng; zoom: number} = {centre: L.latLng(LOCATE_OVERVIEW_CENTRE[0], LOCATE_OVERVIEW_CENTRE[1]), zoom: LOCATE_OVERVIEW_ZOOM};
+  private lastView: {centre: L.LatLng; zoom: number} = {centre: this.overviewCentre(), zoom: this.mapDefaults.zoom()};
   options: L.MapOptions | null = null;
   layers: L.Layer[] = [];
   point: LocatePoint | null = null;
   location: LocationDetails | null = null;
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     this.pageService.setTitle("Locate a place");
     this.mapTiles.initializeProjections();
+    await this.mapDefaults.resolve();
+    this.lastView = {centre: this.overviewCentre(), zoom: this.mapDefaults.zoom()};
     this.parentPath = locateParentPath(this.urlService.relativeUrl()) || "/";
     const hasKey = this.mapTiles.hasOsApiKey();
     this.controlsState = {provider: hasKey ? MapProvider.OS : MapProvider.OSM, osStyle: hasKey ? DEFAULT_OS_STYLE : ""};
@@ -587,20 +595,18 @@ export class LocatePageComponent implements OnInit, OnDestroy {
     this.zoom = asNumber(params.get(StoredValue.MAP_ZOOM)) || (initial ? this.pointZoom(initial.latitude) : this.overviewZoom());
     if (initial) {
       this.activeSavedPointId = this.savedPoints.find(saved => Math.abs(saved.point.latitude - initial.latitude) < 0.0000001 && Math.abs(saved.point.longitude - initial.longitude) < 0.0000001)?.id || null;
-      this.applyPoint(initial);
+      const postcode = params.get(StoredValue.POSTCODE);
+      this.applyPoint(initial, postcode ? {postcode, description: ""} : null);
     } else {
       this.locateFromPostcodeQuery();
     }
-    this.buildMap(initial ? L.latLng(initial.latitude, initial.longitude) : L.latLng(LOCATE_OVERVIEW_CENTRE[0], LOCATE_OVERVIEW_CENTRE[1]), this.zoom);
+    this.buildMap(initial ? L.latLng(initial.latitude, initial.longitude) : this.overviewCentre(), this.zoom);
     const fromPostcode = params.get(StoredValue.FROM_POSTCODE);
     this.originPostcode = fromPostcode || (this.memberLoginService.memberLoggedIn() ? this.memberLoginService.loggedInMember().postcode || "" : "");
     this.originMode = fromPostcode ? DrivingOriginMode.POSTCODE : DrivingOriginMode.MY_LOCATION;
     const requestedApp = this.uiActions.queryValueForAlias(params.get(StoredValue.DIRECTIONS), values(DirectionsApp)) as DirectionsApp | null;
     if (requestedApp && initial) {
       setTimeout(() => this.toggleApp(requestedApp));
-    }
-    if (!params.keys.length) {
-      void this.useMyLocation();
     }
   }
 
@@ -621,6 +627,9 @@ export class LocatePageComponent implements OnInit, OnDestroy {
     map.on("zoomend", () => this.zone.run(() => this.syncZoomToUrl()));
     map.on("contextmenu", event => this.onMapClick(event));
     this.placeMarker(this.point);
+    if (this.savedPoints.length > 1 && !this.route.snapshot.queryParamMap.has(StoredValue.MAP_ZOOM)) {
+      this.showAllPins();
+    }
   }
 
   private syncZoomToUrl(): void {
@@ -659,7 +668,7 @@ export class LocatePageComponent implements OnInit, OnDestroy {
     this.frameUrl = null;
     this.shownApp = null;
     this.frameMessage = "";
-    const centre = this.map?.getCenter() || (this.point ? L.latLng(this.point.latitude, this.point.longitude) : L.latLng(LOCATE_OVERVIEW_CENTRE[0], LOCATE_OVERVIEW_CENTRE[1]));
+    const centre = this.map?.getCenter() || (this.point ? L.latLng(this.point.latitude, this.point.longitude) : this.overviewCentre());
     const targetProvider = String(state.provider) === WalkDetailsMapProvider.GOOGLE_MAPS ? MapProvider.OSM : state.provider;
     const zoom = this.mapTiles.matchingZoom(this.leafletProvider(), this.controlsState.osStyle, this.currentZoom(), targetProvider, state.osStyle, centre.lat);
     this.controlsState = {...this.controlsState, provider: state.provider, osStyle: state.osStyle};
@@ -758,7 +767,7 @@ export class LocatePageComponent implements OnInit, OnDestroy {
       if (syncUrl) {
         void this.uiActions.updateQueryParameters({[StoredValue.DIRECTIONS]: null});
       }
-      const centre = overview ? L.latLng(LOCATE_OVERVIEW_CENTRE[0], LOCATE_OVERVIEW_CENTRE[1]) : this.point ? L.latLng(this.point.latitude, this.point.longitude) : this.lastView.centre;
+      const centre = overview ? this.overviewCentre() : this.point ? L.latLng(this.point.latitude, this.point.longitude) : this.lastView.centre;
       setTimeout(() => this.buildMap(centre, this.lastView.zoom));
     }
     return showing;
@@ -780,8 +789,12 @@ export class LocatePageComponent implements OnInit, OnDestroy {
     return this.mapTiles.matchingZoom(MapProvider.OS, DEFAULT_OS_STYLE, LOCATE_POINT_ZOOM, this.leafletProvider(), this.controlsState.osStyle, latitude);
   }
 
+  private overviewCentre(): L.LatLng {
+    return L.latLng(this.mapDefaults.center());
+  }
+
   private overviewZoom(): number {
-    return this.mapTiles.matchingZoom(MapProvider.OSM, "", LOCATE_OVERVIEW_ZOOM, this.leafletProvider(), this.controlsState.osStyle, LOCATE_OVERVIEW_CENTRE[0]);
+    return this.mapTiles.matchingZoom(MapProvider.OSM, "", this.mapDefaults.zoom(), this.leafletProvider(), this.controlsState.osStyle, this.overviewCentre().lat);
   }
 
   get osMapsLink(): string {
@@ -865,7 +878,7 @@ export class LocatePageComponent implements OnInit, OnDestroy {
       }
       void this.uiActions.updateQueryParameters({
         [StoredValue.GRID_REF]: null,
-        [StoredValue.POSTCODE]: null,
+        [StoredValue.POSTCODE]: known?.postcode || null,
         [StoredValue.LOCATE_POINTS]: this.savedPointsQuery(),
         [StoredValue.LAT]: point.latitude.toFixed(7),
         [StoredValue.LON]: point.longitude.toFixed(7),
@@ -961,7 +974,11 @@ export class LocatePageComponent implements OnInit, OnDestroy {
     const url = new URL(window.location.href);
     if (this.point) {
       url.searchParams.delete(StoredValue.GRID_REF);
-      url.searchParams.delete(StoredValue.POSTCODE);
+      if (this.location?.postcode) {
+        url.searchParams.set(StoredValue.POSTCODE, this.location.postcode);
+      } else {
+        url.searchParams.delete(StoredValue.POSTCODE);
+      }
       url.searchParams.set(StoredValue.LAT, this.point.latitude.toFixed(7));
       url.searchParams.set(StoredValue.LON, this.point.longitude.toFixed(7));
     }
@@ -1018,7 +1035,7 @@ export class LocatePageComponent implements OnInit, OnDestroy {
 
   resetView(): void {
     const frameHidden = this.hideFrame(true, true);
-    const centre = L.latLng(LOCATE_OVERVIEW_CENTRE[0], LOCATE_OVERVIEW_CENTRE[1]);
+    const centre = this.overviewCentre();
     const zoom = this.overviewZoom();
     this.lastView = {centre, zoom};
     if (!frameHidden && this.map) {
@@ -1113,12 +1130,12 @@ export class LocatePageComponent implements OnInit, OnDestroy {
   }
 
   private placeMarker(point: LocatePoint | null): void {
-    this.markers.render(point, this.savedPoints, this.activeSavedPointId, (pin, name) => this.pinCaption(pin, name));
+    this.markers.render(point, this.savedPoints, this.activeSavedPointId, (pin, name) => this.pinPopup(pin, name));
   }
 
-  private pinCaption(point: LocatePoint, name: string | null): string {
+  private pinPopup(point: LocatePoint, name: string | null): {title: string; note: string} {
     const grid = this.display.formatGrid(point.gridReference10, this.gridDigits);
-    return name ? `${name} · ${grid}` : grid;
+    return name ? {title: name, note: grid} : {title: grid, note: ""};
   }
 
   private onPinSelection(selection: LocatePinSelection): void {
@@ -1131,7 +1148,7 @@ export class LocatePageComponent implements OnInit, OnDestroy {
         if (point) {
           this.applyPoint(point, null, false);
           const name = this.savedPoints.find(saved => saved.id === selection.id)?.name || null;
-          this.markers.setCaption(selection.id, this.pinCaption(point, name));
+          this.markers.setCaption(selection.id, this.pinPopup(point, name), this.savedPoints.find(saved => saved.id === selection.id)?.number || null);
         }
       }
     });
@@ -1139,14 +1156,46 @@ export class LocatePageComponent implements OnInit, OnDestroy {
 
   addPoint(): void {
     if (this.point && this.location && !this.activeSavedPointId && this.savedPoints.length < 50) {
-      const id = generateUid();
-      const number = this.savedPoints.reduce((highest, saved) => Math.max(highest, saved.number), 0) + 1;
-      const saved: LocateSavedPoint = {id, number, name: this.uniqueSavedName(this.pointNameFromLocation(`Point ${number}`)), point: this.point, postcode: this.location.postcode, description: this.location.description};
-      this.savedPoints = [...this.savedPoints, saved];
-      this.activeSavedPointId = id;
+      const saved = this.savePoint(this.point, this.pointNameFromLocation(`Point ${this.nextPointNumber()}`), this.location.postcode, this.location.description);
+      this.activeSavedPointId = saved.id;
       this.placeMarker(this.point);
       this.syncSavedPoints();
     }
+  }
+
+  private nextPointNumber(): number {
+    return this.savedPoints.reduce((highest, saved) => Math.max(highest, saved.number), 0) + 1;
+  }
+
+  private savePoint(point: LocatePoint, name: string, postcode: string, description: string): LocateSavedPoint {
+    const saved: LocateSavedPoint = {id: generateUid(), number: this.nextPointNumber(), name: this.uniqueSavedName(name), point, postcode, description};
+    this.savedPoints = [...this.savedPoints, saved];
+    return saved;
+  }
+
+  comparePostcode(check: PostcodeNavigationCheck): void {
+    const meeting = this.gridReferences.fromLatLng(check.location.latitude, check.location.longitude);
+    const postcode = check.postcodePoint ? this.gridReferences.fromLatLng(check.postcodePoint.lat, check.postcodePoint.lng) : null;
+    if (meeting && postcode) {
+      const existingMeeting = this.savedPointAt(meeting);
+      const existingPostcode = this.savedPointAt(postcode);
+      const additionalPoints = Number(!existingMeeting) + Number(!existingPostcode);
+      if (this.savedPoints.length + additionalPoints > 50) {
+        this.notice = "There is room for 50 saved points. Remove a saved point before adding this comparison.";
+      } else {
+        const meetingPoint = existingMeeting || this.savePoint(meeting, "Meeting point", check.postcode, check.location.description);
+        const postcodePoint = existingPostcode || this.savePoint(postcode, `Postcode ${check.postcode}`, check.postcode, null);
+        this.activeSavedPointId = meetingPoint.id;
+        this.placeMarker(this.point);
+        this.markers.setCaption(meetingPoint.id, this.pinPopup(meetingPoint.point, meetingPoint.name), meetingPoint.number);
+        this.syncSavedPoints();
+        this.showAllPins();
+      }
+    }
+  }
+
+  private savedPointAt(point: LocatePoint): LocateSavedPoint | null {
+    return this.savedPoints.find(saved => Math.abs(saved.point.latitude - point.latitude) < 0.0000001 && Math.abs(saved.point.longitude - point.longitude) < 0.0000001) || null;
   }
 
   selectSavedPoint(saved: LocateSavedPoint): void {

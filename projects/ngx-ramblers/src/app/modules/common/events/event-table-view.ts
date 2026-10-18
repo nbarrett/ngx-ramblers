@@ -92,9 +92,9 @@ import { WalkLeadEditButton } from "../../../pages/walks/walk-view/walk-lead-edi
                 id="distance-{{index}}">{{ distanceValidationService.walkDistances(displayedWalk.walk) }}
             </td>
             <td width="8%" class="d-none d-lg-table-cell postcode" id="postcode-{{index}}">
-              <a [href]="'http://maps.google.co.uk/maps?q=' + displayedWalk.walk?.groupEvent?.start_location?.postcode"
+              <a [href]="display.postcodeLink(displayedWalk.walk?.groupEvent?.start_location?.postcode, displayedWalk.walk?.groupEvent?.start_location)"
                  target="_blank" name="postcode"
-                 tooltip="Click to locate postcode {{displayedWalk.walk?.groupEvent?.start_location?.postcode}} on Google Maps"
+                 tooltip="Click to locate the start pin on the map"
                  placement="left">{{ displayedWalk.walk?.groupEvent?.start_location?.postcode }}</a>
             </td>
             @if (display.contactNameVisible(displayedWalk.walk) || display.hasContactLink(displayedWalk.walk)) {

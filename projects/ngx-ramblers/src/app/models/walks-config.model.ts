@@ -11,10 +11,10 @@ export enum GridReferenceDigits {
   TEN = 10
 }
 
-export const GRID_REFERENCE_DIGIT_OPTIONS: {value: GridReferenceDigits; label: string}[] = [
-  {value: GridReferenceDigits.SIX, label: "6 figures, to 100 metres (TR 086 170)"},
-  {value: GridReferenceDigits.EIGHT, label: "8 figures, to 10 metres (TR 0862 1703)"},
-  {value: GridReferenceDigits.TEN, label: "10 figures, to 1 metre, as Ramblers shares it (TR 08624 17039)"}
+export const GRID_REFERENCE_DIGIT_OPTIONS: {value: GridReferenceDigits; label: string; precisionMetres: number}[] = [
+  {value: GridReferenceDigits.SIX, label: "6 figures, to 100 metres (TR 086 170)", precisionMetres: 100},
+  {value: GridReferenceDigits.EIGHT, label: "8 figures, to 10 metres (TR 0862 1703)", precisionMetres: 10},
+  {value: GridReferenceDigits.TEN, label: "10 figures, to 1 metre, as Ramblers shares it (TR 08624 17039)", precisionMetres: 1}
 ];
 export const DEFAULT_GRID_REFERENCE_DIGITS = GridReferenceDigits.TEN;
 

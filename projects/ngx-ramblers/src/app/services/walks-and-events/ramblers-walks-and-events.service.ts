@@ -1,3 +1,4 @@
+import { RamblersGroupsService } from "./ramblers-groups.service";
 import { wordDiffHtml } from "../../functions/text-diff";
 import { HttpClient } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
@@ -10,7 +11,6 @@ import {
   EventQueryParameters,
   EventsListRequest,
   EventsListSortBy,
-  GroupListRequest,
   MAXIMUM_PAGE_SIZE,
   Metadata,
   PublishStatus,
@@ -140,7 +140,7 @@ export class RamblersWalksAndEventsService {
   private walkLeadersSubject = new ReplaySubject<WalkLeadersApiResponse>();
   private walksSubject = new ReplaySubject<RamblersEventSummaryApiResponse>();
   private rawWalksSubject = new ReplaySubject<RamblersEventsApiResponse>();
-  private groupsSubject = new ReplaySubject<RamblersGroupsApiResponseApiResponse>();
+  private groupsService = inject(RamblersGroupsService);
   private committeeReferenceData: CommitteeReferenceData;
   private ramblers: Ramblers;
   private BASE_URL = "/api/ramblers/walks-manager";
@@ -186,7 +186,7 @@ export class RamblersWalksAndEventsService {
   }
 
   groupNotifications(): Observable<RamblersGroupsApiResponseApiResponse> {
-    return this.groupsSubject.asObservable();
+    return this.groupsService.events();
   }
 
   async queryWalkLeaders(): Promise<WalkLeaderContact[]> {
@@ -294,9 +294,7 @@ export class RamblersWalksAndEventsService {
   }
 
   async listRamblersGroups(groups: string[]): Promise<RamblersGroupsApiResponse[]> {
-    const body: GroupListRequest = {limit: MAXIMUM_PAGE_SIZE, groups};
-    const rawData = await this.commonDataService.responseFrom(this.logger, this.http.post<RamblersGroupsApiResponseApiResponse>(`${this.BASE_URL}/list-groups`, body), this.groupsSubject);
-    return rawData.response.sort(sortBy("name"));
+    return this.groupsService.list(groups);
   }
 
   exportWalksFileName(omitExtension?: boolean): string {

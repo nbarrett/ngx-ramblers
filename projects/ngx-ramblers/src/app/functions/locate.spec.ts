@@ -1,4 +1,4 @@
-import { directionsLinks, formattedUkPostcode, locatePagePath, locateParentPath, locateSuggestionFor, osMapsUrl, wazeEmbedUrl, locationLabel, savedPointName } from "./locate";
+import { googleDrivingDirectionsUrl, googleMapsPlaceUrl, directionsLinks, formattedUkPostcode, locatePagePath, locateParentPath, locateSuggestionFor, osMapsUrl, wazeEmbedUrl, locationLabel, savedPointName, withoutTrailingPostcode } from "./locate";
 import { DirectionsApp } from "../models/locate.model";
 import { AppInstallPlatform } from "../models/route-follow.model";
 
@@ -6,6 +6,7 @@ describe("locate links", () => {
   it("builds the Locate page beneath the page it was opened from", () => {
     expect(locatePagePath({gridRef: "TR 24300 57600"}, "/walks/hythe-21")).toBe("/walks/hythe-21/locate?gridRef=TR2430057600");
     expect(locatePagePath({postcode: "CT3 1NE", zoom: 12, provider: "google-maps"}, "/walks/")).toBe("/walks/locate?postcode=CT3%201NE&map-zoom=12&map-provider=google-maps");
+    expect(locatePagePath({postcode: "CT3 1NE", lat: 51.5012345, lon: -0.1023456}, "/walks")).toBe("/walks/locate?lat=51.5012345&lon=-0.1023456&postcode=CT3%201NE");
     expect(locatePagePath({})).toBe("/locate");
   });
 
@@ -31,9 +32,26 @@ describe("locate links", () => {
     expect(directionsLinks(51.2734, 1.2144, AppInstallPlatform.ANDROID).find(link => link.app === DirectionsApp.WAZE).url).toContain("waze.com/ul");
   });
 
+  it("opens driving navigation at the exact pin without supplying a postcode or overriding the driver's origin", () => {
+    const link = googleDrivingDirectionsUrl(51.5012345, -0.1023456);
+    expect(link).toBe("https://www.google.com/maps/dir/?api=1&destination=51.5012345,-0.1023456&travelmode=driving&dir_action=navigate");
+    expect(directionsLinks(51.5012345, -0.1023456)[0].url).toBe(link);
+    expect(googleDrivingDirectionsUrl(null, -0.1)).toBeNull();
+    expect(googleDrivingDirectionsUrl(91, -0.1)).toBeNull();
+    expect(googleMapsPlaceUrl(51.3055, -1.2605)).toBe("https://www.google.com/maps/search/?api=1&query=51.3055000,-1.2605000");
+  });
+
   it("builds the OS Maps and Waze embed addresses from the point", () => {
     expect(osMapsUrl(51.27338, 1.21436)).toBe("https://explore.osmaps.com/?lat=51.27338&lon=1.21436&zoom=16&style=Leisure");
     expect(wazeEmbedUrl(51.27338, 1.21436)).toBe("https://embed.waze.com/iframe?zoom=16&lat=51.273380&lon=1.214360&pin=1");
+  });
+});
+
+describe("withoutTrailingPostcode", () => {
+  it("removes a postcode appended after a place name", () => {
+    expect(withoutTrailingPostcode("Junction of Hillside Lane and Station Approach, Hillside Park, AB1 2CD")).toBe("Junction of Hillside Lane and Station Approach, Hillside Park");
+    expect(withoutTrailingPostcode("Hillside Park")).toBe("Hillside Park");
+    expect(withoutTrailingPostcode("AB1 2CD")).toBe("AB1 2CD");
   });
 });
 
