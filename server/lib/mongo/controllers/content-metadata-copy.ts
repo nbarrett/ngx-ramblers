@@ -50,6 +50,7 @@ export function copiedImageMetadata(sourceItem: ContentMetadataItem, destination
     image: destinationImage,
     originalFileName: sourceItem.originalFileName,
     text: sourceItem.text || context.text,
+    alt: sourceItem.alt,
     tags,
     youtubeId: sourceItem.youtubeId,
     cropperPosition: null,

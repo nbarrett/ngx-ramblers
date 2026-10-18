@@ -10,6 +10,7 @@
   ],
   "exclude": [
     "**/*.spec.ts",
+    "**/*.worker.ts",
     "src/inbox-push-sw.ts"
   ]
 }

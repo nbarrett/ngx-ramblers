@@ -8,7 +8,7 @@ import { take } from "es-toolkit/compat";
 import {
   faArrowsLeftRightToLine,
   faBorderAll,
-  faCircleInfo,
+  faCircleExclamation,
   faGripVertical,
   faImage,
   faImages,
@@ -101,11 +101,15 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         }
         <div class="col-sm-12">
           @if (noImages && albumView !== AlbumView.BACKGROUNDS) {
-            <div class="alert alert-warning">
-              <fa-icon [icon]="faCircleInfo"/>
-              <strong class="ms-1">No content exists in this album</strong>
-              <div>Click the <strong>Edit images in album</strong> button to add images or videos to
-                the {{ album.name }} album
+            <div class="alert alert-warning d-flex align-items-start">
+              <fa-icon [icon]="faCircleExclamation" class="me-2"/>
+              <div>
+                <strong class="d-block">No content exists in this album</strong>
+                @if (emptyAlbumActionLabel) {
+                  <div>Click <strong>{{ emptyAlbumActionLabel }}</strong> to add images or videos to this album.</div>
+                } @else {
+                  <div>Images and videos will appear here once they have been added.</div>
+                }
               </div>
             </div>
           }
@@ -171,6 +175,9 @@ export class AlbumComponent implements OnInit {
   }
 
   @Input()
+  public emptyAlbumActionLabel: string | null = null;
+
+  @Input()
   public index: number;
 
   @Output() lazyLoadingMetadataChange: EventEmitter<LazyLoadingMetadata> = new EventEmitter();
@@ -193,7 +200,7 @@ export class AlbumComponent implements OnInit {
   public runtimeColumns: number | null = null;
   public runtimeGap: number | null = null;
   protected readonly AlbumView = AlbumView;
-  protected readonly faCircleInfo = faCircleInfo;
+  protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faGripVertical = faGripVertical;
   protected readonly faBorderAll = faBorderAll;
   protected readonly faTableCellsLarge = faTableCellsLarge;

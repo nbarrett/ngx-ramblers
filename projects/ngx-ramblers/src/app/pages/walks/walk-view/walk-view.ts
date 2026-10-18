@@ -684,11 +684,9 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       await this.openAlbumWorkflow(this.walkAlbumPath);
     } else {
       this.creatingAlbum = true;
-      this.notify.progress({title: "Photo album", message: "Creating the album page and writing the walk report"});
+      this.notify.progress({title: "Photo album", message: "Opening the album editor"});
       try {
         const albumPath = await this.createWalkAlbumService.createFromWalk(this.displayedWalk.walk);
-        this.walkAlbumPath = albumPath;
-        this.resolveWalkAlbumPath(this.displayedWalk.walk);
         await this.openAlbumWorkflow(albumPath);
         this.creatingAlbum = false;
       } catch (error) {
@@ -710,7 +708,8 @@ export class WalkViewComponent implements OnInit, OnDestroy {
       await this.urlService.navigateUnconditionallyTo(
         albumPath.split("/").filter(Boolean),
         {[StoredValue.ALBUM_WORKFLOW]: "1"},
-        ""
+        "",
+        {onSameUrlNavigation: "reload"}
       );
     }
   }

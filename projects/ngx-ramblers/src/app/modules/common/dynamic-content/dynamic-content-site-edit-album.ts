@@ -554,14 +554,14 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
           </tabset>
           @if (actions.isCarouselOrAlbum(row)) {
             <div class="mt-3">
-              <app-album preview
+              <app-album preview [emptyAlbumActionLabel]="albumEditCaption"
                          (lazyLoadingMetadataChange)="lazyLoadingMetadataUpdated($event)"
                          [album]="row?.carousel"
                          [albumView]="row?.carousel?.albumView"
                          [index]="actions.carouselOrAlbumIndex(row, pageContent)">
                 <app-badge-button [icon]="faPencil"
                                   (click)="actions.toggleEditMode(rowIndex)"
-                                  [caption]="'Edit images in album'" noRightMargin>
+                                  [caption]="albumEditCaption" noRightMargin>
                 </app-badge-button>
               </app-album>
             </div>
@@ -612,6 +612,7 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   groupEventType: GroupEventType;
   protected readonly faPencil = faPencil;
   protected readonly AlbumEditRole = AlbumEditRole;
+  protected readonly albumEditCaption = "Edit images in album";
 
   protected readonly AlbumEditTab = AlbumEditTab;
   protected readonly enumValueForKey = enumValueForKey;

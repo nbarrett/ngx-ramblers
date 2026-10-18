@@ -1,6 +1,6 @@
 import { DOCUMENT, Location } from "@angular/common";
 import { inject, Injectable, Injector } from "@angular/core";
-import { ActivatedRoute, Params, QueryParamsHandling, Router } from "@angular/router";
+import { ActivatedRoute, NavigationExtras, Params, QueryParamsHandling, Router } from "@angular/router";
 import { first, isEmpty, isUndefined, last, tail } from "es-toolkit/compat";
 import { adminParentPath } from "../models/admin-route-paths.model";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -85,10 +85,11 @@ export class UrlService {
     }
   }
 
-  navigateUnconditionallyTo(pathSegments: string[], params?: Params, queryParamsHandling?: QueryParamsHandling): Promise<boolean> {
+  navigateUnconditionallyTo(pathSegments: string[], params?: Params, queryParamsHandling?: QueryParamsHandling, navigationExtras: NavigationExtras = {}): Promise<boolean> {
     const url = `${this.pageUrl(pathSegments.filter(item => item).join("/"))}`;
     this.logger.debug("navigating to pathSegments:", pathSegments, "->", url, "params:", params, "queryParamsHandling:", queryParamsHandling);
     return this.router.navigate([url], {
+      ...navigationExtras,
       relativeTo: this.route,
       queryParams: params,
       queryParamsHandling: queryParamsHandling || "merge"

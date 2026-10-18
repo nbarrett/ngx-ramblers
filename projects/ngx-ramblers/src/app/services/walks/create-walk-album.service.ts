@@ -236,12 +236,17 @@ export class CreateWalkAlbumService {
     const albumName = albumRow?.carousel?.name || path;
     const album = await this.contentMetadataService.items(RootFolder.carousels, albumName, true).catch(() => null)
       || (albumName !== path ? await this.contentMetadataService.items(RootFolder.carousels, path, true).catch(() => null) : null);
-    return {
-      path,
-      albumName: album?.name || albumName,
-      coverImageUrl: this.coverImageUrlFor(album),
-      draftCount: draftFiles(album?.files).length
-    };
+    const publishedCount = publishedFiles(album?.files).filter(file => !!file?.image).length;
+    if (this.isPendingAlbum(album?.name || albumName) && publishedCount === 0) {
+      return null;
+    } else {
+      return {
+        path,
+        albumName: album?.name || albumName,
+        coverImageUrl: this.coverImageUrlFor(album),
+        draftCount: draftFiles(album?.files).length
+      };
+    }
   }
 
   private coverImageUrlFor(album: ContentMetadata | null): string | null {

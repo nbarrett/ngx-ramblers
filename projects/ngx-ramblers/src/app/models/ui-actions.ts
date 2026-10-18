@@ -28,6 +28,7 @@ export enum StoredValue {
   ALBUM_COPY_DESTINATIONS = "album-copy-destinations",
   ALBUM_EDIT_PHOTO = "album-edit-photo",
   ALBUM_EDIT_VIEW = "album-edit-view",
+  ALBUM_PHOTO_SORT = "album-photo-sort",
   ALBUM_SHARE = "album-share",
   ALBUM_TAB = "album-tab",
   ALBUM_VIEW = "album-view",

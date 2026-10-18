@@ -93,7 +93,9 @@ export class WalksViewSelector implements OnInit, OnDestroy {
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: NavigationEnd) => {
         const newPath = event.urlAfterRedirects.split("?")[0].split("#")[0];
-        if (newPath !== this.currentPath) {
+        const openingAlbum = this.eventView?.eventView === EventViewDispatch.VIEW
+          && this.route.snapshot.queryParamMap.get(StoredValue.ALBUM_WORKFLOW) === "1";
+        if (newPath !== this.currentPath || openingAlbum) {
           this.currentPath = newPath;
           void this.loadEventView();
         }

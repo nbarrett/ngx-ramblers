@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing";
 import { PageContentActionsService } from "./page-content-actions.service";
-import { PageContent, PageContentRow, PageContentType } from "../models/content-text.model";
+import { DEFAULT_GRID_OPTIONS, PageContent, PageContentRow, PageContentType } from "../models/content-text.model";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { UrlService } from "./url.service";
 import { MapDefaultsService } from "./maps/map-defaults.service";
@@ -17,6 +17,16 @@ describe("PageContentActionsService", () => {
             ]
         });
         service = TestBed.inject(PageContentActionsService);
+    });
+
+    it("starts new album templates with a small grid gap after another album is edited", () => {
+        const existingAlbum = service.defaultAlbum("first-album");
+        expect(existingAlbum.gridViewOptions).not.toBe(DEFAULT_GRID_OPTIONS);
+        existingAlbum.gridViewOptions.gap = 1.75;
+        const template = service.defaultRowFor(PageContentType.ALBUM);
+        expect(template.carousel.gridViewOptions.gap).toBe(0.25);
+        expect(existingAlbum.gridViewOptions.gap).toBe(1.75);
+        expect(DEFAULT_GRID_OPTIONS.gap).toBe(0.25);
     });
 
     it("treats a route row as distinct from a map row and initialises guide data", () => {

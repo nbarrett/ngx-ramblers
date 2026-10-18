@@ -6,6 +6,7 @@ import { EventSlugResolverService } from "../../services/walks-and-events/event-
 import {
   ALL_PHOTOS,
   ContentMetadataItem,
+  imageAlt,
   DuplicateImages,
   HasEventId,
   ImageTag,
@@ -66,7 +67,7 @@ import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modu
                       @if (hasCropperPosition(slide)) {
                         <div class="carousel-image-cropper" [ngStyle]="carouselCropperWrapperStyles()">
                           <img loading="lazy" [src]="imageSourceFor(slide)"
-                               [alt]="slide.text"
+                               [alt]="imageAlt(slide)"
                                [ngStyle]="carouselCropperImageStyles(slide)"
                                (load)="onImageLoad($event)"
                                (error)="onImageError($event)">
@@ -74,7 +75,7 @@ import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modu
                       }
                       @if (!hasCropperPosition(slide)) {
                         <img loading="lazy" [src]="imageSourceFor(slide)"
-                             [alt]="slide.text" [ngStyle]="{
+                             [alt]="imageAlt(slide)" [ngStyle]="{
                    'height.px': album.height,
                      'min-width': '100%',
                       'max-width': '100%',
@@ -139,6 +140,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
   public showIndicators = false;
   private subscriptions: Subscription[] = [];
   public faPencil = faPencil;
+  protected readonly imageAlt = imageAlt;
   public album: AlbumData;
   public preview = false;
   public FALLBACK_MEDIA = FALLBACK_MEDIA;

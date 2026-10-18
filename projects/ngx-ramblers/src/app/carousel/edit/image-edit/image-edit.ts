@@ -15,7 +15,8 @@ import {
   ContentMetadataItem,
   DuplicateImages,
   ImageTag,
-  S3Metadata
+  S3Metadata,
+  imageAlt
 } from "../../../models/content-metadata.model";
 import { Tag } from "../../../models/tag.model";
 import { addTag } from "../../../functions/tags";
@@ -118,7 +119,7 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                 @if (!imageLoadText && !item.youtubeId) {
                   <img (load)="imageLoaded($event)" (error)="imageError(item, $event)" loading="lazy"
                        [id]="'image-' + index" class="img-fluid w-100" [src]="imageSourceOrPreview()"
-                       [alt]="item.text"/>
+                       [alt]="imageAlt(item)"/>
                 }
                 @if (item.youtubeId) {
                   <div class="youtube-preview-container">
@@ -166,8 +167,8 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                 </div>
                 <div class="col-6 col-lg-4">
                   <app-badge-button fullWidth noRightMargin [disabled]="editActive" [icon]="faBook"
-                                    [caption]="item.image && item.image===contentMetadata.coverImage? 'Clear Cover image':'Cover Image'"
-                                    [active]="item.image && item.image===contentMetadata.coverImage"
+                                    [caption]="coverImageSelected() ? 'Clear cover image' : 'Use as cover'"
+                                    [active]="coverImageSelected()"
                                     (click)="coverImageSet()"/>
                 </div>
                 <div class="col-6 col-lg-4">
@@ -204,6 +205,13 @@ import { YoutubeInputComponent } from "../../../modules/common/youtube-input/you
                           class="form-control input-sm"
                           rows="2" [id]="stringUtils.kebabCase('image-title', index)"
                           placeholder="Enter title for image"></textarea>
+              </div>
+              <div class="form-group">
+                <label [for]="stringUtils.kebabCase('image-alt', index)">Alt text</label>
+                <textarea [(ngModel)]="item.alt" (ngModelChange)="callImageChange()" type="text"
+                          class="form-control input-sm"
+                          rows="2" [id]="stringUtils.kebabCase('image-alt', index)"
+                          placeholder="Describe the image for screen readers. Leave blank to use the title."></textarea>
               </div>
               @if (!limitedActions()) {
               <div class="row">
@@ -340,11 +348,15 @@ export class ImageEditComponent implements OnInit {
 
   @Input("index") set acceptChangesFromIndex(index: number) {
     this.index = index;
+    this.setEnablementProperties();
     this.logger.info("acceptChangesFromIndex:", index);
   }
 
   @Input("item") set acceptChangesFromItem(item: ContentMetadataItem) {
     this.item = item;
+    this.editActive = false;
+    this.imageLoadText = null;
+    this.cropperPositionBeforeEdit = null;
     this.logger.info("acceptChangesFromItem:", item);
     this.awsFileDataFromEdit = null;
     this.checkDuplicates(item);
@@ -352,6 +364,7 @@ export class ImageEditComponent implements OnInit {
 
   @Input("filteredFiles") set acceptChangesFrom(filteredFiles: ContentMetadataItem[]) {
     this.filteredFiles = filteredFiles;
+    this.setEnablementProperties();
   }
 
   @Input("contentMetadata") set acceptContentMetadataChangesFrom(contentMetadata: ContentMetadata) {
@@ -379,7 +392,10 @@ export class ImageEditComponent implements OnInit {
   @Output() imageEdit: EventEmitter<ContentMetadataItem> = new EventEmitter();
   @Output() copyToAlbum: EventEmitter<ContentMetadataItem> = new EventEmitter();
   @Output() approve: EventEmitter<ContentMetadataItem> = new EventEmitter();
+  @Input() selectedCover: ContentMetadataItem | null = null;
+  @Output() coverChange = new EventEmitter<ContentMetadataItem>();
   @Input() role: AlbumEditRole = AlbumEditRole.CURATOR;
+  protected readonly imageAlt = imageAlt;
 
   private noImageSave: boolean;
   private nonDestructive = true;
@@ -604,9 +620,14 @@ export class ImageEditComponent implements OnInit {
     this.item.eventId = groupEvent.id;
   }
 
+  coverImageSelected(): boolean {
+    return this.selectedCover ? this.selectedCover === this.item : !!this.item.image && this.item.image === this.contentMetadata.coverImage;
+  }
+
   coverImageSet() {
-    const currentlySet: boolean = this.item.image === this.contentMetadata.coverImage;
-    if (currentlySet) {
+    if (this.coverChange.observed) {
+      this.coverChange.emit(this.item);
+    } else if (this.coverImageSelected()) {
       this.contentMetadata.coverImage = null;
     } else {
       this.contentMetadata.coverImage = this.item.image;
@@ -615,12 +636,13 @@ export class ImageEditComponent implements OnInit {
 
   private setEnablementProperties() {
     this.canMoveUp = this.index > 0;
-    this.canMoveDown = this.index < this.filteredFiles.length - 1;
+    this.canMoveDown = this.index < (this.filteredFiles?.length || 0) - 1;
   }
 
   clearImageData() {
     this.item.tags = [];
     this.item.text = null;
+    this.item.alt = null;
     this.item.dateSource = null;
     this.item.dateSource = uploadGroupEventType.area;
     this.item.date = this.s3Metadata?.lastModified;
@@ -641,6 +663,7 @@ export class ImageEditComponent implements OnInit {
       this.logger.info("setImageDataFromIndex:", index, "referenceItem:", referenceItem);
       this.item.tags = referenceItem.tags;
       this.item.text = referenceItem.text;
+      this.item.alt = referenceItem.alt;
       this.item.dateSource = referenceItem.dateSource;
       this.item.date = referenceItem.date;
       this.item.eventId = referenceItem.eventId;

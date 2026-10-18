@@ -18,6 +18,7 @@ import {
 import {
   ContentMetadata,
   ContentMetadataItem,
+  DEFAULT_ALBUM_MAX_IMAGE_SIZE,
   RECENT_PHOTOS
 } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 import {
@@ -43,7 +44,8 @@ function photosToContentMetadataItems(photos: ExternalPhoto[]): ContentMetadataI
     date: photo.dateTaken,
     image: photo.url,
     originalFileName: photo.title || photo.id,
-    text: photo.title || ""
+    text: photo.title || "",
+    alt: photo.title || ""
   }));
 }
 
@@ -193,7 +195,8 @@ export function externalAlbumDocuments(
       name: albumName,
       files: photosToContentMetadataItems(albumMetadata.photos),
       coverImage: albumMetadata.coverPhotoUrl,
-      imageTags: [RECENT_PHOTOS]
+      imageTags: [RECENT_PHOTOS],
+      maxImageSize: DEFAULT_ALBUM_MAX_IMAGE_SIZE
     } as ContentMetadata,
     page: {
       path: albumName,

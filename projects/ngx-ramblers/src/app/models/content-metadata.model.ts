@@ -53,7 +53,7 @@ export const fileContentTypeMappings: FileContentTypeMapping[] = [
   { extensions: ["svg"], contentType: IMAGE_SVG },
   { extensions: ["gif"], contentType: IMAGE_GIF },
   { extensions: ["webp"], contentType: IMAGE_WEBP },
-  { extensions: ["heic"], contentType: IMAGE_HEIC },
+  { extensions: ["heic", "heif"], contentType: IMAGE_HEIC },
   { extensions: ["ico"], contentType: "image/x-icon" },
   { extensions: ["bmp"], contentType: "image/bmp" },
   { extensions: ["html", "htm"], contentType: "text/html; charset=utf-8" },
@@ -105,7 +105,7 @@ export const fileTypeAttributes: FileTypeAttributes[] = [
   {
     key: FileType.HEIC,
     contentType: IMAGE_HEIC,
-    fileExtensions: ["heic"],
+    fileExtensions: ["heic", "heif"],
     base64Prefix: BASE64_PREFIX_HEIC,
     croppable: true,
     cropperFormat: "jpeg"
@@ -132,6 +132,23 @@ export const fileTypeAttributes: FileTypeAttributes[] = [
     base64Prefix: BASE64_PREFIX_GIF,
     croppable: false
   }];
+
+export const DEFAULT_ALBUM_MAX_IMAGE_SIZE = 256000;
+export const SMALLEST_ALBUM_MAX_IMAGE_SIZE = 50 * 1024;
+
+export function albumMaxImageSize(stored: number | null, fallback: number = DEFAULT_ALBUM_MAX_IMAGE_SIZE): number {
+  if (stored === 0) {
+    return 0;
+  } else if (!stored || stored < SMALLEST_ALBUM_MAX_IMAGE_SIZE) {
+    return fallback || DEFAULT_ALBUM_MAX_IMAGE_SIZE;
+  } else {
+    return stored;
+  }
+}
+
+export function imageAlt(item: { alt?: string; text?: string } | null): string {
+  return item?.alt || item?.text || "";
+}
 
 export interface ContentMetadata extends Identifiable {
   rootFolder?: RootFolder;
@@ -224,7 +241,9 @@ export interface ContentMetadataItem extends WithMongoId, HasEventId {
   image?: string;
   base64Content?: string;
   originalFileName?: string;
+  sourceChecksum?: string;
   text?: string;
+  alt?: string;
   tags?: number[];
   youtubeId?: string;
   cropperPosition?: ImageCropperPosition | null;
@@ -275,6 +294,18 @@ export interface ImageTag extends Tag {
   excludeFromRecent?: boolean;
 }
 
+export enum AlbumPhotoSort {
+  NEWEST = "newest",
+  OLDEST = "oldest",
+  FILENAME = "filename",
+  CUSTOM = "custom"
+}
+
+export enum AlbumEditorView {
+  PHOTOS = "photos",
+  DETAILS = "details"
+}
+
 export enum ImageFilterType {
   ALL = "all",
   RECENT = "recent",
@@ -286,7 +317,23 @@ export enum SlideInitialisation {
   TAG_CHANGE = "tag-change"
 }
 
+export interface PreparedDroppedImages {
+  images: Base64File[];
+  failedFiles: string[];
+  skippedHeic: number;
+  skippedHeicFiles: string[];
+  unread: number;
+  skippedDuplicates: number;
+}
+
+export interface UniqueImageFiles {
+  files: Base64File[];
+  skippedDuplicates: number;
+}
+
 export interface Base64File {
+  dateTaken?: number | null;
+  sourceChecksum?: string;
   file: File
   base64Content: string;
 }
