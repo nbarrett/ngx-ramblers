@@ -45,7 +45,8 @@ describe("registration committee import", () => {
     const pages = [{path: "committee", rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "**Chair:** Jane Doe <jane@example.org>"}]}]}];
     const captured = {roles: null as any, memberUpdate: null as any, contactRows: null as any};
     const chairman = {type: "chairman", description: "Chairman", email: "", fullName: "(Vacant)", roleType: RoleType.COMMITTEE_MEMBER, vacant: true};
-    const db = {collection: (name: string) => name === "members" ? {
+    const db = {listCollections: () => ({next: async () => null}), collection: (name: string) => name === "members" ? {
+      createIndex: async () => null,
       find: () => ({toArray: async () => []}),
       findOneAndUpdate: async (_query, update) => {
         captured.memberUpdate = update;

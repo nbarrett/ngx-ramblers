@@ -109,11 +109,11 @@ describe("lazy collection indexes", () => {
   it("does not manufacture collections during database seeding", async () => {
     const createIndex = sandbox.stub().resolves();
     const collection = sandbox.stub().returns({createIndex, indexes: async () => []});
-    const database = {listCollections: sandbox.stub().returns({toArray: async () => [{name: "fictionalRecords"}]}), collection};
-    const existing = fictionalModel(true).model;
+    const existing = fictionalModel(true);
+    const database = {listCollections: sandbox.stub().returns({next: existing.next, toArray: async () => [{name: "fictionalRecords"}]}), collection};
     const absent = fictionalModel(false).model;
     absent.collection.name = "unusedRecords";
-    sandbox.stub(mongoose, "models").value({Existing: existing, Absent: absent});
+    sandbox.stub(mongoose, "models").value({Existing: existing.model, Absent: absent});
     await indexExistingCollections(database as never);
     expect(collection.calledWith("unusedRecords")).toBe(false);
     expect(createIndex.firstCall.args).toEqual([{name: 1}, {unique: true, background: true}]);
