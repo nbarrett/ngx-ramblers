@@ -12,11 +12,13 @@ describe("walking list pull to refresh", () => {
     defaultView: {location: {reload}, getComputedStyle: (element: Element) => window.getComputedStyle(element)},
     documentElement: root,
     scrollingElement: root,
-    querySelector: (selector: string) => selector === ".app-home" ? home : null
+    querySelector: vi.fn((selector: string) => selector === ".app-home" ? home : null)
   };
 
   beforeEach(() => {
     home.scrollTop = 0;
+    root.scrollTop = 0;
+    page.querySelector.mockImplementation((selector: string) => selector === ".app-home" ? home : null);
     reload.mockClear();
     root.style.transform = "";
     TestBed.configureTestingModule({imports: [LoggerTestingModule], providers: [
@@ -95,4 +97,26 @@ describe("walking list pull to refresh", () => {
     expect(reload).not.toHaveBeenCalled();
     component.ngOnDestroy();
   });
+
+  it("moves a normal page during a pull and refreshes after release", async () => {
+    page.querySelector.mockImplementation(selector => selector === ".app-page-shift" ? root : null);
+    const component = TestBed.runInInjectionContext(() => new PullToRefreshComponent());
+    const target = document.createElement("p");
+    root.appendChild(target);
+
+    component["onTouchStart"](touch(target, 10, 10));
+    component["onTouchMove"](touch(target, 10, 170));
+
+    expect(root.style.transform).toBe("translateY(80px)");
+    expect(component.visible()).toBe(true);
+    expect(reload).not.toHaveBeenCalled();
+
+    component["onTouchEnd"]();
+    await Promise.resolve();
+
+    expect(reload).toHaveBeenCalledOnce();
+    component.ngOnDestroy();
+    expect(root.style.transform).toBe("");
+  });
+
 });

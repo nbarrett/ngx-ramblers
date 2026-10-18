@@ -156,7 +156,7 @@ import { WalkAlbumWorkflow } from "./walk-album-workflow";
                   <span class="share-toggle-icon" aria-hidden="true">
                     <fa-icon [icon]="faImages"/>
                   </span>
-                  {{ role === AlbumEditRole.CURATOR ? "Edit album" : "Add photos" }}
+                  {{ contributeButtonCaption() }}
                 </button>
               }
               @if (canShareAlbum) {
@@ -206,7 +206,8 @@ import { WalkAlbumWorkflow } from "./walk-album-workflow";
         }
         <div class="col-sm-12">
           <app-album (lazyLoadingMetadataChange)="onLazyLoadingMetadataChange($event)"
-                     [album]="row.carousel" [index]="index"/>
+                     [album]="row.carousel" [index]="index"
+                     [emptyAlbumActionLabel]="contributeButtonVisible() ? contributeButtonCaption() : null"/>
         </div>
       </div>
     }`,
@@ -346,6 +347,10 @@ export class DynamicContentViewAlbum implements OnInit, OnDestroy {
 
   shareBarVisible(): boolean {
     return this.canShareAlbum || this.hasSocialPostLinks;
+  }
+
+  contributeButtonCaption(): string {
+    return this.createWalkAlbumService.albumActionCaption(false, this.role, this.row?.carousel?.name, 0);
   }
 
   contributeButtonVisible(): boolean {

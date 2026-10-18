@@ -224,7 +224,7 @@ export class ImageCropperAndResizerComponent implements OnInit, AfterViewInit, O
 
     private async calculateImageTypeAttributes(): Promise<void> {
         const initialFileAttributes = this.fileUtils.fileTypeAttributesForFile(this?.originalFile);
-        if (initialFileAttributes?.key === FileType.HEIC) {
+        if (this.fileUtils.isHeicFile(this?.originalFile)) {
             const heicBase64File: Base64File = await this.fileUtils.loadBase64ImageFromFile(this?.originalFile);
             const checkedImage = await this.fileUtils.convertHEICFile(heicBase64File);
             const jpegBase64File = checkedImage.file;

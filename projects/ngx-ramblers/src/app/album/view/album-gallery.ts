@@ -1,6 +1,6 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { Gallery, GalleryComponent, GalleryImageDef, GalleryRef, GalleryState, ImageItem, IframeItem } from "ng-gallery";
-import { ContentMetadata, ContentMetadataItem, LazyLoadingMetadata } from "../../models/content-metadata.model";
+import { ContentMetadata, ContentMetadataItem, imageAlt, LazyLoadingMetadata } from "../../models/content-metadata.model";
 import { PageService } from "../../services/page.service";
 import { ContentMetadataService } from "../../services/content-metadata.service";
 import { UrlService } from "../../services/url.service";
@@ -152,7 +152,7 @@ export class AlbumGalleryComponent implements OnInit, OnDestroy {
       });
     }
     return new ImageItem({
-      alt: item.text,
+      alt: imageAlt(item),
       src: this.urlService.imageSourceFor(item, this?.lazyLoadingMetadata.contentMetadata),
       thumb: this.urlService.imageSourceFor(item, this?.lazyLoadingMetadata.contentMetadata)
     });

@@ -7,6 +7,7 @@ import { LoggerTestingModule } from "ngx-logger/testing";
 import { vi } from "vitest";
 import { AWSLinkConfig, LinkConfig } from "../models/link.model";
 import { UrlService } from "./url.service";
+import { StoredValue } from "../models/ui-actions";
 import { provideHttpClientTesting } from "@angular/common/http/testing";
 import { StringUtilsService } from "./string-utils.service";
 import { provideHttpClient, withInterceptorsFromDi } from "@angular/common/http";
@@ -501,6 +502,15 @@ describe("UrlService", () => {
             expect(baseDomain).toBeTruthy();
             expect(baseDomain.length).toBeGreaterThan(0);
         });
+    });
+
+    it("can explicitly recheck the current album URL after creation", async () => {
+        const service = TestBed.inject(UrlService);
+        const router = TestBed.inject(Router);
+        const navigate = vi.fn().mockResolvedValue(true);
+        Object.assign(router, {navigate});
+        await service.navigateUnconditionallyTo(["walks", "photos", "hillside-park"], {[StoredValue.ALBUM_WORKFLOW]: "1"}, "", {onSameUrlNavigation: "reload"});
+        expect(navigate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({onSameUrlNavigation: "reload"}));
     });
 
 });

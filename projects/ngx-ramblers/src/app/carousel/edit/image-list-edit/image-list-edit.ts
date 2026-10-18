@@ -1,4 +1,5 @@
-import { NgTemplateOutlet } from "@angular/common";
+import { ButtonDropdownComponent } from "../../../modules/common/button-dropdown/button-dropdown";
+import { ButtonDropdownItem } from "../../../models/button-dropdown.model";
 import { HttpClient, HttpErrorResponse, HttpStatusCode } from "@angular/common/http";
 import {
   ChangeDetectorRef,
@@ -13,19 +14,21 @@ import {
   Output,
   ViewChild
 } from "@angular/core";
-import { ActivatedRoute, ParamMap } from "@angular/router";
-import { isEmpty, isString, keys, min } from "es-toolkit/compat";
-import { range } from "es-toolkit";
+import { ActivatedRoute, ParamMap, Router } from "@angular/router";
+import { isEmpty, isString, keys, values } from "es-toolkit/compat";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
-import { PageChangedEvent, PaginationComponent } from "ngx-bootstrap/pagination";
-import { CdkDrag, CdkDragDrop, CdkDropList, CdkDropListGroup } from "@angular/cdk/drag-drop";
+import { CdkDrag, CdkDragHandle, CdkDragDrop, CdkDropList, CdkDropListGroup } from "@angular/cdk/drag-drop";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subject, Subscription } from "rxjs";
 import { debounceTime, distinctUntilChanged } from "rxjs/operators";
 import { AlertTarget } from "../../../models/alert-target.model";
 import {
   faAdd,
-  faArrowsUpDown,
+  faArrowLeft,
+  faAngleLeft,
+  faAngleRight,
+  faGrip,
+  faSliders,
   faBookOpen,
   faCamera,
   faCircleCheck,
@@ -36,7 +39,6 @@ import {
   faEraser,
   faFile,
   faImages,
-  faPencil,
   faRemove,
   faSave,
   faSortNumericDown,
@@ -49,14 +51,16 @@ import {
 
 import {
   ALL_PHOTOS,
+  AlbumEditorView,
+  AlbumPhotoSort,
+  albumMaxImageSize,
   Base64File,
-  CheckedImage,
+  imageAlt,
   ContentMetadata,
   ContentMetadataCopyImageRequest,
   ContentMetadataItem,
   ContentMetadataResizeRequest,
   DuplicateImages,
-  IMAGE_HEIC,
   ImageFilterType,
   ImageTag,
   RECENT_PHOTOS,
@@ -89,9 +93,10 @@ import {
   DescribedDimensions
 } from "../../../models/aws-object.model";
 import { FileUtilsService } from "../../../file-utils.service";
+import { YouTubeService } from "../../../services/youtube.service";
+import { YouTubeQuality } from "../../../models/youtube.model";
 import { base64ToFile } from "ngx-image-cropper";
-import { BadgeButtonComponent } from "../../../modules/common/badge-button/badge-button";
-import { NgClass, NgStyle } from "@angular/common";
+import { NgClass, NgStyle, NgTemplateOutlet } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TagManagerComponent } from "../../../pages/tag/tag-manager.component";
 import { FormsModule } from "@angular/forms";
@@ -211,50 +216,13 @@ import { uploadGroupEventType } from "../../../models/committee.model";
       max-width: 28rem
       margin-top: 0.65rem
 
-    .album-upload-action
-      -webkit-appearance: none
-      appearance: none
-      min-height: 48px
-      border-radius: 12px
-      border: 1px solid rgb(222, 226, 230)
-      background: rgb(222, 226, 230)
-      color: rgb(33, 37, 41)
-      font-weight: 600
-      display: inline-flex
-      align-items: center
-      justify-content: center
-      gap: 0.5rem
-      padding: 0.65rem 0.85rem
-      touch-action: manipulation
-      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease
+    .album-upload-zone-compact
+      min-height: 96px
+      padding: var(--space-3, 12px)
 
-    .album-upload-action fa-icon,
-    .album-upload-action ::ng-deep svg
-      color: inherit
-
-    .album-upload-action:not(:disabled):hover,
-    .album-upload-action:not(:disabled):focus
-      color: rgb(33, 37, 41)
-      background: var(--ramblers-colour-sunrise, rgb(249, 177, 4))
-      border-color: var(--ramblers-colour-sunrise, rgb(249, 177, 4))
-
-    .album-upload-action.primary
-      background: var(--ramblers-colour-sunrise, rgb(249, 177, 4))
-      border-color: transparent
-      color: #fff
-
-    .album-upload-action.primary fa-icon,
-    .album-upload-action.primary ::ng-deep svg
-      color: #fff
-
-    .album-upload-action.primary:not(:disabled):hover,
-    .album-upload-action.primary:not(:disabled):focus
-      background: rgb(211, 150, 3)
-      border-color: rgb(211, 150, 3)
-      color: #fff
-
-    .album-upload-action:disabled
-      opacity: 0.55
+    .album-upload-zone-compact .album-upload-icon,
+    .album-upload-zone-compact .album-upload-actions
+      display: none !important
 
     .album-sticky-bar
       position: sticky
@@ -262,43 +230,34 @@ import { uploadGroupEventType } from "../../../models/committee.model";
       z-index: 20
       display: grid
       grid-template-columns: 1fr 1fr
-      gap: 0.5rem
-      padding: 0.75rem 0.25rem calc(0.75rem + env(safe-area-inset-bottom, 0px))
-      margin: 0.75rem -0.25rem 0
-      background: rgba(255, 255, 255, 0.96)
-      border-top: 1px solid rgba(64, 65, 65, 0.1)
-      backdrop-filter: blur(8px)
+      gap: var(--space-2, 8px)
+      padding: var(--space-3, 12px) 0
+      padding-bottom: calc(var(--space-3, 12px) + env(safe-area-inset-bottom, 0px))
+      margin-top: var(--space-3, 12px)
+      background: var(--rsm-panel-bg, white)
+      border-top: 1px solid var(--rsm-border, rgba(64, 65, 65, 0.1))
 
-    .album-sticky-bar .album-upload-action
-      max-width: none
+    .album-sticky-bar .btn
       width: 100%
+      min-width: 0
+      height: auto
+      box-sizing: border-box
+      white-space: normal
+      overflow: visible
+      padding-left: var(--space-2, 8px)
+      padding-right: var(--space-2, 8px)
+      line-height: 1.2
+      justify-content: center
+      text-align: center
 
-    .album-sticky-bar.workflow
-      grid-template-columns: 1fr 1fr
-      position: fixed
-      left: 0
-      right: 0
-      bottom: 0
-      margin: 0
-      padding: 0.65rem 0.75rem calc(0.65rem + env(safe-area-inset-bottom, 0px))
-      box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08)
-
-    .album-sticky-bar.workflow .album-upload-action.done
-      grid-column: 1 / -1
-      min-height: 52px
-      font-size: 1rem
-
-    .album-sticky-bar.workflow .album-upload-action.secondary-exit
-      grid-column: 1 / -1
-      min-height: 44px
-      background: transparent
-      border-color: transparent
-      color: rgb(110, 112, 115)
-      font-weight: 600
+    .album-sticky-bar .btn + .btn
+      margin-left: 0
 
     :host.workflow-mode
       display: block
-      padding-bottom: calc(8.5rem + env(safe-area-inset-bottom, 0px))
+
+    .album-editor-drop
+      min-height: 100%
 
     @keyframes album-upload-pulse
       0%, 100%
@@ -306,25 +265,8 @@ import { uploadGroupEventType } from "../../../models/committee.model";
       50%
         box-shadow: 0 0 0 8px rgba(249, 177, 4, 0.22)
 
-    .image-list-pagination
-      display: flex
-      flex-direction: column
-      align-items: stretch
-      gap: 0.75rem
-      margin-top: 1rem
-      margin-bottom: 0.75rem
-
     .sticky-toolbar
-      isolation: isolate
-      padding-left: var(--space-2, 8px)
-      padding-right: var(--space-2, 8px)
-      background: var(--rsm-panel-bg, rgb(255, 255, 255))
-
-    .image-list-pagination-alert
-      width: 100%
-      min-width: 0
-      line-height: 1.35
-      margin: 0
+      background: var(--rsm-panel-bg, white)
 
     .reorder-view-switch
       display: flex
@@ -336,6 +278,14 @@ import { uploadGroupEventType } from "../../../models/committee.model";
     .reorder-view-switch span
       color: var(--rsm-muted, rgb(110, 112, 115))
       font-size: 0.85rem
+
+    @media (max-width: 767.98px)
+      .reorder-view-switch
+        display: grid
+        grid-template-columns: minmax(0, 1fr)
+
+      .reorder-view-switch app-button-dropdown
+        width: 100%
 
     .copy-image-backdrop
       position: fixed
@@ -383,30 +333,12 @@ import { uploadGroupEventType } from "../../../models/committee.model";
       gap: var(--space-4, 16px)
       margin-bottom: var(--space-4, 16px)
 
-    .image-reorder-pagination
-      margin: 0
-
-    .image-reorder-boundary
-      display: flex
-      align-items: center
-      justify-content: center
-      min-height: 52px
-      padding: var(--space-2, 8px)
-      border: 2px dashed var(--ramblers-colour-mintcake, rgb(155, 200, 171))
-      border-radius: var(--radius-2, 6px)
-      background: rgba(155, 200, 171, 0.12)
-      color: rgb(33, 37, 41)
-      font-weight: 700
-
-    .image-reorder-boundary.cdk-drop-list-dragging
-      background: rgba(155, 200, 171, 0.3)
-
     .cover-drop-zone
       display: grid
-      grid-template-columns: minmax(0, 180px) minmax(0, 1fr)
+      grid-template-columns: 88px minmax(0, 1fr) auto
       align-items: center
       gap: var(--space-3, 12px)
-      min-height: 150px
+      min-height: 88px
       padding: var(--space-3, 12px)
       border: 2px dashed var(--ramblers-colour-sunrise, rgb(249, 177, 4))
       border-radius: var(--radius-3, 8px)
@@ -450,8 +382,11 @@ import { uploadGroupEventType } from "../../../models/committee.model";
 
     .image-reorder-grid
       display: grid
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr))
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))
       gap: var(--space-3, 12px)
+
+    .image-reorder-empty
+      grid-column: 1 / -1
 
     .image-reorder-item
       position: relative
@@ -461,11 +396,31 @@ import { uploadGroupEventType } from "../../../models/committee.model";
       background: var(--rsm-panel-bg, #fff)
       overflow: hidden
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12)
+      touch-action: pan-y
+      content-visibility: auto
+      contain-intrinsic-size: auto 220px
+
+    .image-reorder-preview
+      display: block
+      width: 100%
+      padding: 0
+      border: 0
+      background: var(--rsm-panel-bg, white)
+      cursor: pointer
+      touch-action: pan-y
+
+    .image-reorder-preview:focus-visible
+      outline: 3px solid var(--ramblers-colour-sunrise)
+      outline-offset: -3px
+
+    .image-reorder-handle
       cursor: grab
       touch-action: none
 
-    .image-reorder-item:active
-      cursor: grabbing
+    .image-reorder-status
+      padding: 0 var(--space-2, 8px) var(--space-2, 8px)
+      font-size: 0.75rem
+      color: var(--rsm-muted, rgb(110, 112, 115))
 
     .image-reorder-item.cdk-drag-placeholder
       opacity: 0.25
@@ -484,6 +439,7 @@ import { uploadGroupEventType } from "../../../models/committee.model";
       padding: 4px 8px
 
     .image-reorder-name
+      flex: 1
       min-width: 0
       overflow: hidden
       text-overflow: ellipsis
@@ -505,101 +461,29 @@ import { uploadGroupEventType } from "../../../models/committee.model";
       font-size: 0.7rem
       font-weight: 700
 
-    :host ::ng-deep .image-list-pagination
-      pagination, .pagination
-        width: 100%
-        display: flex
-        gap: 0.5rem
-        margin-bottom: 0
-
-      .page-item
-        flex: 1 1 0
-        margin-right: 0
-
-      .page-link
-        width: 100%
-        text-align: center
-        color: rgb(33, 37, 41)
-        background-color: rgb(222, 226, 230)
-        border: 1px solid rgb(222, 226, 230)
-        border-radius: 6px
-        font-weight: 600
-
-      .page-item:not(.disabled):not(.active) .page-link:hover,
-      .page-item:not(.disabled):not(.active) .page-link:focus
-        color: rgb(33, 37, 41)
-        background-color: var(--ramblers-colour-sunrise, rgb(249, 177, 4))
-        border-color: var(--ramblers-colour-sunrise, rgb(249, 177, 4))
-
-      .page-item.active .page-link
-        color: rgb(33, 37, 41)
-        background-color: var(--ramblers-colour-sunrise, rgb(249, 177, 4))
-        border-color: var(--ramblers-colour-sunrise, rgb(249, 177, 4))
-        font-weight: 700
-
-      .page-item.disabled .page-link
-        color: rgba(33, 37, 41, 0.4)
-        background-color: rgb(236, 238, 240)
-        border-color: rgb(236, 238, 240)
-        opacity: 0.7
-        cursor: not-allowed
-        pointer-events: none
-        box-shadow: none
-
-        &:hover, &:focus
-          color: rgba(33, 37, 41, 0.4)
-          background-color: rgb(236, 238, 240)
-          border-color: rgb(236, 238, 240)
-
-    @media (min-width: 768px)
-      .album-sticky-bar
-        display: none
-
-      .album-sticky-bar.workflow
-        display: none
-
-      :host.workflow-mode
-        padding-bottom: 0
-
-      .album-upload-zone
-        min-height: 140px
-
-      .image-list-pagination
-        flex-direction: row
-        flex-wrap: wrap
-        align-items: flex-start
-        gap: 0.5rem
-
-      .image-list-pagination-alert
-        flex: 1 1 auto
-        width: auto
-
-      :host ::ng-deep .image-list-pagination
-        pagination, .pagination
-          width: auto
-
-        .page-item
-          flex: 0 0 auto
-
-        .page-link
-          width: auto
-
     @media (max-width: 575.98px)
+      .cover-drop-zone
+        grid-template-columns: 64px minmax(0, 1fr)
+
+      .cover-drop-zone > :last-child
+        grid-column: 2
+
       .copy-image-introduction
         grid-template-columns: 1fr
 
       .copy-image-introduction img
         width: 120px
 
-      .cover-drop-zone
-        grid-template-columns: 1fr
-
       .image-reorder-grid
         grid-template-columns: repeat(2, minmax(0, 1fr))
   `],
   template: `
     @if (allow.edit && contentMetadata) {
-      @if (!workflowMode) {
+      <div class="album-editor-drop" ng2FileDrop [uploader]="uploader"
+           (fileOver)="fileOver($event)" (onFileDrop)="onFileSelectOrDropped($event)">
+      @if (!workflowMode && albumEditorView === AlbumEditorView.PHOTOS) {
+        <details class="thumbnail-heading-frame thumbnail-heading-frame-compact mb-3">
+          <summary class="thumbnail-heading"><fa-icon [icon]="faSliders" class="me-2"/>Album settings and filters</summary>
         <div class="row mb-4 px-1">
           <div class="col-sm-12">
             <div class="form-group">
@@ -634,351 +518,6 @@ import { uploadGroupEventType } from "../../../models/committee.model";
             }
           </div>
         </div>
-      }
-      <input #photosInput class="d-none" type="file" ng2FileSelect multiple
-             accept="image/*,image/heic,image/heif,.heic,.heif"
-             (onFileSelected)="onFileSelectOrDropped($event)"
-             [uploader]="uploader">
-      <input #cameraInput class="d-none" type="file" ng2FileSelect
-             accept="image/*"
-             capture="environment"
-             (onFileSelected)="onFileSelectOrDropped($event)"
-             [uploader]="uploader">
-      <div class="row mb-3">
-        <div class="col-12">
-          <div #uploadZone
-               ng2FileDrop
-               role="button"
-               tabindex="0"
-               [attr.aria-label]="imagesExist() ? 'Add more photos to this album' : 'Add photos to this album'"
-               [ngClass]="{
-                 'file-over': !photosWorking() && hasFileOver,
-                 'disabled': disabled() || photosWorking(),
-                 'highlight': highlightUploadZone,
-                 'working': photosWorking()
-               }"
-               (fileOver)="fileOver($event)"
-               (onFileDrop)="onFileSelectOrDropped($event)"
-               (click)="onUploadZoneClick(photosInput)"
-               (keydown.enter)="onUploadZoneClick(photosInput)"
-               (keydown.space)="$event.preventDefault(); onUploadZoneClick(photosInput)"
-               class="album-upload-zone">
-            @if (photosWorking()) {
-              <fa-icon class="album-upload-icon" [icon]="faSpinner" animation="spin"/>
-            } @else {
-              <fa-icon class="album-upload-icon" [icon]="faCloudArrowUp"/>
-            }
-            <p class="album-upload-title">
-              {{ albumUploadTitle() }}
-            </p>
-            <p class="album-upload-subtitle d-md-none">
-              @if (photosWorking()) {
-                {{ albumUploadWorkingSubtitle() }}
-              } @else if (imagesExist()) {
-                Use Photo library for several from your camera roll, or Take photo for a new shot.
-              } @else {
-                Use Photo library for a set from your camera roll, or Take photo to capture now. They stay on your site.
-              }
-            </p>
-            <p class="album-upload-subtitle d-none d-md-block">
-              @if (photosWorking()) {
-                {{ albumUploadWorkingSubtitle() }}
-              } @else if (imagesExist()) {
-                Drag and drop more images here, or click to browse.
-              } @else {
-                Drag and drop images here, or click to browse. They stay on your site.
-              }
-            </p>
-            <div class="album-upload-actions d-md-none" (click)="$event.stopPropagation()">
-              <button type="button" class="album-upload-action primary"
-                      [disabled]="disabled() || photosWorking()"
-                      (click)="browseToFile(photosInput)">
-                <fa-icon [icon]="faImages"/>
-                Photo library
-              </button>
-              <button type="button" class="album-upload-action"
-                      [disabled]="disabled() || photosWorking()"
-                      (click)="browseToFile(cameraInput)">
-                <fa-icon [icon]="faCamera"/>
-                Take photo
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="album-toolbar d-none d-md-flex w-100 gap-2">
-        <app-badge-button fullWidth [icon]="faSave" [caption]="saveAndExitCaption()"
-                          (click)="requestSaveChangesAndExit()"
-                          [disabled]="disabled()"/>
-        @if (!workflowMode) {
-          <app-badge-button fullWidth [icon]="faSave" caption="Save" (click)="requestSaveChanges()"
-                            [disabled]="disabled()"/>
-        }
-        <app-badge-button fullWidth [icon]="faUndo" [caption]="exitWithoutSavingCaption()"
-                          [disabled]="disabled()"
-                          (click)="exitBackWithoutSaving()"/>
-        @if (!workflowMode) {
-          <app-badge-button fullWidth [icon]="faUndo" [caption]="'Undo'" (click)="undoChanges()"
-                            [disabled]="disabled()"/>
-        }
-        @if (!workflowMode) {
-        <div class="btn-group" dropdown>
-          <button [disabled]="imageActionsDisabled()" aria-controls="dropdown-animated"
-                  class="dropdown-toggle badge-button w-100 border-0"
-                  [ngClass]="{'disabled': imageActionsDisabled()}"
-                  dropdownToggle
-                  type="button">
-            <fa-icon [icon]="faTableCells"/>
-            <span class="ms-2">Image Actions</span><span class="caret"></span>
-          </button>
-          <ul *dropdownMenu class="dropdown-menu" role="menu">
-            @if (imagesExist()) {
-              @if (contentMetadata?.maxImageSize > 0) {
-                <li role="menuitem">
-                  <a (click)="resizeSavedImages()" class="dropdown-item" [ngClass]="{'disabled': resizeInProgress}">
-                    <fa-icon [icon]="faCompress"/>
-                    {{ resizeInProgress ? resizeActionCaption() : "Resize Existing Images To " + numberUtils.humanFileSize(contentMetadata.maxImageSize) }}
-                  </a>
-                </li>
-              }
-              <li role="menuitem">
-                <a (click)="sortByDate()" class="dropdown-item">
-                  <fa-icon [icon]="faSortNumericDown"/>
-                  Sort by image date
-                </a>
-              </li>
-              <li role="menuitem">
-                <a (click)="reverseSortOrder()" class="dropdown-item">
-                  <fa-icon [icon]="faSortNumericUp"/>
-                  Reverse sort order
-                </a>
-              </li>
-              <li role="menuitem">
-                <a (click)="clearImages()" class="dropdown-item">
-                  <fa-icon [icon]="faEraser"/>
-                  Clear images
-                </a>
-              </li>
-            } @else {
-              <li role="menuitem">
-                <a (click)="insertToEmptyList()" class="dropdown-item">
-                  <fa-icon [icon]="faAdd"/>
-                  Create First Image
-                </a>
-              </li>
-            }
-            @if (contentMetadata?.imageTags?.length > 0) {
-              <li role="menuitem">
-                <a (click)="toggleManageTags()" class="dropdown-item">
-                  <fa-icon [icon]="faTags"/>
-                  {{ manageTags ? "Close Tags" : "Manage Tags" }}
-                </a>
-              </li>
-            }
-          </ul>
-        </div>
-        }
-      </div>
-      <div class="row mt-2">
-        @if (progressResponse) {
-          <div class="col-sm-12 mt-2">
-            <div class="alert mb-2" [ngClass]="progressResponse.queued ? 'alert-warning' : 'alert-success'">
-              <fa-icon [icon]="progressResponse.queued ? faCircleInfo : faCircleCheck"/>
-              <strong>{{ progressResponse.queued ? "Resize queued" : "Resizing images" }}: </strong>
-              {{ progressResponse.message }}
-            </div>
-            <div class="progress">
-              <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': progressPercent() + '%' }">
-                {{ progressResponse.queued ? "Queued" : progressPercent() + "%" }}
-              </div>
-            </div>
-          </div>
-        }
-        @if (uploader?.isUploading) {
-          <div class="col-sm-12 mb-2 mt-2">
-            <div class="alert alert-success mb-2">
-              <fa-icon [icon]="faCloudArrowUp"/>
-              <strong> Uploading photos to your site</strong>
-              - keep this page open until the bar reaches 100%.
-            </div>
-            <div class="progress" style="height: 1.25rem;">
-              <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
-                {{ uploader.progress }} %
-              </div>
-            </div>
-          </div>
-        }
-        <div class="col-sm-12 mt-4">
-          @if (warningTarget.showAlert) {
-            <div class="flex-grow-1 alert {{warningTarget.alertClass}}">
-              <fa-icon [icon]="warningTarget.alert.icon"></fa-icon>
-              @if (warningTarget.alertTitle) {
-                <strong>
-                  {{ warningTarget.alertTitle }}: </strong>
-              } {{ warningTarget.alertMessage }}
-            </div>
-          }
-        </div>
-      </div>
-      @if (!contributor() && pendingDrafts().length > 0) {
-        <div class="alert alert-warning d-flex align-items-start gap-2 mb-3">
-          <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
-          <div class="flex-grow-1 min-w-0">
-            <strong class="d-block">{{ stringUtils.pluraliseWithCount(pendingDrafts().length, "photo") }} awaiting approval</strong>
-            <span>Added by members and hidden from visitors until approved. Approve each one below, or all at once, then save.</span>
-          </div>
-          <button type="button" class="btn btn-primary btn-sm flex-shrink-0" [disabled]="disabled()" (click)="approveAll()">
-            <fa-icon [icon]="faCircleCheck" class="me-2"/>Approve all
-          </button>
-        </div>
-      }
-      @if (imagesExist() && !contributor()) {
-        <div class="reorder-view-switch">
-          <button type="button" class="btn btn-quiet album-compact-action"
-                  [disabled]="disabled() || photosWorking()"
-                  (click)="toggleReorderMode()">
-            <fa-icon [icon]="reorderMode ? faPencil : faArrowsUpDown"/>
-            {{ reorderMode ? "Return to image details" : "Reorder images" }}
-          </button>
-          <span>{{ reorderMode ? "Drag photos into order or onto the album cover area." : "Use a visual drag-and-drop view to arrange the whole album." }}</span>
-        </div>
-      }
-      @if (copySourceItem) {
-        <div class="copy-image-backdrop" role="presentation">
-          <section class="copy-image-panel" role="dialog" aria-modal="true" aria-labelledby="copy-image-title">
-            <div class="copy-image-introduction">
-              <img [src]="urlService.imageSourceFor(copySourceItem, contentMetadata)" [alt]="copySourceItem.text || copySourceItem.image">
-              <div>
-                <strong id="copy-image-title" class="d-block">Add a copy to another album</strong>
-                <p class="mb-0">The original photo and this album will not be changed. The destination receives its own image file and a copy of the title, date, event link and matching tags.</p>
-              </div>
-            </div>
-            <div class="copy-image-form">
-              @if (copyCompleted) {
-                <div class="alert alert-success d-flex align-items-start" role="status">
-                  <fa-icon class="me-2" [icon]="faCircleCheck"/>
-                  <div>
-                    <strong class="d-block">Copy added</strong>
-                    A separate copy was added to {{ contentMetadataService.contentMetadataName({name: copyDestinationAlbumName}) }}.
-                  </div>
-                </div>
-                <button type="button" class="btn btn-primary" (click)="cancelCopyToAlbum()">
-                  <fa-icon [icon]="faRemove"/>
-                  Close
-                </button>
-              } @else {
-                <label for="copy-destination-album">Destination album</label>
-                <select id="copy-destination-album" class="form-control" [(ngModel)]="copyDestinationAlbumName"
-                        [disabled]="copyInProgress || copyDestinationAlbums.length === 0">
-                  <option [ngValue]="null">{{ copyDestinationAlbumsLoading ? "Loading albums…" : copyDestinationAlbums.length === 0 ? "No other albums" : "Choose an album" }}</option>
-                  @for (album of copyDestinationAlbums; track album.rootFolder + album.name) {
-                    <option [ngValue]="album.name">{{ contentMetadataService.contentMetadataName(album) }}</option>
-                  }
-                </select>
-                @if (!copyDestinationAlbumsLoading && copyDestinationAlbums.length === 0) {
-                  <div class="alert alert-warning d-flex align-items-start mt-2 mb-0">
-                    <fa-icon [icon]="faCircleExclamation" class="me-2"/>
-                    <div><strong>No other album to copy to</strong><p class="mb-0">This site has no album apart from this one. Create another album first, for example by adding an album row to a page, then copy the photo into it.</p></div>
-                  </div>
-                }
-                <small class="text-muted d-block mt-1">Any fixed shape on the destination is applied by that album’s presentation. The copied file keeps the source pixels intact.</small>
-                <div class="copy-image-actions">
-                  <button type="button" class="btn btn-primary" [disabled]="!copyDestinationAlbumName || copyInProgress"
-                          (click)="confirmCopyToAlbum()">
-                    <fa-icon [icon]="copyInProgress ? faSpinner : faAdd" [animation]="copyInProgress ? 'spin' : null"/>
-                    {{ copyInProgress ? "Adding copy" : "Add copy" }}
-                  </button>
-                  <button type="button" class="btn btn-quiet" [disabled]="copyInProgress" (click)="cancelCopyToAlbum()">
-                    <fa-icon [icon]="faRemove"/>
-                    Cancel
-                  </button>
-                </div>
-              }
-            </div>
-          </section>
-        </div>
-      }
-      @if (reorderMode) {
-        <div class="image-reorder-workspace" cdkDropListGroup>
-          <div class="sticky-toolbar image-reorder-pagination">
-            <pagination class="pagination rounded" [boundaryLinks]="true" [directionLinks]="true" [rotate]="true"
-                        [maxSize]="5"
-                        [itemsPerPage]="reorderPageSize"
-                        [totalItems]="contentMetadata.files.length"
-                        [(ngModel)]="reorderPageNumber"
-                        [disabled]="disabled()"
-                        (pageChanged)="reorderPageChanged($event)"/>
-            <span>{{ reorderRangeDescription() }}</span>
-          </div>
-          <section class="cover-drop-zone"
-                   cdkDropList
-                   [cdkDropListData]="coverDropItems"
-                   [cdkDropListSortingDisabled]="true"
-                   (cdkDropListDropped)="coverImageDropped($event)">
-            <div class="cover-drop-preview">
-              @if (coverImageItem(); as coverImage) {
-                <img [src]="urlService.imageSourceFor(coverImage, contentMetadata)" [alt]="coverImage.text || 'Album cover'">
-              } @else {
-                <div class="cover-drop-placeholder"><fa-icon [icon]="faBookOpen"/></div>
-              }
-            </div>
-            <div class="cover-drop-copy">
-              <strong class="d-block">Album cover</strong>
-              <p>Drag any photo here to use it as the album cover. It will remain in the album order below.</p>
-              @if (contentMetadata.coverImage) {
-                <button type="button" class="btn btn-quiet album-compact-action" (click)="clearCoverImage()">
-                  <fa-icon [icon]="faRemove"/>
-                  Clear cover
-                </button>
-              }
-            </div>
-          </section>
-          @if (reorderPageNumber > 1) {
-            <div class="image-reorder-boundary"
-                 cdkDropList
-                 [cdkDropListData]="reorderBoundaryDropItems"
-                 [cdkDropListSortingDisabled]="true"
-                 (cdkDropListDropped)="moveImageToStart($event)">
-              Drag here to move a photo to the beginning
-            </div>
-            <div class="image-reorder-boundary"
-                 cdkDropList
-                 [cdkDropListData]="reorderBoundaryDropItems"
-                 [cdkDropListSortingDisabled]="true"
-                 (cdkDropListDropped)="moveImageToPreviousReorderPage($event)">
-              Drag here to move a photo to the previous section
-            </div>
-          }
-          <div class="image-reorder-grid"
-               cdkDropList
-               cdkDropListOrientation="mixed"
-               [cdkDropListData]="reorderPageImages"
-               (cdkDropListDropped)="imageOrderDropped($event)">
-            @for (item of reorderPageImages; track metadataItemTracker($index, item); let index = $index) {
-              <article class="image-reorder-item" cdkDrag [cdkDragData]="item"
-                       [attr.aria-label]="'Drag image ' + reorderImageNumber(index)">
-                <img [src]="urlService.imageSourceFor(item, contentMetadata)" [alt]="item.text || item.image">
-                @if (item.image === contentMetadata.coverImage) {
-                  <span class="image-reorder-cover-badge"><fa-icon [icon]="faBookOpen"/> Cover</span>
-                }
-                <div class="image-reorder-details">
-                  <span class="image-reorder-name">Image {{ reorderImageNumber(index) }}{{ item.text ? " — " + item.text : "" }}</span>
-                </div>
-              </article>
-            }
-          </div>
-          @if (reorderPageNumber < reorderPageCount()) {
-            <div class="image-reorder-boundary"
-                 cdkDropList
-                 [cdkDropListData]="reorderBoundaryDropItems"
-                 [cdkDropListSortingDisabled]="true"
-                 (cdkDropListDropped)="moveImageToNextReorderPage($event)">
-              Drag here to move a photo to the next section
-            </div>
-          }
-        </div>
-      } @else {
-      @if (!workflowMode) {
         @if (manageTags) {
           <div class="row mb-2">
             <div class="col-sm-12">
@@ -1051,21 +590,370 @@ import { uploadGroupEventType } from "../../../models/committee.model";
             </div>
           </div>
         </div>
-        <h6>Pagination</h6>
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <button type="button" class="btn btn-quiet" [disabled]="disabled()" (click)="undoChanges()">
+              <fa-icon [icon]="faUndo" class="me-2"/>Undo changes
+            </button>
+        <div class="btn-group" dropdown>
+          <button [disabled]="imageActionsDisabled()" aria-controls="dropdown-animated"
+                  class="btn btn-primary dropdown-toggle"
+                  [ngClass]="{'disabled': imageActionsDisabled()}"
+                  dropdownToggle
+                  type="button">
+            <fa-icon [icon]="faTableCells"/>
+            <span class="ms-2">Image Actions</span><span class="caret"></span>
+          </button>
+          <ul *dropdownMenu class="dropdown-menu" role="menu">
+            @if (imagesExist()) {
+              @if (contentMetadata?.maxImageSize > 0) {
+                <li role="menuitem">
+                  <a (click)="resizeSavedImages()" class="dropdown-item" [ngClass]="{'disabled': resizeInProgress}">
+                    <fa-icon [icon]="faCompress"/>
+                    {{ resizeInProgress ? resizeActionCaption() : "Resize Existing Images To " + numberUtils.humanFileSize(contentMetadata.maxImageSize) }}
+                  </a>
+                </li>
+              }
+              <li role="menuitem">
+                <a (click)="reverseSortOrder()" class="dropdown-item">
+                  <fa-icon [icon]="faSortNumericUp"/>
+                  Reverse sort order
+                </a>
+              </li>
+              <li role="menuitem">
+                <a (click)="clearImages()" class="dropdown-item">
+                  <fa-icon [icon]="faEraser"/>
+                  Clear images
+                </a>
+              </li>
+            } @else {
+              <li role="menuitem">
+                <a (click)="insertToEmptyList()" class="dropdown-item">
+                  <fa-icon [icon]="faAdd"/>
+                  Create First Image
+                </a>
+              </li>
+            }
+            @if (contentMetadata?.imageTags?.length > 0) {
+              <li role="menuitem">
+                <a (click)="toggleManageTags()" class="dropdown-item">
+                  <fa-icon [icon]="faTags"/>
+                  {{ manageTags ? "Close Tags" : "Manage Tags" }}
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+          </div>
+        </details>
       }
-      <div class="sticky-toolbar">
-        <ng-container *ngTemplateOutlet="imageListPagination"/>
+      <ng-template #photoOrderControl>
+        <app-button-dropdown [label]="workflowMode ? 'Photo order' : photoSortLabel()" [icon]="faSortNumericDown"
+                             [items]="photoSortItems()" [disabled]="photosWorking()" [compact]="!workflowMode"
+                             [fullWidth]="workflowMode" [tooltip]="photoSortLabel()"
+                             ariaLabel="Photo order" (itemSelect)="changePhotoSort($event)"/>
+      </ng-template>
+      @if (workflowMode) {
+        <ng-content select="[albumReport]"/>
+      }
+      <input #photosInput class="d-none" type="file" ng2FileSelect multiple
+             accept="image/*,image/heic,image/heif,.heic,.heif"
+             (onFileSelected)="onFileSelectOrDropped($event)"
+             [uploader]="uploader">
+      <input #cameraInput class="d-none" type="file" ng2FileSelect
+             accept="image/*"
+             capture="environment"
+             (onFileSelected)="onFileSelectOrDropped($event)"
+             [uploader]="uploader">
+      @if (albumEditorView === AlbumEditorView.PHOTOS) {
+      <h5 class="fw-bold mb-2">{{ stringUtils.pluraliseWithCount(filteredFiles.length, "photo") }}</h5>
+      <div class="row mb-3">
+        <div class="col-12">
+          <div #uploadZone
+               role="button"
+               tabindex="0"
+               [class.album-upload-zone-compact]="contentMetadata.files.length > 0"
+               [attr.aria-label]="contentMetadata.files.length > 0 ? 'Add more photos to this album' : 'Add photos to this album'"
+               [ngClass]="{
+                 'file-over': !photosWorking() && hasFileOver,
+                 'disabled': disabled() || photosWorking(),
+                 'highlight': highlightUploadZone,
+                 'working': photosWorking()
+               }"
+               (click)="onUploadZoneClick(photosInput)"
+               (keydown.enter)="onUploadZoneClick(photosInput)"
+               (keydown.space)="$event.preventDefault(); onUploadZoneClick(photosInput)"
+               class="album-upload-zone">
+            @if (photosWorking()) {
+              <fa-icon class="album-upload-icon" [icon]="faSpinner" animation="spin"/>
+            } @else {
+              <fa-icon class="album-upload-icon" [icon]="faCloudArrowUp"/>
+            }
+            <p class="album-upload-title">
+              {{ albumUploadTitle() }}
+            </p>
+            <p class="album-upload-subtitle d-md-none">
+              @if (photosWorking()) {
+                {{ albumUploadWorkingSubtitle() }}
+              } @else if (imagesExist()) {
+                Use Photo library for several from your camera roll, or Take photo for a new shot.
+              } @else {
+                Use Photo library for a set from your camera roll, or Take photo to capture now. They stay on your site.
+              }
+            </p>
+            <p class="album-upload-subtitle d-none d-md-block">
+              @if (photosWorking()) {
+                {{ albumUploadWorkingSubtitle() }}
+              } @else if (imagesExist()) {
+                Drag and drop more images here, or click to browse.
+              } @else {
+                Drag and drop images here, or click to browse. They stay on your site.
+              }
+            </p>
+            <div class="album-upload-actions d-md-none" (click)="$event.stopPropagation()">
+              <button type="button" class="btn btn-primary"
+                      [disabled]="disabled() || photosWorking()"
+                      (click)="browseToFile(photosInput)">
+                <fa-icon [icon]="faImages"/>
+                Photo library
+              </button>
+              <button type="button" class="btn btn-quiet"
+                      [disabled]="disabled() || photosWorking()"
+                      (click)="browseToFile(cameraInput)">
+                <fa-icon [icon]="faCamera"/>
+                Take photo
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-      @for (imageMetaDataItem of currentPageImages; track metadataItemTracker(index, imageMetaDataItem); let index = $index) {
-        <app-image-edit nonDestructive
-                        [index]="index"
+      }
+      <div class="row mt-2">
+        @if (progressResponse) {
+          <div class="col-sm-12 mt-2">
+            <div class="alert mb-2" [ngClass]="progressResponse.queued ? 'alert-warning' : 'alert-success'">
+              <fa-icon [icon]="progressResponse.queued ? faCircleInfo : faCircleCheck"/>
+              <strong>{{ progressResponse.queued ? "Resize queued" : "Resizing images" }}: </strong>
+              {{ progressResponse.message }}
+            </div>
+            <div class="progress">
+              <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': progressPercent() + '%' }">
+                {{ progressResponse.queued ? "Queued" : progressPercent() + "%" }}
+              </div>
+            </div>
+          </div>
+        }
+        @if (uploader?.isUploading) {
+          <div class="col-sm-12 mb-2 mt-2">
+            <div class="alert alert-success mb-2">
+              <fa-icon [icon]="faCloudArrowUp"/>
+              <strong> Uploading photos to your site</strong>
+              - keep this page open until the bar reaches 100%.
+            </div>
+            <div class="progress" style="height: 1.25rem;">
+              <div class="progress-bar" role="progressbar" [ngStyle]="{ 'width': uploader.progress + '%' }">
+                {{ uploader.progress }} %
+              </div>
+            </div>
+          </div>
+        }
+        <div class="col-sm-12">
+          @if (warningTarget.showAlert && hasImageWarnings()) {
+            <div class="flex-grow-1 alert {{warningTarget.alertClass}}">
+              <fa-icon [icon]="warningTarget.alert.icon"></fa-icon>
+              @if (warningTarget.alertTitle) {
+                <strong>
+                  {{ warningTarget.alertTitle }}: </strong>
+              } {{ warningTarget.alertMessage }}
+            </div>
+          }
+        </div>
+      </div>
+      @if (albumEditorView === AlbumEditorView.PHOTOS && !contributor() && pendingDrafts().length > 0) {
+        <div class="alert alert-warning d-flex align-items-start gap-2 mb-3">
+          <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1"/>
+          <div class="flex-grow-1 min-w-0">
+            <strong class="d-block">{{ stringUtils.pluraliseWithCount(pendingDrafts().length, "photo") }} awaiting approval</strong>
+            <span>Added by members and hidden from visitors until approved. Approve each one below, or all at once, then save.</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm flex-shrink-0" [disabled]="disabled()" (click)="approveAll()">
+            <fa-icon [icon]="faCircleCheck" class="me-2"/>Approve all
+          </button>
+        </div>
+      }
+      @if (albumEditorView === AlbumEditorView.PHOTOS) {
+      <div class="reorder-view-switch">
+        <p class="flex-grow-1 mb-0">
+          {{ unsavedImages().length ? stringUtils.pluraliseWithCount(unsavedImages().length, "new photo") + " ready to save. " : "" }}
+          @if (contentMetadata.files.length) {
+            Select a photo to view, crop or edit its details.
+          } @else {
+            Your photos will appear here. Add photos from your library or camera to get started.
+          }
+          Dates use the photo's capture metadata where available, otherwise the file's modified date.
+        </p>
+        @if (!workflowMode) {
+          <ng-container *ngTemplateOutlet="photoOrderControl"/>
+        }
+
+      </div>
+      }
+      @if (notifyTarget.showAlert) {
+        <div class="alert" [ngClass]="notifyTarget.alertClass" role="status" aria-live="polite">
+          <div class="d-flex align-items-start gap-2 mb-1">
+            <fa-icon [icon]="notifyTarget.alert.icon"/>
+            <strong>{{ notifyTarget.alertTitle }}</strong>
+          </div>
+          <div>{{ notifyTarget.alertMessage }}</div>
+        </div>
+      }
+      @if (copySourceItem) {
+        <div class="copy-image-backdrop" role="presentation">
+          <section class="copy-image-panel" role="dialog" aria-modal="true" aria-labelledby="copy-image-title">
+            <div class="copy-image-introduction">
+              <img [src]="urlService.imageSourceFor(copySourceItem, contentMetadata)" [alt]="imageAlt(copySourceItem) || copySourceItem.image">
+              <div>
+                <strong id="copy-image-title" class="d-block">Add a copy to another album</strong>
+                <p class="mb-0">The original photo and this album will not be changed. The destination receives its own image file and a copy of the title, date, event link and matching tags.</p>
+              </div>
+            </div>
+            <div class="copy-image-form">
+              @if (copyCompleted) {
+                <div class="alert alert-success d-flex align-items-start" role="status">
+                  <fa-icon class="me-2" [icon]="faCircleCheck"/>
+                  <div>
+                    <strong class="d-block">Copy added</strong>
+                    A separate copy was added to {{ contentMetadataService.contentMetadataName({name: copyDestinationAlbumName}) }}.
+                  </div>
+                </div>
+                <button type="button" class="btn btn-primary" (click)="cancelCopyToAlbum()">
+                  <fa-icon [icon]="faRemove"/>
+                  Close
+                </button>
+              } @else {
+                <label for="copy-destination-album">Destination album</label>
+                <select id="copy-destination-album" class="form-control" [(ngModel)]="copyDestinationAlbumName"
+                        [disabled]="copyInProgress || copyDestinationAlbums.length === 0">
+                  <option [ngValue]="null">{{ copyDestinationAlbumsLoading ? "Loading albums…" : copyDestinationAlbums.length === 0 ? "No other albums" : "Choose an album" }}</option>
+                  @for (album of copyDestinationAlbums; track album.rootFolder + album.name) {
+                    <option [ngValue]="album.name">{{ contentMetadataService.contentMetadataName(album) }}</option>
+                  }
+                </select>
+                @if (!copyDestinationAlbumsLoading && copyDestinationAlbums.length === 0) {
+                  <div class="alert alert-warning d-flex align-items-start mt-2 mb-0">
+                    <fa-icon [icon]="faCircleExclamation" class="me-2"/>
+                    <div><strong>No other album to copy to</strong><p class="mb-0">This site has no album apart from this one. Create another album first, for example by adding an album row to a page, then copy the photo into it.</p></div>
+                  </div>
+                }
+                <small class="text-muted d-block mt-1">Any fixed shape on the destination is applied by that album’s presentation. The copied file keeps the source pixels intact.</small>
+                <div class="copy-image-actions">
+                  <button type="button" class="btn btn-primary" [disabled]="!copyDestinationAlbumName || copyInProgress"
+                          (click)="confirmCopyToAlbum()">
+                    <fa-icon [icon]="copyInProgress ? faSpinner : faAdd" [animation]="copyInProgress ? 'spin' : null"/>
+                    {{ copyInProgress ? "Adding copy" : "Add copy" }}
+                  </button>
+                  <button type="button" class="btn btn-quiet" [disabled]="copyInProgress" (click)="cancelCopyToAlbum()">
+                    <fa-icon [icon]="faRemove"/>
+                    Cancel
+                  </button>
+                </div>
+              }
+            </div>
+          </section>
+        </div>
+      }
+      @if (albumEditorView === AlbumEditorView.PHOTOS || !selectedPhoto()) {
+        <div class="image-reorder-workspace" cdkDropListGroup>
+          @if (!contributor() && filteredFiles.length > 0) {
+            <section class="cover-drop-zone" cdkDropList [cdkDropListData]="coverDropItems"
+                     [cdkDropListDisabled]="photosWorking()" [cdkDropListSortingDisabled]="true"
+                     (cdkDropListDropped)="coverImageDropped($event)">
+              <div class="cover-drop-preview">
+                @if (coverImageItem(); as coverImage) {
+                  <img loading="lazy" decoding="async" [src]="urlService.imageSourceFor(coverImage, contentMetadata)" [alt]="imageAlt(coverImage) || 'Album cover'">
+                } @else {
+                  <div class="cover-drop-placeholder"><fa-icon [icon]="faBookOpen"/></div>
+                }
+              </div>
+              <div class="cover-drop-copy">
+                <strong class="d-block">{{ coverImageItem() ? "Album cover" : "Choose your album cover" }}</strong>
+                <p class="mb-0">{{ autoCoverRequested ? "A cover will be chosen automatically when you save the album." : "Choose a photo, drag it here, or let us pick one when you save." }}</p>
+              </div>
+              <div class="d-flex align-items-center flex-wrap gap-2">
+                <button type="button" class="btn btn-quiet btn-sm" [disabled]="photosWorking() || autoCoverRequested"
+                        tooltip="Choose a cover automatically when you save the album" (click)="autoChooseCover()">
+                  <fa-icon [icon]="faBookOpen" class="me-2"/>Auto-choose
+                </button>
+              @if (coverImageItem()) {
+                <button type="button" class="btn btn-quiet btn-icon" [disabled]="photosWorking()"
+                        tooltip="Clear cover" aria-label="Clear cover" (click)="clearCoverImage()">
+                  <fa-icon [icon]="faRemove"/>
+                </button>
+              }
+              </div>
+            </section>
+          }
+          <div class="image-reorder-grid" cdkDropList cdkDropListOrientation="mixed"
+               [cdkDropListData]="reorderPageImages" [cdkDropListDisabled]="contributor() || photosWorking()"
+               (cdkDropListDropped)="imageOrderDropped($event)">
+            @for (item of reorderPageImages; track metadataItemTracker($index, item); let index = $index) {
+              <article class="image-reorder-item" cdkDrag [cdkDragData]="item" [cdkDragDisabled]="contributor() || photosWorking()">
+                <button type="button" class="image-reorder-preview" [disabled]="photosWorking()"
+                        [attr.aria-label]="'Open photo ' + (index + 1) + (item.text ? ': ' + item.text : '')" (click)="openPhoto(item)">
+                  <img loading="lazy" decoding="async" [src]="item.youtubeId ? youtubeService.thumbnailUrl(item.youtubeId, YouTubeQuality.HQ) : urlService.imageSourceFor(item, contentMetadata)" [alt]="imageAlt(item) || 'Photo ' + (index + 1)">
+                </button>
+                @if (isCoverImage(item)) {
+                  <span class="image-reorder-cover-badge"><fa-icon [icon]="faBookOpen"/>Cover</span>
+                }
+                <div class="image-reorder-details">
+                  <span class="image-reorder-name">{{ item.text || item.originalFileName || 'Photo ' + (index + 1) }}</span>
+                  @if (!contributor()) {
+                    <button type="button" class="btn btn-quiet btn-icon" [disabled]="photosWorking() || !!item.youtubeId || !!item.draft"
+                            [class.active]="isCoverImage(item)" [attr.aria-pressed]="isCoverImage(item)"
+                            [attr.aria-label]="isCoverImage(item) ? 'Clear cover' : 'Use photo ' + (index + 1) + ' as cover'"
+                            [tooltip]="item.draft ? 'Approve this photo before choosing it as cover' : isCoverImage(item) ? 'Clear cover' : 'Use as cover'"
+                            (click)="useAsCover(item)"><fa-icon [icon]="faBookOpen"/></button>
+                    <button type="button" class="btn btn-quiet btn-icon image-reorder-handle" cdkDragHandle
+                            [disabled]="photosWorking()" tooltip="Drag to reorder" [attr.aria-label]="'Drag photo ' + (index + 1) + ' to reorder'">
+                      <fa-icon [icon]="faGrip"/>
+                    </button>
+                  }
+                </div>
+                @if (item.base64Content || item.draft) {
+                  <div class="image-reorder-status"><fa-icon [icon]="item.base64Content ? faCloudArrowUp : faCircleExclamation" class="me-1"/>
+                    {{ item.base64Content ? "Ready to save" : "Awaiting approval" }}
+                  </div>
+                }
+              </article>
+            } @empty {
+              @if (contentMetadata.files.length) {
+                <p class="image-reorder-empty mb-0">No photos match these filters. Change the album filters above.</p>
+              }
+            }
+          </div>
+        </div>
+      } @else {
+        @if (selectedPhoto(); as imageMetaDataItem) {
+          <div class="reorder-view-switch sticky-toolbar">
+            <button type="button" class="btn btn-quiet" [disabled]="photosWorking() || photoEditor.editActive" (click)="showPhotos()">
+              <fa-icon [icon]="faArrowLeft" class="me-2"/>Back to photos
+            </button>
+            <span class="flex-grow-1">Photo {{ selectedPhotoIndex + 1 }} of {{ filteredFiles.length }}</span>
+            <button type="button" class="btn btn-quiet btn-icon" aria-label="Previous photo" tooltip="Previous photo"
+                    [disabled]="selectedPhotoIndex === 0 || photosWorking() || photoEditor.editActive" (click)="selectAdjacentPhoto(-1)"><fa-icon [icon]="faAngleLeft"/></button>
+            <button type="button" class="btn btn-quiet btn-icon" aria-label="Next photo" tooltip="Next photo"
+                    [disabled]="selectedPhotoIndex >= filteredFiles.length - 1 || photosWorking() || photoEditor.editActive" (click)="selectAdjacentPhoto(1)"><fa-icon [icon]="faAngleRight"/></button>
+          </div>
+        <app-image-edit #photoEditor nonDestructive
+                        [index]="selectedPhotoIndex"
                         [role]="role"
+                        [selectedCover]="coverImageItem()"
+                        (coverChange)="useAsCover($event)"
                         (approve)="approve($event)"
                         [duplicateImages]="duplicateImages"
                         [contentMetadata]="contentMetadata"
                         [s3Metadata]="metaDataFor(imageMetaDataItem)"
                         [contentMetadataImageTags]="contentMetadata.imageTags"
-                        [filteredFiles]="currentPageImages"
+                        [filteredFiles]="filteredFiles"
                         [item]="imageMetaDataItem"
                         (imageInsert)="imageInsert($event)"
                         (imageEdit)="imageEdit($event)"
@@ -1076,82 +964,45 @@ import { uploadGroupEventType } from "../../../models/committee.model";
                         (moveDown)="moveDown($event)"
                         (copyToAlbum)="startCopyToAlbum($event)">
         </app-image-edit>
+        }
       }
+      @if (albumEditorView === AlbumEditorView.PHOTOS) {
+      <div class="album-sticky-bar">
+        @if (workflowMode) {
+          <ng-content select="[albumControls]"/>
+          <ng-container *ngTemplateOutlet="photoOrderControl"/>
+        }
+        <button type="button" class="btn btn-quiet" [disabled]="photosWorking() || disabled()"
+                (click)="browseToFile(photosInput)">
+          <fa-icon [icon]="faImages" class="me-2"/>Add photos
+        </button>
+        <button type="button" class="btn btn-quiet" [disabled]="photosWorking() || disabled()"
+                (click)="browseToFile(cameraInput)">
+          <fa-icon [icon]="faCamera" class="me-2"/>Take photo
+        </button>
+        <button type="button" class="btn btn-primary" [disabled]="photosWorking() || disabled()"
+                (click)="workflowMode ? requestSaveChangesAndExit() : requestSaveChanges()">
+          <fa-icon [icon]="photosWorking() ? faSpinner : faSave" [animation]="photosWorking() ? 'spin' : null" class="me-2"/>
+          {{ workflowMode ? saveAndExitCaption() : "Save album" }}
+        </button>
+        <button type="button" class="btn btn-quiet" [disabled]="photosWorking() || disabled()"
+                [tooltip]="exitWithoutSavingCaption()" (click)="exitBackWithoutSaving()">
+          <fa-icon [icon]="faUndo" class="me-2"/>Discard changes
+        </button>
+      </div>
       }
-      @if (workflowMode) {
-        <div class="album-sticky-bar workflow">
-          <button type="button" class="album-upload-action primary"
-                  [disabled]="disabled() || photosWorking()"
-                  (click)="browseToFile(photosInput)">
-            <fa-icon [icon]="faImages"/>
-            Library
-          </button>
-          <button type="button" class="album-upload-action"
-                  [disabled]="disabled() || photosWorking()"
-                  (click)="browseToFile(cameraInput)">
-            <fa-icon [icon]="faCamera"/>
-            Camera
-          </button>
-          <button type="button" class="album-upload-action primary done"
-                  [disabled]="disabled() || photosWorking()"
-                  (click)="requestSaveChangesAndExit()">
-            @if (photosWorking()) {
-              <fa-icon [icon]="faSpinner" animation="spin"/>
-            } @else {
-              <fa-icon [icon]="faSave"/>
-            }
-            {{ saveAndExitCaption() }}
-          </button>
-          <button type="button" class="album-upload-action secondary-exit"
-                  [disabled]="disabled() || photosWorking()"
-                  (click)="exitBackWithoutSaving()">
-            {{ exitWithoutSavingCaption() }}
-          </button>
-        </div>
-      } @else {
-        <div class="album-sticky-bar">
-          <button type="button" class="album-upload-action primary"
-                  [disabled]="disabled() || photosWorking()"
-                  (click)="browseToFile(photosInput)">
-            <fa-icon [icon]="faImages"/>
-            {{ imagesExist() ? "Add more" : "Add photos" }}
-          </button>
-          <button type="button" class="album-upload-action"
-                  [disabled]="disabled()"
-                  (click)="requestSaveChanges()">
-            <fa-icon [icon]="faSave"/>
-            {{ unsavedImages()?.length ? "Save album" : "Save" }}
-          </button>
-        </div>
-      }
-      <ng-template #imageListPagination>
-        <div class="image-list-pagination">
-          <pagination class="pagination rounded" [boundaryLinks]="true" [directionLinks]="true" [rotate]="true"
-                      [maxSize]="maxSize()"
-                      [itemsPerPage]="pageSize"
-                      [totalItems]="filteredFiles.length"
-                      [(ngModel)]="pageNumber"
-                      [disabled]="disabled()"
-                      (pageChanged)="pageChanged($event)"></pagination>
-          @if (notifyTarget.showAlert) {
-            <div class="image-list-pagination-alert alert {{notifyTarget.alertClass}}">
-              <fa-icon [icon]="notifyTarget.alert.icon"/>
-              @if (notifyTarget.alertTitle) {
-                <strong>
-                  {{ notifyTarget.alertTitle }}: </strong>
-              } {{ notifyTarget.alertMessage }}
-            </div>
-          }
-        </div>
-      </ng-template>
+      </div>
+
     }`,
-  imports: [FileUploadModule, BadgeButtonComponent, NgClass, NgStyle, FontAwesomeModule, TagManagerComponent,
-    FormsModule, PaginationComponent, TooltipDirective, AspectRatioSelectorComponent, ImageEditComponent,
-    BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FileSizeSelectorComponent, NgTemplateOutlet,
-    CdkDropListGroup, CdkDropList, CdkDrag]
+  imports: [NgTemplateOutlet, ButtonDropdownComponent, FileUploadModule, NgClass, NgStyle, FontAwesomeModule, TagManagerComponent,
+    FormsModule, TooltipDirective, AspectRatioSelectorComponent, ImageEditComponent,
+    BsDropdownDirective, BsDropdownToggleDirective, BsDropdownMenuDirective, FileSizeSelectorComponent,
+    CdkDropListGroup, CdkDropList, CdkDrag, CdkDragHandle]
 })
 export class ImageListEditComponent implements OnInit, OnDestroy {
   private changeDetectorRef = inject(ChangeDetectorRef);
+  protected youtubeService = inject(YouTubeService);
+  protected readonly YouTubeQuality = YouTubeQuality;
 
   private static readonly EDIT_WORKING_MAX_WIDTH = 2400;
 
@@ -1182,6 +1033,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   private imageDuplicatesService: ImageDuplicatesService = inject(ImageDuplicatesService);
   protected contentMetadataService: ContentMetadataService = inject(ContentMetadataService);
   private route: ActivatedRoute = inject(ActivatedRoute);
+  private router = inject(Router);
   private fileUploadService: FileUploadService = inject(FileUploadService);
   private memberLoginService: MemberLoginService = inject(MemberLoginService);
   public dateUtils: DateUtilsService = inject(DateUtilsService);
@@ -1207,19 +1059,21 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   public s3Metadata: S3Metadata[] = [];
   public filteredFiles: ContentMetadataItem[] = [];
   public changedItems: ContentMetadataItem[] = [];
-  public currentPageImages: ContentMetadataItem[] = [];
   public allow: MemberResourcesPermissions = {};
   public showDuplicates = false;
   public filterText: string;
   public hasFileOver = false;
   public exitAfterSave = false;
   public currentImageIndex: number;
-  protected reorderMode = false;
+  protected readonly AlbumEditorView = AlbumEditorView;
+  protected readonly imageAlt = imageAlt;
+  protected albumEditorView = AlbumEditorView.PHOTOS;
+  protected albumPhotoSort = AlbumPhotoSort.NEWEST;
+  protected selectedPhotoIndex = 0;
+  private pendingCoverItem: ContentMetadataItem | null = null;
+  protected autoCoverRequested = false;
   protected coverDropItems: ContentMetadataItem[] = [];
-  protected reorderBoundaryDropItems: ContentMetadataItem[] = [];
   protected reorderPageImages: ContentMetadataItem[] = [];
-  protected reorderPageNumber = 1;
-  protected readonly reorderPageSize = 40;
   protected copySourceItem: ContentMetadataItem = null;
   protected copyDestinationAlbums: ContentMetadata[] = [];
   protected copyDestinationAlbumName: string = null;
@@ -1227,22 +1081,21 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   protected copyCompleted = false;
   protected copyDestinationAlbumsLoading = false;
   private searchChangeObservable = new Subject<string>();
-  public pageNumber = 1;
-  private pageCount: number;
-  protected pageSize = 10;
-  private pages: number[];
   private subscriptions: Subscription[] = [];
   public tags: number[];
   public manageTags: boolean;
+  protected readonly faArrowLeft = faArrowLeft;
+  protected readonly faAngleLeft = faAngleLeft;
+  protected readonly faAngleRight = faAngleRight;
+  protected readonly faGrip = faGrip;
+  protected readonly faSliders = faSliders;
   protected readonly faSave = faSave;
-  protected readonly faPencil = faPencil;
   protected readonly faRemove = faRemove;
   protected readonly faEraser = faEraser;
   protected readonly faUndo = faUndo;
   protected readonly faSortNumericDown = faSortNumericDown;
   protected readonly faSortNumericUp = faSortNumericUp;
   protected readonly faAdd = faAdd;
-  protected readonly faArrowsUpDown = faArrowsUpDown;
   protected readonly faBookOpen = faBookOpen;
   protected readonly faTags = faTags;
   protected readonly faFile = faFile;
@@ -1256,6 +1109,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   protected readonly faCloudArrowUp = faCloudArrowUp;
   protected readonly faSpinner = faSpinner;
   private preparingPhotos = false;
+  private loadingAlbum = false;
   protected readonly saveToNew = false;
   public highlightUploadZone = false;
   @ViewChild("uploadZone") private uploadZoneRef: ElementRef<HTMLElement>;
@@ -1272,9 +1126,15 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.filterType = ImageFilterType.ALL;
     this.subscriptions.push(this.contentMetadataService.s3Notifications().subscribe(data => this.logger.debug("contentMetadataService.notifications.s3:", data)));
     this.subscriptions.push(this.route.queryParams.subscribe(params => {
+      this.albumEditorView = params[StoredValue.ALBUM_EDIT_VIEW] === AlbumEditorView.DETAILS ? AlbumEditorView.DETAILS : AlbumEditorView.PHOTOS;
+      const selectedSort = params[StoredValue.ALBUM_PHOTO_SORT];
+      this.albumPhotoSort = values(AlbumPhotoSort).includes(selectedSort) ? selectedSort : AlbumPhotoSort.NEWEST;
+      const photoNumber = Number(params[StoredValue.ALBUM_EDIT_PHOTO]);
+      this.selectedPhotoIndex = Number.isInteger(photoNumber) && photoNumber > 0 ? photoNumber - 1 : 0;
       this.story = params[StoredValue.STORY];
       this.logger.info("route.queryParams:", this.story);
       this.syncTagWithStory();
+      this.applyFilter();
       if (params[StoredValue.ADD_PHOTOS] === "1" || params[StoredValue.ADD_PHOTOS] === "true") {
         this.promptAddPhotos();
       }
@@ -1423,6 +1283,10 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
               })();
               if (metadataItem) {
                 metadataItem.image = response.fileNameData.awsFileName;
+                if (metadataItem === this.pendingCoverItem) {
+                  this.contentMetadata.coverImage = metadataItem.image;
+                  this.pendingCoverItem = null;
+                }
                 delete metadataItem.base64Content;
                 this.logger.debug("matched image :", metadataItem?.originalFileName, "with aws file", response.fileNameData.awsFileName);
                 return metadataItem;
@@ -1492,14 +1356,13 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.contentMetadata.aspectRatio = dimensions.description;
   }
 
-  pageChanged(event: PageChangedEvent): void {
-    this.logger.debug("event:", event);
-    this.goToPage(event.page);
-  }
-
   ngOnDestroy(): void {
     this.stopResizePolling();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+    if (this.workflowMode) {
+      const albumName = this.contentMetadata?.name || this.name;
+      void this.createWalkAlbumService.abandonEmptyPendingAlbum(albumName, this.contentMetadata);
+    }
   }
 
   insertToEmptyList() {
@@ -1508,31 +1371,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.contentMetadata.rootFolder = RootFolder.carousels;
     this.contentMetadata.name = this.name;
     this.imageInsert(newItem);
-  }
-
-  goToPage(pageNumber) {
-    this.logger.debug("goToPage", pageNumber);
-    this.pageNumber = pageNumber;
-    this.applyPagination();
-  }
-
-  paginate(contentMetadataItems: ContentMetadataItem[], pageSize, pageNumber): ContentMetadataItem[] {
-    return contentMetadataItems.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
-  }
-
-  private applyPagination() {
-    this.pages = range(1, this.pageCount + 1);
-    const filteredImageCount = this.filteredFiles?.length;
-    this.currentPageImages = this.paginate(this.filteredFiles, this.pageSize, this.pageNumber) || [];
-    this.logger.debug("applyPagination: filtered image count", filteredImageCount, "filtered image count", filteredImageCount, "current page image count", this.currentPageImages?.length, "pageSize:", this.pageSize, "pageCount", this.pageCount, "pages", this.pages);
-    if (this.currentPageImages.length === 0) {
-      this.notify.progress("No images found");
-    } else {
-      const offset = (this.pageNumber - 1) * this.pageSize + 1;
-      const pageIndicator = this.pages.length > 1 ? `Page ${this.pageNumber} of ${this.pageCount}` : `Page ${this.pageNumber}`;
-      const toNumber = min([offset + this.pageSize - 1, filteredImageCount]);
-      this.notify.progress(`${pageIndicator}  — showing ${offset} to ${toNumber} of ${this.stringUtils.pluraliseWithCount(filteredImageCount, "image")}`);
-    }
   }
 
   onSearchChange(searchEntry: string) {
@@ -1555,8 +1393,10 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   applyFilter() {
     this.logger.info("applyFilters start:", this.filteredFiles?.length, "of", this.contentMetadata?.files?.length, "files", "tag:", this.activeTag, "showDuplicates:", this.showDuplicates, "filterText:", this.filterText);
     this.filterFiles();
-    this.pageCount = this.calculatePageCount();
-    this.applyPagination();
+    this.reorderPageImages = this.filteredFiles;
+    if (this.contentMetadata) {
+      this.selectedPhotoIndex = Math.min(this.selectedPhotoIndex, Math.max(this.filteredFiles.length - 1, 0));
+    }
     this.detectDuplicates();
     this.alertWarnings();
   }
@@ -1567,11 +1407,12 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   private   filterFiles() {
     const filtered = this.contentMetadataService.filterSlides(this.contentMetadata?.imageTags, this.contentMetadata?.files, this.duplicateImages, this.filterType, this.activeTag, this.showDuplicates, this.filterText) || [];
-    this.filteredFiles = this.contributor() ? filtered.filter(item => item.draft && contributorOwnsItem(this.uploaderIdentity(), item)) : filtered;
+    this.filteredFiles = this.sortedPhotos(this.contributor() ? filtered.filter(item => item.draft && contributorOwnsItem(this.uploaderIdentity(), item)) : filtered);
     this.logger.info("filteredFiles:", this.filteredFiles);
   }
 
   refreshContentAndS3Metadata(name: string) {
+    this.loadingAlbum = true;
     this.setBusy();
     this.name = name;
     this.logger.info("image metadata refresh started for name:", name);
@@ -1586,17 +1427,25 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
         this.postMetadataRetrieveMapping();
       })
       .catch(response => this.notify.error({title: "Failed to refresh images", message: response}))
-      .finally(() => this.clearBusy());
+      .finally(() => {
+        this.loadingAlbum = false;
+        this.clearBusy();
+      });
   }
 
-  private refreshS3Metadata() {
-    const metadataPrefix = this.contentMetadataService.rootFolderAndName(this.contentMetadata.rootFolder, this.contentMetadata.name);
-    this.logger.info("refreshS3Metadata using prefix:", metadataPrefix, "from rootFolder:", this.contentMetadata.rootFolder, "name:", this.contentMetadata.name);
-    return this.contentMetadataService.listMetaData(metadataPrefix)
-      .then((s3Metadata: S3Metadata[]) => {
-        this.s3Metadata = s3Metadata;
-        this.logger.info("listMetaData:metadataPrefix:", metadataPrefix, "returned:", s3Metadata);
-      });
+  private refreshS3Metadata(): Promise<void> {
+    if (!this.contentMetadata.files?.some(file => !!file.image)) {
+      this.s3Metadata = [];
+      return Promise.resolve();
+    } else {
+      const metadataPrefix = this.contentMetadataService.rootFolderAndName(this.contentMetadata.rootFolder, this.contentMetadata.name);
+      this.logger.info("refreshS3Metadata using prefix:", metadataPrefix, "from rootFolder:", this.contentMetadata.rootFolder, "name:", this.contentMetadata.name);
+      return this.contentMetadataService.listMetaData(metadataPrefix)
+        .then((s3Metadata: S3Metadata[]) => {
+          this.s3Metadata = s3Metadata;
+          this.logger.info("listMetaData:metadataPrefix:", metadataPrefix, "returned:", s3Metadata);
+        });
+    }
   }
 
   private postMetadataRetrieveMapping() {
@@ -1609,9 +1458,10 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
       })
       .catch(err => this.logger.error("Failed to load page usages", err));
     this.logger.info("postMetadataRetrieveMapping for:", this.name, "this.contentMetadata.maxImageSize", this.contentMetadata.maxImageSize, "this.contentMetadata.aspectRatio", this.contentMetadata.aspectRatio);
-    if (isUndefined(this.contentMetadata.maxImageSize)) {
-      this.contentMetadata.maxImageSize = this.systemConfig.images?.imageLists?.defaultMaxImageSize;
-    }
+    this.contentMetadata.maxImageSize = albumMaxImageSize(
+      this.contentMetadata.maxImageSize,
+      this.systemConfig.images?.imageLists?.defaultMaxImageSize
+    );
     if (isUndefined(this.contentMetadata.aspectRatio)) {
       this.contentMetadata.aspectRatio = this.systemConfig.images?.imageLists?.defaultAspectRatio;
     }
@@ -1647,19 +1497,58 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   reverseSortOrder() {
-    this.contentMetadata.files = this.contentMetadata.files.reverse();
-    this.applyFilter();
+    this.contentMetadata.files = [...this.sortedPhotos(this.contentMetadata.files)].reverse();
+    this.changePhotoSort(AlbumPhotoSort.CUSTOM);
   }
 
   clearImages() {
     this.contentMetadata.files = [];
     this.base64Files = [];
+    this.pendingCoverItem = null;
     this.applyFilter();
   }
 
   sortByDate() {
-    this.contentMetadata.files = this.contentMetadata.files.sort(sortBy("-date"));
+    this.contentMetadata.files = this.sortedPhotos(this.contentMetadata.files);
     this.applyFilter();
+  }
+
+  protected photoSortItems(): ButtonDropdownItem[] {
+    return [
+      {id: AlbumPhotoSort.NEWEST, label: "Newest first"},
+      {id: AlbumPhotoSort.OLDEST, label: "Oldest first"},
+      {id: AlbumPhotoSort.FILENAME, label: "Filename"},
+      {id: AlbumPhotoSort.CUSTOM, label: "Custom order"}
+    ].map(item => ({...item, selected: item.id === this.albumPhotoSort}));
+  }
+
+  protected photoSortLabel(): string {
+    return `Photo order: ${this.photoSortItems().find(item => item.selected)?.label || ""}`;
+  }
+
+  protected changePhotoSort(order: string): void {
+    const selected = values(AlbumPhotoSort).find(value => value === order);
+    if (selected) {
+      this.albumPhotoSort = selected;
+      this.sortByDate();
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {[StoredValue.ALBUM_PHOTO_SORT]: selected},
+        queryParamsHandling: "merge",
+        replaceUrl: true
+      });
+    }
+  }
+
+  private sortedPhotos(files: ContentMetadataItem[]): ContentMetadataItem[] {
+    if (this.albumPhotoSort === AlbumPhotoSort.CUSTOM) {
+      return files;
+    } else if (this.albumPhotoSort === AlbumPhotoSort.FILENAME) {
+      return [...files].sort((a, b) => (a.originalFileName || a.image || "").localeCompare(b.originalFileName || b.image || "", "en", {numeric: true}));
+    } else {
+      const direction = this.albumPhotoSort === AlbumPhotoSort.OLDEST ? 1 : -1;
+      return [...files].sort((a, b) => direction * ((a.date || 0) - (b.date || 0)));
+    }
   }
 
   saveAndExitCaption(): string {
@@ -1670,10 +1559,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   exitWithoutSavingCaption(): string {
-    if (!this.workflowMode) {
-      return "Exit without saving";
-    }
-    return this.isCompactViewport() ? "Back without saving" : "Return to walk";
+    return this.workflowMode ? "Discard changes and return to walk" : "Discard changes and exit";
   }
 
   private isCompactViewport(): boolean {
@@ -1730,6 +1616,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
         this.contentMetadata = await this.createWalkAlbumService.applyAutoCoverIfNeeded(this.contentMetadata, {
           force: this.workflowMode && !this.contributor()
         });
+        this.createWalkAlbumService.clearPendingAlbum(this.contentMetadata?.name || this.name);
+        this.autoCoverRequested = false;
         await this.refreshS3Metadata();
         this.postMetadataRetrieveMapping();
         return this.contentMetadata;
@@ -1756,6 +1644,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
 
   public undoChanges() {
     this.clearUpload();
+    this.pendingCoverItem = null;
     this.nonImageFiles = [];
     return this.refreshContentAndS3Metadata(this.name)
       .catch(response => this.notify.error({title: "Failed to undo changes", message: response}));
@@ -1799,99 +1688,88 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.notify.success(`${this.stringUtils.pluraliseWithCount(this.contentMetadata?.files?.length, "image")} ${this.stringUtils.pluralise(this.contentMetadata?.files?.length, "was", "were")} saved successfully`);
   }
 
-  protected toggleReorderMode(): void {
-    this.reorderMode = !this.reorderMode;
-    if (this.reorderMode) {
-      const currentImageOffset = Math.max(0, (this.pageNumber - 1) * this.pageSize);
-      this.reorderPageNumber = Math.floor(currentImageOffset / this.reorderPageSize) + 1;
-      this.applyReorderPage();
-    }
+  protected selectedPhoto(): ContentMetadataItem | null {
+    return this.filteredFiles[this.selectedPhotoIndex] || null;
   }
 
-  protected reorderPageChanged(event: PageChangedEvent): void {
-    this.reorderPageNumber = event.page;
-    this.applyReorderPage();
+  protected openPhoto(item: ContentMetadataItem): void {
+    this.selectedPhotoIndex = this.filteredFiles.indexOf(item);
+    this.albumEditorView = AlbumEditorView.DETAILS;
+    this.updatePhotoViewUrl();
   }
 
-  protected reorderPageCount(): number {
-    return Math.ceil((this.contentMetadata?.files?.length || 0) / this.reorderPageSize);
+  protected showPhotos(): void {
+    this.albumEditorView = AlbumEditorView.PHOTOS;
+    this.updatePhotoViewUrl();
   }
 
-  protected reorderImageNumber(index: number): number {
-    return (this.reorderPageNumber - 1) * this.reorderPageSize + index + 1;
+  protected selectAdjacentPhoto(offset: number): void {
+    this.selectedPhotoIndex = Math.max(0, Math.min(this.selectedPhotoIndex + offset, this.filteredFiles.length - 1));
+    this.updatePhotoViewUrl();
   }
 
-  protected reorderRangeDescription(): string {
-    const totalImages = this.contentMetadata?.files?.length || 0;
-    const firstImage = totalImages === 0 ? 0 : (this.reorderPageNumber - 1) * this.reorderPageSize + 1;
-    const lastImage = Math.min(this.reorderPageNumber * this.reorderPageSize, totalImages);
-    return `Section ${this.reorderPageNumber} of ${this.reorderPageCount()} — images ${firstImage} to ${lastImage} of ${totalImages}`;
+  private updatePhotoViewUrl(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        [StoredValue.ALBUM_EDIT_VIEW]: this.albumEditorView === AlbumEditorView.DETAILS ? this.albumEditorView : null,
+        [StoredValue.ALBUM_EDIT_PHOTO]: this.albumEditorView === AlbumEditorView.DETAILS ? this.selectedPhotoIndex + 1 : null
+      },
+      queryParamsHandling: "merge",
+      replaceUrl: true
+    });
   }
 
   protected imageOrderDropped(event: CdkDragDrop<ContentMetadataItem[]>): void {
-    if (event.previousContainer === event.container && event.previousIndex !== event.currentIndex) {
-      const pageOffset = (this.reorderPageNumber - 1) * this.reorderPageSize;
-      move(this.contentMetadata.files, pageOffset + event.previousIndex, pageOffset + event.currentIndex);
-      this.applyFilter();
-      this.applyReorderPage();
+    if (!this.contributor() && !this.photosWorking() && event.previousContainer === event.container && event.previousIndex !== event.currentIndex) {
+      const source = this.filteredFiles[event.previousIndex];
+      const destination = this.filteredFiles[event.currentIndex];
+      this.contentMetadata.files = this.sortedPhotos(this.contentMetadata.files);
+      move(this.contentMetadata.files, this.contentMetadata.files.indexOf(source), this.contentMetadata.files.indexOf(destination));
+      this.changePhotoSort(AlbumPhotoSort.CUSTOM);
+    }
+  }
+
+  protected autoChooseCover(): void {
+    if (!this.contributor() && !this.photosWorking()) {
+      this.clearCoverImage();
+      this.autoCoverRequested = true;
+      this.createWalkAlbumService.markAlbumForAutoCover(this.contentMetadata.name);
     }
   }
 
   protected coverImageItem(): ContentMetadataItem | null {
-    return this.contentMetadata?.files?.find(item => item.image === this.contentMetadata.coverImage) || null;
+    return this.pendingCoverItem || this.contentMetadata?.files?.find(item => !!item.image && item.image === this.contentMetadata.coverImage) || null;
+  }
+
+  protected isCoverImage(item: ContentMetadataItem): boolean {
+    return item === this.coverImageItem();
+  }
+
+  protected useAsCover(item: ContentMetadataItem): void {
+    if (!this.contributor() && !this.photosWorking() && !item.youtubeId && !item.draft) {
+      this.autoCoverRequested = false;
+      if (this.isCoverImage(item)) {
+        this.clearCoverImage();
+      } else if (item.image) {
+        this.pendingCoverItem = null;
+        this.contentMetadata.coverImage = item.image;
+      } else {
+        this.pendingCoverItem = item;
+      }
+    }
   }
 
   protected coverImageDropped(event: CdkDragDrop<ContentMetadataItem[]>): void {
     const item = event.item.data as ContentMetadataItem;
-    if (item?.image) {
-      this.contentMetadata.coverImage = item.image;
-      this.applyReorderPage();
+    if (item && !this.isCoverImage(item)) {
+      this.useAsCover(item);
     }
   }
 
   protected clearCoverImage(): void {
+    this.autoCoverRequested = false;    this.pendingCoverItem = null;
     this.contentMetadata.coverImage = null;
-  }
-
-  protected moveImageToPreviousReorderPage(event: CdkDragDrop<ContentMetadataItem[]>): void {
-    const item = event.item.data as ContentMetadataItem;
-    const sourceIndex = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
-    if (sourceIndex >= 0 && this.reorderPageNumber > 1) {
-      const previousPageLastIndex = (this.reorderPageNumber - 1) * this.reorderPageSize - 1;
-      move(this.contentMetadata.files, sourceIndex, previousPageLastIndex);
-      this.reorderPageNumber -= 1;
-      this.applyFilter();
-      this.applyReorderPage();
-    }
-  }
-
-  protected moveImageToStart(event: CdkDragDrop<ContentMetadataItem[]>): void {
-    const item = event.item.data as ContentMetadataItem;
-    const sourceIndex = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
-    if (sourceIndex > 0) {
-      move(this.contentMetadata.files, sourceIndex, 0);
-      this.reorderPageNumber = 1;
-      this.applyFilter();
-      this.applyReorderPage();
-    }
-  }
-
-  protected moveImageToNextReorderPage(event: CdkDragDrop<ContentMetadataItem[]>): void {
-    const item = event.item.data as ContentMetadataItem;
-    const sourceIndex = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
-    if (sourceIndex >= 0 && this.reorderPageNumber < this.reorderPageCount()) {
-      const nextPageFirstIndex = Math.min(this.reorderPageNumber * this.reorderPageSize, this.contentMetadata.files.length - 1);
-      move(this.contentMetadata.files, sourceIndex, nextPageFirstIndex);
-      this.reorderPageNumber += 1;
-      this.applyFilter();
-      this.applyReorderPage();
-    }
-  }
-
-  private applyReorderPage(): void {
-    const maximumPage = Math.max(this.reorderPageCount(), 1);
-    this.reorderPageNumber = Math.min(Math.max(this.reorderPageNumber, 1), maximumPage);
-    this.reorderPageImages = this.paginate(this.contentMetadata?.files || [], this.reorderPageSize, this.reorderPageNumber);
   }
 
   protected startCopyToAlbum(item: ContentMetadataItem): void {
@@ -1984,22 +1862,30 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   moveUp(item: ContentMetadataItem) {
+    this.contentMetadata.files = this.sortedPhotos(this.contentMetadata.files);
     const currentIndex = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
     if (this.contentMetadataService.canMoveUp(this.contentMetadata.files, item)) {
       move(this.contentMetadata.files, currentIndex, currentIndex - 1);
       this.logger.debug("moved up item with index", currentIndex, "to", this.contentMetadataService.findIndex(this.contentMetadata.files, item), "in total of", this.contentMetadata?.files?.length, "items");
-      this.applyFilter();
+      this.changePhotoSort(AlbumPhotoSort.CUSTOM);
+      if (this.albumEditorView === AlbumEditorView.DETAILS) {
+        this.openPhoto(item);
+      }
     } else {
       this.logger.warn("cant move up item with index", currentIndex);
     }
   }
 
   moveDown(item: ContentMetadataItem) {
+    this.contentMetadata.files = this.sortedPhotos(this.contentMetadata.files);
     const currentIndex = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
     if (this.contentMetadataService.canMoveDown(this.contentMetadata.files, item)) {
       move(this.contentMetadata.files, currentIndex, currentIndex + 1);
       this.logger.debug("moved down item with index", currentIndex, "to", this.contentMetadataService.findIndex(this.contentMetadata.files, item), "for item", item.text, "in total of", this.contentMetadata?.files?.length, "items");
-      this.applyFilter();
+      this.changePhotoSort(AlbumPhotoSort.CUSTOM);
+      if (this.albumEditorView === AlbumEditorView.DETAILS) {
+        this.openPhoto(item);
+      }
     } else {
       this.logger.warn("cant move down item", currentIndex);
     }
@@ -2032,6 +1918,9 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.logger.debug("delete:before count", this.contentMetadata?.files?.length, "item:", item);
     const index = this.contentMetadataService.findIndex(this.contentMetadata.files, item);
     if (index >= 0) {
+      if (this.isCoverImage(item)) {
+        this.clearCoverImage();
+      }
       this.contentMetadata.files.splice(index, 1);
       this.logger.debug("delete:after count", this.contentMetadata?.files?.length);
       this.applyFilter();
@@ -2046,7 +1935,15 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.addToChangedItems(item);
   }
 
-  imageInsert(...items: ContentMetadataItem[]) {
+  async imageInsert(...items: ContentMetadataItem[]): Promise<boolean> {
+    const prepared = await this.downscaleUnsavedImagesForEditing(items);
+    if (prepared) {
+      this.insertPreparedImages(...items);
+    }
+    return prepared;
+  }
+
+  private insertPreparedImages(...items: ContentMetadataItem[]): void {
     const defaultDateSource = this.contentMetadataService.defaultDateSourceFor(this.contentMetadata.files);
     const identity = this.uploaderIdentity();
     const uploadedAt = this.dateUtils.dateTimeNow().toMillis();
@@ -2067,17 +1964,20 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     }
 
     this.logger.info("insert:new items", initialisedItems, "after:", this.contentMetadata.files);
+    this.sortByDate();
     this.addToChangedItems(...initialisedItems);
-    this.downscaleUnsavedImagesForEditing(initialisedItems);
+    if (this.albumEditorView === AlbumEditorView.DETAILS) {
+      this.showPhotos();
+    }
+  }
+
+  protected hasImageWarnings(): boolean {
+    return this.nonImageFiles.length > 0 || !isEmpty(this.duplicateMessage());
   }
 
   alertWarnings() {
     if (this.unsavedImages().length > 0 || !isEmpty(this.nonImageMessage()) || !isEmpty(this.duplicateMessage())) {
-      if (isEmpty(this.duplicateMessage())) {
-        this.warnings.warning({title: "Unsaved Changes", message: this.alertText()});
-      } else {
-        this.warnings.error({title: "Unsaved Changes", message: this.alertText(), continue: true});
-      }
+      this.warnings.warning({title: "Unsaved Changes", message: this.alertText()});
     } else {
       this.warnings.hide();
     }
@@ -2098,14 +1998,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   filterFor(choice: any) {
     this.logger.debug("filterFor:choice:", choice);
     this.applyFilter();
-  }
-
-  maxSize() {
-    return min([this.calculatePageCount(), 5]);
-  }
-
-  private calculatePageCount(): number {
-    return Math.ceil(this.filteredFiles?.length / this.pageSize);
   }
 
   private addToChangedItems(...items: ContentMetadataItem[]) {
@@ -2132,9 +2024,8 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   private duplicateMessage(): string {
-    const imageFiles = this.contentMetadata?.files?.filter(file => !file.youtubeId) || [];
-    const imageDuplicates = keys(this.duplicateImages).filter(key => key && key !== 'undefined');
-    return imageDuplicates.length > 0 ? ` and ${this.stringUtils.pluralise(imageDuplicates.length, "a duplicate", "duplicates")} on ${this.stringUtils.pluraliseWithCount(imageDuplicates.length, "image")} will need to be resolved before you can save this album` : "";
+    const imageDuplicates = keys(this.duplicateImages).filter(key => key && key !== "undefined");
+    return imageDuplicates.length > 0 ? `. ${this.stringUtils.pluraliseWithCount(imageDuplicates.length, "photo")} ${imageDuplicates.length === 1 ? "appears" : "appear"} more than once. You can still save this album` : "";
   }
 
   private nonImageMessage(): string {
@@ -2153,9 +2044,6 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   onUploadZoneClick(fileElement: HTMLInputElement) {
-    if (!isUndefined(window) && window.matchMedia("(max-width: 767.98px)").matches) {
-      return;
-    }
     this.browseToFile(fileElement);
   }
 
@@ -2177,81 +2065,84 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   photosWorking(): boolean {
-    return this.preparingPhotos || !!this.uploader?.isUploading || this.resizeInProgress || !!this.notifyTarget?.busy;
+    return this.loadingAlbum || this.preparingPhotos || !!this.uploader?.isUploading || this.resizeInProgress || !!this.notifyTarget?.busy;
   }
 
   albumUploadTitle(): string {
-    if (this.uploader?.isUploading) {
+    if (this.loadingAlbum) {
+      return "Loading album…";
+    } else if (this.uploader?.isUploading) {
       return "Uploading photos…";
-    }
-    if (this.resizeInProgress) {
+    } else if (this.resizeInProgress) {
       return "Resizing photos…";
-    }
-    if (this.preparingPhotos || this.notifyTarget?.busy) {
+    } else if (this.preparingPhotos || this.notifyTarget?.busy) {
       return "Preparing photos…";
+    } else {
+      return this.contentMetadata?.files?.length ? "Add more photos" : "Add photos";
     }
-    return this.imagesExist() ? "Add more photos" : "Add photos";
   }
 
   albumUploadWorkingSubtitle(): string {
-    if (this.uploader?.isUploading) {
+    if (this.loadingAlbum) {
+      return "Loading the album and saved photo details.";
+    } else if (this.uploader?.isUploading) {
       return "Please wait while photos are uploaded to your site.";
-    }
-    if (this.resizeInProgress) {
+    } else if (this.resizeInProgress) {
       return "Please wait while photos are resized.";
+    } else {
+      return "Please wait while photos are read and prepared.";
     }
-    return "Please wait while photos are read and prepared.";
   }
 
-  async onFileSelectOrDropped(fileList: any) {
-    if (!this.uploader?.isUploading && !this.preparingPhotos) {
+  async onFileSelectOrDropped(fileList: FileList | File[]) {
+    if (!this.photosWorking()) {
+      const droppedCount = (fileList as FileList)?.length || (fileList as File[])?.length || 0;
+      this.preparingPhotos = true;
+      this.base64Files = [];
+      this.nonImageFiles = [];
+      this.setBusy();
       try {
-        const droppedCount = fileList?.length || 0;
-        this.logger.debug("onFileSelectOrDropped:", fileList);
-        this.preparingPhotos = true;
         this.notify.success({
           title: "Preparing photos",
           message: "Reading " + this.stringUtils.pluraliseWithCount(droppedCount, "photo")
         });
-        this.setBusy();
-        const allBase64Files: Base64File[] = await this.fileUtils.fileListToBase64Files(fileList);
-        const unreadableCount = droppedCount - allBase64Files.length;
-        if (unreadableCount > 0) {
+        const prepared = await this.fileUtils.prepareDroppedFiles(fileList, this.contentMetadata.files || []);
+        this.base64Files = prepared.images;
+        this.nonImageFiles = [];
+        if (prepared.images.length === 0 && !prepared.skippedDuplicates) {
           this.notify.warning({
-            title: "Some photos could not be read",
-            message: `${this.stringUtils.pluraliseWithCount(unreadableCount, "photo")} could not be read and ${this.stringUtils.pluralise(unreadableCount, "was", "were")} skipped. Try again with fewer at once if this keeps happening.`,
+            title: "No photos added",
+            message: "None of the selected files could be prepared. Choose JPEG, PNG or HEIC photos and try again."
+          });
+        } else if (prepared.images.length > 0) {
+          const inserted = await this.imageInsert(...prepared.images.map(item => this.fileUtils.contentMetadataItemFromBase64File(item)));
+          if (inserted) {
+            this.notify.success({
+              title: "Photos ready",
+              message: `${this.stringUtils.pluraliseWithCount(prepared.images.length, "photo")} added. Save when you are done.`
+            });
+          }
+        }
+        if (prepared.skippedDuplicates > 0) {
+          this.notify.warning({
+            title: "Duplicate photos skipped",
+            message: `${this.stringUtils.pluraliseWithCount(prepared.skippedDuplicates, "photo")} already in this album or repeated in this selection. No extra copies were added.`,
             continue: true
           });
         }
-        const checkedResults: CheckedImage[] = await Promise.all(allBase64Files.map(async file => {
-          if (file.file.type === IMAGE_HEIC || file.file.name?.toLowerCase()?.endsWith(".heic") || file.file.name?.toLowerCase()?.endsWith(".heif")) {
-            return await this.fileUtils.convertHEICFile(file);
-          } else {
-            return {file, isImage: this.urlService.isBase64Image(file.base64Content)};
-          }
-        }));
-        this.logger.debug("checkedResults:", checkedResults);
-        this.base64Files = checkedResults.filter(result => result.isImage).map(result => result.file);
-        this.nonImageFiles = checkedResults.filter(result => !result.isImage).map(result => result.file);
-        this.logger.info("there are", this.stringUtils.pluraliseWithCount(this.base64Files.length, "image"), "and", this.stringUtils.pluraliseWithCount(this.nonImageFiles.length, "non-image"), "non-images:", this.nonImageFiles);
-        if (this.base64Files.length === 0) {
+        const failedFiles = prepared.failedFiles || prepared.skippedHeicFiles || [];
+        const failedCount = Math.max(failedFiles.length, (prepared.unread || 0) + (prepared.skippedHeic || 0));
+        if (failedCount > 0) {
           this.notify.warning({
-            title: "No photos added",
-            message: "None of the selected files looked like photos. Choose images from your library (JPEG, PNG or HEIC) and try again."
+            title: "Some photos could not be added",
+            message: `${this.stringUtils.pluraliseWithCount(failedCount, "file")} could not be read or opened as a photo. ${prepared.images.length > 0 ? "The readable photos were added." : "No photos were added."}${failedFiles.length ? " Files: " + failedFiles.join(", ") : ""}`,
+            continue: true
           });
-          this.preparingPhotos = false;
-          this.clearBusy();
-          return;
         }
-        this.imageInsert(...this.base64Files.map(item => this.fileUtils.contentMetadataItemFromBase64File(item)));
-        this.notify.success({
-          title: "Photos ready",
-          message: `${this.stringUtils.pluraliseWithCount(this.base64Files.length, "photo")} added. Save when you are done.`
-        });
-        this.preparingPhotos = false;
       } catch (error) {
         this.logger.error("onFileSelectOrDropped failed:", error);
         this.notify.error({title: "Could not add photos", message: error});
+      } finally {
         this.preparingPhotos = false;
         this.clearBusy();
       }
@@ -2265,19 +2156,26 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
   }
 
   private async prepareFilesAndPerformUpload() {
-    try {
-      await this.compressUnsavedImagesToMaxSize();
-    } catch (error) {
-      this.handleResizeError(error as any);
+    if (!this.photosWorking()) {
+      this.preparingPhotos = true;
+      this.setBusy();
+      try {
+        await this.compressUnsavedImagesToMaxSize();
+        const queuedFiles: File[] = this.unsavedImages()
+          .map(item => this.fileUtils.awsFileData(item.originalFileName, item.base64Content, this.fileForBase64Content(item)))
+          .map(item => item.file);
+        this.queuedFileCount = queuedFiles.length;
+        this.uploader.clearQueue();
+        this.uploader.addToQueue(queuedFiles);
+        this.logger.debug("addedToQueue:", queuedFiles);
+        this.uploader.uploadAll();
+      } catch (error) {
+        this.exitAfterSave = false;
+        this.handleResizeError(error as Error);
+      } finally {
+        this.preparingPhotos = false;
+      }
     }
-    const queuedFiles: File[] = this.unsavedImages()
-      .map(item => this.fileUtils.awsFileData(item.originalFileName, item.base64Content, this.fileForBase64Content(item)))
-      .map(item => item.file);
-    this.queuedFileCount = queuedFiles.length;
-    this.uploader.clearQueue();
-    this.uploader.addToQueue(queuedFiles);
-    this.logger.debug("addedToQueue:", queuedFiles);
-    this.uploader.uploadAll();
   }
 
   private unsavedImages(): ContentMetadataItem[] {
@@ -2368,26 +2266,35 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  private downscaleUnsavedImagesForEditing(items: ContentMetadataItem[]) {
+  private async downscaleUnsavedImagesForEditing(items: ContentMetadataItem[]): Promise<boolean> {
+    this.setBusy();
     try {
-      this.logger.info("downscaleUnsavedImagesForEditing called with items:", items);
-      const resizable = (items || []).filter(i => this.fileUtils.isResizableName(i.originalFileName || "") && this.urlService.isBase64Image(i.base64Content));
-      if (resizable.length === 0) {
-        this.logger.info("no images eligible for downscaling on drop");
-        this.clearBusy();
-        return;
+      const resizable = (items || []).filter(item => this.fileUtils.isResizableName(item.originalFileName || "") && this.urlService.isBase64Image(item.base64Content));
+      for (const [index, item] of resizable.entries()) {
+        this.notify.success({title: "Preparing photos", message: `Preparing photo ${index + 1} of ${resizable.length}: ${item.originalFileName}.`});
+        await this.prepareImageForEditing(item);
       }
-      this.setBusy();
-      const tasks = resizable.map(async item => {
-        const updated = await this.fileUtils.downscaleBase64Image(item.base64Content, item.originalFileName, ImageListEditComponent.EDIT_WORKING_MAX_WIDTH);
-        if (updated) {
-          item.base64Content = updated;
-        }
-      });
-      Promise.all(tasks).then(() => this.clearBusy()).catch(error => this.handleResizeError(error));
+      return true;
     } catch (error) {
-      this.handleResizeError(error as any);
+      this.handleResizeError(error as Error);
+      return false;
+    } finally {
+      this.clearBusy();
     }
+  }
+
+  private async prepareImageForEditing(item: ContentMetadataItem): Promise<void> {
+    if (this.fileUtils.isResizableName(item.originalFileName || "")) {
+      const updated = await this.fileUtils.downscaleBase64Image(item.base64Content, item.originalFileName, ImageListEditComponent.EDIT_WORKING_MAX_WIDTH);
+      if (updated) {
+        this.replaceUnsavedImageContent(item, updated);
+      }
+    }
+  }
+
+  private replaceUnsavedImageContent(item: ContentMetadataItem, updated: string): void {
+    this.base64Files = this.base64Files.filter(file => file.base64Content !== item.base64Content);
+    item.base64Content = updated;
   }
 
   private async compressUnsavedImagesToMaxSize(): Promise<void> {
@@ -2399,16 +2306,20 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     if (compressible.length === 0) {
       return;
     }
-    this.notify.success({
-      title: "Resizing Images",
-      message: "Resizing " + this.stringUtils.pluraliseWithCount(compressible.length, "image") + " to a maximum size of " + this.numberUtils.humanFileSize(maxBytes)
-    });
-    await Promise.all(compressible.map(async item => {
-      const updated = await this.fileUtils.resizeBase64Image(item.base64Content, item.originalFileName, maxBytes, 1200);
-      if (updated) {
-        item.base64Content = updated;
+    for (const [index, item] of compressible.entries()) {
+      this.notify.success({
+        title: "Resizing Images",
+        message: `Preparing photo ${index + 1} of ${compressible.length}: ${item.originalFileName}. Maximum size ${this.numberUtils.humanFileSize(maxBytes)}.`
+      });
+      try {
+        const updated = await this.fileUtils.resizeBase64Image(item.base64Content, item.originalFileName, maxBytes, 1200);
+        if (updated) {
+          this.replaceUnsavedImageContent(item, updated);
+        }
+      } catch (error) {
+        throw new Error(`Could not resize photo ${index + 1} of ${compressible.length} (${item.originalFileName}). ${error instanceof Error ? error.message : "Your device could not finish preparing this photo."} Your photos are still unsaved. Try saving again, or add fewer photos at once.`);
       }
-    }));
+    }
   }
 
   private handleResizeError(error: Error) {
@@ -2417,7 +2328,7 @@ export class ImageListEditComponent implements OnInit, OnDestroy {
     this.clearResizeState();
     this.clearBusy();
     this.logger.error(error);
-    this.notify.error({title: "Image Resizing failed", message: error});
+    this.notify.error({title: "Image Resizing failed", message: error instanceof Error ? error.message : "Your device could not resize the photos. Try adding fewer photos at once.", continue: true});
   }
 
   private processResizeItemsResponse(resizedItems: ContentMetadataItem[]) {

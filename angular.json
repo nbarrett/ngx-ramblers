@@ -28,7 +28,6 @@
               "cytoscape-fcose",
               "dayjs",
               "he",
-              "heic2any",
               "html2canvas",
               "leaflet",
               "leaflet.markercluster",
@@ -52,6 +51,7 @@
               "projects/ngx-ramblers/src/polyfills.ts"
             ],
             "tsConfig": "projects/ngx-ramblers/tsconfig.app.json",
+            "webWorkerTsConfig": "projects/ngx-ramblers/tsconfig.worker.json",
             "inlineStyleLanguage": "sass",
             "assets": [
               "projects/ngx-ramblers/src/favicon.ico",

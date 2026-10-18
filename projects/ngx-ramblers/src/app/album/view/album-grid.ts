@@ -1,6 +1,6 @@
 import { Component, inject, Input } from "@angular/core";
 import { Gallery } from "ng-gallery";
-import { ContentMetadataItem, LazyLoadingMetadata } from "../../models/content-metadata.model";
+import { ContentMetadataItem, imageAlt, LazyLoadingMetadata } from "../../models/content-metadata.model";
 import { PageService } from "../../services/page.service";
 import { ContentMetadataService } from "../../services/content-metadata.service";
 import { UrlService } from "../../services/url.service";
@@ -38,7 +38,7 @@ import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
                   <img
                     (load)="loaded($event, image)"
                     lazyLoad="{{ urlService.imageSourceFor(image, lazyLoadingMetadata?.contentMetadata) }}"
-                    [alt]="image.text">
+                    [alt]="imageAlt(image)">
                 </div>
               }
               @if (gridViewOptions.showTitles) {
@@ -65,6 +65,7 @@ import { YoutubeEmbed } from "../../modules/common/youtube-embed/youtube-embed";
   imports: [BadgeButtonComponent, TooltipDirective, LazyLoadDirective, YoutubeEmbed]
 })
 export class AlbumGridComponent {
+  protected readonly imageAlt = imageAlt;
 
   @Input("preview") set previewValue(value: boolean) {
     this.preview = coerceBooleanProperty(value);

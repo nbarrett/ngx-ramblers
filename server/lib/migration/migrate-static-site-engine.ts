@@ -28,7 +28,7 @@ import { contentMetadata } from "../mongo/models/content-metadata";
 import { assertMigrationNotCancelled, progress } from "./migration-progress";
 import * as exclusions from "./text-exclusions";
 import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
-import { ContentMetadata } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
+import { ContentMetadata, DEFAULT_ALBUM_MAX_IMAGE_SIZE } from "../../../projects/ngx-ramblers/src/app/models/content-metadata.model";
 import {
   PageLink,
   ParentPageConfig,
@@ -710,18 +710,7 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
         alt: img.alt
       })).filter(item => item.alt !== "logo");
     }, ctx.config.contentSelector);
-    const files = images.map((img, index) => ({
-      image: decodeURIComponent(img.src),
-      originalFileName: decodeURIComponent(img.src.split("/").pop() || `image-${index + 1}.jpg`),
-      text: (() => {
-        const a = (img.alt || "").trim();
-        if (a) return a;
-        const base = decodeURIComponent((img.src || "")
-          .split("/").pop() || "").replace(/\.[^.]+$/, "");
-        return base.replace(/[\-_]+/g, " ").replace(/\s+/g, " ").trim();
-      })(),
-      tags: []
-    }));
+    const files = images.map((img, index) => albumFileFromSource(img, index, decodeURIComponent(img.src)));
     const name = albumFrom(albumLink.title);
     const album: ContentMetadata = {
       rootFolder: RootFolder.siteContent,
@@ -730,7 +719,7 @@ async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum
       files,
       coverImage: null,
       imageTags: [],
-      maxImageSize: 1024
+      maxImageSize: DEFAULT_ALBUM_MAX_IMAGE_SIZE
     } as any;
     const pageContent: PageContent = {
       path: name,
@@ -763,6 +752,7 @@ function albumFileFromSource(img: ScrapedImage, index: number, image: string) {
     image,
     originalFileName: decodeURIComponent(img.src.split("/").pop() || `image-${index + 1}.jpg`),
     text: caption,
+    alt: alt && !/^image$/i.test(alt) ? alt : caption,
     tags: []
   };
 }

@@ -1,3 +1,4 @@
+import { resizeStatus } from "./integration-worker-resize-status-controller";
 import debug from "debug";
 import express, { Request, Response } from "express";
 import { verifyRamblersUploadSignature } from "./integration-worker-crypto";
@@ -14,22 +15,14 @@ import { ContentMetadata } from "../../../projects/ngx-ramblers/src/app/models/c
 import * as crudController from "../mongo/controllers/crud-controller";
 import { contentMetadata as contentMetadataModel } from "../mongo/models/content-metadata";
 import * as transforms from "../mongo/controllers/transforms";
-import { clearResizeQueueState, completeResizeSession, currentResizeSession, ImageResizeSession, resizeQueueState, setResizeQueueState } from "../aws/image-resize-session-registry";
+import { clearResizeQueueState, completeResizeSession, currentResizeSession, ImageResizeSession, setResizeQueueState } from "../aws/image-resize-session-registry";
 
 const debugLog = debug(envConfig.logNamespace("integration-worker-resize-callback-routes"));
 debugLog.enabled = true;
 
 const router = express.Router();
 
-router.get("/status/:contentMetadataId", async (req: Request, res: Response) => {
-  const { contentMetadataId } = req.params;
-  const state = resizeQueueState(contentMetadataId);
-  if (state) {
-    res.json(state);
-  } else {
-    res.status(404).json({ message: "No active resize queue state for this content metadata" });
-  }
-});
+router.get("/status/:contentMetadataId", resizeStatus);
 
 router.post("/progress", async (req: Request, res: Response) => {
   if (!requestIsSigned(req)) {

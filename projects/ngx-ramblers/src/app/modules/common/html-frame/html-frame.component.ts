@@ -74,7 +74,8 @@ export class HtmlFrameComponent implements OnDestroy {
 
   private wrap(html: string): string {
     const base = `<base href="${window.location.origin}/" target="_blank">`;
-    const reset = `<style>html,body{margin:0;padding:0;background:#fff;overflow:hidden;}img{max-width:100%;height:auto;}table{max-width:100%;}blockquote{border-left:4px solid #9bc8ab;margin:16px 0;padding:12px 20px;background-color:#f7fbf8;color:#343a40;font-style:italic;}blockquote p:first-child{margin-top:0;}blockquote p:last-child{margin-bottom:0;}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;}body{overflow-wrap:anywhere;transform-origin:0 0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5;}</style>`;
+    const shrink = this.fitContentToWidth ? "" : "img{max-width:100%;height:auto;}table{max-width:100%;}";
+    const reset = `<style>html,body{margin:0;padding:0;background:#fff;overflow:visible;}blockquote{border-left:4px solid #9bc8ab;margin:16px 0;padding:12px 20px;background-color:#f7fbf8;color:#343a40;font-style:italic;}blockquote p:first-child{margin-top:0;}blockquote p:last-child{margin-bottom:0;}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;}body{overflow-wrap:anywhere;transform-origin:0 0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5;}${shrink}</style>`;
     return `<!doctype html><html><head><meta charset="utf-8">${base}${reset}</head><body>${html}</body></html>`;
   }
 
@@ -85,12 +86,22 @@ export class HtmlFrameComponent implements OnDestroy {
       if (!frame || !doc?.body) {
       } else {
         doc.body.style.transform = "";
-        const contentWidth = Math.max(doc.body.scrollWidth, doc.documentElement.scrollWidth, 1);
+        doc.body.style.overflow = "visible";
+        doc.documentElement.style.overflow = "visible";
+        const childWidths = Array.from(doc.body.children).map(element => Math.max(
+          (element as HTMLElement).scrollWidth || 0,
+          (element as HTMLElement).offsetWidth || 0
+        ));
+        const contentWidth = [doc.body.scrollWidth, doc.documentElement.scrollWidth, ...childWidths]
+          .reduce((widest, width) => Math.max(widest, width || 0), 1);
         const contentHeight = Math.max(doc.body.scrollHeight, doc.body.offsetHeight, doc.documentElement.scrollHeight);
         const frameWidth = frame.clientWidth || contentWidth;
         const scale = this.fitContentToWidth && contentWidth > frameWidth ? frameWidth / contentWidth : 1;
         if (scale < 1) {
           doc.body.style.transform = `scale(${scale})`;
+        }
+        if (this.fitContentToWidth) {
+          doc.documentElement.style.overflow = "hidden";
         }
         const nextHeight = Math.ceil(contentHeight * scale);
         if (nextHeight > 0 && nextHeight !== this.lastFrameHeight) {

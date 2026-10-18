@@ -22,6 +22,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faArrowLeft, faCheck, faCircleExclamation, faHouse, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { nativeShareSupported } from "../functions/native-share";
+import { StoredValue } from "../models/ui-actions";
 import { AppPath, walkingAppName } from "../models/route-follow.model";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
@@ -29,7 +30,7 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 @Component({
     selector: "app-root",
     template: `
-    @if (!appShellActive && !appShell.installed()) {
+    @if (!appShellActive) {
       <app-pull-to-refresh/>
     }
     <div class="app-page-shift">
@@ -101,12 +102,16 @@ export class ContainerComponent implements OnInit, OnDestroy {
   protected showFloatingNavigation(): boolean {
     const path = this.currentPath();
     const followPath = "/" + AppPath.ROOT + "/" + AppPath.ROUTE;
-    return !this.nativeSite.needsChooser() && this.appShell.installed() && !path.startsWith(followPath);
+    return !this.nativeSite.needsChooser() && this.appShell.installed() && !this.albumWorkflowActive() && !path.startsWith(followPath);
   }
 
   protected showFloatingShare(): boolean {
     const followPath = "/" + AppPath.ROOT + "/" + AppPath.ROUTE;
-    return !this.nativeSite.needsChooser() && this.appShell.installed() && !this.currentPath().startsWith(followPath);
+    return !this.nativeSite.needsChooser() && this.appShell.installed() && !this.albumWorkflowActive() && !this.currentPath().startsWith(followPath);
+  }
+
+  private albumWorkflowActive(): boolean {
+    return this.router.parseUrl(this.router.url).queryParams[StoredValue.ALBUM_WORKFLOW] === "1";
   }
 
   protected floatingBackAvailable(): boolean {

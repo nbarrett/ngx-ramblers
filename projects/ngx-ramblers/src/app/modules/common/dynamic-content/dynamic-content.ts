@@ -96,21 +96,22 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
 
   private updateContentFromRoute() {
     const anchorSuffix = this.pageService.anchorWithSuffix(this.anchor);
-    if (this.areaAsContentPath) {
-      this.contentPath = this.urlService.area() + anchorSuffix;
-    } else {
-      this.contentPath = this.pageService.contentPath(this.anchor);
+    const contentPath = this.areaAsContentPath
+      ? this.urlService.area() + anchorSuffix
+      : this.pageService.contentPath(this.anchor);
+    if (contentPath !== this.contentPath) {
+      this.contentPath = contentPath;
+      if (!this.preventRedirect) {
+        this.urlService.redirectToNormalisedUrl(this.contentPath);
+      }
+      this.contentDescription = this.pageService.contentDescription(this.anchor);
+      this.logger.info("areaAsContentPath:", this.areaAsContentPath, "initialised with contentPath:", this.contentPath);
+      this.pageTitle = this.pageService.pageSubtitle();
+      this.logger.info("Finding page content for " + this.contentPath);
+      this.pageContent = null;
+      this.queryCompleted = false;
+      this.refreshPageContent();
     }
-    if (!this.preventRedirect) {
-      this.urlService.redirectToNormalisedUrl(this.contentPath);
-    }
-    this.contentDescription = this.pageService.contentDescription(this.anchor);
-    this.logger.info("areaAsContentPath:", this.areaAsContentPath, "initialised with contentPath:", this.contentPath);
-    this.pageTitle = this.pageService.pageSubtitle();
-    this.logger.info("Finding page content for " + this.contentPath);
-    this.pageContent = null;
-    this.queryCompleted = false;
-    this.refreshPageContent();
   }
 
   onPageContentDeleted(): void {

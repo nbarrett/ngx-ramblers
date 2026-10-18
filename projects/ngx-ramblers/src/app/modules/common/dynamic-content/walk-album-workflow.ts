@@ -6,7 +6,7 @@ import { NgxLoggerLevel } from "ngx-logger";
 import { AlbumContributor, AlbumEditRole, ContentMetadata, contributorOwnsItem, draftFiles, publishedFiles, WalkAlbumWorkflowStage } from "../../../models/content-metadata.model";
 import { FormsModule } from "@angular/forms";
 import { MemberLoginService } from "../../../services/member/member-login.service";
-import { ContentText, PageContent, PageContentRow } from "../../../models/content-text.model";
+import { ContentText, PageContent, PageContentRow, View } from "../../../models/content-text.model";
 import { SystemConfig } from "../../../models/system.model";
 import { socialPublishingEnabled } from "../../../functions/social-publishing";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -36,29 +36,9 @@ import { SocialShareAlbumComponent } from "../../../carousel/edit/social-share-a
             }
           </div>
         </div>
-        @if (curator()) {
-          <section class="walk-album-workflow-report mb-3">
-            <button type="button"
-                    class="walk-album-workflow-report-toggle"
-                    [attr.aria-expanded]="workflowReportExpanded"
-                    (click)="toggleWorkflowReport()">
-              <span class="min-w-0">
-                <span class="d-block fw-semibold">Walk report</span>
-                <span class="small text-muted">{{ workflowReportToggleHint() }}</span>
-              </span>
-              <fa-icon [icon]="workflowReportExpanded ? faChevronUp : faChevronDown"/>
-            </button>
-            @if (workflowReportExpanded) {
-              <div class="walk-album-workflow-report-body">
-                <app-content-text-editor [data]="{text: row.carousel.preAlbumText, name: 'walk report'}"
-                                         (changed)="onWorkflowPreAlbumTextChanged($event)"/>
-              </div>
-            }
-          </section>
-        }
         @if (needsContributorDetails()) {
-          <section class="walk-album-workflow-report mb-3">
-            <div class="walk-album-workflow-report-body">
+          <section class="thumbnail-heading-frame thumbnail-heading-frame-compact mb-3">
+            <div class="p-2">
               <p class="fw-semibold mb-2">Before you add photos, tell us who you are</p>
               <div class="row g-2">
                 <div class="col-md-6">
@@ -78,12 +58,31 @@ import { SocialShareAlbumComponent } from "../../../carousel/edit/social-share-a
           </section>
         } @else {
           <section class="walk-album-workflow-photos">
-            <h5 class="walk-album-workflow-photos-title">Photos</h5>
             <app-image-list-edit [name]="row?.carousel?.name"
                                  [workflowMode]="true"
                                  [role]="role"
                                  [contributorIdentity]="contributor"
-                                 (exit)="onWorkflowImageExit($event)"/>
+                                 (exit)="onWorkflowImageExit($event)">
+              @if (curator()) {
+                <button albumControls type="button" class="btn btn-quiet w-100 d-inline-flex align-items-center justify-content-center gap-2"
+                        [attr.aria-expanded]="workflowReportExpanded" [attr.title]="workflowReportToggleHint()"
+                        (click)="toggleWorkflowReport()">
+                  <fa-icon [icon]="workflowReportExpanded ? faChevronUp : faChevronDown"/>
+                  Walk report
+                </button>
+              }
+              <div albumReport>
+                @if (curator() && workflowReportExpanded) {
+                  <section class="thumbnail-heading-frame thumbnail-heading-frame-compact mb-3">
+                    <div class="thumbnail-heading">Walk report</div>
+                    <p class="text-muted small">Edit the suggested text below, or replace it with your own report.</p>
+                    <app-content-text-editor [initialView]="View.EDIT" [autoFocus]="true" description="walk report"
+                                             [text]="row.carousel.preAlbumText" name="walk report"
+                                             (changed)="onWorkflowPreAlbumTextChanged($event)"/>
+                  </section>
+                }
+              </div>
+            </app-image-list-edit>
           </section>
         }
       } @else {
@@ -91,7 +90,6 @@ import { SocialShareAlbumComponent } from "../../../carousel/edit/social-share-a
           <fa-icon [icon]="faCircleCheck" class="flex-shrink-0 mt-1"/>
           <div class="ms-2 min-w-0">
             <strong class="d-block">Photos saved</strong>
-            <span>Share the album on social media now, or go back to the walk.</span>
           </div>
         </div>
         <app-social-share-album [contentMetadata]="savedAlbum"
@@ -113,42 +111,6 @@ import { SocialShareAlbumComponent } from "../../../carousel/edit/social-share-a
       align-items: flex-start
       margin-bottom: 0.75rem
       padding: 0.75rem 0.85rem
-
-    .walk-album-workflow-report
-      border: 1px solid #dee2e6
-      border-radius: 12px
-      background: #fff
-      overflow: hidden
-
-    .walk-album-workflow-report-toggle
-      width: 100%
-      min-height: 52px
-      display: flex
-      align-items: center
-      justify-content: space-between
-      gap: 0.75rem
-      border: 0
-      background: #f8f9fa
-      color: var(--ramblers-colour-granite, #404143)
-      text-align: left
-      padding: 0.75rem 0.9rem
-      touch-action: manipulation
-      -webkit-tap-highlight-color: transparent
-
-    .walk-album-workflow-report-toggle .fw-semibold
-      color: var(--ramblers-colour-granite, #404143)
-
-    .walk-album-workflow-report-toggle fa-icon
-      color: var(--ramblers-colour-granite, #404143)
-
-    .walk-album-workflow-report-body
-      padding: 0.75rem 0.85rem 0.9rem
-      border-top: 1px solid #dee2e6
-
-    .walk-album-workflow-photos-title
-      font-size: 1.05rem
-      font-weight: 700
-      margin: 0 0 0.65rem
   `],
   imports: [FontAwesomeModule, FormsModule, ContentTextEditor, ImageListEditComponent, SocialShareAlbumComponent]
 })
@@ -172,6 +134,7 @@ export class WalkAlbumWorkflow implements OnInit {
   public contributor: AlbumContributor | null = null;
   public contributorName = "";
   public contributorEmail = "";
+  protected readonly View = View;
   protected readonly WalkAlbumWorkflowStage = WalkAlbumWorkflowStage;
   protected readonly faImages = faImages;
   protected readonly faChevronUp = faChevronUp;
@@ -218,7 +181,7 @@ export class WalkAlbumWorkflow implements OnInit {
   workflowReportToggleHint(): string {
     const text = this.row?.carousel?.preAlbumText || "";
     if (this.workflowReportExpanded) {
-      return "Tap to hide while you add photos";
+      return "Edit the report below; tap here to hide it while adding photos";
     } else if (!text.trim()) {
       return "No report yet - tap to write one";
     } else {

@@ -1,3 +1,4 @@
+import { firstValueFrom, from, timeout } from "rxjs";
 import { inject, Injectable } from "@angular/core";
 import { chunk, first, isEmpty, last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -7,13 +8,16 @@ import { UrlService } from "./services/url.service";
 import {
   Base64File,
   CheckedImage,
+  PreparedDroppedImages,
   ContentMetadataItem,
+  FileType,
   FileTypeAttributes,
   fileTypeAttributes,
 } from "./models/content-metadata.model";
 import { AwsFileData } from "./models/aws-object.model";
 import { base64ToFile } from "ngx-image-cropper";
-import heic2any from "heic2any";
+import { ImageDuplicatesService } from "./services/image-duplicates-service";
+import { heicToJpeg } from "./functions/heic-conversion";
 import { basename } from "./functions/file-utils";
 import { StringUtilsService } from "./services/string-utils.service";
 import { IMAGE_JPEG, IMAGE_PNG, IMAGE_SVG } from "./models/content-metadata.model";
@@ -24,32 +28,92 @@ import { IMAGE_JPEG, IMAGE_PNG, IMAGE_SVG } from "./models/content-metadata.mode
 export class FileUtilsService {
 
   private static readonly FILE_READ_CONCURRENCY = 6;
+  private static readonly IMAGE_OPERATION_TIMEOUT_MS = 30000;
   private logger: Logger = inject(LoggerFactory).createLogger("FileUtilsService", NgxLoggerLevel.ERROR);
   protected dateUtils = inject(DateUtilsService);
   private urlService = inject(UrlService);
   private stringUtils = inject(StringUtilsService);
+  private imageDuplicatesService = inject(ImageDuplicatesService);
+
+  public isHeicFile(file: File | null): boolean {
+    const type = (file?.type || "").toLowerCase();
+    return this.fileTypeAttributesForFile(file)?.key === FileType.HEIC
+      || type === "image/heic"
+      || type === "image/heif"
+      || /\.hei[cf]$/i.test(file?.name || "");
+  }
 
   public async convertHEICFile(file: Base64File): Promise<CheckedImage> {
     try {
       this.logger.info("heic file detected:", file.file, "attempting conversion to jpeg");
-      const convertedBlob = await heic2any({blob: file.file, toType: IMAGE_JPEG});
-      const reader = new FileReader();
-      reader.readAsDataURL(convertedBlob as Blob);
-      return new Promise<CheckedImage>((resolve) => {
-        reader.onloadend = () => {
-          const base64Content: string = reader.result as string;
-          const newFile = this.applyBase64ToFile(base64Content, file.file, file.file.name.toLowerCase().replace(".heic", ".jpeg"), IMAGE_JPEG);
-          const convertedBase64File = {
-            file: newFile,
-            base64Content
-          };
-          this.logger.info("heic file conversion complete:", convertedBase64File);
-          resolve({file: convertedBase64File, isImage: true});
-        };
-      });
+      const convertedBlob = await heicToJpeg(file.file);
+      const jpegName = /\.hei[cf]$/i.test(file.file.name)
+        ? file.file.name.replace(/\.hei[cf]$/i, ".jpeg")
+        : `${file.file.name || "photo"}.jpeg`;
+      const convertedFile = new File([convertedBlob], jpegName, {type: IMAGE_JPEG, lastModified: file.file.lastModified});
+      return {file: {...await this.loadBase64ImageFromFile(convertedFile), sourceChecksum: file.sourceChecksum, dateTaken: file.dateTaken}, isImage: true};
     } catch (error) {
-      this.logger.error("Error converting heic file:", error);
+      if (await this.canDisplayImage(file.base64Content)) {
+        return {file, isImage: true};
+      } else {
+        this.logger.warn("HEIC photo could not be opened", file.file.name, error);
+        return {file, isImage: false};
+      }
+    }
+  }
+
+  public async checkedImageFromBase64File(file: Base64File): Promise<CheckedImage> {
+    if (this.isHeicFile(file.file)) {
+      return this.convertHEICFile(file);
+    } else if (!this.urlService.isBase64Image(file.base64Content)) {
       return {file, isImage: false};
+    } else if (await this.canDisplayImage(file.base64Content)) {
+      return {file, isImage: true};
+    } else {
+      return this.convertHEICFile(file);
+    }
+  }
+
+  private async canDisplayImage(base64Content: string): Promise<boolean> {
+    try {
+      const image = await this.loadImageFromBase64(base64Content);
+      image.src = "";
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  public async prepareDroppedFiles(fileList: FileList | File[], existingFiles: ContentMetadataItem[] = []): Promise<PreparedDroppedImages> {
+    const files: File[] = Array.from(fileList || []);
+    const allBase64Files: Base64File[] = await this.fileListToBase64Files(files);
+    const unread = Math.max(0, files.length - allBase64Files.length);
+    const unique = await this.imageDuplicatesService.uniqueFilesFrom(allBase64Files, existingFiles);
+    const checkedResults: CheckedImage[] = [];
+    for (const file of unique.files) {
+      const datedFile = {...file, dateTaken: await this.photoDateTaken(file.file)};
+      checkedResults.push(await this.checkedImageFromBase64File(datedFile));
+    }
+    const images = checkedResults.filter(result => result.isImage).map(result => result.file);
+    const skippedHeicFiles = checkedResults.filter(result => !result.isImage && this.isHeicFile(result.file.file)).map(result => result.file.file.name);
+    const skippedHeic = skippedHeicFiles.length;
+    const readFiles = new Set(allBase64Files.map(item => item.file));
+    const failedFiles = [
+      ...files.filter(file => !readFiles.has(file)).map(file => file.name),
+      ...checkedResults.filter(result => !result.isImage).map(result => result.file.file.name)
+    ];
+    return {images, failedFiles, skippedHeic, skippedHeicFiles, unread, skippedDuplicates: unique.skippedDuplicates};
+  }
+
+  private async photoDateTaken(file: File): Promise<number | null> {
+    try {
+      const {parse} = await import("exifr");
+      const metadata = await parse(file, ["DateTimeOriginal", "CreateDate"]);
+      const date = metadata?.DateTimeOriginal || metadata?.CreateDate;
+      return date instanceof Date && Number.isFinite(date.getTime()) ? date.getTime() : null;
+    } catch (error) {
+      this.logger.debug("No capture date found in photo metadata", file.name, error);
+      return null;
     }
   }
 
@@ -59,35 +123,37 @@ export class FileUtilsService {
   }
 
   public async downscaleBase64Image(base64Content: string, fileName: string, maxWidth: number, quality = 0.92): Promise<string | null> {
-    try {
-      const img = await this.loadImageFromBase64(base64Content);
-      if (!(maxWidth > 0) || img.width <= maxWidth) {
-        return null;
-      }
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        return null;
-      }
-      const width = maxWidth;
-      const height = Math.round(img.height * (width / img.width));
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(img, 0, 0, width, height);
-      const contentType = this.fileTypeAttributesForName(fileName)?.contentType || IMAGE_JPEG;
-      const outputType = contentType === IMAGE_PNG ? "image/webp" : IMAGE_JPEG;
-      return await new Promise<string>((resolve) => canvas.toBlob(blob => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob as Blob);
-      }, outputType, quality));
-    } catch (e) {
-      this.logger.error("downscaleBase64Image error", e);
+    const canvas = document.createElement("canvas");
+    const img = await this.loadImageFromBase64(base64Content).catch(error => {
+      this.logger.warn("downscaleBase64Image: leaving original pixels for", fileName, error);
       return null;
+    });
+    try {
+      if (img && maxWidth > 0 && img.width > maxWidth) {
+        canvas.width = maxWidth;
+        canvas.height = Math.max(1, Math.round(img.height * (maxWidth / img.width)));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          throw new Error(`Could not prepare ${fileName}. Try adding fewer photos at once.`);
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const contentType = this.fileTypeAttributesForName(fileName)?.contentType || IMAGE_JPEG;
+        return await this.canvasToBase64(canvas, contentType === IMAGE_PNG ? "image/webp" : IMAGE_JPEG, quality);
+      } else {
+        return null;
+      }
+    } finally {
+      canvas.width = 0;
+      canvas.height = 0;
+      if (img) {
+        img.src = "";
+      }
     }
   }
 
   public async resizeBase64Image(base64Content: string, fileName: string, maxBytes: number, maxWidth = 1200): Promise<string | null> {
+    const canvas = document.createElement("canvas");
+    const image = {element: null as HTMLImageElement | null};
     try {
       const contentType = this.fileTypeAttributesForName(fileName)?.contentType || IMAGE_JPEG;
       const initialFile = new File([base64ToFile(base64Content)], fileName, {type: contentType});
@@ -95,9 +161,11 @@ export class FileUtilsService {
         return null;
       }
       const img = await this.loadImageFromBase64(base64Content);
-      const canvas = document.createElement("canvas");
+      image.element = img;
       const ctx = canvas.getContext("2d");
-      if (!ctx) return null;
+      if (!ctx) {
+        throw new Error(`Could not resize ${fileName}. Try adding fewer photos at once.`);
+      }
       const maxEnlargeWidth = Math.min(img.width, 4096);
       const setCanvasSize = (w: number) => {
         const width = Math.max(1, Math.min(w, maxEnlargeWidth));
@@ -121,12 +189,7 @@ export class FileUtilsService {
       const base64BudgetFromBytes = (bytes: number) => Math.floor(bytes * base64CharsPerByte * 0.98);
       const targetChars = base64BudgetFromBytes(targetBytes);
       const encodeAt = async (type: string, q: number): Promise<{data: string; size: number}> => {
-        const data = await new Promise<string>((resolve) => canvas.toBlob(async blob => {
-          const b = blob as Blob;
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(b);
-        }, type, q));
+        const data = await this.canvasToBase64(canvas, type, q);
         return { data, size: data.length };
       };
 
@@ -183,17 +246,44 @@ export class FileUtilsService {
       return final.data;
     } catch (e) {
       this.logger.error("resizeBase64Image error", e);
-      return null;
+      throw e;
+    } finally {
+      canvas.width = 0;
+      canvas.height = 0;
+      if (image.element) {
+        image.element.src = "";
+      }
     }
   }
 
-  private loadImageFromBase64(base64Content: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = (err) => reject(err);
-      img.src = base64Content;
-    });
+  private async canvasToBase64(canvas: HTMLCanvasElement, contentType: string, quality: number): Promise<string> {
+    const blob = await firstValueFrom(from(new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(result => {
+        if (result) {
+          resolve(result);
+        } else {
+          reject(new Error("The photo could not be resized. Your device may be short of memory. Try adding fewer photos at once."));
+        }
+      }, contentType, quality);
+    })).pipe(timeout(FileUtilsService.IMAGE_OPERATION_TIMEOUT_MS)));
+    return (await this.loadBase64ImageFromFile(new File([blob], "resized-photo", {type: blob.type}))).base64Content;
+  }
+
+  private async loadImageFromBase64(base64Content: string): Promise<HTMLImageElement> {
+    const img = new Image();
+    try {
+      return await firstValueFrom(from(new Promise<HTMLImageElement>((resolve, reject) => {
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("The photo could not be opened for resizing. Try adding it again or choose a different photo."));
+        img.src = base64Content;
+      })).pipe(timeout(FileUtilsService.IMAGE_OPERATION_TIMEOUT_MS)));
+    } catch (error) {
+      img.src = "";
+      throw error;
+    } finally {
+      img.onload = null;
+      img.onerror = null;
+    }
   }
 
   base64ToFileWithName(data, filename) {
@@ -272,22 +362,33 @@ export class FileUtilsService {
     }
   }
 
-  private readFileAsBase64(file: File): Promise<Base64File> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve({file, base64Content: reader.result as string});
-      reader.onerror = () => reject(reader.error || new Error(`Could not read file ${file?.name}`));
-    });
+  private async readFileAsBase64(file: File): Promise<Base64File> {
+    const reader = new FileReader();
+    try {
+      return await firstValueFrom(from(new Promise<Base64File>((resolve, reject) => {
+        reader.onload = () => resolve({file, base64Content: reader.result as string});
+        reader.onerror = () => reject(reader.error || new Error(`Could not read file ${file?.name}`));
+        reader.onabort = () => reject(new Error(`Reading ${file?.name} was interrupted. Try adding it again.`));
+        reader.readAsDataURL(file);
+      })).pipe(timeout(FileUtilsService.IMAGE_OPERATION_TIMEOUT_MS)));
+    } finally {
+      reader.onload = null;
+      reader.onerror = null;
+      reader.onabort = null;
+      if (reader.readyState === FileReader.LOADING) {
+        reader.abort();
+      }
+    }
   }
 
   public contentMetadataItemFromBase64File(base64File: Base64File): ContentMetadataItem {
     return {
       eventId: null,
       dateSource: "upload",
-      date: this.dateUtils.asDateTime(base64File.file.lastModified).toMillis(),
+      date: base64File.dateTaken || this.dateUtils.asDateTime(base64File.file.lastModified).toMillis(),
       base64Content: base64File.base64Content,
       originalFileName: base64File.file.name,
+      sourceChecksum: base64File.sourceChecksum,
       tags: []
     };
   }

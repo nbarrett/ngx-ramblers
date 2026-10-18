@@ -401,11 +401,9 @@ export class GroupEventView implements OnInit {
       await this.openAlbumWorkflow(this.eventAlbumPath);
     } else {
       this.creatingAlbum = true;
-      this.notify.progress({title: "Photo album", message: "Creating the album page and writing the event report"});
+      this.notify.progress({title: "Photo album", message: "Opening the album editor"});
       try {
         const albumPath = await this.createWalkAlbumService.createFromWalk(this.groupEvent);
-        this.eventAlbumPath = albumPath;
-        this.resolveEventAlbum(this.groupEvent);
         await this.openAlbumWorkflow(albumPath);
         this.creatingAlbum = false;
       } catch (error) {
@@ -427,7 +425,8 @@ export class GroupEventView implements OnInit {
       await this.urlService.navigateUnconditionallyTo(
         albumPath.split("/").filter(Boolean),
         {[StoredValue.ALBUM_WORKFLOW]: "1"},
-        ""
+        "",
+        {onSameUrlNavigation: "reload"}
       );
     } else {
       this.logger.info("openAlbumWorkflow: no album path");
