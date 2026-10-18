@@ -6,6 +6,7 @@ import { committeeAssignedEmailsForMemberId, memberHoldsCommitteeRole, outboundE
 import { memberDisambiguatedLabel } from "./member-names";
 import {
   AddresseeType,
+  BatchTransactionalSendRequest,
   ArticleBlock,
   ArticleBlockImageAlignment,
   ArticleBlockPosition,
@@ -405,22 +406,11 @@ export function syncedRecipientAddressMode(options: {
   }
 }
 
-export function unbrandedCommitteeSharedTo(options: {
-  brandingMode: BrandingMode;
-  recipientMode: RecipientMode;
-  allMembersHoldCommitteeRoles: boolean;
-  memberCount: number;
-  externalToCount: number;
-}): boolean {
-  if (options.brandingMode !== BrandingMode.UNBRANDED) {
-    return false;
-  } else if (options.recipientMode === RecipientMode.ENTIRE_LIST) {
-    return false;
-  } else if (options.memberCount === 0 || !options.allMembersHoldCommitteeRoles) {
-    return false;
-  } else {
-    return options.memberCount + options.externalToCount > 1;
-  }
+export function composerSharesRecipientHeaders(
+  options: Pick<BatchTransactionalSendRequest, "brandingMode" | "recipientMode" | "compositionKind" | "externalRecipients" | "ccRecipients" | "bccRecipients">,
+  personalised: boolean
+): boolean {
+  return options.brandingMode === BrandingMode.UNBRANDED && !personalised;
 }
 
 export function composerContentHasPersonalisation(
@@ -504,19 +494,25 @@ export function composerWholeMailingListSelected(options: {
   if (options.listId === null || options.preFilterKey || options.subscribedMemberIds.length === 0) {
     return false;
   } else {
-    const subscribed = new Set(options.subscribedMemberIds);
-    const selectedOnList = options.selectedMemberIds.filter(id => subscribed.has(id));
-    const extraPeople = options.toRecipients.some(recipient =>
-      recipient.listId !== options.listId
-      && !composerRecipientIsExpandableSet(recipient)
-      && !subscribed.has(recipient.memberId ?? "")
-    );
-    if (extraPeople) {
+    const toIsNamedPeople = options.toRecipients.length > 0
+      && options.toRecipients.every(recipient => !composerRecipientIsExpandableSet(recipient));
+    if (toIsNamedPeople) {
       return false;
-    } else if (options.selectedMemberIds.length === 0) {
-      return options.toRecipients.some(recipient => recipient.listId === options.listId);
     } else {
-      return selectedOnList.length === subscribed.size && selectedOnList.length === options.selectedMemberIds.length;
+      const subscribed = new Set(options.subscribedMemberIds);
+      const selectedOnList = options.selectedMemberIds.filter(id => subscribed.has(id));
+      const extraPeople = options.toRecipients.some(recipient =>
+        recipient.listId !== options.listId
+        && !composerRecipientIsExpandableSet(recipient)
+        && !subscribed.has(recipient.memberId ?? "")
+      );
+      if (extraPeople) {
+        return false;
+      } else if (options.selectedMemberIds.length === 0) {
+        return options.toRecipients.some(recipient => recipient.listId === options.listId);
+      } else {
+        return selectedOnList.length === subscribed.size && selectedOnList.length === options.selectedMemberIds.length;
+      }
     }
   }
 }
@@ -564,9 +560,9 @@ export function composerSendProgressDescription(options: {
 
 export function composerRecipientAddressesArePrivate(
   recipientCount: number,
-  committeeOnlyAudience: boolean
+  sharedHeaders: boolean
 ): boolean {
-  return recipientCount > 1 && !committeeOnlyAudience;
+  return recipientCount > 1 && !sharedHeaders;
 }
 
 export function composerSelectedMembersAreCommitteeAudience(
@@ -608,6 +604,7 @@ export function composerCommitteeRoleSendOffered(options: {
   roles: CommitteeMember[];
   committeeOnlyAudience: boolean;
   recipientCount: number;
+  brandingMode?: BrandingMode;
 }): boolean {
   const chosen = (options.recipients ?? []).filter(recipient =>
     !!(recipient.email || "").trim()
@@ -615,17 +612,21 @@ export function composerCommitteeRoleSendOffered(options: {
     && !recipient.filterKey
     && recipient.email !== COMPOSER_EVERYONE_FILTER_EMAIL
   );
+  const holdsCommitteeRole = (recipient: ComposerExternalRecipient): boolean => {
+    const member = composerMemberForRecipient(recipient, options.members, options.roles);
+    return !!member && memberHoldsCommitteeRole(member, options.roles);
+  };
   if (chosen.length === 0) {
     return options.committeeOnlyAudience && options.recipientCount > 0;
+  } else if (options.brandingMode === BrandingMode.UNBRANDED) {
+    return chosen.some(holdsCommitteeRole);
   } else {
-    return chosen.every(recipient => {
-      const member = composerMemberForRecipient(recipient, options.members, options.roles);
-      return !!member && memberHoldsCommitteeRole(member, options.roles);
-    });
+    return chosen.every(holdsCommitteeRole);
   }
 }
 
 export const COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT = 10;
+export const COMPOSER_SUBJECT_REQUIRED_MESSAGE = "Subject line is required";
 export const COMPOSER_EVERYONE_FILTER_EMAIL = "filter-everyone-with-email@list.internal";
 
 export function composerRecipientCount(recipients: ComposerExternalRecipient[]): number {
@@ -735,8 +736,8 @@ export function composerRecipientFromSuggestion(recipient: ComposerExternalRecip
   };
 }
 
-export function composerCcFieldAvailable(options: {inboxReply: boolean; committeeOnlyAudience: boolean}): boolean {
-  return options.inboxReply || options.committeeOnlyAudience;
+export function composerCcFieldAvailable(options: {inboxReply: boolean; committeeOnlyAudience: boolean; unbranded?: boolean}): boolean {
+  return options.inboxReply || options.committeeOnlyAudience || !!options.unbranded;
 }
 
 export function composerRecipientLacksMarketingConsent(options: {
@@ -913,8 +914,23 @@ export function recipientsWithoutEmails(list: ComposerExternalRecipient[], email
   return (list ?? []).filter(item => !emails.has(item.email.toLowerCase()));
 }
 
-export function defaultAddresseeTypeForBranding(mode: BrandingMode): AddresseeType {
-  return mode === BrandingMode.UNBRANDED ? AddresseeType.NONE : AddresseeType.FIRST_NAME;
+export function composerRecipientForStorage(recipient: ComposerExternalRecipient): ComposerExternalRecipient {
+  return {
+    email: recipient.email,
+    ...(recipient.name ? {name: recipient.name} : {}),
+    ...(recipient.existingId ? {existingId: recipient.existingId} : {}),
+    ...(recipient.memberId ? {memberId: recipient.memberId} : {}),
+    ...(recipient.committeeRoleType ? {committeeRoleType: recipient.committeeRoleType} : {}),
+    ...(recipient.committeeRoleLabel ? {committeeRoleLabel: recipient.committeeRoleLabel} : {}),
+    ...(recipient.saveForReuse !== undefined ? {saveForReuse: recipient.saveForReuse} : {}),
+    ...(isNumber(recipient.listId) ? {listId: recipient.listId} : {}),
+    ...(isNumber(recipient.listCount) ? {listCount: recipient.listCount} : {}),
+    ...(recipient.filterKey ? {filterKey: recipient.filterKey} : {})
+  };
+}
+
+export function defaultAddresseeTypeForBranding(mode: BrandingMode, brandedType = AddresseeType.FIRST_NAME): AddresseeType {
+  return mode === BrandingMode.UNBRANDED ? AddresseeType.NONE : brandedType;
 }
 
 export function defaultEmailComposerState(): EmailComposerState {

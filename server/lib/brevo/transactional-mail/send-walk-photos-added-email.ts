@@ -44,7 +44,11 @@ function walkQuery(walkId: string) {
 }
 
 function toEmailAddress(recipient: Member | null): EmailAddress | null {
-  return recipient?.email ? {email: recipient.email, name: recipient.displayName || `${recipient.firstName} ${recipient.lastName}`.trim()} : null;
+  if (!recipient) {
+    return null;
+  } else {
+    return recipient.email ? {email: recipient.email, name: recipient.displayName || `${recipient.firstName} ${recipient.lastName}`.trim()} : null;
+  }
 }
 
 function uniqueByEmail(addresses: EmailAddress[]): EmailAddress[] {
@@ -73,10 +77,10 @@ export async function sendWalkPhotosAddedEmail(request: WalkPhotosAddedNotificat
   const leader: Member = leaderMemberId && isValidObjectId(leaderMemberId) ? await member.findById(leaderMemberId).lean().then(doc => doc ? transforms.toObjectWithId(doc) as Member : null) : null;
   const coordinators: Member[] = await member.find({walkChangeNotifications: true}).lean().then(docs => docs.map(doc => transforms.toObjectWithId(doc) as Member));
   const uploader: Member = uploadedByMemberId && isValidObjectId(uploadedByMemberId) ? await member.findById(uploadedByMemberId).lean().then(doc => doc ? transforms.toObjectWithId(doc) as Member : null) : null;
-  const recipients = uniqueByEmail([toEmailAddress(leader), ...coordinators.map(toEmailAddress)]);
   const systemCfg: SystemConfig = (await config.queryKey(ConfigKey.SYSTEM))?.value;
   const committeeCfg: CommitteeConfig = (await config.queryKey(ConfigKey.COMMITTEE))?.value;
   const committeeRoles: CommitteeMember[] = committeeCfg?.roles || [];
+  const recipients = uniqueByEmail([toEmailAddress(leader), ...coordinators.map(coordinator => toEmailAddress(coordinator))]);
   const sender = notifConfig ? emailAddressForRole(committeeRoles, notifConfig.senderRole) : null;
   if (!configId) {
     debugLog("no photoUploadNotificationConfigId configured - skipping");

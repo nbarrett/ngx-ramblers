@@ -3,7 +3,7 @@ import { CommonModule } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faGripVertical, faAlignLeft, faAddressCard, faCalendarDays, faSignature, faCircleInfo, faTableColumns, faGripLines, faFile, faChevronDown, faChevronRight, faTrash, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { isUndefined } from "es-toolkit/compat";
-import { ArticleBlock, ComposerFragment, ComposerFragmentKind, EmailComposerState, EventInclusionMode, EXPANDABLE_FRAGMENT_KINDS, DragHoverPosition, SECTION_DIVIDER_OPTIONS } from "../../models/email-composer.model";
+import { ArticleBlock, BrandingMode, ComposerFragment, ComposerFragmentKind, EmailComposerState, EventInclusionMode, EXPANDABLE_FRAGMENT_KINDS, DragHoverPosition, SECTION_DIVIDER_OPTIONS } from "../../models/email-composer.model";
 import { CommitteeFile } from "../../models/committee.model";
 import { EmailComposerFragmentBodyContext } from "../../models/email-composer.model";
 import { EmailComposerFragmentsService } from "../../services/email-composer/email-composer-fragments.service";
@@ -134,7 +134,7 @@ export class EmailComposerFragmentsComponent {
     protected readonly faPlus = faPlus;
     protected fragmentLabel(fragment: ComposerFragment): string {
         switch (fragment.kind) {
-            case ComposerFragmentKind.INTRO: return "Body / intro";
+            case ComposerFragmentKind.INTRO: return this.state.brandingMode === BrandingMode.UNBRANDED ? "Message" : "Body / intro";
             case ComposerFragmentKind.ARTICLE: return "Article block";
             case ComposerFragmentKind.EVENTS: return "Events list";
             case ComposerFragmentKind.SIGNOFF: return "Signoff";

@@ -138,3 +138,14 @@ export function outboundEmailForRecipient(options: {
     return member ? outboundEmailForMember(member, options.roles) : (options.email || "");
   }
 }
+
+export function remapAddressEmailsToCommitteeRoles<T extends {email?: string | null}>(
+  addresses: T[] | null | undefined,
+  roles: CommitteeMember[] | null | undefined,
+  members: {id?: string | null; memberId?: string | null; email?: string | null}[]
+): T[] {
+  return (addresses || []).map(address => ({
+    ...address,
+    email: outboundEmailForRecipient({email: address.email, roles, members}) || address.email || ""
+  }));
+}

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { EmailComposer } from "./email-composer";
 import { Confirm, StoredValue } from "../../models/ui-actions";
 import { ComposerShowAction, EmailComposerStepKey } from "../../models/email-composer.model";
+import {defaultEmailComposerState} from "../../functions/email-composer";
 import { BrandingMode } from "../../models/mail.model";
 import { ButtonDropdownItemType } from "../../models/button-dropdown.model";
 import { faFile, faFolderOpen, faPaperPlane } from "@fortawesome/free-solid-svg-icons";
@@ -105,26 +106,31 @@ describe("composer personal settings", () => {
     expect(instance.toggleSentEmailsPanel).not.toHaveBeenCalled();
   });
 
-  it("clears leftover newsletter state when starting a new email", () => {
+  it.each([null, {id: "welcome", subject: {text: "Welcome"}}])("starts from clean composition state for %j", config => {
     const setActiveStepperTab = vi.fn();
     const resetForNewComposition = vi.fn();
+    const applyNotificationConfig = vi.fn();
     const instance = Object.create(EmailComposer.prototype);
     Object.assign(instance, {
       recipients: {
         forcedMemberId: "member-1",
         narrowMembersExpanded: false,
         recipientAddressModeTouched: true,
-        userPickedRecipientMode: true
+        userPickedRecipientMode: true,
+        expandedRecipientListIds: new Set([42]),
+        expandedRecipientFilterKeys: new Set(),
+        expandedEveryoneSet: true
       },
       rememberBranding: false,
-      recipientSources: {mailMessagingConfig: null},
+      recipientSources: {mailMessagingConfig: null, recomputeCandidateMembers: vi.fn()},
       session: {
-        state: {subject: "old newsletter"},
+        state: {...defaultEmailComposerState(), subject: "old newsletter", introMarkdown: "Old introduction", articleBlocks: [{id: "old"}], attachments: [{filename: "old.pdf"}], selectedMemberIds: ["old-member"], externalRecipients: [{email: "old@example.com"}], ccRecipients: [{email: "cc@example.com"}], bccRecipients: [{email: "bcc@example.com"}], bannerId: "old-banner", brandedSenderEmail: "old-sender@example.com"},
         currentDraftId: "draft-1",
         inboxReplyContext: {threadId: "thread-1"},
         notify: {hide: vi.fn()}
       },
       drafting: {resetForNewComposition},
+      applyNotificationConfig,
       fragmentEditor: {expandedFragmentIds: new Set(["events"])},
       documents: {
         committeeFiles: new Map([["a", {}]]),
@@ -147,7 +153,19 @@ describe("composer personal settings", () => {
       unbrandedSenderAlertDismissed: true,
       routeCompositionKey: "old"
     });
-    instance.newComposition();
+    applyNotificationConfig.mockImplementation(() => {
+      expect(instance.session.state).toEqual(defaultEmailComposerState());
+      expect(instance.session.currentDraftId).toBeNull();
+    });
+    instance.newComposition(config);
+    if (config) {
+      expect(applyNotificationConfig).toHaveBeenCalledWith(config);
+      expect(instance.userPickedEmailType).toBe(true);
+    } else {
+      expect(applyNotificationConfig).not.toHaveBeenCalled();
+    }
+    expect(instance.recipients.expandedRecipientListIds.size).toBe(0);
+    expect(instance.recipients.expandedEveryoneSet).toBe(false);
     expect(resetForNewComposition).toHaveBeenCalled();
     expect(instance.session.currentDraftId).toBe(null);
     expect(instance.session.inboxReplyContext).toBe(null);

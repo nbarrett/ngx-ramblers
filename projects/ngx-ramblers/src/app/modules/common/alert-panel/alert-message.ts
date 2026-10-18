@@ -3,6 +3,7 @@ import {Component, EventEmitter, Input, Output} from "@angular/core";
 import {FontAwesomeModule} from "@fortawesome/angular-fontawesome";
 import {faArrowRight, faTriangleExclamation, faXmark} from "@fortawesome/free-solid-svg-icons";
 import {TooltipDirective} from "ngx-bootstrap/tooltip";
+import {EM_DASH_WITH_SPACES} from "../../../models/content-text.model";
 
 @Component({
   selector: "app-alert-message",
@@ -36,6 +37,8 @@ import {TooltipDirective} from "ngx-bootstrap/tooltip";
       display: flex
       flex-direction: column
       gap: var(--space-2, 8px)
+    .alert-message-separator
+      display: none
     .alert-message-actions
       margin-top: var(--space-2, 8px)
     :host ::ng-deep .alert-message-content a
@@ -49,17 +52,21 @@ import {TooltipDirective} from "ngx-bootstrap/tooltip";
         background-color: transparent
         color: inherit
     @media (min-width: 768px)
+      :host-context(.alert-panel-compact) .alert-message-row
+        align-items: center
       :host-context(.alert-panel-compact) .alert-message-content
         display: flow-root
       :host-context(.alert-panel-compact) .alert-message-title
         float: left
-        display: block
+        display: inline-flex
+        line-height: inherit
+        gap: 0
         margin: 0
       :host-context(.alert-panel-compact) .alert-message-title fa-icon
         margin-right: 8px
-      :host-context(.alert-panel-compact) .alert-message-content:has(> .alert-message-body:not(:empty)) .alert-message-title::after
-        content: ":"
-        margin: 0 0.4em
+      :host-context(.alert-panel-compact) .alert-message-content:has(> .alert-message-body:not(:empty)) .alert-message-separator
+        display: inline
+        white-space: pre
         font-weight: 400
       :host-context(.alert-panel-compact) .alert-message-body:empty
         display: none
@@ -93,7 +100,7 @@ import {TooltipDirective} from "ngx-bootstrap/tooltip";
     <div class="alert-message-row">
       <div class="alert-message-content">
         @if (title) {
-          <div class="alert-message-title"><fa-icon [icon]="icon" [animation]="spinning ? 'spin' : undefined"/><strong>{{ title }}</strong></div>
+          <div class="alert-message-title"><fa-icon [icon]="icon" [animation]="spinning ? 'spin' : undefined"/><strong>{{ title }}</strong><span class="alert-message-separator">{{ EM_DASH_WITH_SPACES }}</span></div>
         }
         <div class="alert-message-body"><ng-content/></div>
         @if (actionLabel) {
@@ -113,6 +120,7 @@ import {TooltipDirective} from "ngx-bootstrap/tooltip";
   `
 })
 export class AlertMessageComponent {
+  protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
   @Input({required: true}) title = "";
   @Input() icon: IconDefinition = faTriangleExclamation;
   @Input() spinning = false;

@@ -6,6 +6,8 @@ import { COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME, ListInfo, MailMessagingCon
 import { MailListUpdaterService } from "../mail/mail-list-updater.service";
 import { ListSubscriberService } from "../mail/list-subscriber.service";
 import { CommitteeReferenceData } from "../committee/committee-reference-data";
+import { composerSelectedMembersAreCommitteeAudience } from "../../functions/email-composer";
+import { EM_DASH } from "../../models/content-text.model";
 import { Injectable } from "@angular/core";
 import { EmailComposerSessionService } from "./email-composer-session.service";
 @Injectable()
@@ -29,7 +31,7 @@ export class EmailComposerRecipientSourcesService {
     committeeOnlyLists(): ListInfo[] {
         return this.nonEmptyLists().filter(list => {
             const members = this.allMembers.filter(member => this.mailListUpdaterService.memberSubscribed(member, list.id));
-            return members.length > 0 && members.every(member => member.committee);
+            return composerSelectedMembersAreCommitteeAudience(members, members.length);
         });
     }
     unbrandedCommitteeLists(): ListInfo[] {
@@ -39,7 +41,7 @@ export class EmailComposerRecipientSourcesService {
         return this.listSubscriberService.subscriberCountLabel(this.members, list.id);
     }
     listNameAndCount(list: ListInfo): string {
-        return `${list.name} - ${this.listSubscriberCount(list)}`;
+        return `${list.name}${EM_DASH}${this.listSubscriberCount(list)}`;
     }
     subscribedMemberCount(list: ListInfo): number {
         return this.listSubscriberService.subscriberCount(this.members, list.id);

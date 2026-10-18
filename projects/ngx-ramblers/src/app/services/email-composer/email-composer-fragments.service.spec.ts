@@ -1,7 +1,7 @@
 import {TestBed} from "@angular/core/testing";
 import {beforeEach, describe, expect, it} from "vitest";
 import {defaultEmailComposerState} from "../../functions/email-composer";
-import {ComposerFragmentKind, SectionDividerStyle} from "../../models/email-composer.model";
+import {BrandingMode, ComposerFragmentKind, SectionDividerStyle} from "../../models/email-composer.model";
 import {DateUtilsService} from "../date-utils.service";
 import {StringUtilsService} from "../string-utils.service";
 import {EmailComposerFragmentsService} from "./email-composer-fragments.service";
@@ -13,6 +13,30 @@ describe("composer fragment editing", () => {
       {provide: DateUtilsService, useValue: {}},
       {provide: StringUtilsService, useValue: {}}
     ]});
+  });
+
+  it("creates and opens one message section for an empty unbranded email", () => {
+    const service = TestBed.inject(EmailComposerFragmentsService);
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.UNBRANDED;
+    state.fragmentOrder = [];
+    service.ensureUnbrandedMessage(state);
+    service.ensureUnbrandedMessage(state);
+    expect(state.fragmentOrder.map(fragment => fragment.kind)).toEqual([ComposerFragmentKind.INTRO]);
+    expect(service.expandedFragmentIds.has("intro")).toBe(true);
+  });
+
+  it("opens an existing message inside a column without duplicating it or changing its content", () => {
+    const service = TestBed.inject(EmailComposerFragmentsService);
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.UNBRANDED;
+    state.introMarkdown = "Please review the arrangements.";
+    const intro = {id: "existing-message", kind: ComposerFragmentKind.INTRO, dividerAfter: SectionDividerStyle.NONE};
+    state.fragmentOrder = [{id: "columns", kind: ComposerFragmentKind.MULTI_COLUMN, dividerAfter: SectionDividerStyle.NONE, columns: [[intro]]}];
+    service.ensureUnbrandedMessage(state);
+    expect(state.fragmentOrder).toHaveLength(1);
+    expect(service.expandedFragmentIds.has(intro.id)).toBe(true);
+    expect(state.introMarkdown).toBe("Please review the arrangements.");
   });
 
   it("moves an existing article into a column without losing other fragments", () => {

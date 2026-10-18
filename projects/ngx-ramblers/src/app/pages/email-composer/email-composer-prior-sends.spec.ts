@@ -1,5 +1,6 @@
 import {describe, expect, it, vi} from "vitest";
 import {EmailComposer} from "./email-composer";
+import {MemberSelection} from "../../models/mail.model";
 
 describe("email type prior-send state", () => {
   function composer() {
@@ -28,6 +29,14 @@ describe("email type prior-send state", () => {
     expect(instance.workflowArrivalConfigId).toBe(null);
     expect(instance.includeAlreadySent).toBe(false);
     expect(instance.priorSendDetailsExpanded).toBe(false);
+  });
+
+  it("replaces the audience when the user explicitly chooses a different email type", () => {
+    const instance = composer();
+    const config = {id: "onboarding", subject: {text: "Welcome"}, defaultMemberSelection: MemberSelection.RECENTLY_ADDED};
+    instance.newComposition = vi.fn();
+    instance.onEmailConfigChanged(config);
+    expect(instance.newComposition).toHaveBeenCalledWith(config);
   });
 
   it("preserves prior-send choices when reapplying the same type", () => {

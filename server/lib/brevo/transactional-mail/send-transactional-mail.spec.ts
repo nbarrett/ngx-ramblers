@@ -7,7 +7,10 @@ import * as brevoConfig from "../brevo-config";
 import * as rateLimiting from "../common/rate-limiting";
 import * as permission from "../send-permission";
 import * as messages from "../common/messages";
-import {BrandingMode, EmailAddress, SendSmtpEmailRequest} from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import * as config from "../../mongo/controllers/config";
+import * as memberModel from "../../mongo/models/member";
+import * as transforms from "../../mongo/controllers/transforms";
+import {BrandingMode, EmailAddress, SendPurpose, SendSmtpEmailRequest} from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 
 const sender = {email: "support@group.example.org.uk", name: "Alex Reed"};
 
@@ -23,6 +26,7 @@ describe("transactional sending Reply-To behaviour", () => {
       sandbox.stub(brevoConfig, "brevoClient").resolves({transactionalEmails: {sendTransacEmail: send}} as any);
       sandbox.stub(rateLimiting, "scheduleBrevo").callsFake(async action => action());
       sandbox.stub(messages, "performTemplateSubstitution").callsFake(async (_request, payload) => payload);
+      sandbox.stub(config, "queryKey").resolves({value: {roles: []}});
       const request = {sender, replyTo, to: [{email: "member@example.com"}], subject: "Notification", brandingMode: BrandingMode.UNBRANDED} as SendSmtpEmailRequest;
       await sendTransactionalEmailRequest(request, debug("test:transactional"));
       expect(send.calledOnce).toBe(true);
@@ -34,5 +38,51 @@ describe("transactional sending Reply-To behaviour", () => {
         expect(payload).not.toHaveProperty("replyTo");
       }
     });
+  });
+});
+
+describe("transactional sending committee role recipients", () => {
+  const sandbox = sinon.createSandbox();
+  afterEach(() => sandbox.restore());
+
+  it("rewrites a committee member personal address before sending", async () => {
+    const send = sandbox.stub().resolves({messageId: "message-1"});
+    sandbox.stub(permission, "assertSendAllowed").resolves();
+    sandbox.stub(brevoConfig, "brevoClient").resolves({transactionalEmails: {sendTransacEmail: send}} as any);
+    sandbox.stub(rateLimiting, "scheduleBrevo").callsFake(async action => action());
+    sandbox.stub(messages, "performTemplateSubstitution").callsFake(async (_request, payload) => payload);
+    sandbox.stub(config, "queryKey").resolves({
+      value: {roles: [{type: "walks", email: "walks@group.example.org.uk", memberId: "aaaaaaaaaaaaaaaaaaaaaaaa"}]}
+    });
+    sandbox.stub(memberModel.member, "find").returns({
+      lean: () => Promise.resolve([{_id: "aaaaaaaaaaaaaaaaaaaaaaaa"}])
+    } as any);
+    sandbox.stub(transforms, "toObjectWithId").returns({id: "aaaaaaaaaaaaaaaaaaaaaaaa", email: "sam.taylor@example.com"});
+    const request = {
+      sender,
+      to: [{email: "sam.taylor@example.com", name: "Sam Taylor"}],
+      subject: "Walk change",
+      brandingMode: BrandingMode.UNBRANDED
+    } as SendSmtpEmailRequest;
+    await sendTransactionalEmailRequest(request, debug("test:transactional"));
+    expect(send.firstCall.args[0].to).toEqual([{email: "walks@group.example.org.uk", name: "Sam Taylor"}]);
+  });
+
+  it("leaves booking recipients on the address they entered", async () => {
+    const send = sandbox.stub().resolves({messageId: "message-1"});
+    sandbox.stub(permission, "assertSendAllowed").resolves();
+    sandbox.stub(brevoConfig, "brevoClient").resolves({transactionalEmails: {sendTransacEmail: send}} as any);
+    sandbox.stub(rateLimiting, "scheduleBrevo").callsFake(async action => action());
+    sandbox.stub(messages, "performTemplateSubstitution").callsFake(async (_request, payload) => payload);
+    const queryKey = sandbox.stub(config, "queryKey");
+    const request = {
+      sender,
+      to: [{email: "sam.taylor@example.com", name: "Sam Taylor"}],
+      subject: "Booking",
+      brandingMode: BrandingMode.UNBRANDED
+    } as SendSmtpEmailRequest;
+    await sendTransactionalEmailRequest(request, debug("test:transactional"), undefined, SendPurpose.BOOKING);
+    expect(queryKey.called).toBe(false);
+    expect(send.firstCall.args[0].to).toEqual([{email: "sam.taylor@example.com", name: "Sam Taylor"}]);
   });
 });
