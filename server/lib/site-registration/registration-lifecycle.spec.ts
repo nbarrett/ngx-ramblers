@@ -128,6 +128,7 @@ describe("site registration lifecycle", () => {
     const registrations = inMemoryRegistrations(state);
     const members: any[] = [];
     const membersCollection = {
+      createIndex: sinon.stub().resolves(),
       updateOne: sinon.stub().callsFake(async (_query: any, update: any) => { members.splice(0, members.length, update.$set); }),
       findOne: sinon.stub().callsFake(async () => members[0])
     };
@@ -161,7 +162,7 @@ describe("site registration lifecycle", () => {
     } as any);
     sandboxState.sandbox.stub(environmentContext, "loadEnvironmentContext").resolves({envConfigData: {}, environmentsConfig: {environments: []}} as any);
     sandboxState.sandbox.stub(environmentContext, "connectToEnvironmentMongo").resolves({
-      db: {collection: () => membersCollection}, client: {close: sinon.stub().resolves()}
+      db: {listCollections: () => ({next: async () => null}), collection: () => membersCollection}, client: {close: sinon.stub().resolves()}
     } as any);
     sandboxState.sandbox.stub(adminMemberTemplate, "createAdminMember").returns({member: {email: "committee@example.com"}} as any);
 
@@ -218,7 +219,8 @@ describe("site registration lifecycle", () => {
     const state = {registration: initial};
     const registrations = inMemoryRegistrations(state);
     const target = {migrationConfig: null as any, navigation: null as any, groupPages: null as any, pagePaths: [] as string[], deletedPaths: [] as string[], earlierImportQueries: [] as any[], landingVisual: false, landingVisualImages: [] as string[], landingVisualHeights: [] as number[], homeVisual: false};
-    const targetDb = {collection: (name: string) => ({
+    const targetDb = {listCollections: () => ({next: async () => null}), collection: (name: string) => ({
+      createIndex: sinon.stub().resolves(),
       find: sinon.stub().returns({toArray: sinon.stub().resolves(target.pagePaths.map(path => ({path, rows: [{}]})))}),
       findOne: sinon.stub().resolves(null),
       deleteMany: sinon.stub().callsFake(async query => {
