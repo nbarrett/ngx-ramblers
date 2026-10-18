@@ -264,6 +264,7 @@ export const BRANDING_MODE_OPTIONS: { key: BrandingMode; label: string; hint: st
 ];
 
 export const UNBRANDED_HARD_CAP_RECIPIENTS = 50;
+export const UNBRANDED_RECIPIENT_LIST_ERROR = "Unbranded emails can only use whole mailing lists whose members are all on the committee. Remove the list and select individual recipients, or switch to Branded.";
 export const UNBRANDED_LONG_BODY_CHAR_THRESHOLD = 800;
 export const REPLY_OR_FORWARD_SUBJECT_PATTERN = /^\s*(re|fwd?):/i;
 export const PROMOTIONAL_LANGUAGE_PATTERN = /\b(donat\w*|fundrais\w*|charity|charities|appeal|raise[sd]?\s+(?:money|funds)|raising\s+(?:money|funds)|sponsor\w*|volunteer\w*|register\s+now|sign\s+up|register\s+(?:here|today)|join\s+us|support\s+(?:our|the)|in\s+aid\s+of|proceeds)\b/i;
@@ -542,6 +543,7 @@ export interface ResolvedSenderAddresses {
 }
 
 export interface BatchTransactionalSendRequest {
+  recipientListIds?: number[];
   notificationConfigId?: string;
   bannerId: string | null;
   subject: string;
@@ -562,6 +564,8 @@ export interface BatchTransactionalSendRequest {
   replyToRoleOverride?: string;
   bccRolesOverride?: string[];
   brandingMode?: BrandingMode;
+  recipientMode?: RecipientMode;
+  compositionKind?: EmailCompositionKind;
   unbrandedSenderRoleType?: string;
   unbrandedSenderEmail?: string;
   senderEmailOverride?: string;

@@ -4,6 +4,7 @@ import {By} from "@angular/platform-browser";
 import {beforeEach, describe, expect, it} from "vitest";
 import {AlertPanelComponent} from "./alert-panel";
 import {AlertMessageComponent} from "./alert-message";
+import {EM_DASH_WITH_SPACES} from "../../../models/content-text.model";
 
 @Component({
   imports: [AlertPanelComponent, AlertMessageComponent],
@@ -85,6 +86,7 @@ describe("compact alert messages", () => {
     const bodies = fixture.nativeElement.querySelectorAll(".alert-message-body");
     expect(bodies[0].textContent).toEqual("");
     expect(bodies[1].textContent).toContain("successfully to the mailing list");
+    expect(fixture.nativeElement.querySelectorAll(".alert-message-separator")[1].textContent).toBe(EM_DASH_WITH_SPACES);
   });
 
 });

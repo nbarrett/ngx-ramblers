@@ -25,6 +25,7 @@ import {
   memberRecordId,
   outboundEmailForMember,
   outboundEmailForRecipient,
+  remapAddressEmailsToCommitteeRoles,
   uniqueCommitteeMembersByType,
   assignedMemberId
 } from "./committee-members";
@@ -174,6 +175,10 @@ describe("outboundEmailForMember", () => {
     expect(outboundEmailForMember({id: "liz-id", email: "liz@gmail.com"}, [chairman, walks])).toEqual("chairman@example.com");
   });
 
+  it("uses the walks mailbox for a walks coordinator with a personal address", () => {
+    expect(outboundEmailForMember({id: "sam-id", email: "sam.walks@gmail.com"}, [chairman, walks])).toEqual("walks@example.com");
+  });
+
   it("reads the mongo id rather than member.memberId on the member record", () => {
     expect(memberRecordId({id: "liz-id", memberId: undefined})).toEqual("liz-id");
     expect(committeeRoleForMemberId([chairman], "liz-id")?.type).toEqual("chairman");
@@ -293,6 +298,14 @@ describe("outboundEmailForMember", () => {
       roles: [chairman],
       members: [{id: "liz-id", email: "liz@gmail.com"}]
     })).toEqual("guest@gmail.com");
+  });
+
+  it("rewrites a recipient list of personal addresses to role mailboxes", () => {
+    expect(remapAddressEmailsToCommitteeRoles(
+      [{email: "liz@gmail.com", name: "Liz"}, {email: "guest@gmail.com", name: "Guest"}],
+      [chairman],
+      [{id: "liz-id", email: "liz@gmail.com"}]
+    )).toEqual([{email: "chairman@example.com", name: "Liz"}, {email: "guest@gmail.com", name: "Guest"}]);
   });
 });
 

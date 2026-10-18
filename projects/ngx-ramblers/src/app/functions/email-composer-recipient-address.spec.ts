@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AddresseeType, RecipientAddressMode, RecipientMode } from "../models/email-composer.model";
+import { AddresseeType, EmailCompositionKind, RecipientAddressMode, RecipientMode } from "../models/email-composer.model";
 import { BrandingMode, MemberSelection } from "../models/mail.model";
 import {
   appendUniqueRecipients,
@@ -25,6 +25,7 @@ import {
   composerCommitteeRoleSendOffered,
   composerRecipientLacksMarketingConsent,
   composerMemberIdentityRecipients,
+  composerRecipientForStorage,
   composerRecipientFromSuggestion,
   composerRecipientIsSamePerson,
   composerRecipientMatchesQuery,
@@ -33,7 +34,7 @@ import {
   memberIsCoveredByComposerHeaders,
   recipientsWithoutEmails,
   syncedRecipientAddressMode,
-  unbrandedCommitteeSharedTo
+  composerSharesRecipientHeaders
 } from "./email-composer";
 import { RoleType } from "../models/committee.model";
 import { Member } from "../models/member.model";
@@ -244,6 +245,32 @@ describe("composer suggestion email visibility", () => {
   });
 });
 
+describe("composerRecipientForStorage", () => {
+
+  it("keeps member, list and role fields so a draft can restore the same send", () => {
+    expect(composerRecipientForStorage({
+      email: "list-4@list.internal",
+      name: "All Members",
+      memberId: "alex",
+      listId: 4,
+      listCount: 137,
+      committeeRoleType: "chair",
+      committeeRoleLabel: "Chair",
+      saveForReuse: false,
+      searchText: "should not persist"
+    })).toEqual({
+      email: "list-4@list.internal",
+      name: "All Members",
+      memberId: "alex",
+      committeeRoleType: "chair",
+      committeeRoleLabel: "Chair",
+      saveForReuse: false,
+      listId: 4,
+      listCount: 137
+    });
+  });
+});
+
 describe("composer cc field", () => {
 
   it("is available for inbox replies and committee-only mail", () => {
@@ -253,6 +280,10 @@ describe("composer cc field", () => {
 
   it("is hidden for mixed member sends", () => {
     expect(composerCcFieldAvailable({inboxReply: false, committeeOnlyAudience: false})).toEqual(false);
+  });
+
+  it("is available for unbranded mail even when the audience is mixed", () => {
+    expect(composerCcFieldAvailable({inboxReply: false, committeeOnlyAudience: false, unbranded: true})).toEqual(true);
   });
 });
 
@@ -282,66 +313,34 @@ describe("composerRecipientLacksMarketingConsent", () => {
     })).toEqual(false);
   });
 });
-describe("unbrandedCommitteeSharedTo", () => {
+describe("composerSharesRecipientHeaders", () => {
+  const options = {brandingMode: BrandingMode.UNBRANDED, recipientMode: RecipientMode.SELECTED_MEMBERS};
 
-  it("puts every committee recipient on To for an unbranded selected-member send", () => {
-    expect(unbrandedCommitteeSharedTo({
-      brandingMode: BrandingMode.UNBRANDED,
-      recipientMode: RecipientMode.SELECTED_MEMBERS,
-      allMembersHoldCommitteeRoles: true,
-      memberCount: 4,
-      externalToCount: 0
-    })).toEqual(true);
+  it("shares mixed unbranded recipients without personalisation", () => {
+    expect(composerSharesRecipientHeaders(options, false)).toBe(true);
   });
 
-  it("includes extra To addresses on the same unbranded committee send", () => {
-    expect(unbrandedCommitteeSharedTo({
-      brandingMode: BrandingMode.UNBRANDED,
-      recipientMode: RecipientMode.SELECTED_MEMBERS,
-      allMembersHoldCommitteeRoles: true,
-      memberCount: 2,
-      externalToCount: 1
-    })).toEqual(true);
+  it("keeps branded mail private even for a committee audience", () => {
+    expect(composerSharesRecipientHeaders({...options, brandingMode: BrandingMode.BRANDED}, false)).toBe(false);
   });
 
-  it("keeps branded committee mail as one copy per person", () => {
-    expect(unbrandedCommitteeSharedTo({
-      brandingMode: BrandingMode.BRANDED,
-      recipientMode: RecipientMode.SELECTED_MEMBERS,
-      allMembersHoldCommitteeRoles: true,
-      memberCount: 4,
-      externalToCount: 0
-    })).toEqual(false);
+  it("keeps personalised mail private", () => {
+    expect(composerSharesRecipientHeaders(options, true)).toBe(false);
   });
 
-  it("keeps a mixed member list as one copy per person", () => {
-    expect(unbrandedCommitteeSharedTo({
-      brandingMode: BrandingMode.UNBRANDED,
-      recipientMode: RecipientMode.SELECTED_MEMBERS,
-      allMembersHoldCommitteeRoles: false,
-      memberCount: 4,
-      externalToCount: 0
-    })).toEqual(false);
+  it("shares unbranded committee-list sends", () => {
+    expect(composerSharesRecipientHeaders({...options, recipientMode: RecipientMode.ENTIRE_LIST}, false)).toBe(true);
   });
 
-  it("does not apply to a whole mailing list", () => {
-    expect(unbrandedCommitteeSharedTo({
-      brandingMode: BrandingMode.UNBRANDED,
-      recipientMode: RecipientMode.ENTIRE_LIST,
-      allMembersHoldCommitteeRoles: true,
-      memberCount: 8,
-      externalToCount: 0
-    })).toEqual(false);
+  it("shares unbranded sends even when a newsletter type is still selected", () => {
+    expect(composerSharesRecipientHeaders({...options, compositionKind: EmailCompositionKind.NEWSLETTER}, false)).toBe(true);
   });
 
-  it("does not apply to a single committee recipient", () => {
-    expect(unbrandedCommitteeSharedTo({
-      brandingMode: BrandingMode.UNBRANDED,
-      recipientMode: RecipientMode.SELECTED_MEMBERS,
-      allMembersHoldCommitteeRoles: true,
-      memberCount: 1,
-      externalToCount: 0
-    })).toEqual(false);
+  it("bases the sharing notice on branding and personalisation before recipient sets are expanded", () => {
+    const recipients = [{email: "list@group.example.org.uk", listId: 7}];
+    expect(composerSharesRecipientHeaders({...options, externalRecipients: recipients}, false)).toBe(true);
+    expect(composerSharesRecipientHeaders({...options, ccRecipients: recipients}, false)).toBe(true);
+    expect(composerSharesRecipientHeaders({...options, bccRecipients: recipients}, false)).toBe(true);
   });
 });
 
@@ -349,6 +348,7 @@ describe("defaultAddresseeTypeForBranding", () => {
 
   it("defaults unbranded mail to no greeting", () => {
     expect(defaultAddresseeTypeForBranding(BrandingMode.UNBRANDED)).toEqual(AddresseeType.NONE);
+    expect(defaultAddresseeTypeForBranding(BrandingMode.UNBRANDED, AddresseeType.FIRST_NAME)).toEqual(AddresseeType.NONE);
   });
 
   it("defaults branded mail to a first-name greeting", () => {
@@ -471,6 +471,16 @@ describe("composerWholeMailingListSelected", () => {
       toRecipients: [listToken, {email: "guest@example.com", name: "Guest", saveForReuse: false}]
     })).toEqual(false);
   });
+
+  it("is false when To names one person even if the audience still holds every subscriber", () => {
+    expect(composerWholeMailingListSelected({
+      listId: 4,
+      preFilterKey: null,
+      selectedMemberIds: ["a", "b", "c"],
+      subscribedMemberIds: ["a", "b", "c"],
+      toRecipients: [{email: "alex.reed@example.com", name: "Alex Reed", memberId: "a", saveForReuse: false}]
+    })).toEqual(false);
+  });
 });
 
 describe("composerSendProgressDescription", () => {
@@ -544,11 +554,11 @@ describe("composerSendProgressDescription", () => {
 
 describe("composerRecipientAddressesArePrivate", () => {
 
-  it("keeps addresses private when more than one recipient is not committee-only", () => {
+  it("keeps addresses private when separate copies are sent", () => {
     expect(composerRecipientAddressesArePrivate(12, false)).toEqual(true);
   });
 
-  it("allows shared To when the audience is committee-only", () => {
+  it("allows shared To when one message uses shared headers", () => {
     expect(composerRecipientAddressesArePrivate(7, true)).toEqual(false);
   });
 
@@ -603,7 +613,7 @@ describe("composerCommitteeRoleSendOffered", () => {
     })).toEqual(true);
   });
 
-  it("is not offered when a non-committee member is also on To", () => {
+  it("is not offered on branded mail when a non-committee member is also on To", () => {
     expect(composerCommitteeRoleSendOffered({
       recipients: [
         {email: alex.email, name: "Alex Reed", memberId: alex.id, saveForReuse: false},
@@ -612,8 +622,23 @@ describe("composerCommitteeRoleSendOffered", () => {
       members: [alex, walker],
       roles: [chair],
       committeeOnlyAudience: false,
-      recipientCount: 2
+      recipientCount: 2,
+      brandingMode: BrandingMode.BRANDED
     })).toEqual(false);
+  });
+
+  it("is offered on unbranded mail when some people hold a committee role", () => {
+    expect(composerCommitteeRoleSendOffered({
+      recipients: [
+        {email: alex.email, name: "Alex Reed", memberId: alex.id, saveForReuse: false},
+        {email: walker.email, name: "Sam Walker", memberId: walker.id, saveForReuse: false}
+      ],
+      members: [alex, walker],
+      roles: [chair],
+      committeeOnlyAudience: false,
+      recipientCount: 2,
+      brandingMode: BrandingMode.UNBRANDED
+    })).toEqual(true);
   });
 
   it("is offered for a committee-only mailing list with no person chips", () => {

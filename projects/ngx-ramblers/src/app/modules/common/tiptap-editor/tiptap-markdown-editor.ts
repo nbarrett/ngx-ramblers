@@ -37,6 +37,7 @@ import {
   faEnvelope,
   faExternalLinkAlt,
   faHeading,
+  faGear,
   faImage,
   faItalic,
   faLink,
@@ -399,6 +400,7 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
               (ngModelChange)="onSourceMarkdownChange($event)"></textarea>
   }
   <div class="tiptap-content"
+       (mouseover)="onImageHover($event)"
        [class.tiptap-content-empty]="documentEmpty && editable"
        [class.tiptap-content-hidden]="sourceMode"
        [class.show-examples]="showExampleValues"
@@ -408,6 +410,15 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
       <tiptap-editor [editor]="editor"></tiptap-editor>
     }
   </div>
+  @if (editable && imageSettingsTarget && !sourceMode && !imageCropperOpen) {
+    <button type="button" class="btn btn-quiet btn-icon image-settings-trigger"
+            [style.top.px]="imageSettingsTop" [style.left.px]="imageSettingsLeft"
+            aria-label="Image settings" [attr.aria-expanded]="imageSettingsOpen"
+            tooltip="Image settings" container="body"
+            (mousedown)="$event.preventDefault()" (click)="toggleImageSettings()">
+      <fa-icon [icon]="faGear"/>
+    </button>
+  }
   @if (editable && imageSelected && !imageCropperOpen) {
     @for (corner of imageResizeCorners; track corner.corner) {
       <div class="image-resize-handle" [ngClass]="corner.handleClass"
@@ -432,7 +443,7 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
       }
     </ul>
   }
-  @if (editable && (mergeFieldSelected || linkTokenSelected || insertLinkMode || imageSelected)) {
+  @if (editable && (mergeFieldSelected || linkTokenSelected || insertLinkMode || (imageSelected && imageSettingsOpen))) {
     <div class="token-editor-popup" [class.above]="tokenEditorAbove"
          [style.top.px]="tokenEditorTop" [style.left.px]="tokenEditorLeft"
          [style.min-width.px]="tokenEditorMinWidth">
@@ -673,6 +684,11 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected linkOpenInNewTab = false;
   protected imageCropperOpen: boolean = false;
   protected imageSelected: boolean = false;
+  protected imageSettingsOpen = false;
+  protected imageSettingsTarget: HTMLImageElement | null = null;
+  protected imageSettingsTop = 0;
+  protected imageSettingsLeft = 0;
+  private imageSettingsSelectionPosition: number | null = null;
   protected imageSpacing: ImageSpacing = ImageSpacing.Small;
   protected imageAlign: ImageAlign = ImageAlign.Center;
   protected readonly ImageAlign = ImageAlign;
@@ -741,6 +757,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected readonly faBolt = faBolt;
   protected readonly faCode = faCode;
   protected readonly faImage = faImage;
+  protected readonly faGear = faGear;
   protected readonly faItalic = faItalic;
   protected readonly faLink = faLink;
   protected readonly faExternalLinkAlt = faExternalLinkAlt;
@@ -995,6 +1012,9 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   protected onCalmPointerLeave(): void {
     this.hideClickToEditHint();
+    if (!this.imageSelected && !this.imageSettingsOpen) {
+      this.imageSettingsTarget = null;
+    }
   }
 
   private calmHintActive(): boolean {
@@ -1045,6 +1065,8 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       this.mergeFieldSelected = false;
       this.linkTokenSelected = false;
       this.imageSelected = false;
+      this.imageSettingsOpen = false;
+      this.imageSettingsTarget = null;
       this.changeDetector.markForCheck();
     }
   }
@@ -1111,7 +1133,13 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       || linkTokenSelected !== this.linkTokenSelected;
     if (chromeChanged || imageSelected || mergeFieldSelected || tableSelected || linkTokenSelected) {
       this.zone.run(() => {
+        if (!imageSelected || this.editor?.state.selection.from !== this.imageSettingsSelectionPosition) {
+          this.imageSettingsOpen = false;
+        }
         this.imageSelected = imageSelected;
+        if (!imageSelected) {
+          this.imageSettingsTarget = null;
+        }
         this.mergeFieldSelected = mergeFieldSelected;
         this.tableSelected = tableSelected;
         this.linkTokenSelected = linkTokenSelected;
@@ -2120,6 +2148,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     }
     const shellRect = shell.getBoundingClientRect();
     const imageRect = img.getBoundingClientRect();
+    this.positionImageSettings(img as HTMLImageElement);
     const top = imageRect.top - shellRect.top;
     const left = imageRect.left - shellRect.left;
     const bottom = imageRect.bottom - shellRect.top;
@@ -2130,6 +2159,36 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       {corner: ImageResizeCorner.SouthWest, top: bottom - 12, left: left - 4, handleClass: "image-resize-handle-sw"},
       {corner: ImageResizeCorner.SouthEast, top: bottom - 12, left: right - 12, handleClass: "image-resize-handle-se"}
     ];
+  }
+
+  onImageHover(event: MouseEvent): void {
+    if (this.editable && event.target instanceof HTMLImageElement) {
+      this.positionImageSettings(event.target);
+    } else if (!this.imageSelected && !this.imageSettingsOpen) {
+      this.imageSettingsTarget = null;
+    }
+  }
+
+  private positionImageSettings(image: HTMLImageElement): void {
+    const shell = image.closest(".tiptap-editor-shell");
+    if (shell) {
+      const shellRect = shell.getBoundingClientRect();
+      const imageRect = image.getBoundingClientRect();
+      this.imageSettingsTarget = image;
+      this.imageSettingsTop = imageRect.top - shellRect.top + 8;
+      this.imageSettingsLeft = Math.max(imageRect.left - shellRect.left, imageRect.right - shellRect.left - 40);
+    }
+  }
+
+  toggleImageSettings(): void {
+    if (this.editor && this.imageSettingsTarget) {
+      const position = this.editor.view.posAtDOM(this.imageSettingsTarget, 0);
+      const close = this.imageSettingsOpen && this.imageSettingsSelectionPosition === position;
+      this.editor.chain().focus().setNodeSelection(position).run();
+      this.imageSettingsSelectionPosition = position;
+      this.imageSettingsOpen = !close;
+      this.positionTokenEditor();
+    }
   }
 
   onImageResizeStart(event: MouseEvent, corner: ImageResizeCorner): void {

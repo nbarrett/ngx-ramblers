@@ -119,7 +119,7 @@ export function subjectNeedsPersonalising(
     return false;
   } else {
     const current = (existingSubject ?? "").trim();
-    return preparedSubjects.some(subject => (subject ?? "").trim() === current)
+    return !current || preparedSubjects.some(subject => (subject ?? "").trim() === current)
       ? false
       : subjectStillDefault(existingSubject, templateSubject);
   }

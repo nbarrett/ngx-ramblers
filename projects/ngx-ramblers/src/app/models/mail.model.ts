@@ -1824,6 +1824,18 @@ export const SYSTEM_SEND_PURPOSES: SendPurpose[] = [SendPurpose.PASSWORD_RESET, 
 
 export const CAMPAIGN_SEND_PURPOSES: SendPurpose[] = [SendPurpose.CAMPAIGN_SEND, SendPurpose.CAMPAIGN_RELEASE];
 
+export const SEND_PURPOSES_KEEP_PERSONAL_RECIPIENTS: SendPurpose[] = [
+  SendPurpose.PASSWORD_RESET,
+  SendPurpose.BOOKING,
+  SendPurpose.BATCH,
+  SendPurpose.CAMPAIGN_SEND,
+  SendPurpose.CAMPAIGN_RELEASE
+];
+
+export function sendPurposeKeepsPersonalRecipients(purpose: SendPurpose): boolean {
+  return SEND_PURPOSES_KEEP_PERSONAL_RECIPIENTS.includes(purpose);
+}
+
 export enum SendRefusalReason {
   PLATFORM_SUSPENDED = "platform-suspended",
   TRANSACTIONAL_OFF = "transactional-off",

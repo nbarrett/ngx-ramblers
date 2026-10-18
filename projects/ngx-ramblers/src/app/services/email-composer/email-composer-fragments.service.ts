@@ -91,6 +91,18 @@ export class EmailComposerFragmentsService {
             ];
         }
     }
+    ensureUnbrandedMessage(state: EmailComposerState): void {
+        const findMessage = (fragments: ComposerFragment[]): ComposerFragment | null => fragments
+            .map(fragment => fragment.kind === ComposerFragmentKind.INTRO
+                ? fragment
+                : findMessage((fragment.columns ?? []).flat()))
+            .find(fragment => !!fragment) ?? null;
+        const existing = findMessage(state.fragmentOrder ?? []);
+        if (!existing) {
+            this.addIntroFragment(state);
+        }
+        this.expandedFragmentIds.add(existing?.id ?? "intro");
+    }
     addSignoffFragment(state: EmailComposerState): void {
         if (!(this.hasFragmentKindAtTopLevel(state, ComposerFragmentKind.SIGNOFF))) {
             state.fragmentOrder = [

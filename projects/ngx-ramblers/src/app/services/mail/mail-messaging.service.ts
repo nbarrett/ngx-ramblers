@@ -32,6 +32,7 @@ import {
   TemplateOverrideType
 } from "../../models/mail.model";
 import { CommitteeMember } from "../../models/committee.model";
+import { committeeRoleForMemberId, memberRecordId, outboundEmailForMember } from "../../functions/committee-members";
 
 import { ramblersAccountMergeFields } from "../../models/ramblers-legal.model";
 import { resolveContactUsRecipientAddresses } from "../../functions/contact-us-delivery";
@@ -422,7 +423,7 @@ export class MailMessagingService {
 
   public createEmailRequest(createSendSmtpEmailRequest: CreateSendSmtpEmailRequest): SendSmtpEmailRequest {
     const sender: EmailAddress = createSendSmtpEmailRequest.sender || this.createBrevoAddress(createSendSmtpEmailRequest.notificationConfig.senderRole);
-    const to: EmailAddress[] = createSendSmtpEmailRequest.to || [this.committeeOutboundOrPersonalAddress(createSendSmtpEmailRequest.member)];
+    const to: EmailAddress[] = createSendSmtpEmailRequest.to || [this.committeeOutboundOrPersonalAddress(createSendSmtpEmailRequest.member as Member)];
     const replyToRole = createSendSmtpEmailRequest.notificationConfig.replyToRole?.trim() || null;
     const replyTo: EmailAddress = createSendSmtpEmailRequest.replyTo
       || (replyToRole ? this.createBrevoAddress(replyToRole) : sender);
@@ -507,9 +508,11 @@ export class MailMessagingService {
   }
 
   public committeeOutboundOrPersonalAddress(member: Member): EmailAddress {
+    const roles = this.mailMessagingConfig.committeeReferenceData?.committeeMembers() || [];
+    const role = committeeRoleForMemberId(roles, memberRecordId(member));
     return {
-      email: member.email,
-      name: this.fullNamePipe.transform(member)
+      email: outboundEmailForMember(member, roles) || member?.email,
+      name: role?.fullName || this.fullNamePipe.transform(member)
     };
   }
 

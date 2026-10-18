@@ -190,6 +190,7 @@ export class NotificationConfigSelectorComponent implements OnInit {
   onBannerIdChange(bannerId: string): void {
     if (bannerId) {
       this.notificationConfig.bannerId = bannerId;
+      this.emailConfigChanged.emit(this.notificationConfig);
     }
   }
 

@@ -5,7 +5,7 @@ import { brevoClient } from "../brevo-config";
 import { scheduleBrevo } from "../common/rate-limiting";
 import { Brevo } from "@getbrevo/brevo";
 import { handleError, performTemplateSubstitution, successfulResponse } from "../common/messages";
-import { SendPurpose, SendSmtpEmailRequest } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { EmailAddress, SendPurpose, SendSmtpEmailRequest, sendPurposeKeepsPersonalRecipients } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { htmlToPlainText } from "../../shared/string-utils";
 import { keys } from "es-toolkit/compat";
 import { buildUnsubscribeApiUrl, buildUnsubscribeUrl } from "../contacts/unsubscribe-token";
@@ -13,6 +13,11 @@ import { member } from "../../mongo/models/member";
 import { SendTransactionalEmailResult } from "./transactional-email.model";
 import { assertSendAllowed } from "../send-permission";
 import {separateReplyToAddress} from "../../../../projects/ngx-ramblers/src/app/functions/email-addresses";
+import * as config from "../../mongo/controllers/config";
+import * as transforms from "../../mongo/controllers/transforms";
+import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
+import { CommitteeConfig, CommitteeMember } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
+import { assignedMemberId, remapAddressEmailsToCommitteeRoles } from "../../../../projects/ngx-ramblers/src/app/functions/committee-members";
 
 const messageType = "brevo:send-transactional-mail";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -95,11 +100,34 @@ async function injectUnsubscribeContext(emailRequest: SendSmtpEmailRequest, over
   }
 }
 
+async function applyCommitteeRoleRecipientAddresses(emailRequest: SendSmtpEmailRequest, purpose: SendPurpose): Promise<void> {
+  if (!sendPurposeKeepsPersonalRecipients(purpose)) {
+    try {
+      const committeeCfg: CommitteeConfig = (await config.queryKey(ConfigKey.COMMITTEE))?.value;
+      const roles: CommitteeMember[] = committeeCfg?.roles || [];
+      const memberIds = roles.map(role => assignedMemberId(role.memberId)).filter(id => !!id);
+      const members = memberIds.length > 0
+        ? await member.find({_id: {$in: memberIds}}).lean().then(docs => docs.map(doc => transforms.toObjectWithId(doc)))
+        : [];
+      emailRequest.to = remapAddressEmailsToCommitteeRoles(emailRequest.to as EmailAddress[], roles, members);
+      if (emailRequest.cc?.length > 0) {
+        emailRequest.cc = remapAddressEmailsToCommitteeRoles(emailRequest.cc, roles, members);
+      }
+      if (emailRequest.bcc?.length > 0) {
+        emailRequest.bcc = remapAddressEmailsToCommitteeRoles(emailRequest.bcc, roles, members);
+      }
+    } catch (error: any) {
+      debugLog("applyCommitteeRoleRecipientAddresses:failed", error?.message || error);
+    }
+  }
+}
+
 export async function sendTransactionalEmailRequest(emailRequest: SendSmtpEmailRequest,
                                                     transactionalDebugLog: debug.Debugger,
                                                     unsubscribeBaseUrlOverride?: string,
                                                     purpose: SendPurpose = SendPurpose.TRANSACTIONAL): Promise<SendTransactionalEmailResult> {
   await assertSendAllowed(purpose, {subject: emailRequest.subject, recipientCount: emailRequest.to?.length});
+  await applyCommitteeRoleRecipientAddresses(emailRequest, purpose);
   const client = await brevoClient();
   const replyTo = separateReplyToAddress(emailRequest.replyTo, emailRequest.sender);
   const sendSmtpEmail: Brevo.SendTransacEmailRequest = {

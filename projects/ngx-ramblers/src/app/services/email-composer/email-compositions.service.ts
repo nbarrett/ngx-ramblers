@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ComposerExternalRecipient, ComposerFragment, EmailComposerState, EmailComposition, EmailCompositionDocumentDto, EmailCompositionKind, EmailCompositionListResponse, EmailCompositionSingleResponse, EmailCompositionStatus, EmailCompositionSummary, EmailCompositionSummaryDto, EmailCompositionSummaryListResponse, PreviousNewsletter, PreviousReleaseNoteUpdate, RecipientAddressMode } from "../../models/email-composer.model";
+import { composerRecipientForStorage } from "../../functions/email-composer";
 import { ApiResponse } from "../../models/api-response.model";
 import { EmailAttachment } from "../../models/mail.model";
 import { CommonDataService } from "../common-data-service";
@@ -164,10 +165,14 @@ export class EmailCompositionsService {
       ccRecipients: this.serialiseExternalRecipients(state.ccRecipients),
       bccRecipients: this.serialiseExternalRecipients(state.bccRecipients),
       preFilterKey: state.preFilterKey,
-      notificationConfig: state.notificationConfig?.id ? { id: state.notificationConfig.id } : null,
+      notificationConfig: state.notificationConfig?.id ? {
+        id: state.notificationConfig.id,
+        bannerId: state.bannerId ?? state.notificationConfig.bannerId ?? null
+      } : null,
       notificationConfigListing: null,
-      bannerId: state.bannerId,
+      bannerId: state.bannerId ?? state.notificationConfig?.bannerId ?? null,
       subject: state.subject ?? "",
+      showTitle: state.showTitle !== false,
       addresseeType: state.addresseeType,
       introMarkdown: state.introMarkdown ?? "",
       signoffTextMarkdown: state.signoffTextMarkdown ?? "",
@@ -199,11 +204,7 @@ export class EmailCompositionsService {
   }
 
   private serialiseExternalRecipients(recipients: ComposerExternalRecipient[] | undefined): ComposerExternalRecipient[] {
-    return (recipients ?? []).map(recipient => ({
-      email: recipient.email,
-      ...(recipient.name ? { name: recipient.name } : {}),
-      ...(recipient.existingId ? { existingId: recipient.existingId } : {})
-    }));
+    return (recipients ?? []).map(recipient => composerRecipientForStorage(recipient));
   }
 
   private serialiseAttachments(attachments: EmailAttachment[] | undefined): EmailAttachment[] {

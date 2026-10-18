@@ -143,6 +143,10 @@ describe("email-composer-intro-paste", () => {
   });
 
   describe("subjectNeedsPersonalising", () => {
+    it("leaves empty subjects to the required-subject warning", () => {
+      expect(subjectNeedsPersonalising("", "Newsletter", true)).toBe(false);
+      expect(subjectNeedsPersonalising("  ", "Newsletter", true)).toBe(false);
+    });
     it("does not block continue when the subject is the prepared newsletter heading", () => {
       expect(subjectNeedsPersonalising(
         "Walks and socials for the next quarter",

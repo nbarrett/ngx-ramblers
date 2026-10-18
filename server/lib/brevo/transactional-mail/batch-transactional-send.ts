@@ -27,6 +27,7 @@ import {
   BatchTransactionalSendRequest,
   AddresseeType,
   ComposerExternalRecipient,
+  UNBRANDED_RECIPIENT_LIST_ERROR,
   ResolvedSenderAddresses
 } from "../../../../projects/ngx-ramblers/src/app/models/email-composer.model";
 import { BrandingMode, PostSendActionsResult, SendPurpose, WorkflowAction } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
@@ -35,7 +36,7 @@ import { Member, MemberEmailBlock } from "../../../../projects/ngx-ramblers/src/
 import { applyPostSendActionsToMembers } from "../../mongo/controllers/member-bulk-delete";
 import { CommitteeConfig, CommitteeMember, committeeRoleMatchingEmail, roleEmailAddresses, roleRecipientMemberIds } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { outboundEmailForMember } from "../../../../projects/ngx-ramblers/src/app/functions/committee-members";
-import { composerContentHasPersonalisation } from "../../../../projects/ngx-ramblers/src/app/functions/email-composer";
+import { batchSendRecipientSplit, composerContentHasPersonalisation, composerRecipientKeepsRoleMailbox, composerRecipientIsExpandableSet, composerSharesRecipientHeaders } from "../../../../projects/ngx-ramblers/src/app/functions/email-composer";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { ADMIN_SET_PASSWORD_PATH, SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -73,6 +74,7 @@ import { insertSentCopy } from "../../inbox/gmail-inbox-reader";
 import { recordOutboundMessage, recordOutboundReply } from "../../inbox/inbox-message-import";
 import { compositionSenderEmail } from "../../inbox/inbox-composition-sender";
 import { normaliseEmail } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
+import { unbrandedRecipientListsAllowed } from "./unbranded-recipient-lists";
 import { protectedEmailSendError } from "../../salesforce/salesforce-permissions";
 import { sharedRecipientHeaders } from "./shared-recipient-headers";
 import { createErrorDebugLog } from "../../shared/error-debug-log";
@@ -591,11 +593,11 @@ async function resolveMembersForBatchSend(request: BatchTransactionalSendRequest
   externalRecipients: ComposerExternalRecipient[];
 }> {
   const suppliedExternal = (request.externalRecipients ?? []).filter(item => !!item?.email?.trim());
-  const idsFromHeaders = suppliedExternal.map(item => item.memberId).filter((id): id is string => !!id);
+  const idsFromHeaders = batchSendRecipientSplit(suppliedExternal).memberIds;
   const memberIds = uniq([...(request.memberIds ?? []), ...idsFromHeaders].filter(Boolean));
   const emailsToMatch = request.brandingMode === BrandingMode.UNBRANDED
     ? []
-    : suppliedExternal.filter(item => !item.memberId).map(item => item.email.trim());
+    : suppliedExternal.filter(item => !item.memberId && !composerRecipientKeepsRoleMailbox(item)).map(item => item.email.trim());
   const [byId, byEmail] = await Promise.all([
     memberIds.length ? memberModel.find({_id: {$in: memberIds}}).lean() : Promise.resolve([]),
     emailsToMatch.length ? memberModel.find({email: {$in: emailsToMatch}}).lean() : Promise.resolve([])
@@ -604,7 +606,9 @@ async function resolveMembersForBatchSend(request: BatchTransactionalSendRequest
   const matchedIds = new Set(members.map(member => member.id).filter(Boolean));
   const matchedEmails = new Set(members.map(member => (member.email || "").trim().toLowerCase()).filter(Boolean));
   const externalRecipients = suppliedExternal.filter(item => {
-    if (item.memberId && matchedIds.has(item.memberId)) {
+    if (composerRecipientKeepsRoleMailbox(item)) {
+      return true;
+    } else if (item.memberId && matchedIds.has(item.memberId)) {
       return false;
     } else if (matchedEmails.has(item.email.trim().toLowerCase())) {
       return false;
@@ -690,13 +694,14 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
     const personalised = contentHasMemberMergeFields(request);
     const workItems: WorkItem[] = [
       ...memberEntries.map(entry => ({ kind: "member" as const, memberRecord: membersById.get(entry.memberId)!, entry })),
-      ...(personalised ? externalEntries.map((entry, idx) => ({ kind: "external" as const, recipient: externalRecipients[idx], entry })) : [])
+      ...externalEntries.map((entry, idx) => ({ kind: "external" as const, recipient: externalRecipients[idx], entry }))
     ];
 
     progress.entries = [...memberEntries, ...externalEntries];
     progress.startedAt = dateTimeNow().toMillis();
     const referenceListId = request.narrowListId ?? notifConfig?.defaultListId ?? null;
-    const shareTo = request.sharedToRecipients === true && !personalised && !contentHasVolunteerMergeFields(request);
+    const shareTo = request.sharedToRecipients === true
+      && composerSharesRecipientHeaders(request, personalised || contentHasVolunteerMergeFields(request));
 
     if (shareTo) {
       const eligibleMemberAddresses: EmailAddress[] = [];
@@ -887,63 +892,6 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
     }
     }
 
-    if (!shareTo && !personalised && !cancelled.has(jobId) && externalRecipients.length > 0) {
-      try {
-        const externalParams: SendSmtpEmailParams = {
-          messageMergeFields: {
-            subject: null as unknown as string,
-            BANNER_IMAGE_SOURCE: bannerImageSrc,
-            ADDRESS_LINE: addressLineFor(request.addresseeType),
-            BODY_CONTENT: request.htmlBody,
-            BODY_CONTENT_TOP: request.htmlBodyTop ?? "",
-            BODY_CONTENT_BOTTOM: request.htmlBodyBottom ?? "",
-            ACCENT_COLOR: resolveAccentColor(notifConfig?.accentColor)
-          },
-          memberMergeFields: externalMemberMergeFields({ email: "", name: "" } as ComposerExternalRecipient),
-          systemMergeFields: systemMergeFields(systemCfg, groupHref, ""),
-          accountMergeFields: accountFields
-        };
-        const externalSubject = notifConfig ? buildSubject(notifConfig, request.subject, externalParams) : request.subject;
-        externalParams.messageMergeFields.subject = externalSubject;
-        const externalReplyHeaders = request.inboxReplyContext
-          ? {"In-Reply-To": request.inboxReplyContext.inReplyTo, "References": request.inboxReplyContext.references.join(" ")}
-          : undefined;
-        const externalEmailRequest: SendSmtpEmailRequest = {
-          subject: externalSubject,
-          sender,
-          to: externalRecipients.map(recipient => ({ email: recipient.email, name: externalRecipientName(recipient).full })),
-          replyTo: replyTo || undefined,
-          cc: ccAddresses.length > 0 ? ccAddresses : undefined,
-          bcc: combinedBcc.length > 0 ? combinedBcc : undefined,
-          listId: notifConfig?.defaultListId,
-          params: externalParams,
-          headers: externalReplyHeaders,
-          attachments: request.attachments,
-          brandingMode: request.brandingMode,
-          showTitle: request.showTitle,
-          ...(isUnbranded
-            ? { htmlContent: request.htmlBody }
-            : { templateName: notifConfig!.templateName, templateOverrides: notifConfig!.templateOverrides, body: notifConfig!.body })
-        };
-        const externalSendResult = await sendTransactionalEmailRequest(externalEmailRequest, debugLog, baseUrl, SendPurpose.BATCH);
-        const sentAt = dateTimeNow().toMillis();
-        externalEntries.forEach(entry => { entry.status = BatchSendEntryStatus.Sent; entry.sentAt = sentAt; });
-        progress.sentCount += externalEntries.length;
-        await performInboxWriteback(request, externalEmailRequest, externalSendResult.renderedHtmlContent, externalSendResult?.body?.messageId ?? null, senderRoleType, currentMemberId);
-        if (currentMemberId) {
-          await externalRecipients.reduce<Promise<void>>(async (acc, recipient) => {
-            await acc;
-            await recordSendUsage({ email: recipient.email, name: recipient.name, createdBy: currentMemberId, saveForReuse: recipient.saveForReuse !== false });
-          }, Promise.resolve());
-        }
-      } catch (error: any) {
-        const failureMessage = describeBrevoError(error);
-        externalEntries.forEach(entry => { entry.status = BatchSendEntryStatus.Failed; entry.errorMessage = failureMessage; });
-        progress.failedCount += externalEntries.length;
-        debugLog("combined external send failed:", failureMessage, "raw:", error);
-      }
-    }
-
     const sentEntries = memberEntries.filter(entry => entry.status === BatchSendEntryStatus.Sent);
     const sentMemberIds = sentEntries.map(entry => entry.memberId);
     await recordMemberEmailSends({
@@ -974,6 +922,17 @@ async function processBatch(jobId: string, request: BatchTransactionalSendReques
 }
 
 export async function startBatchTransactionalSend(req: Request, res: Response): Promise<void> {
+  const request: BatchTransactionalSendRequest = req.body;
+  const unresolvedRecipients = [...(request?.externalRecipients ?? []), ...(request?.ccRecipients ?? []), ...(request?.bccRecipients ?? [])]
+    .some(composerRecipientIsExpandableSet);
+  if (unresolvedRecipients) {
+    res.status(400).json({request: {messageType}, error: {message: "Recipient lists and filters must be expanded into individual addresses before sending"}});
+  } else {
+    await startValidatedBatchTransactionalSend(req, res);
+  }
+}
+
+async function startValidatedBatchTransactionalSend(req: Request, res: Response): Promise<void> {
   try {
     const request: BatchTransactionalSendRequest = req.body;
     const externalCount = request?.externalRecipients?.filter(item => !!item?.email?.trim()).length ?? 0;
@@ -994,7 +953,10 @@ export async function startBatchTransactionalSend(req: Request, res: Response): 
         throw error;
       }
     }
-    const permissionError = await protectedEmailSendError(currentMemberIdForValidation, request.memberIds);
+    const recipientListError = await unbrandedRecipientListsAllowed(request)
+      ? null
+      : UNBRANDED_RECIPIENT_LIST_ERROR;
+    const permissionError = recipientListError ?? await protectedEmailSendError(currentMemberIdForValidation, request.memberIds);
     if (permissionError) {
       res.status(403).json({ request: { messageType }, error: { message: permissionError } });
       return;

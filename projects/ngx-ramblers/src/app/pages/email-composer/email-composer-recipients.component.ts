@@ -5,7 +5,7 @@ import {BrandingMode, RecipientMode, RecipientAddressMode, PriorSendExclusion} f
 import {Member} from "../../models/member.model";
 import {ExternalRecipient} from "../../models/external-recipient.model";
 import {MailingListRadiosComponent} from "../../modules/common/mail/mailing-list-radios";
-import {MemberMultiSelect} from "../../modules/common/member-multi-select/member-multi-select";
+import {EmailComposerMemberFilterComponent} from "./email-composer-member-filter";
 import {RecipientFieldComponent} from "../../modules/common/recipient-field/recipient-field";
 import {EmailComposerSessionService} from "../../services/email-composer/email-composer-session.service";
 import {EmailComposerRecipientSourcesService} from "../../services/email-composer/email-composer-recipient-sources.service";
@@ -15,7 +15,7 @@ import {EmailComposerRecipientsService} from "../../services/email-composer/emai
 
 @Component({
   selector: "app-email-composer-recipients",
-  imports: [FontAwesomeModule, MailingListRadiosComponent, MemberMultiSelect, RecipientFieldComponent],
+  imports: [FontAwesomeModule, MailingListRadiosComponent, EmailComposerMemberFilterComponent, RecipientFieldComponent],
   styleUrls: ["email-composer-forms.sass"],
   template: `
       <div class="email-composer-section">
@@ -48,7 +48,7 @@ import {EmailComposerRecipientsService} from "../../services/email-composer/emai
               </button>
             }
             <div [class.d-none]="!recipients.narrowMembersExpanded">
-              @if (!recipients.forcedMemberId && !state.notificationConfig) {
+              @if (!recipients.forcedMemberId) {
                 <div class="row mb-3">
                   <div class="col-sm-12">
                     <div class="form-check">
@@ -96,7 +96,7 @@ import {EmailComposerRecipientsService} from "../../services/email-composer/emai
                       (selectedIdChange)="recipients.chooseMemberAudience($event)"/>
                   </div>
                   <div class="col-12 col-lg-6">
-                    <app-member-multi-select
+                    <app-email-composer-member-filter
                       [members]="recipientSources.candidateMembers()"
                       [selectedIds]="state.selectedMemberIds"
                       [preFilterKey]="state.preFilterKey"
@@ -106,7 +106,6 @@ import {EmailComposerRecipientsService} from "../../services/email-composer/emai
                       [respectBlocks]="recipientSources.respectsBlocks()"
                       [unsubscribedDates]="recipientSources.unsubscribedMemberDates()"
                       [includeAlreadySent]="includeAlreadySent"
-                      [showMemberPicker]="false"
                       (selectedIdsChange)="recipients.onFilteredMemberIdsChange($event)"
                       (preFilterKeyChange)="recipients.onPreFilterKeyChange($event)"
                       (priorSendExclusionsChange)="priorSendExclusionsChange.emit($event)"/>
@@ -157,7 +156,7 @@ import {EmailComposerRecipientsService} from "../../services/email-composer/emai
                 [knownMembers]="recipientSources.allMembers"
                 [committeeAddresses]="state.brandingMode === BrandingMode.UNBRANDED && recipientResolution.unbrandedSelectedListId() ? [] : recipientResolution.committeeRecipientAddresses()"
                 [listRecipients]="recipientResolution.unbrandedSelectedListId() ? [] : recipients.unbrandedCommitteeListRecipients()"
-                [ccAllowedEmails]="session.inboxReplyContext ? null : recipients.committeeCcEmails()"
+                [ccAllowedEmails]="session.inboxReplyContext || state.brandingMode === BrandingMode.UNBRANDED ? null : recipients.committeeCcEmails()"
                 [ccAvailable]="recipients.ccFieldAvailable()"
                 [requireConsent]="recipientSources.requiresConsent()"
                 [audienceFilter]="state.preFilterKey"
@@ -177,7 +176,11 @@ import {EmailComposerRecipientsService} from "../../services/email-composer/emai
                          (change)="recipients.onSendToCommitteeRoleAddressesChange($event)">
                   Send to committee role addresses
                 </label>
-                <small class="text-muted">Everyone on this send is a committee member. Leave this off to use their personal addresses. Turn it on to use each person's committee role address instead.</small>
+                <small class="text-muted">@if (recipientResolution.committeeOnlyAudience()) {
+                  Everyone on this send is a committee member. Leave this off to use their personal addresses. Turn it on to use each person's committee role address instead.
+                } @else {
+                  People who hold a committee role use that mailbox when this is on. Others stay on their personal address. Leave this off to use personal addresses for everyone.
+                }</small>
               }
             </fieldset>
         }
