@@ -105,25 +105,33 @@ import { composerMemberIdentityRecipients, composerRecipientFromMember, composer
               <div class="recipient-editor">
                 <label class="recipient-editor-row">
                   <span class="recipient-editor-caption">Name</span>
-                  <input type="text" class="recipient-editor-input"
-                         [ngModel]="editorName(edited)"
-                         (ngModelChange)="renameEditing($event)"
-                         placeholder="Display name">
+                  @if (canEditRecipientAddress(edited)) {
+                    <input type="text" class="recipient-editor-input"
+                           [ngModel]="editorName(edited)"
+                           (ngModelChange)="renameEditing($event)"
+                           placeholder="Display name">
+                  } @else {
+                    <span class="recipient-editor-static">{{ editorName(edited) }}</span>
+                  }
                 </label>
                 <label class="recipient-editor-row">
                   <span class="recipient-editor-caption">Email</span>
-                  <input #editorEmailInput type="text" class="recipient-editor-input"
-                         [class.is-invalid]="!!editorError"
-                         [ngModel]="edited.email || ''"
-                         (ngModelChange)="changeEditingEmail($event)"
-                         (keydown.enter)="confirmEditingEmail($event)"
-                         placeholder="Email address"
-                         autocomplete="off"
-                         autocorrect="off"
-                         autocapitalize="off"
-                         spellcheck="false"
-                         inputmode="text"
-                         name="recipient-editor-email">
+                  @if (canEditRecipientAddress(edited)) {
+                    <input #editorEmailInput type="text" class="recipient-editor-input"
+                           [class.is-invalid]="!!editorError"
+                           [ngModel]="edited.email || ''"
+                           (ngModelChange)="changeEditingEmail($event)"
+                           (keydown.enter)="confirmEditingEmail($event)"
+                           placeholder="Email address"
+                           autocomplete="off"
+                           autocorrect="off"
+                           autocapitalize="off"
+                           spellcheck="false"
+                           inputmode="text"
+                           name="recipient-editor-email">
+                  } @else {
+                    <span class="recipient-editor-static">{{ edited.email }}</span>
+                  }
                 </label>
                 @if (editorError) {
                   <p class="recipient-editor-error">{{ editorError }}</p>
@@ -144,7 +152,7 @@ import { composerMemberIdentityRecipients, composerRecipientFromMember, composer
                 }
                 @if (isSavedContact(edited)) {
                   <p class="recipient-editor-saved"><fa-icon [icon]="faCheck"/> Already in your saved addresses</p>
-                } @else if (!plain) {
+                } @else if (!plain && canEditRecipientAddress(edited)) {
                   <label class="recipient-editor-check">
                     <input type="checkbox" class="form-check-input" [ngModel]="edited.saveForReuse" (ngModelChange)="toggleEditingSave($event)">
                     Save this address for re-use
@@ -553,7 +561,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
   protected renameEditing(name: string): void {
     if (this.pending) {
       this.pending = {...this.pending, name};
-    } else {
+    } else if (this.editorSubject() && this.canEditRecipientAddress(this.editorSubject())) {
       this.updateEditing({ name: name || undefined });
     }
   }
@@ -562,7 +570,7 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     this.editorError = null;
     if (this.pending) {
       this.pending = {...this.pending, email: (email || "").trim()};
-    } else {
+    } else if (this.editorSubject() && this.canEditRecipientAddress(this.editorSubject())) {
       this.updateEditing({ email: (email || "").trim() });
     }
   }
@@ -706,6 +714,18 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
 
   protected editorName(recipient: ComposerExternalRecipient): string {
     return this.resolvedName(recipient);
+  }
+
+  protected canEditRecipientAddress(recipient: ComposerExternalRecipient): boolean {
+    if (this.pending) {
+      return true;
+    } else {
+      return !this.memberFor(recipient)
+        && !recipient.memberId
+        && !recipient.listId
+        && !recipient.committeeRoleType
+        && !composerRecipientIsExpandableSet(recipient);
+    }
   }
 
   private resolvedName(recipient: ComposerExternalRecipient): string {

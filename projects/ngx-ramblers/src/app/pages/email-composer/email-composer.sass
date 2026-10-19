@@ -244,42 +244,35 @@
   display: grid
   grid-auto-flow: column
   grid-auto-columns: minmax(0, 1fr)
-  gap: var(--space-2, 8px)
+  align-items: stretch
+  gap: 0.5rem
   width: 100%
   margin: 4px 0 0
   padding: 8px 0
   border-top: 1px solid rgba(0, 0, 0, 0.12)
   border-bottom: 1px solid rgba(0, 0, 0, 0.12)
 
-@media (max-width: 991.98px)
-  .composer-workspace-actions
-    grid-auto-flow: row
-    grid-auto-columns: auto
-    grid-template-columns: repeat(2, minmax(0, 1fr))
+.composer-workspace-actions > *
+  min-width: 0
+  width: auto
+  height: var(--btn-min-height)
+  margin: 0
 
-  .composer-workspace-actions > .composer-workspace-action-wide,
-  .composer-workspace-actions > :nth-last-child(1 of :not(.d-none)):nth-child(odd of :not(.d-none))
-    grid-column: 1 / -1
+.composer-workspace-actions > .composer-workspace-action-wide
+  grid-column: 1 / -1
 
+.composer-workspace-actions > app-button-dropdown
+  display: flex
+  width: 100%
 
-.composer-workspace-actions .composer-workspace-doc-tools,
-.composer-workspace-actions .composer-flow-tools,
-.composer-workspace-actions .composer-workspace-window-tools
+.composer-flow-tools
   display: contents
 
-.composer-workspace-actions app-button-dropdown,
-.composer-workspace-actions .btn-group,
 .composer-workspace-actions .btn
-  width: 100%
-  height: var(--btn-min-height)
-
-.composer-workspace-actions .btn-group > .btn
-  width: 100%
-
-.composer-workspace-actions .btn
-  display: inline-flex
+  display: flex
   align-items: center
   justify-content: center
+  gap: var(--space-3)
   box-sizing: border-box
   height: var(--btn-min-height)
   min-height: var(--btn-min-height)
@@ -289,6 +282,14 @@
   white-space: nowrap
   transform: none
   box-shadow: none
+
+.composer-workspace-actions > .btn fa-icon
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  flex: 0 0 1.15em
+  width: 1.15em
+  line-height: 1
 
 .composer-workspace-actions .dropdown-menu .btn,
 .composer-workspace-actions .dropdown-item
@@ -578,20 +579,44 @@
     width: 100%
 
   .composer-workspace-actions
+    grid-auto-flow: row
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)
     width: 100%
     margin-left: 0
 
-  .composer-workspace-actions .composer-workspace-doc-tools,
-  .composer-workspace-actions .composer-flow-tools,
-  .composer-workspace-actions .composer-workspace-window-tools
-    display: contents
+  .composer-workspace-actions > *
+    order: 1
 
-  .composer-workspace-actions app-button-dropdown,
-  .composer-workspace-actions .btn-group,
-  .composer-workspace-actions .btn
+  .composer-workspace-actions > .composer-flow-tools
+    display: grid
+    grid-column: 1 / -1
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)
+    gap: inherit
+    height: auto
+    min-height: var(--btn-min-height)
+    order: 2
+
+  .composer-flow-tools > .btn
     width: 100%
     min-width: 0
-    margin: 0
+
+  .composer-flow-tools > :nth-child(odd):last-child,
+  .composer-flow-tools > .composer-workspace-action-wide
+    grid-column: 1 / -1
+
+  .composer-workspace-actions > .composer-show-menu
+    order: 3
+    grid-column: auto
+
+  .composer-workspace-actions > .btn-sunset
+    order: 4
+
+  .composer-workspace-actions > .composer-maximise-toggle
+    order: 5
+
+  .composer-workspace-actions > .btn-quiet:last-of-type
+    order: 6
+    grid-column: 1 / -1
 
   .email-composer-toolbar .btn
     flex: 1 1 calc(50% - 0.25rem)

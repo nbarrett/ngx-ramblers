@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { BrandingMode, DEFAULT_NEWSLETTER_CADENCE, EmailCompositionKind, NEWSLETTER_CADENCE_OPTIONS, NewsletterCadence, NewsletterStartMode } from "../../models/email-composer.model";
-import { DEFAULT_NEWSLETTER_INTRO_DETAIL, NewsletterIntroDetail } from "../../models/ai.model";
+import { DEFAULT_NEWSLETTER_INTRO_DETAIL, NewsletterIntroDetail, NewsletterIntroPurpose } from "../../models/ai.model";
 import { EmailComposerDraftingService } from "./email-composer-drafting.service";
 
 describe("composer drafting start UI", () => {
@@ -69,14 +69,48 @@ describe("composer drafting start UI", () => {
     ]);
   });
 
-  it("offers a platform update on a new branded compose for a platform admin", () => {
+  it("keeps platform updates out of ordinary email configurations for platform admins", () => {
     const instance = drafting();
     instance.session.platformAdminEnabled = true;
-    expect(instance.availableStartModes()).toEqual([
-      NewsletterStartMode.PERIOD,
-      NewsletterStartMode.FREE_TEXT,
-      NewsletterStartMode.UPDATE
-    ]);
+    instance.newsletterStartMode = NewsletterStartMode.UPDATE;
+    expect(instance.availableStartModes()).toEqual([NewsletterStartMode.PERIOD, NewsletterStartMode.FREE_TEXT]);
+    expect(instance.effectiveStartMode()).toBe(NewsletterStartMode.PERIOD);
+    expect(instance.platformUpdateOffered()).toBe(false);
+  });
+
+  it("offers only platform updates when the selected configuration requests them", () => {
+    const instance = drafting();
+    instance.session.platformAdminEnabled = true;
+    instance.session.state.notificationConfig.composerDrafting.introPurpose = NewsletterIntroPurpose.PLATFORM_UPDATE;
+    expect(instance.availableStartModes()).toEqual([NewsletterStartMode.UPDATE]);
+    expect(instance.effectiveStartMode()).toBe(NewsletterStartMode.UPDATE);
+    expect(instance.platformUpdateOffered()).toBe(true);
+  });
+
+  it("hides platform updates when drafted intros are disabled", () => {
+    const instance = drafting();
+    instance.session.platformAdminEnabled = true;
+    instance.session.state.notificationConfig.composerDrafting.introPurpose = NewsletterIntroPurpose.PLATFORM_UPDATE;
+    instance.session.state.notificationConfig.composerDrafting.offerDraftedIntro = false;
+    expect(instance.availableStartModes()).toEqual([]);
+    expect(instance.platformUpdateOffered()).toBe(false);
+  });
+
+  it("keeps platform update access restricted to platform admins", () => {
+    const instance = drafting();
+    instance.session.state.notificationConfig.composerDrafting.introPurpose = NewsletterIntroPurpose.PLATFORM_UPDATE;
+    expect(instance.availableStartModes()).toEqual([]);
+    expect(instance.platformUpdateOffered()).toBe(false);
+    expect(instance.introDraftOffered()).toBe(false);
+  });
+
+  it("stops offering update controls when a saved update uses a different configuration", () => {
+    const instance = drafting();
+    instance.session.platformAdminEnabled = true;
+    instance.session.state.compositionKind = EmailCompositionKind.RELEASE_NOTE_UPDATE;
+    expect(instance.platformUpdateOffered()).toBe(false);
+    instance.session.state.notificationConfig.composerDrafting.introPurpose = NewsletterIntroPurpose.PLATFORM_UPDATE;
+    expect(instance.platformUpdateOffered()).toBe(true);
   });
 
   it("does not auto-create a newsletter on a reply or draft", async () => {
@@ -137,6 +171,7 @@ describe("composer drafting start UI", () => {
     const instance = drafting({platformAdminEnabled: true, newsletterStartMode: NewsletterStartMode.UPDATE});
     instance.session.platformAdminEnabled = true;
     instance.newsletterStartMode = NewsletterStartMode.UPDATE;
+    instance.session.state.notificationConfig.composerDrafting.introPurpose = NewsletterIntroPurpose.PLATFORM_UPDATE;
     expect(instance.introDraftOffered()).toEqual(false);
   });
 

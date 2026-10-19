@@ -370,6 +370,80 @@ describe("composer list expansion", () => {
     expect(state.selectedListId).toBe(13);
     expect(state.recipientMode).toBe(RecipientMode.ENTIRE_LIST);
   });
+
+  it("replaces a default mailing list when a filter email type is auto-applied", () => {
+    const now = DateTime.fromMillis(1800000000000);
+    const members = Array.from({length: 137}, (_, index) => ({
+      id: `member-${index}`, email: `member-${index}@example.com`, groupMember: true,
+      createdDate: now.minus(index < 2 ? {days: 5} : {months: 3}).toMillis()
+    } as Member));
+    const list = {id: 13, name: "All Members"} as ListInfo;
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.BRANDED;
+    state.recipientMode = RecipientMode.ENTIRE_LIST;
+    state.selectedListId = list.id;
+    state.externalRecipients = [{email: "list@example.com", listId: list.id} as any];
+    const config = {id: "welcome", defaultMemberSelection: MemberSelection.RECENTLY_ADDED, monthsInPast: 1} as NotificationConfig;
+    const session = {state, inboxReplyContext: null, syncStateToUrl: vi.fn()};
+    const pool = {
+      members, allMembers: members, candidateMembers: () => members,
+      nonEmptyLists: () => [list], unbrandedCommitteeLists: () => [], committeeReferenceData: null
+    };
+    const resolver = Object.create(EmailComposerRecipientResolutionService.prototype) as EmailComposerRecipientResolutionService;
+    Object.assign(resolver, {session, pool, dateUtils: {dateTimeNowNoTime: () => now}});
+    vi.spyOn(resolver, "committeeRoleSendOffered").mockReturnValue(false);
+    vi.spyOn(resolver, "committeeOnlyAudience").mockReturnValue(false);
+    TestBed.configureTestingModule({providers: [
+      EmailComposerRecipientsService,
+      {provide: EmailComposerSessionService, useValue: session},
+      {provide: MailListUpdaterService, useValue: {}},
+      {provide: EmailComposerRecipientSourcesService, useValue: pool},
+      {provide: EmailComposerRecipientResolutionService, useValue: resolver}
+    ]});
+    const service = TestBed.inject(EmailComposerRecipientsService);
+    service.applyRecipientDefaultsFrom(config);
+    expect(state.recipientMode).toBe(RecipientMode.SELECTED_MEMBERS);
+    expect(state.preFilterKey).toBe(MemberSelection.RECENTLY_ADDED);
+    expect(state.selectedListId).toBeNull();
+    expect(state.selectedMemberIds).toEqual(["member-0", "member-1"]);
+  });
+
+  it("replaces an existing mailing list when the user chooses a type with a member filter", () => {
+    const now = DateTime.fromMillis(1800000000000);
+    const members = Array.from({length: 137}, (_, index) => ({
+      id: `member-${index}`, email: `member-${index}@example.com`, groupMember: true,
+      createdDate: now.minus(index < 2 ? {days: 5} : {months: 3}).toMillis()
+    } as Member));
+    const list = {id: 13, name: "All Members"} as ListInfo;
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.BRANDED;
+    state.recipientMode = RecipientMode.ENTIRE_LIST;
+    state.selectedListId = list.id;
+    state.externalRecipients = [{email: "list@example.com", listId: list.id} as any];
+    const config = {id: "welcome", defaultMemberSelection: MemberSelection.RECENTLY_ADDED, monthsInPast: 1} as NotificationConfig;
+    const session = {state, inboxReplyContext: null, syncStateToUrl: vi.fn()};
+    const pool = {
+      members, allMembers: members, candidateMembers: () => members,
+      nonEmptyLists: () => [list], unbrandedCommitteeLists: () => [], committeeReferenceData: null
+    };
+    const resolver = Object.create(EmailComposerRecipientResolutionService.prototype) as EmailComposerRecipientResolutionService;
+    Object.assign(resolver, {session, pool, dateUtils: {dateTimeNowNoTime: () => now}});
+    vi.spyOn(resolver, "committeeRoleSendOffered").mockReturnValue(false);
+    vi.spyOn(resolver, "committeeOnlyAudience").mockReturnValue(false);
+    TestBed.configureTestingModule({providers: [
+      EmailComposerRecipientsService,
+      {provide: EmailComposerSessionService, useValue: session},
+      {provide: MailListUpdaterService, useValue: {}},
+      {provide: EmailComposerRecipientSourcesService, useValue: pool},
+      {provide: EmailComposerRecipientResolutionService, useValue: resolver}
+    ]});
+    const service = TestBed.inject(EmailComposerRecipientsService);
+    service.applyRecipientDefaultsFrom(config, true);
+    expect(state.recipientMode).toBe(RecipientMode.SELECTED_MEMBERS);
+    expect(state.preFilterKey).toBe(MemberSelection.RECENTLY_ADDED);
+    expect(state.selectedListId).toBeNull();
+    expect(state.selectedMemberIds).toEqual(["member-0", "member-1"]);
+  });
 });
 
 describe("mixed unbranded committee recipients", () => {

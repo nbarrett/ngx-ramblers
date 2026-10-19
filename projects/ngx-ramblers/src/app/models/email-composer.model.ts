@@ -52,7 +52,6 @@ export enum ComposerSaveAction {
 
 export enum ComposerShowAction {
   DRAFTS = "drafts",
-  NEW = "new",
   SENT = "sent"
 }
 

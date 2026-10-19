@@ -220,6 +220,22 @@ describe("GroupEventService", () => {
         }]);
     });
 
+  it("does not treat a first-time leader as updated contact details", () => {
+        const service = TestBed.inject(GroupEventService);
+        const changedItems = service.changedItemsBetween({
+            fields: {
+                contactDetails: {
+                    displayName: "Kerry Example",
+                    email: "kerry@example.com",
+                    memberId: "member-id"
+                }
+            }
+        }, {
+            fields: {}
+        });
+        expect(service.notificationChangedItems(changedItems).find(item => item.field === EventField.CONTACT_DETAILS)).toBeUndefined();
+    });
+
   it("summarises image changes without exposing URLs, dimensions or credits", () => {
     const service = TestBed.inject(GroupEventService);
     const changedItems = service.changedItemsBetween({

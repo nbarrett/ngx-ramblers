@@ -473,13 +473,9 @@ export class EmailComposerRecipientsService {
             : SendingChannel.TRANSACTIONAL_BATCH;
     }
     syncSelectedMembersToHeaders(): void {
-        const headers = [
-            ...(this.session.state.externalRecipients ?? []),
-            ...(this.session.state.ccRecipients ?? []),
-            ...(this.session.state.bccRecipients ?? [])
-        ];
-        if (headers.length > 0 && headers.every(recipient => !composerRecipientIsExpandableSet(recipient))) {
-            const ids = [...new Set(headers.map(recipient => recipient.memberId).filter((id): id is string => !!id))];
+        const to = this.session.state.externalRecipients ?? [];
+        if (to.length > 0 && to.every(recipient => !composerRecipientIsExpandableSet(recipient))) {
+            const ids = [...new Set(to.map(recipient => recipient.memberId).filter((id): id is string => !!id))];
             this.session.state.selectedMemberIds = ids;
         }
     }
@@ -682,6 +678,8 @@ export class EmailComposerRecipientsService {
         this.syncRecipientAddressMode();
     }
     onFilteredMemberIdsChange(ids: string[]): void {
+        const current = this.session.state.selectedMemberIds ?? [];
+        if (!(ids.length === current.length && ids.every((id, index) => id === current[index]))) {
         const recipients = this.resolver.memberRecipientsForIds(ids);
         const listId = this.session.state.recipientMode === RecipientMode.ENTIRE_LIST
             ? this.session.state.selectedListId
@@ -723,6 +721,7 @@ export class EmailComposerRecipientsService {
             this.session.state.selectedMemberIds = ids;
             this.syncRecipientAddressMode();
         }
+        }
     }
     onPreFilterKeyChange(key: MemberSelection | null): void {
         this.session.state.preFilterKey = key;
@@ -736,13 +735,24 @@ export class EmailComposerRecipientsService {
         this.applyPreFilterAudienceToTo();
         this.session.syncStateToUrl({ [StoredValue.PRE_FILTER]: key ?? null });
     }
-    applyRecipientDefaultsFrom(config: NotificationConfig | null): void {
+    applyRecipientDefaultsFrom(config: NotificationConfig | null, replaceExisting = false): void {
         if (config) {
             const hasList = this.session.state.selectedListId != null;
             const hasMembers = (this.session.state.selectedMemberIds ?? []).length > 0;
             const hasExternal = (this.session.state.externalRecipients ?? []).length > 0;
             const hasPreFilter = this.session.state.preFilterKey != null;
-            if (!(hasList || hasMembers || hasExternal || hasPreFilter)) {
+            const configWantsFilter = !!config.defaultMemberSelection
+                && config.defaultMemberSelection !== MemberSelection.MAILING_LIST;
+            const replaceDefaultListForFilter = configWantsFilter && !this.userPickedRecipientMode;
+            if (replaceExisting || replaceDefaultListForFilter || !(hasList || hasMembers || hasExternal || hasPreFilter)) {
+                if (replaceExisting) {
+                    this.userPickedRecipientMode = false;
+                    this.session.state.selectedListId = null;
+                    this.session.state.narrowListId = null;
+                    this.session.state.externalRecipients = [];
+                    this.session.state.ccRecipients = [];
+                    this.session.state.bccRecipients = [];
+                }
                 if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
                     this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
                     this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
@@ -768,6 +778,7 @@ export class EmailComposerRecipientsService {
                     this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
                     this.session.state.sendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
                     this.session.state.preFilterKey = config.defaultMemberSelection ?? null;
+                    this.session.state.selectedListId = null;
                     this.session.state.selectedMemberIds = [];
                     this.session.state.narrowListId = null;
                     this.expandedRecipientFilterKeys.clear();

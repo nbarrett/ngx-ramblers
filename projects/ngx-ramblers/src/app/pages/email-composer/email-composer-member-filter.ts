@@ -69,7 +69,7 @@ export class EmailComposerMemberFilterComponent implements OnChanges {
       }
     }
     if (changes["includeAlreadySent"] && !changes["includeAlreadySent"].firstChange && !this.manualMode) {
-      this.applySelection();
+      this.applyAlreadySentDelta();
     }
   }
 
@@ -144,6 +144,31 @@ export class EmailComposerMemberFilterComponent implements OnChanges {
       .filter(member => this.includeAlreadySent || !this.priorSendExclusionApplies() || !this.priorSendDateFor(member))
       .map(member => member.id);
     this.selectedIdsChange.emit(this.selectedIds);
+  }
+
+  private alreadySentIds(): string[] {
+    return this.priorSendExclusions
+      .map(entry => entry.member.id)
+      .filter((id): id is string => !!id);
+  }
+
+  private applyAlreadySentDelta(): void {
+    const alreadySent = this.alreadySentIds();
+    if (this.includeAlreadySent) {
+      const selected = new Set(this.selectedIds);
+      const additions = alreadySent.filter(id => !selected.has(id));
+      if (additions.length > 0) {
+        this.selectedIds = [...this.selectedIds, ...additions];
+        this.selectedIdsChange.emit(this.selectedIds);
+      }
+    } else {
+      const drop = new Set(alreadySent);
+      const next = this.selectedIds.filter(id => !drop.has(id));
+      if (next.length !== this.selectedIds.length) {
+        this.selectedIds = next;
+        this.selectedIdsChange.emit(next);
+      }
+    }
   }
 
   private memberDisabled(member: Member): boolean {

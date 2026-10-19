@@ -19,7 +19,7 @@ import {NEWSLETTER_INTRO_DETAIL_OPTIONS, NewsletterIntroDetail} from "../../mode
   template: `
     @switch (mode) {
       @case (EmailComposerDraftingMode.INTRO) {
-                    @if (session.releaseNoteUpdateMode()) {
+                    @if (session.releaseNoteUpdateMode() && drafting.platformUpdateOffered()) {
                       <app-email-composer-update-settings [state]="session.state" [currentDraftId]="session.currentDraftId"
                                                           [creatingReleaseNoteUpdate]="drafting.creatingReleaseNoteUpdate"
                                                           [draftingReleaseNoteUpdate]="drafting.draftingReleaseNoteUpdate"

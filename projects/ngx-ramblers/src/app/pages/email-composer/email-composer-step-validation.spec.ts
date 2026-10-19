@@ -35,6 +35,10 @@ describe("composer step validation", () => {
     const state = defaultEmailComposerState();
     state.recipientMode = RecipientMode.SELECTED_MEMBERS;
     state.selectedMemberIds = ["alex", "sam"];
+    state.externalRecipients = [
+      {email: "alex@example.com", name: "Alex", memberId: "alex"},
+      {email: "sam@example.com", name: "Sam", memberId: "sam"}
+    ];
     const instance = Object.create(EmailComposer.prototype);
     Object.assign(instance, {
       session: {state},
@@ -53,5 +57,27 @@ describe("composer step validation", () => {
       "Alex has not given consent and cannot be emailed — remove this member from the recipients to continue",
       "Sam has unsubscribed and cannot be emailed — remove this member from the recipients to continue"
     ]);
+  });
+
+  it("does not treat Bcc-only as a valid recipient step", () => {
+    const state = defaultEmailComposerState();
+    state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+    state.selectedMemberIds = [];
+    state.externalRecipients = [];
+    state.bccRecipients = [
+      {email: "membership@group.example.org.uk", name: "Membership Co-ordinator", memberId: "tim"}
+    ];
+    const instance = Object.create(EmailComposer.prototype);
+    Object.assign(instance, {
+      session: {state},
+      recipientSources: {
+        workflowRemovesRecipients: () => false,
+        nonEmptyLists: () => []
+      },
+      unavailableSelectedMembers: () => [],
+      memberFullName: (member: Member) => member.firstName
+    });
+    expect(instance.recipientsStepErrors()).toEqual(["Add at least one To recipient"]);
+    expect(instance.recipientsStepValid()).toBe(false);
   });
 });

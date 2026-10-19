@@ -21,8 +21,10 @@ import {AttachmentPreviewComponent} from "../../modules/common/attachment-previe
   imports: [FileUploadModule, FontAwesomeModule, TooltipDirective, AttachmentPreviewComponent],
   styleUrls: ["./email-composer-attachments.sass"],
   template: `
-    <div class="thumbnail-heading-frame">
-      <div class="thumbnail-heading">Attachments</div>
+    <div [class.thumbnail-heading-frame]="showHeading">
+      @if (showHeading) {
+        <div class="thumbnail-heading">Attachments</div>
+      }
       <div class="d-flex flex-wrap align-items-center gap-2">
         @for (attachment of attachments; track attachment.url; let index = $index) {
           <span class="composer-attachment">
@@ -52,6 +54,7 @@ import {AttachmentPreviewComponent} from "../../modules/common/attachment-previe
 })
 export class EmailComposerAttachmentsComponent implements OnDestroy {
   @Input() attachments: EmailAttachment[] = [];
+  @Input() showHeading = true;
   @Input() channel: SendingChannel = SendingChannel.TRANSACTIONAL_BATCH;
   @Output() attachmentsChange = new EventEmitter<EmailAttachment[]>();
   private uploadService = inject(FileUploadService);

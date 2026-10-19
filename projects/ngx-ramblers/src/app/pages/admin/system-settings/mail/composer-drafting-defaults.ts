@@ -25,7 +25,7 @@ import {
              [checked]="drafting().offerDraftedIntro"
              (change)="setOfferDraftedIntro($any($event.target).checked)">
       <label class="form-check-label" for="offer-drafted-intro">
-        <strong>Offer a drafted intro</strong> - the composer can write the opening paragraph from the events being sent. The wording stays editable.
+        <strong>Offer a drafted intro</strong> - the composer can draft wording for the purpose selected below. The wording stays editable.
       </label>
     </div>
     @if (drafting().offerDraftedIntro) {

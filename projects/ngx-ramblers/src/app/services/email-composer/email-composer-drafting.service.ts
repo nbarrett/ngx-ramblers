@@ -75,7 +75,7 @@ export class EmailComposerDraftingService {
   introDraftOffered(): boolean {
     return this.draftingOffered()
       && !this.session.releaseNoteUpdateMode()
-      && this.effectiveStartMode() !== NewsletterStartMode.UPDATE;
+      && this.currentDraftPurpose() !== NewsletterIntroPurpose.PLATFORM_UPDATE;
   }
 
   introDraftAvailable(): boolean {
@@ -89,13 +89,20 @@ export class EmailComposerDraftingService {
       && !this.session.releaseNoteUpdateMode();
   }
 
+  platformUpdateOffered(): boolean {
+    return this.session.state.brandingMode !== BrandingMode.UNBRANDED
+      && !this.session.inboxReplyContext
+      && this.session.platformAdminEnabled
+      && this.draftingOffered()
+      && this.currentDraftPurpose() === NewsletterIntroPurpose.PLATFORM_UPDATE;
+  }
+
   availableStartModes(): NewsletterStartMode[] {
     this.ensureWalkLeaderRequestPeriod();
-    return this.startUiOffered()
-      ? [
-        ...(this.draftingOffered() ? [NewsletterStartMode.PERIOD, NewsletterStartMode.FREE_TEXT] : []),
-        ...(this.session.platformAdminEnabled && !this.walkLeaderRequest() ? [NewsletterStartMode.UPDATE] : [])
-      ]
+    return this.startUiOffered() && this.draftingOffered()
+      ? this.currentDraftPurpose() === NewsletterIntroPurpose.PLATFORM_UPDATE
+        ? this.platformUpdateOffered() ? [NewsletterStartMode.UPDATE] : []
+        : [NewsletterStartMode.PERIOD, NewsletterStartMode.FREE_TEXT]
       : [];
   }
 

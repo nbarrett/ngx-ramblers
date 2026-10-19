@@ -24,6 +24,10 @@ describe("walkTimeOfDayFromHour", () => {
 });
 
 describe("introPurposeFrom", () => {
+  it("preserves the configured platform update purpose", () => {
+    expect(introPurposeFrom({introPurpose: NewsletterIntroPurpose.PLATFORM_UPDATE})).toBe(NewsletterIntroPurpose.PLATFORM_UPDATE);
+  });
+
   it("uses the stored purpose when it is a walk-leader request", () => {
     expect(introPurposeFrom({introPurpose: NewsletterIntroPurpose.WALK_LEADER_REQUEST}))
       .toEqual(NewsletterIntroPurpose.WALK_LEADER_REQUEST);

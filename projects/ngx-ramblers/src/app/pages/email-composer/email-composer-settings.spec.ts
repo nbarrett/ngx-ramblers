@@ -4,8 +4,7 @@ import { Confirm, StoredValue } from "../../models/ui-actions";
 import { ComposerShowAction, EmailComposerStepKey } from "../../models/email-composer.model";
 import {defaultEmailComposerState} from "../../functions/email-composer";
 import { BrandingMode } from "../../models/mail.model";
-import { ButtonDropdownItemType } from "../../models/button-dropdown.model";
-import { faFile, faFolderOpen, faPaperPlane } from "@fortawesome/free-solid-svg-icons";
+import { faFolderOpen, faPaperPlane } from "@fortawesome/free-solid-svg-icons";
 
 describe("composer personal settings", () => {
   function composer(overrides: Record<string, unknown> = {}) {
@@ -72,38 +71,38 @@ describe("composer personal settings", () => {
     expect(instance.newComposition).toHaveBeenCalled();
   });
 
-  it("puts New email on the Show menu", () => {
+  it("lists drafts and sent on the Show menu", () => {
     const instance = composer({
       draftsPanelOpen: false,
       sentEmailsPanelOpen: false,
       drafts: [],
       sentEmails: [],
       faFolderOpen,
-      faPaperPlane,
-      faFile
+      faPaperPlane
     });
-    const items = instance.showMenuItems();
-    expect(items.map(item => item.id)).toEqual([
+    expect(instance.showMenuItems().map(item => item.id)).toEqual([
       ComposerShowAction.DRAFTS,
-      ComposerShowAction.SENT,
-      "show-new-divider",
-      ComposerShowAction.NEW
+      ComposerShowAction.SENT
     ]);
-    expect(items.find(item => item.id === "show-new-divider")?.type).toBe(ButtonDropdownItemType.DIVIDER);
-    expect(items.find(item => item.id === ComposerShowAction.NEW)?.label).toBe("New email");
   });
 
-  it("starts a new email from the Show menu", () => {
+  it("asks for a second click on New with a warning alert", () => {
     const instance = composer({
-      warnUnsaved: false,
-      startNewEmail: vi.fn(),
-      toggleDraftsPanel: vi.fn(),
-      toggleSentEmailsPanel: vi.fn()
+      warnUnsaved: true,
+      shouldWarnAboutUnsavedChanges: () => true,
+      newComposition: vi.fn(),
+      newArmed: false,
+      session: {syncStateToUrl: vi.fn(), notify: {warning: vi.fn()}}
     });
-    instance.onShowMenu(ComposerShowAction.NEW);
-    expect(instance.startNewEmail).toHaveBeenCalled();
-    expect(instance.toggleDraftsPanel).not.toHaveBeenCalled();
-    expect(instance.toggleSentEmailsPanel).not.toHaveBeenCalled();
+    instance.startNewEmail();
+    expect(instance.newArmed).toBe(true);
+    expect(instance.session.notify.warning).toHaveBeenCalledWith({
+      title: "Discard email content?",
+      message: "You have unsent email content. Click New again to discard this email and start a new one."
+    });
+    expect(instance.newComposition).not.toHaveBeenCalled();
+    instance.startNewEmail();
+    expect(instance.newComposition).toHaveBeenCalled();
   });
 
   it.each([null, {id: "welcome", subject: {text: "Welcome"}}])("starts from clean composition state for %j", config => {

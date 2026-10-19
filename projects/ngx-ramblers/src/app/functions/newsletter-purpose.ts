@@ -1,4 +1,4 @@
-import { isNumber } from "es-toolkit/compat";
+import { isNumber, values } from "es-toolkit/compat";
 import {
   DEFAULT_NEWSLETTER_INTRO_PURPOSE,
   NewsletterIntroEvent,
@@ -14,9 +14,8 @@ export function walkTimeOfDayFromHour(hour: number | null | undefined): WalkTime
 }
 
 export function introPurposeFrom(drafting: {introPurpose?: NewsletterIntroPurpose} | null | undefined): NewsletterIntroPurpose {
-  return drafting?.introPurpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST
-    ? NewsletterIntroPurpose.WALK_LEADER_REQUEST
-    : DEFAULT_NEWSLETTER_INTRO_PURPOSE;
+  const purpose = drafting?.introPurpose;
+  return values(NewsletterIntroPurpose).includes(purpose) ? purpose : DEFAULT_NEWSLETTER_INTRO_PURPOSE;
 }
 
 export function eventsForPurpose(events: NewsletterIntroEvent[], purpose: NewsletterIntroPurpose | undefined): NewsletterIntroEvent[] {

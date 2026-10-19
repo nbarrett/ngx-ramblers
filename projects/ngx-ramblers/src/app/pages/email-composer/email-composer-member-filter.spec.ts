@@ -21,6 +21,7 @@ describe("composer member filters without the legacy picker", () => {
     fixture.componentRef.setInput("members", [
       {id: "available", email: "alex.reed@example.com"},
       {id: "already-sent", email: "sam.taylor@example.com"},
+      {id: "also-recent", email: "jordan.reed@example.com"},
       {id: "outside-filter", email: "casey.reed@example.com"},
       {id: "no-consent", email: "morgan.reed@example.com", emailMarketingConsent: false},
       {id: "unsubscribed", email: "robin.reed@example.com"},
@@ -47,10 +48,22 @@ describe("composer member filters without the legacy picker", () => {
     const exclusions = vi.fn();
     fixture.componentInstance.priorSendExclusionsChange.subscribe(exclusions);
     fixture.componentInstance.applyPreFilter(MemberSelection.RECENTLY_ADDED);
-    expect(fixture.componentInstance.selectedIds).toEqual(["available"]);
+    expect(fixture.componentInstance.selectedIds).toEqual(["available", "also-recent"]);
     expect(exclusions).toHaveBeenCalledWith([expect.objectContaining({member: expect.objectContaining({id: "already-sent"}), sentAt: 100})]);
     fixture.componentRef.setInput("includeAlreadySent", true);
     fixture.detectChanges();
+    expect(fixture.componentInstance.selectedIds).toEqual(["available", "also-recent", "already-sent"]);
+  });
+
+  it("toggles already-sent members without reselecting people the user had removed", async () => {
+    const fixture = await setup();
+    fixture.componentInstance.applyPreFilter(MemberSelection.RECENTLY_ADDED);
+    fixture.componentInstance.selectedIds = ["available"];
+    fixture.componentRef.setInput("includeAlreadySent", true);
+    fixture.detectChanges();
     expect(fixture.componentInstance.selectedIds).toEqual(["available", "already-sent"]);
+    fixture.componentRef.setInput("includeAlreadySent", false);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.selectedIds).toEqual(["available"]);
   });
 });
