@@ -305,6 +305,8 @@ export enum StoredValue {
   TIDY_VIEW = "tidy-tab",
   TRACK = "track",
   TRIGGERED_BY = "triggered-by",
+  UPLOAD_SESSION_SORT = "upload-session-sort",
+  UPLOAD_SESSION_SORT_ORDER = "upload-session-sort-order",
   USER = "user",
   VENUE_MODE = "venue-mode",
   VIA = "via",

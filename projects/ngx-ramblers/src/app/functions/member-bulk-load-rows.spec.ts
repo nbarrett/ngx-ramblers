@@ -1,5 +1,6 @@
 import { Member, MemberAction, MemberUpdateAudit, RamblersMember } from "../models/member.model";
 import {
+  memberBulkLoadSessionMemberCount,
   memberBulkLoadUploadedRows,
   memberUpdateAuditRow,
   memberUpdateAuditRows
@@ -138,5 +139,29 @@ describe("member bulk load rows", () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0].memberName).toContain("Elizabeth Shearman");
+  });
+});
+
+describe("memberBulkLoadSessionMemberCount", () => {
+  it("uses memberCount from a session summary", () => {
+    expect(memberBulkLoadSessionMemberCount({
+      id: "session-1",
+      files: {archive: "", data: ""},
+      auditLog: [],
+      memberCount: 312
+    })).toEqual(312);
+  });
+
+  it("falls back to the members array length", () => {
+    expect(memberBulkLoadSessionMemberCount({
+      id: "session-2",
+      files: {archive: "", data: ""},
+      auditLog: [],
+      members: [{membershipNumber: "1001"} as RamblersMember, {membershipNumber: "1002"} as RamblersMember]
+    })).toEqual(2);
+  });
+
+  it("returns 0 when there is no session", () => {
+    expect(memberBulkLoadSessionMemberCount(null)).toEqual(0);
   });
 });

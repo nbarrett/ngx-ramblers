@@ -1,8 +1,10 @@
+import { MemberBulkLoadSessionsComponent } from "../../../../modules/common/member-bulk-load-sessions/member-bulk-load-sessions";
 import { Component, inject, OnInit } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faRefresh, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faRefresh, faSpinner, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DisplayDateAndTimePipe } from "../../../../pipes/display-date-and-time.pipe";
+import { memberBulkLoadSessionMemberCount } from "../../../../functions/member-bulk-load-rows";
 import { MemberBulkLoadAudit } from "../../../../models/member.model";
 import { memberBulkLoadSourceLabel } from "../../../../models/salesforce.model";
 import { ALERT_WARNING, AlertTarget } from "../../../../models/alert-target.model";
@@ -16,7 +18,7 @@ import { first } from "es-toolkit/compat";
 
 @Component({
   selector: "app-member-bulk-load-audit-settings",
-  imports: [FontAwesomeModule, DisplayDateAndTimePipe],
+  imports: [MemberBulkLoadSessionsComponent, FontAwesomeModule, DisplayDateAndTimePipe],
   template: `
     <div class="row thumbnail-heading-frame">
       <div class="thumbnail-heading">Member bulk-load audits</div>
@@ -27,9 +29,9 @@ import { first } from "es-toolkit/compat";
           re-import). Only file admins and member admins can do this.
         </p>
         @if (!canManageAudits) {
-          <div class="alert alert-warning mb-0">
-            <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
-            You need file admin or member admin access to clear bulk-load audits.
+          <div class="alert alert-warning d-flex align-items-start mb-0">
+            <fa-icon [icon]="ALERT_WARNING.icon" class="me-2"/>
+            <div><strong class="d-block">Administrator access required</strong>You need file admin or member admin access to clear bulk-load audits.</div>
           </div>
         } @else {
           <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
@@ -41,11 +43,12 @@ import { first } from "es-toolkit/compat";
                     class="btn btn-quiet"
                     [disabled]="busy || sessionCount === 0"
                     (click)="clearAll()">
+              <fa-icon [icon]="faTrash" class="me-1"/>
               {{ clearAllArmed ? "Confirm clear all sessions" : "Clear all sessions" }}
             </button>
-            @if (clearAllArmed) {
-              <button type="button" class="btn btn-quiet" [disabled]="busy" (click)="clearAllArmed = false">
-                Cancel
+            @if (clearAllArmed || pendingDeleteSessionId) {
+              <button type="button" class="btn btn-quiet" [disabled]="busy" (click)="cancelDeletion()">
+                <fa-icon [icon]="faXmark" class="me-1"/>Cancel
               </button>
             }
           </div>
@@ -62,40 +65,10 @@ import { first } from "es-toolkit/compat";
             {{ stringUtils.pluraliseWithCount(sessionCount, "upload session") }} stored.
             @if (latestSession) {
               Latest: {{ latestSession.createdDate | displayDateAndTime }}
-              ({{ stringUtils.pluraliseWithCount(latestSession.members?.length || 0, "member") }} in snapshot).
+              ({{ stringUtils.pluraliseWithCount(memberBulkLoadSessionMemberCount(latestSession), "member") }} in snapshot).
             }
           </p>
-          @if (sessions.length > 0) {
-            <div class="ngx-data-table-card">
-              <table class="ngx-data-table">
-                <thead>
-                <tr>
-                  <th>Uploaded at</th>
-                  <th>Source</th>
-                  <th>Members in session</th>
-                  <th></th>
-                </tr>
-                </thead>
-                <tbody>
-                  @for (session of sessions; track session.id) {
-                    <tr>
-                      <td>{{ session.createdDate | displayDateAndTime }}</td>
-                      <td>{{ memberBulkLoadSourceLabel(session.source) }}</td>
-                      <td>{{ session.members?.length || 0 }}</td>
-                      <td class="text-end">
-                        <button type="button"
-                                class="btn btn-sm btn-quiet"
-                                [disabled]="busy"
-                                (click)="deleteSession(session)">
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
+          <app-member-bulk-load-sessions [sessions]="sessions" [disabled]="busy" (deleteSession)="deleteSession($event)"/>
         }
       </div>
     </div>
@@ -111,12 +84,16 @@ export class MemberBulkLoadAuditSettingsComponent implements OnInit {
 
   protected readonly faRefresh = faRefresh;
   protected readonly faSpinner = faSpinner;
+  protected readonly faTrash = faTrash;
+  protected readonly faXmark = faXmark;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected readonly memberBulkLoadSourceLabel = memberBulkLoadSourceLabel;
+  protected readonly memberBulkLoadSessionMemberCount = memberBulkLoadSessionMemberCount;
 
   public canManageAudits = false;
   public busy = false;
   public clearAllArmed = false;
+  protected pendingDeleteSessionId: string | null = null;
   public sessions: MemberBulkLoadAudit[] = [];
   public notifyTarget: AlertTarget = {};
   private notify: AlertInstance;
@@ -140,8 +117,9 @@ export class MemberBulkLoadAuditSettingsComponent implements OnInit {
   async refresh(): Promise<void> {
     this.busy = true;
     try {
-      this.sessions = await this.memberBulkLoadAuditService.all({sort: {createdDate: -1}});
+      this.sessions = await this.memberBulkLoadAuditService.summaries();
       this.clearAllArmed = false;
+      this.pendingDeleteSessionId = null;
     } catch (error) {
       this.logger.error("refresh failed:", error);
       this.notify.error({title: "Bulk-load audits", message: this.stringUtils.stringify(error), continue: true});
@@ -154,28 +132,42 @@ export class MemberBulkLoadAuditSettingsComponent implements OnInit {
     if (this.busy || !session?.id) {
       return;
     }
-    const label = this.dateUtils.displayDateAndTime(session.createdDate);
-    this.busy = true;
-    this.notify.progress({title: "Bulk-load audits", message: `Deleting session from ${label}`}, true);
-    try {
-      await this.memberBulkLoadAuditService.delete(session);
-      await this.refresh();
-      this.notify.success({
-        title: "Bulk-load audits",
-        message: `Deleted session from ${label} and its member action rows. The next supporter snapshot will not reconcile against it.`
-      });
-    } catch (error) {
-      this.logger.error("deleteSession failed:", error);
-      this.notify.error({title: "Bulk-load audits", message: this.stringUtils.stringify(error), continue: true});
-    } finally {
-      this.busy = false;
+    if (this.pendingDeleteSessionId !== session.id) {
+      this.pendingDeleteSessionId = session.id;
+      this.clearAllArmed = false;
+      this.notify.warning({title: "Delete upload session?", message: `Click Delete session again to permanently delete the session from ${this.dateUtils.displayDateAndTime(session.createdDate)} and its member action rows. This cannot be undone.`});
+    } else {
+      this.pendingDeleteSessionId = null;
+      const label = this.dateUtils.displayDateAndTime(session.createdDate);
+      this.busy = true;
+      this.notify.progress({title: "Bulk-load audits", message: `Deleting session from ${label}`}, true);
+      try {
+        await this.memberBulkLoadAuditService.delete(session);
+        await this.refresh();
+        this.notify.success({
+          title: "Bulk-load audits",
+          message: `Deleted session from ${label} and its member action rows. The next supporter snapshot will not reconcile against it.`
+        });
+      } catch (error) {
+        this.logger.error("deleteSession failed:", error);
+        this.notify.error({title: "Bulk-load audits", message: this.stringUtils.stringify(error), continue: true});
+      } finally {
+        this.busy = false;
+      }
     }
+  }
+
+  cancelDeletion(): void {
+    this.pendingDeleteSessionId = null;
+    this.clearAllArmed = false;
+    this.notify.hide();
   }
 
   async clearAll(): Promise<void> {
     if (this.busy || this.sessionCount === 0) {
       return;
     }
+    this.pendingDeleteSessionId = null;
     if (!this.clearAllArmed) {
       this.clearAllArmed = true;
       this.notify.warning({

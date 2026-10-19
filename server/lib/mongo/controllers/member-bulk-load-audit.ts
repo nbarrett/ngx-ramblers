@@ -39,6 +39,36 @@ import { AuditStatus } from "../../../../projects/ngx-ramblers/src/app/models/au
 
 const debugLog = debug(envConfig.logNamespace("member-bulk-load-audit"));
 
+export async function queryMemberBulkLoadUploadSessions(req: Request, res: Response) {
+  try {
+    const sessions = await memberBulkLoadAudit.aggregate([
+      {$sort: {createdDate: -1}},
+      {
+        $project: {
+          createdDate: 1,
+          createdBy: 1,
+          files: 1,
+          source: 1,
+          error: 1,
+          auditLog: 1,
+          memberCount: {$size: {$ifNull: ["$members", []]}}
+        }
+      }
+    ]);
+    debugLog("queryMemberBulkLoadUploadSessions: found", sessions.length, "sessions");
+    res.status(200).json({
+      action: ApiAction.QUERY,
+      response: sessions.map(session => transforms.toObjectWithId(session))
+    });
+  } catch (error) {
+    debugLog("queryMemberBulkLoadUploadSessions failed:", error);
+    res.status(500).json({
+      message: "member-bulk-load-audit query failed",
+      error: transforms.parseError(error)
+    });
+  }
+}
+
 type MemberBulkLoadDateMapResult = {
   dateMap: MemberBulkLoadDateMap;
 };

@@ -133,6 +133,7 @@ export function dateRangeSliderBounds(fromDate: DateTime, toDate: DateTime, padd
         letter-spacing: 0.02em
         font-size: 0.8rem
         color: #6c757d
+        white-space: nowrap
         strong
           font-size: 0.95rem
           color: var(--ramblers-colour-black)

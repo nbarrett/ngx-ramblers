@@ -350,6 +350,10 @@ export interface RamblersMember extends HasEmailFirstAndLastName {
   emailPermissionLastUpdated: string;
 }
 
+export interface MemberBulkLoadSessionRow extends MemberBulkLoadAudit {
+  sourceLabel: string;
+}
+
 export interface MemberBulkLoadAudit extends Auditable {
   files: {
     archive: string;
@@ -358,7 +362,8 @@ export interface MemberBulkLoadAudit extends Auditable {
   source?: string;
   error?: string;
   auditLog: StatusMessage[];
-  members: RamblersMember[];
+  members?: RamblersMember[];
+  memberCount?: number;
 }
 
 export interface MemberBulkLoadDateMap {
