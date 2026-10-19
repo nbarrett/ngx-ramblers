@@ -1,8 +1,9 @@
+import { MemberBulkLoadSessionsComponent } from "../../../modules/common/member-bulk-load-sessions/member-bulk-load-sessions";
 import { HttpErrorResponse } from "@angular/common/http";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { faEnvelopesBulk, faSearch, faCloudArrowDown, faTrash, faPaperPlane, faCircleExclamation, faXmark } from "@fortawesome/free-solid-svg-icons";
-import { first, isNumber, isString, groupBy, map, max, min, reduce, kebabCase, values } from "es-toolkit/compat";
+import { first, isArray, isNumber, isString, groupBy, map, max, min, reduce, kebabCase, values } from "es-toolkit/compat";
 import { extractErrorMessage } from "../../../functions/strings";
 import { enumKeyValues, KeyValue } from "../../../functions/enums";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
@@ -39,7 +40,7 @@ import { SortDirection } from "../../../models/sort.model";
 import { SortableTableColumn, SortableTableSortState } from "../../../modules/common/sortable-table/sortable-table.model";
 import { SortableTableComponent } from "../../../modules/common/sortable-table/sortable-table.component";
 import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
-import { memberBulkLoadUploadedRows, memberUpdateAuditRows } from "../../../functions/member-bulk-load-rows";
+import { memberBulkLoadSessionMemberCount, memberBulkLoadUploadedRows, memberUpdateAuditRows } from "../../../functions/member-bulk-load-rows";
 import { memberBulkLoadDigestCountsLabel } from "../../../functions/member-bulk-load-digest";
 import { ComposerExternalRecipient } from "../../../models/email-composer.model";
 import { RecipientFieldComponent } from "../../../modules/common/recipient-field/recipient-field";
@@ -105,6 +106,9 @@ export enum MemberBulkLoadHistoryPreset {
   LAST_30_DAYS = "last-30-days",
   LAST_90_DAYS = "last-90-days",
   LAST_1_YEAR = "last-1-year",
+  LAST_2_YEARS = "last-2-years",
+  LAST_3_YEARS = "last-3-years",
+  LAST_5_YEARS = "last-5-years",
   OLDER_THAN_1_YEAR = "older-than-1-year",
   ALL_SESSIONS = "all-sessions",
 }
@@ -596,8 +600,8 @@ export enum MemberBulkLoadSubTab {
                         </div>
                       } @else {
                         <div class="bulk-load-viewport-panel">
-                        <div class="row align-items-end g-3 mb-3">
-                          <div class="col-12 col-md-4 col-lg-3">
+                        <div class="history-range-controls mb-3">
+                          <div class="history-range-preset">
                             <label class="form-label" for="history-preset">Date range preset</label>
                             <select id="history-preset"
                                     class="form-select"
@@ -608,15 +612,14 @@ export enum MemberBulkLoadSubTab {
                               }
                             </select>
                           </div>
-                          <div class="col-12 col-md-8 col-lg-9">
-                            @if (historyMinDate && historyMaxDate) {
-                              <app-date-range-slider
-                                [minDate]="historyMinDate"
-                                [maxDate]="historyMaxDate"
-                                [range]="historyRange"
-                                (rangeChange)="onHistoryRangeChange($event)"/>
-                            }
-                          </div>
+                          @if (historyMinDate && historyMaxDate) {
+                            <app-date-range-slider
+                              class="w-100"
+                              [minDate]="historyMinDate"
+                              [maxDate]="historyMaxDate"
+                              [range]="historyRange"
+                              (rangeChange)="onHistoryRangeChange($event)"/>
+                          }
                         </div>
                         <p class="mb-3">
                           {{ manageHistorySummary }}
@@ -663,48 +666,11 @@ export enum MemberBulkLoadSubTab {
                             </div>
                           }
                         }
-                        @if (sessionsInHistoryRange.length > 0) {
-                          <div class="bulk-load-panel-scroll">
-                            <div class="ngx-data-table-card mb-0">
-                              <table class="ngx-data-table">
-                                <thead>
-                                <tr>
-                                  <th class="text-center" style="width: 2.5rem;">
-                                    <input type="checkbox"
-                                           class="form-check-input"
-                                           id="select-all-history-sessions"
-                                           [checked]="allHistorySessionsSelected"
-                                           [disabled]="notifyTarget.busy"
-                                           (change)="onSelectAllHistorySessionsChange($event)"
-                                           [attr.aria-label]="'Select all sessions in range'">
-                                  </th>
-                                  <th>Uploaded at</th>
-                                  <th>Source</th>
-                                  <th>Members in session</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                  @for (session of sessionsInHistoryRange; track session.id) {
-                                    <tr>
-                                      <td class="text-center">
-                                        <input type="checkbox"
-                                               class="form-check-input"
-                                               [id]="'history-session-' + session.id"
-                                               [checked]="historySessionSelected(session)"
-                                               [disabled]="notifyTarget.busy || !session.id"
-                                               (change)="onHistorySessionCheckboxChange(session, $event)"
-                                               [attr.aria-label]="'Select session from ' + (session.createdDate | displayDateAndTime)">
-                                      </td>
-                                      <td>{{ session.createdDate | displayDateAndTime }}</td>
-                                      <td>{{ memberBulkLoadSourceLabel(session.source) }}</td>
-                                      <td>{{ session.members?.length || 0 }}</td>
-                                    </tr>
-                                  }
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        }
+                        <div class="bulk-load-panel-scroll">
+                          <app-member-bulk-load-sessions [sessions]="sessionsInHistoryRange" [selectable]="true"
+                            [selectedSessionIds]="selectedHistorySessionIds" [disabled]="!!notifyTarget.busy"
+                            (selectedSessionIdsChange)="onHistorySelectionChange($event)"/>
+                        </div>
                         </div>
                       }
                     </div>
@@ -730,7 +696,7 @@ export enum MemberBulkLoadSubTab {
       </div>
     </app-page>`,
   styleUrls: ["./member-bulk-load.component.sass", "../admin/admin.component.sass"],
-  imports: [PageComponent, TabsetComponent, TabDirective, FontAwesomeModule, FileUploadModule, NgClass, StatusIconComponent, FormsModule, LinkComponent, DecimalPipe, TitleCasePipe, DisplayDateAndTimePipe, FullNamePipe, MemberIdToFullNamePipe, RouterLink, DateRangeSlider, SortableTableComponent, SortableTableCellDirective, RecipientFieldComponent, EmailPreviewComponent]
+  imports: [MemberBulkLoadSessionsComponent, PageComponent, TabsetComponent, TabDirective, FontAwesomeModule, FileUploadModule, NgClass, StatusIconComponent, FormsModule, LinkComponent, DecimalPipe, TitleCasePipe, DisplayDateAndTimePipe, FullNamePipe, MemberIdToFullNamePipe, RouterLink, DateRangeSlider, SortableTableComponent, SortableTableCellDirective, RecipientFieldComponent, EmailPreviewComponent]
 })
 export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("MemberBulkLoadComponent", NgxLoggerLevel.ERROR);
@@ -831,6 +797,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   faCircleExclamation = faCircleExclamation;
   faXmark = faXmark;
   protected readonly memberBulkLoadDigestCountsLabel = memberBulkLoadDigestCountsLabel;
+  protected readonly memberBulkLoadSessionMemberCount = memberBulkLoadSessionMemberCount;
   public committeeSummaryArmed = false;
   public committeeSummaryPreview: MemberBulkLoadDigestPreview | null = null;
   public committeeSummaryRecipients: ComposerExternalRecipient[] = [];
@@ -920,6 +887,8 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
           .then(() => {
             const created = this.memberBulkLoadAudits.find(session => session.id === memberBulkLoadResponse.id);
             if (created) {
+              created.members = memberBulkLoadResponse.members || [];
+              created.memberCount = memberBulkLoadSessionMemberCount(memberBulkLoadResponse);
               this.uploadSession = created;
             }
           })
@@ -934,9 +903,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     }));
 
     void this.refreshMembers();
-    this.memberBulkLoadAuditService.all({
-      sort: {createdDate: -1}
-    }).then(memberBulkLoadAudits => {
+    this.memberBulkLoadAuditService.summaries().then(memberBulkLoadAudits => {
       this.logger.debug("found", this.stringUtils.pluraliseWithCount(memberBulkLoadAudits.length, "memberBulkLoadAudit"));
       this.memberBulkLoadAudits = memberBulkLoadAudits;
       this.applyPendingSessionSelection();
@@ -980,7 +947,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
 
   get manageHistorySummary(): string {
     const sessionCount = this.sessionsInHistoryRange.length;
-    const memberCount = reduce(this.sessionsInHistoryRange, (total, session) => total + (session.members?.length || 0), 0);
+    const memberCount = reduce(this.sessionsInHistoryRange, (total, session) => total + memberBulkLoadSessionMemberCount(session), 0);
     const selectedCount = this.selectedHistorySessionIds.length;
     if (!this.historyRange || sessionCount === 0) {
       return "No upload sessions match the selected date range.";
@@ -1001,10 +968,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     return `Delete ${this.stringUtils.pluraliseWithCount(count, "selected session")}`;
   }
 
-  get allHistorySessionsSelected(): boolean {
-    return this.sessionsInHistoryRange.length > 0
-      && this.sessionsInHistoryRange.every(session => !!session.id && this.selectedHistorySessionIds.includes(session.id));
-  }
+
 
   historyPresetLabel(option: string): string {
     switch (option) {
@@ -1016,6 +980,12 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
         return "Last 90 days";
       case MemberBulkLoadHistoryPreset.LAST_1_YEAR:
         return "Last 1 year";
+      case MemberBulkLoadHistoryPreset.LAST_2_YEARS:
+        return "Last 2 years";
+      case MemberBulkLoadHistoryPreset.LAST_3_YEARS:
+        return "Last 3 years";
+      case MemberBulkLoadHistoryPreset.LAST_5_YEARS:
+        return "Last 5 years";
       case MemberBulkLoadHistoryPreset.OLDER_THAN_1_YEAR:
         return "Older than 1 year";
       case MemberBulkLoadHistoryPreset.ALL_SESSIONS:
@@ -1047,35 +1017,9 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     this.syncManageHistoryQueryParams();
   }
 
-  historySessionSelected(session: MemberBulkLoadAudit): boolean {
-    return !!session.id && this.selectedHistorySessionIds.includes(session.id);
-  }
-
-  onHistorySessionCheckboxChange(session: MemberBulkLoadAudit, event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    if (!session.id) {
-      return;
-    }
+  onHistorySelectionChange(ids: string[]): void {
     this.deleteSelectedArmed = false;
-    if (checked) {
-      if (!this.selectedHistorySessionIds.includes(session.id)) {
-        this.selectedHistorySessionIds = [...this.selectedHistorySessionIds, session.id];
-      }
-    } else {
-      this.selectedHistorySessionIds = this.selectedHistorySessionIds.filter(id => id !== session.id);
-    }
-  }
-
-  onSelectAllHistorySessionsChange(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.deleteSelectedArmed = false;
-    if (checked) {
-      this.selectedHistorySessionIds = this.sessionsInHistoryRange
-        .map(session => session.id)
-        .filter((id): id is string => !!id);
-    } else {
-      this.selectedHistorySessionIds = [];
-    }
+    this.selectedHistorySessionIds = ids;
   }
 
   cancelDeleteSelected(): void {
@@ -1190,6 +1134,15 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
         break;
       case MemberBulkLoadHistoryPreset.LAST_1_YEAR:
         this.historyRange = clamp(now.minus({years: 1}).startOf("day").toMillis(), maxMillis);
+        break;
+      case MemberBulkLoadHistoryPreset.LAST_2_YEARS:
+        this.historyRange = clamp(now.minus({years: 2}).startOf("day").toMillis(), maxMillis);
+        break;
+      case MemberBulkLoadHistoryPreset.LAST_3_YEARS:
+        this.historyRange = clamp(now.minus({years: 3}).startOf("day").toMillis(), maxMillis);
+        break;
+      case MemberBulkLoadHistoryPreset.LAST_5_YEARS:
+        this.historyRange = clamp(now.minus({years: 5}).startOf("day").toMillis(), maxMillis);
         break;
       case MemberBulkLoadHistoryPreset.OLDER_THAN_1_YEAR:
         this.historyRange = clamp(minMillis, now.minus({years: 1}).endOf("day").toMillis());
@@ -1416,7 +1369,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
         const sessionChanged = !!this.uploadSession && this.uploadSession.id !== previousSessionId;
         const needsAuditRefresh = sessionChanged || !this.memberUpdateAudits?.length;
         if (needsAuditRefresh) {
-          void this.refreshMemberUpdateAudit();
+          this.ensureUploadHistoryPopulated();
         } else {
           this.filterLists();
         }
@@ -1649,12 +1602,33 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     if (!this.uploadSession) {
       this.applyPendingSessionSelection();
     }
-    this.filterLists();
-    if (this.uploadSession?.id) {
-      void this.refreshMemberUpdateAudit();
-    } else {
-      this.memberUpdateAudits = [];
-      this.updateTabHeadings();
+    void this.loadSelectedUploadSession().then(() => {
+      this.filterLists();
+      if (this.uploadSession?.id) {
+        void this.refreshMemberUpdateAudit();
+      } else {
+        this.memberUpdateAudits = [];
+        this.updateTabHeadings();
+      }
+    });
+  }
+
+  private async loadSelectedUploadSession(): Promise<void> {
+    const session = this.uploadSession;
+    if (session?.id && !isArray(session.members)) {
+      try {
+        const full = await this.memberBulkLoadAuditService.getById(session.id);
+        session.members = full.members || [];
+        session.auditLog = full.auditLog;
+        session.files = full.files;
+        session.source = full.source;
+        session.error = full.error;
+        session.createdBy = full.createdBy;
+        session.memberCount = memberBulkLoadSessionMemberCount(full);
+      } catch (error) {
+        this.logger.error("failed to load upload session", session.id, error);
+        session.members = [];
+      }
     }
   }
 
@@ -1698,8 +1672,10 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
     this.cancelCommitteeSummary();
     this.logger.info("upload session:", this.uploadSession);
     this.syncUploadHistoryQueryParams();
-    this.filterLists();
-    this.refreshMemberUpdateAudit().then(() => this.notify.clearBusy());
+    void this.loadSelectedUploadSession()
+      .then(() => this.filterLists())
+      .then(() => this.refreshMemberUpdateAudit())
+      .finally(() => this.notify.clearBusy());
   }
 
   committeeSummaryConfigured(): boolean {
@@ -1770,9 +1746,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
   }
 
   refreshMemberBulkLoadAudit(): Promise<any> {
-    return this.memberBulkLoadAuditService.all({
-      sort: {createdDate: -1}
-    }).then(uploadSessions => {
+    return this.memberBulkLoadAuditService.summaries().then(async uploadSessions => {
       this.logger.debug("refreshed", uploadSessions && uploadSessions.length, "upload sessions");
       this.memberBulkLoadAudits = uploadSessions;
       const currentSessionId = this.uploadSession?.id;
@@ -1786,6 +1760,7 @@ export class MemberBulkLoadComponent implements OnInit, OnDestroy {
         }
       }
       this.initialiseHistoryRangeFromSessions();
+      await this.loadSelectedUploadSession();
       this.filterLists();
       this.syncUploadHistoryQueryParams();
       return true;

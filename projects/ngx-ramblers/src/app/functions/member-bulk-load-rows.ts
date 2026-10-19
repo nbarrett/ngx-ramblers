@@ -1,12 +1,24 @@
+import { isNumber } from "es-toolkit/compat";
 import {
   Member,
   MemberAction,
+  MemberBulkLoadAudit,
   MemberBulkLoadUploadedRow,
   MemberUpdateAudit,
   MemberUpdateAuditRow,
   RamblersMember
 } from "../models/member.model";
 import { memberDisambiguatedLabel, memberFullName } from "./member-names";
+
+export function memberBulkLoadSessionMemberCount(session: MemberBulkLoadAudit | null | undefined): number {
+  if (!session) {
+    return 0;
+  } else if (isNumber(session.memberCount)) {
+    return session.memberCount;
+  } else {
+    return session.members?.length || 0;
+  }
+}
 
 export function memberForUpdateAudit(audit: MemberUpdateAudit, members: Member[]): Member | null {
   const memberId = audit.memberId || audit.member?.id;

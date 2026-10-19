@@ -45,6 +45,20 @@ export class MemberBulkLoadAuditService {
     return responses;
   }
 
+  async summaries(): Promise<MemberBulkLoadAudit[]> {
+    this.logger.info("summaries");
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberBulkLoadAuditApiResponse>(`${this.BASE_URL}/upload-sessions`), this.bulkLoadNotifications);
+    const responses = response.response as MemberBulkLoadAudit[];
+    this.logger.info("summaries: received", responses.length, "sessions");
+    return responses;
+  }
+
+  async getById(id: string): Promise<MemberBulkLoadAudit> {
+    this.logger.info("getById:", id);
+    const response = await this.commonDataService.responseFrom(this.logger, this.http.get<MemberBulkLoadAuditApiResponse>(`${this.BASE_URL}/${id}`), this.bulkLoadNotifications);
+    return response.response as MemberBulkLoadAudit;
+  }
+
   async create(audit: MemberBulkLoadAudit): Promise<MemberBulkLoadAudit> {
     this.logger.debug("creating", audit);
     const apiResponse = await this.commonDataService.responseFrom(this.logger, this.http.post<MemberBulkLoadAuditApiResponse>(this.BASE_URL, this.dbUtils.performAudit(audit)), this.bulkLoadNotifications);
