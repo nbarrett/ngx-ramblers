@@ -27,6 +27,24 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
       display: flex
       min-width: 0
       position: relative
+      box-sizing: border-box
+
+    :host-context(.composer-workspace-actions)
+      display: flex
+      width: 100%
+      height: var(--btn-min-height)
+
+    :host-context(.composer-workspace-actions) .btn-group
+      width: 100%
+      height: 100%
+
+    :host-context(.composer-workspace-actions) .btn-group > .btn
+      padding-left: 0.75rem
+      padding-right: 0.75rem
+
+    :host-context(.composer-workspace-actions) .btn-group > .dropdown-toggle-split
+      padding-left: 0
+      padding-right: 0
 
     :host:has(.btn-group.show)
       z-index: 1100
@@ -63,7 +81,9 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
       display: flex
       flex: 1 1 auto
       width: 100%
+      max-width: 100%
       min-width: 0
+      box-sizing: border-box
 
     .btn-group > .dropdown-toggle:not(.dropdown-toggle-split)
       display: inline-flex
@@ -72,8 +92,12 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
       justify-content: center
       gap: var(--space-3)
       width: 100%
+      min-width: 0
       min-height: var(--btn-min-height)
       height: 100%
+      padding-left: 0.75rem
+      padding-right: 0.75rem
+      box-sizing: border-box
 
     .btn-group > .btn:not(.dropdown-toggle)
       display: inline-flex
@@ -81,13 +105,22 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
       align-items: center
       justify-content: center
       gap: var(--space-3)
+      min-width: 0
       min-height: var(--btn-min-height)
       height: 100%
+      padding-left: 0.75rem
+      padding-right: 0.75rem
+      box-sizing: border-box
 
     .btn-group > .dropdown-toggle-split
-      flex: 0 0 auto
-      width: auto
+      flex: 0 0 var(--button-dropdown-caret-width, 1.75rem)
+      width: var(--button-dropdown-caret-width, 1.75rem)
+      min-width: var(--button-dropdown-caret-width, 1.75rem)
+      padding-left: 0
+      padding-right: 0
+      justify-content: center
       min-height: var(--btn-min-height)
+      box-sizing: border-box
 
     .btn-group:hover > .btn:not(:disabled),
     .btn-group.show > .btn:not(:disabled),

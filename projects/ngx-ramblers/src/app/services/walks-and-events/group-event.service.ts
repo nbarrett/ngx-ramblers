@@ -189,7 +189,8 @@ export class GroupEventService {
 
   public describedChangedItems(changedItems: ChangedItem[], locationFormat: WalkNotificationLocationFormat | null = null): DescribedChangedItem[] {
     const describedChanges = changedItems.flatMap(changedItem => this.describedChangedItemFor(changedItem, locationFormat));
-    return changedFieldValues(describedChanges, change => change.from === change.to);
+    const withoutUnchanged = changedFieldValues(describedChanges, change => change.from === change.to);
+    return withoutUnchanged.filter(change => !(change.field === EventField.CONTACT_DETAILS && (!change.from || change.from === "(not set)")));
   }
 
   private currentPreviousData(eventsLatestFirst: WalkEvent[], extendedGroupEvent: ExtendedGroupEvent, basedOnUnsavedData: boolean): CurrentPreviousData {

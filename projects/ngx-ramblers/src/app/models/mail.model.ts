@@ -68,6 +68,7 @@ export interface TemplateOverride {
 export type TemplateOverrides = Record<string, TemplateOverride>;
 
 export enum NewsletterIntroPurpose {
+  PLATFORM_UPDATE = "platform-update",
   UPCOMING_EVENTS = "upcoming-events",
   WALK_LEADER_REQUEST = "walk-leader-request"
 }
@@ -88,6 +89,11 @@ export const NEWSLETTER_INTRO_PURPOSE_OPTIONS: NewsletterIntroPurposeOption[] = 
     key: NewsletterIntroPurpose.WALK_LEADER_REQUEST,
     label: "Request for walk leaders",
     hint: "Lists the empty slots in the period that still need someone to lead them"
+  },
+  {
+    key: NewsletterIntroPurpose.PLATFORM_UPDATE,
+    label: "Platform update",
+    hint: "Summarises changes to the platform from the release notes for the period you choose"
   }
 ];
 

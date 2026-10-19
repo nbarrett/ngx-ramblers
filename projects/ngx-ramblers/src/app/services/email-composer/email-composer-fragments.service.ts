@@ -300,7 +300,7 @@ export class EmailComposerFragmentsService {
             return state.fragmentOrder;
         } else {
             const isUnbranded = state.brandingMode === BrandingMode.UNBRANDED;
-            return buildDefaultFragmentOrder(state, { includeTemplateContent: !isUnbranded, unbranded: isUnbranded });
+            return buildDefaultFragmentOrder(state, { includeTemplateContent: !isUnbranded && !!state.notificationConfig?.body?.trim(), unbranded: isUnbranded });
         }
     }
 

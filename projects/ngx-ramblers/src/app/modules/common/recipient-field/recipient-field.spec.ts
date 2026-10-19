@@ -39,4 +39,21 @@ describe("recipient chip identity", () => {
       saveForReuse: false
     })).toBe("Treasurer");
   });
+
+  it("locks name and email for members, lists and roles, and allows edits for typed-in addresses", () => {
+    const member = {id: "member-one", email: "alex.reed@example.com"};
+    const instance = Object.create(RecipientFieldComponent.prototype);
+    Object.assign(instance, {
+      pending: null,
+      memberById: new Map([[member.id, member]]),
+      memberByEmail: new Map([[member.email, member]]),
+      memberFor: (recipient: ComposerExternalRecipient) => recipient.memberId ? member : null
+    });
+    expect(instance.canEditRecipientAddress({email: member.email, memberId: member.id, name: "Alex Reed"})).toBe(false);
+    expect(instance.canEditRecipientAddress({email: "committee@group.example.org.uk", listId: 12, name: "Committee"})).toBe(false);
+    expect(instance.canEditRecipientAddress({email: "chair@group.example.org.uk", committeeRoleType: "chair", name: "Chair"})).toBe(false);
+    expect(instance.canEditRecipientAddress({email: "guest@example.com", name: "Guest"})).toBe(true);
+    instance.pending = {field: "to", name: "New", email: "", saveForReuse: true};
+    expect(instance.canEditRecipientAddress({email: "", name: "New"})).toBe(true);
+  });
 });

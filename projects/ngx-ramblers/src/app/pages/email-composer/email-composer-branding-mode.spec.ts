@@ -187,6 +187,7 @@ describe("composer branding mode", () => {
         totalRecipientCount: () => 4,
         committeeOnlyAudience: () => false,
         sendingAsCampaign: () => false,
+        uniqueSendEntries: () => [{name: "chair@group.example.org.uk"}, {name: "guest@example.com"}],
         expandedHeaderRecipients: recipients => recipients,
         uniqueEntriesFrom: recipients => recipients.map(recipient => ({name: recipient.email})),
         useCommitteeRoleAddresses: () => true
@@ -214,5 +215,29 @@ describe("composer branding mode", () => {
     expect(instance.recipientAddressesArePrivate()).toBe(false);
     expect(instance.sendingChannelLabel()).toBe("one email using To, Cc and Bcc");
     expect(instance.sharedToAddressPreview()).toBe("(chair@group.example.org.uk, guest@example.com)");
+  });
+
+  it("sends one message when the only To recipient has committee members on Bcc", () => {
+    const instance = composer({
+      recipientResolution: {
+        sendingAsCampaign: () => false,
+        uniqueSendEntries: () => [{name: "Alex Reed", member: {id: "alex"}}],
+        totalRecipientCount: () => 1,
+        committeeOnlyAudience: () => false
+      },
+      contentIsPersonalised: () => true
+    });
+    instance.previewRecipientIndex = 0;
+    instance.session.state.brandingMode = BrandingMode.BRANDED;
+    instance.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;
+    instance.session.state.externalRecipients = [{email: "alex.reed@example.com", name: "Alex Reed", memberId: "alex"}];
+    instance.session.state.bccRecipients = [
+      {email: "membership@group.example.org.uk", name: "Membership Co-ordinator", memberId: "tim"}
+    ];
+    expect(instance.sendingChannelLabel()).toBe("one email using To, Cc and Bcc");
+    expect(instance.recipientAddressesArePrivate()).toBe(false);
+    expect(instance.estimatedSendTime()).toBe("1s");
+    expect(instance.previewEntries()).toEqual([{name: "Alex Reed", member: {id: "alex"}}]);
+    expect(instance.previewRecipientLabel()).toBe("1 of 1 - Alex Reed");
   });
 });

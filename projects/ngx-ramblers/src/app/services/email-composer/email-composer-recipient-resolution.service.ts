@@ -164,12 +164,19 @@ export class EmailComposerRecipientResolutionService {
   }
 
   memberSelectionChipLabel(key: MemberSelection): string {
-    const amount = this.session.state.notificationConfig?.monthsInPast;
-    const months = isNumber(amount) ? amount : 1;
+    const amount = isNumber(this.session.state.notificationConfig?.monthsInPast)
+      ? this.session.state.notificationConfig.monthsInPast
+      : 1;
+    const timeUnit = this.session.state.notificationConfig?.timeUnit ?? DateRangeUnit.MONTHS;
+    const noSuffix = timeUnit === NO_DATE_FILTER || amount === 0;
+    const unit = timeUnit.replace(/s$/, "");
+    const window = this.stringUtils.pluraliseWithCount(amount, unit);
     if (key === MemberSelection.RECENTLY_ADDED) {
-      return `Added in last ${this.stringUtils.pluraliseWithCount(months, "month")}`;
+      return noSuffix ? "Added recently" : `Added in last ${window}`;
     } else if (key === MemberSelection.EXPIRED_MEMBERS) {
-      return `Expired (${this.stringUtils.pluraliseWithCount(months, "month")} past expiry)`;
+      return noSuffix ? "Expired" : `Expired (${window} past expiry)`;
+    } else if (key === MemberSelection.MISSING_FROM_BULK_LOAD_MEMBERS) {
+      return noSuffix ? "Missing from bulk load" : `Missing from bulk load (${window} or more)`;
     } else {
       return RECIPIENT_PRE_FILTERS.find(filter => filter.key === key)?.label ?? key;
     }
@@ -255,7 +262,7 @@ export class EmailComposerRecipientResolutionService {
   }
 
   uniqueSendEntries(): EmailComposerRecipientEntry[] {
-    const fromHeaders = this.uniqueEntriesFrom(this.headerRecipients());
+    const fromTo = this.uniqueEntriesFrom(this.session.state.externalRecipients ?? []);
     const namedPeopleOnTo = (this.session.state.externalRecipients ?? [])
       .some(recipient => !composerRecipientIsExpandableSet(recipient));
     const campaignListId = this.campaignListId();
@@ -264,8 +271,8 @@ export class EmailComposerRecipientResolutionService {
         .filter(this.memberService.filterFor.GROUP_MEMBERS)
         .filter(member => this.mailListUpdaterService.memberSubscribed(member, campaignListId))
         .map(member => ({ name: this.previewMemberName(member), member }));
-    } else if (fromHeaders.length > 0) {
-      return fromHeaders;
+    } else if (fromTo.length > 0) {
+      return fromTo;
     } else {
       return (this.session.state.selectedMemberIds ?? [])
         .map(id => this.pool.allMembers.find(member => member.id === id))

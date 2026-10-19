@@ -121,6 +121,8 @@ import {
   faArrowRight,
   faArrowRotateLeft,
   faCheckCircle,
+  faChevronDown,
+  faChevronRight,
   faCircleInfo,
   faCompress,
   faExpand,
@@ -431,8 +433,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       @let unbrandedSenderOnTemplateStep = state.brandingMode === BrandingMode.UNBRANDED && stepperActiveTab === EmailComposerStepKey.TEMPLATE;
       @let unbrandedSenderReady = unbrandedSenderOnTemplateStep && !!sender.unbrandedSenderInfo().email && !unbrandedSenderAlertDismissed;
       @let unbrandedSenderLoading = unbrandedSenderOnTemplateStep && !sender.unbrandedSenderInfo().email && !unbrandedSenderCheckReady();
-        @let
-        recipientsChosenVisible = stepperActiveTab === EmailComposerStepKey.RECIPIENTS && recipientsStepErrors().length === 0 && recipientResolution.totalRecipientCount() > 0 && !recipientsChosenAlertDismissed;
       @let recipientAddressesPrivateVisible = recipientAddressesArePrivate() && !sendComplete() && !recipientAddressesPrivateAlertDismissed;
         <ng-template #templateStatusErrors>
           @for (error of templateStepErrors(); track $index) {
@@ -524,12 +524,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                                    title="This email workflow deletes its recipients">
 
                   <div>
-                    <div>The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete its
-                      recipients from the database once the email has gone out. This cannot be undone.
-                    </div>
-                    <div>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be removed after
-                      the send.
-                    </div>
+                    The "{{ state.notificationConfig?.subject?.text }}" email type will permanently delete its recipients from the database once the email has gone out. This cannot be undone. {{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be removed after the send.
                   </div>
 
                 </app-alert-message>
@@ -539,12 +534,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                                    title="This email workflow disables its recipients">
 
                   <div>
-                    <div>The "{{ state.notificationConfig?.subject?.text }}" email type will remove its recipients from
-                      the group (unticking Approved Group Member) once the email has gone out.
-                    </div>
-                    <div>{{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be disabled
-                      after the send.
-                    </div>
+                    The "{{ state.notificationConfig?.subject?.text }}" email type will remove its recipients from the group (unticking Approved Group Member) once the email has gone out. {{ stringUtils.pluraliseWithCount(bulkDeletionMemberCount(), "member") }} will be disabled after the send.
                   </div>
 
                 </app-alert-message>
@@ -570,6 +560,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                   }
 
                   </div>
+                <div alertDetails>
                 @if (priorSendDetailsExpanded) {
                   <div>
                     @for (exclusion of priorSendExclusions; track exclusion.member.id) {
@@ -586,6 +577,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                          [checked]="includeAlreadySent"
                          (change)="toggleIncludeAlreadySent()">
                   <label class="form-check-label small" for="include-already-sent">Re-send to members already sent this email</label>
+                </div>
                 </div>
                 </app-alert-message>
               }
@@ -626,11 +618,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             }
 
 
-            @if (recipientsChosenVisible) {
-              <app-alert-message title="Recipients chosen" (dismissedChange)="dismissRecipientsChosenAlert()">
-                {{ recipientCountSummary() }}
-              </app-alert-message>
-      }
       @if (recipientAddressesPrivateVisible) {
         <app-alert-message title="Recipient addresses are private"
                            (dismissedChange)="dismissRecipientAddressesPrivateAlert()">
@@ -799,132 +786,98 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               <div class="email-composer-step-label">{{ currentStepTitle() }}</div>
               <div class="email-composer-step-hint">{{ stepHint(stepperActiveTab) }}</div>
             </div>
-      <div class="composer-workspace-actions">
+      <div class="composer-workspace-actions gap-2">
           @if (!sendComplete() || batchJobLost) {
-            <div>
-            <app-button-dropdown fullWidth label="Save"
+            <button type="button" class="btn btn-quiet"
+                    (click)="startNewEmail()"
+                    tooltip="Start a new email"
+                    placement="bottom">
+              <fa-icon [icon]="faFile"/> New
+            </button>
+            <app-button-dropdown label="Save"
                                  [icon]="faLock"
                                  [items]="saveMenuItems()"
                                  [defaultItemId]="ComposerSaveAction.PRIVATE"
                                  [disabled]="!hasContentToDraft() && !session.currentDraftId"
                                  (itemSelect)="onSaveMenu($event)"/>
-            </div>
             @if (session.currentDraftId) {
-              <div>
-              <button type="button" class="btn btn-quiet w-100"
+              <button type="button" class="btn btn-quiet"
                       (click)="revertToSavedDraft()"
                       tooltip="Discard unsaved changes and reload the last saved version"
                       placement="bottom">
-                <fa-icon [icon]="faArrowRotateLeft" class="me-1"/>Revert
+                <fa-icon [icon]="faArrowRotateLeft"/>Revert
               </button>
-              </div>
             }
-            <div>
-            <app-button-dropdown fullWidth label="Show"
+            <app-button-dropdown class="composer-show-menu" label="Show"
                                  [icon]="faFolderOpen"
                                  [items]="showMenuItems()"
                                  (itemSelect)="onShowMenu($event)"/>
-            </div>
           }
+            <div class="composer-flow-tools">
             @switch (stepperActiveTab) {
               @case (EmailComposerStepKey.TEMPLATE) {
-                <div>
-                <button type="button" class="btn btn-primary w-100" (click)="goNext()" [disabled]="!templateStepValid()" [title]="templateStepValidationMessage()">
+                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!templateStepValid()" [title]="templateStepValidationMessage()">
                   Next <fa-icon [icon]="faArrowRight"/>
                 </button>
-                </div>
               }
               @case (EmailComposerStepKey.RECIPIENTS) {
-                <div>
-                <button type="button" class="btn btn-primary w-100" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                </div>
-                <div>
-                <button type="button" class="btn btn-primary w-100" (click)="goNext()" [disabled]="!recipientsStepValid() && !emptyWorkflowNextConfig() && state.brandingMode !== BrandingMode.UNBRANDED" [title]="emptyWorkflowNextConfig() ? 'Continue to the next workflow email' : recipientsStepValid() ? '' : recipientsStepValidationMessage()">
+                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!recipientsStepValid() && !emptyWorkflowNextConfig() && state.brandingMode !== BrandingMode.UNBRANDED" [title]="emptyWorkflowNextConfig() ? 'Continue to the next workflow email' : recipientsStepValid() ? '' : recipientsStepValidationMessage()">
                   Next <fa-icon [icon]="faArrowRight"/>
                 </button>
-                </div>
               }
               @case (EmailComposerStepKey.COMPOSE) {
-                <div>
-                <button type="button" class="btn btn-primary w-100" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                </div>
-                <div>
-                <button type="button" class="btn btn-primary w-100" (click)="goNext()" [disabled]="!canGoToFollowingStep()" [title]="composeStepNextDisabledMessage()">
+                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                <button type="button" class="btn btn-primary" (click)="goNext()" [disabled]="!canGoToFollowingStep()" [title]="composeStepNextDisabledMessage()">
                   Next <fa-icon [icon]="faArrowRight"/>
                 </button>
-                </div>
               }
               @case (EmailComposerStepKey.EVENTS) {
-                <div>
-                <button type="button" class="btn btn-primary w-100" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                </div>
-                <div>
-                <button type="button" class="btn btn-primary w-100" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
-                </div>
+                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                <button type="button" class="btn btn-primary" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
               }
               @case (EmailComposerStepKey.REVIEW) {
-                <div>
-                <button type="button" class="btn btn-primary w-100" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                </div>
-                <div>
-                <button type="button" class="btn btn-primary w-100" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
-                </div>
+                <button type="button" class="btn btn-primary" (click)="goPrev()"><fa-icon [icon]="faArrowLeft"/> Back</button>
+                <button type="button" class="btn btn-primary" (click)="goNext()">Next <fa-icon [icon]="faArrowRight"/></button>
               }
               @case (EmailComposerStepKey.SEND) {
                 @if (sendComplete()) {
                   @if (nextConfigAfterSend) {
-                    <div class="composer-workspace-action-wide">
-                    <button type="button" class="btn btn-primary w-100" (click)="continueToNextConfig()"><fa-icon [icon]="faArrowRight"/> Continue to "{{ nextConfigAfterSend.subject?.text }}"</button>
-                    </div>
+                    <button type="button" class="btn btn-primary composer-workspace-action-wide" (click)="continueToNextConfig()"><fa-icon [icon]="faArrowRight"/> Continue to "{{ nextConfigAfterSend.subject?.text }}"</button>
                   }
-                  <div>
-                  <button type="button" class="btn btn-primary w-100" (click)="newComposition()"><fa-icon [icon]="faFile"/> Start a new email</button>
-                  </div>
-                  <div>
-                  <button type="button" class="btn btn-quiet w-100" (click)="closeAfterSend()"><fa-icon [icon]="faXmark"/> Close</button>
-                  </div>
+                  <button type="button" class="btn btn-primary" (click)="newComposition()"><fa-icon [icon]="faFile"/> Start a new email</button>
+                  <button type="button" class="btn btn-quiet" (click)="closeAfterSend()"><fa-icon [icon]="faXmark"/> Close</button>
                 } @else {
-                  <div>
-                  <button type="button" class="btn btn-primary w-100" (click)="goPrev()" [disabled]="sendInProgress"><fa-icon [icon]="faArrowLeft"/> Back</button>
-                  </div>
+                  <button type="button" class="btn btn-primary" (click)="goPrev()" [disabled]="sendInProgress"><fa-icon [icon]="faArrowLeft"/> Back</button>
                 }
               }
             }
+            </div>
             @if (!sendComplete()) {
               @if (sendConfirm.notificationsOutstanding()) {
-                <div>
-                <button type="button" class="btn btn-sunset text-nowrap w-100"
+                <button type="button" class="btn btn-sunset text-nowrap"
                         (click)="confirmAndSend()"
                         [disabled]="sendInProgress">
                   <fa-icon [icon]="faPaperPlane"/> Confirm send
                 </button>
-                </div>
-                <div>
-                <button type="button" class="btn btn-quiet w-100"
+                <button type="button" class="btn btn-quiet"
                         (click)="cancelSendConfirm()"
                         [disabled]="sendInProgress">
                   <fa-icon [icon]="faXmark"/> Cancel
                 </button>
-                </div>
-              } @else if (!sendDisabled() && !hasSendBlockers()) {
-                <div>
-                <button type="button" class="btn btn-sunset text-nowrap w-100" (click)="armSend()" [title]="'Send ' + sendingChannelLabel()">
+              } @else {
+                <button type="button" class="btn btn-sunset text-nowrap" (click)="armSend()" [disabled]="sendDisabled() || hasSendBlockers()" [title]="'Send ' + sendingChannelLabel()">
                   <fa-icon [icon]="faPaperPlane"/> Send
                 </button>
-                </div>
               }
             }
-          <div class="d-none d-lg-block">
-          <button type="button" class="btn btn-quiet composer-maximise-toggle w-100" (click)="composerPanel.toggle()"
+          <button type="button" class="btn btn-quiet composer-maximise-toggle" (click)="composerPanel.toggle()"
                   [tooltip]="composerPanel.maximised ? composerPanel.restoreTooltip : composerPanel.maximiseTooltip">
-            <fa-icon [icon]="composerPanel.maximised ? faCompress : faExpand" class="me-1"/>{{ composerPanel.maximised ? 'Restore' : 'Maximise' }}
+            <fa-icon [icon]="composerPanel.maximised ? faCompress : faExpand"/>{{ composerPanel.maximised ? 'Restore' : 'Maximise' }}
           </button>
-          </div>
-          <div>
-          <button type="button" class="btn btn-quiet w-100" (click)="exitComposer()">
-            <fa-icon [icon]="faXmark" class="me-1"/>Exit
+          <button type="button" class="btn btn-quiet" (click)="exitComposer()">
+            <fa-icon [icon]="faXmark"/>Exit
           </button>
-          </div>
         </div>
             @if (!draftsPanelOpen && !sentEmailsPanelOpen) {
               <ng-container *ngTemplateOutlet="composerStatusAlerts"/>
@@ -1086,8 +1039,15 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
            [attr.inert]="drafting.creatingReleaseNoteUpdate || drafting.creatingNewsletter ? '' : null"
            [attr.aria-busy]="drafting.creatingReleaseNoteUpdate || drafting.creatingNewsletter">
         <fieldset class="email-composer-fieldset">
-          <legend>Subject</legend>
-          <div>
+          <legend>
+            <button type="button" class="btn btn-link p-0 text-decoration-none fw-bold text-reset"
+                    (click)="composeSettingsExpanded = !composeSettingsExpanded"
+                    [attr.aria-expanded]="composeSettingsExpanded" aria-controls="composer-settings">
+              <fa-icon [icon]="composeSettingsExpanded ? faChevronDown : faChevronRight" class="me-1"/>
+              Subject, attachments and salutation
+            </button>
+          </legend>
+          <div class="mb-2">
             <label for="email-subject">Subject line</label>
             <input id="email-subject" [appFocusInput]="pendingSubjectFocus"
                    (focusCompleted)="pendingSubjectFocus = false" type="text" class="form-control"
@@ -1099,33 +1059,54 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               <small class="text-danger"><ng-container *ngTemplateOutlet="subjectRequiredValidation"/></small>
             }
           </div>
-          @if (state.brandingMode !== BrandingMode.UNBRANDED) {
-            <div class="form-check mt-2">
-              <input id="email-show-title" type="checkbox" class="form-check-input" [(ngModel)]="state.showTitle"/>
-              <label class="form-check-label" for="email-show-title">Show the subject as a heading at the top of the email</label>
-            </div>
+          @if (!composeSettingsExpanded) {
+            @let attachments = state.attachments ?? [];
+            <button type="button" class="email-composer-fieldset-summary" (click)="composeSettingsExpanded = true">
+              Attachments:
+              @if (attachments.length === 0) {
+                None
+              } @else {
+                @for (attachment of attachments.slice(0, 2); track attachment.url; let last = $last) {
+                  {{ attachment.name }}{{ last ? '' : ', ' }}
+                }
+                @if (attachments.length > 2) { and {{ attachments.length - 2 }} more }
+              }
+              @if (state.brandingMode !== BrandingMode.UNBRANDED) {
+                <span class="ms-2">· Salutation:
+                  @for (option of addresseeOptions; track option.key) {
+                    @if (state.addresseeType === option.key) { {{ option.label }} }
+                  }
+                </span>
+              }
+            </button>
           }
-        </fieldset>
-
-        <app-email-composer-attachments [attachments]="state.attachments ?? []" [channel]="state.sendingChannel"
-                                        (attachmentsChange)="state.attachments = $event"/>
-
-        @if (state.brandingMode !== BrandingMode.UNBRANDED) {
-        <fieldset class="email-composer-fieldset">
-          <legend>Salutation</legend>
-          <label>Greeting</label>
-          <div>
-            @for (option of addresseeOptions; track option.key) {
-              <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" [id]="'addressee-' + option.key" name="addressee-type"
-                       [checked]="state.addresseeType === option.key"
-                       (change)="state.addresseeType = option.key">
-                <label class="form-check-label" [for]="'addressee-' + option.key">{{ option.label }}</label>
+          <div id="composer-settings" [class.d-none]="!composeSettingsExpanded">
+            @if (state.brandingMode !== BrandingMode.UNBRANDED) {
+              <div class="form-check mb-3">
+                <input id="email-show-title" type="checkbox" class="form-check-input" [(ngModel)]="state.showTitle"/>
+                <label class="form-check-label" for="email-show-title">Show the subject as a heading at the top of the email</label>
+              </div>
+            }
+            <div class="mb-3">
+              <label>Attachments</label>
+              <app-email-composer-attachments [showHeading]="false" [attachments]="state.attachments ?? []" [channel]="state.sendingChannel"
+                                              (attachmentsChange)="state.attachments = $event"/>
+            </div>
+            @if (state.brandingMode !== BrandingMode.UNBRANDED) {
+              <label>Salutation</label>
+              <div>
+                @for (option of addresseeOptions; track option.key) {
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" [id]="'addressee-' + option.key" name="addressee-type"
+                           [checked]="state.addresseeType === option.key"
+                           (change)="state.addresseeType = option.key">
+                    <label class="form-check-label" [for]="'addressee-' + option.key">{{ option.label }}</label>
+                  </div>
+                }
               </div>
             }
           </div>
         </fieldset>
-        }
 
         <fieldset class="email-composer-fieldset">
           <legend>Sections</legend>
@@ -1443,6 +1424,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   private zone = inject(NgZone);
   private host = inject(ElementRef<HTMLElement>);
   protected pendingSubjectFocus = false;
+  protected composeSettingsExpanded = false;
   private systemConfigService = inject(SystemConfigService);
   private salesforceConfigService = inject(SalesforceConfigService);
   protected stringUtils = inject(StringUtilsService);
@@ -1501,7 +1483,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   private automaticCampaignReleaseTaskEnabled: boolean | null = null;
   protected unbrandedListSendWarningDismissed = false;
   protected unbrandedSenderAlertDismissed = false;
-  protected recipientsChosenAlertDismissed = false;
   protected recipientAddressesPrivateAlertDismissed = false;
   protected readonly UNBRANDED_HARD_CAP_RECIPIENTS = UNBRANDED_HARD_CAP_RECIPIENTS;
   protected batchProgress: BatchSendProgress | null = null;
@@ -1525,6 +1506,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   protected readonly BrandingMode = BrandingMode;
   protected readonly brandingModeOptions = BRANDING_MODE_OPTIONS;
   protected readonly EM_DASH_WITH_SPACES = EM_DASH_WITH_SPACES;
+  protected readonly faChevronDown = faChevronDown;
+  protected readonly faChevronRight = faChevronRight;
   protected readonly faSpinner = faSpinner;
   protected readonly faArrowLeft = faArrowLeft;
   protected readonly faArrowRight = faArrowRight;
@@ -2172,7 +2155,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       const forced = this.forcedConfigId
         ? candidates.find(candidate => candidate.id === this.forcedConfigId)
         : undefined;
-      if (forced) {
+      if (forced && !this.userPickedEmailType) {
         if (forced.id !== this.session.state.notificationConfig?.id) {
           this.applyNotificationConfig(forced);
         }
@@ -2763,7 +2746,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
         : this.session.state.notificationConfig?.subject?.text ?? "";
     }
     this.session.state.signoffRoles = this.validSignoffRolesFor(this.session.state.notificationConfig?.signOffRoles ?? []);
-    this.recipients.applyRecipientDefaultsFrom(this.session.state.notificationConfig);
+    this.recipients.applyRecipientDefaultsFrom(this.session.state.notificationConfig, !sameConfig && this.userPickedEmailType);
     this.session.syncStateToUrl({
       [StoredValue.CONFIG_ID]: this.configToSlug(this.session.state.notificationConfig),
       [StoredValue.LIST_ID]: this.session.state.recipientMode === RecipientMode.ENTIRE_LIST ? this.session.state.selectedListId?.toString() ?? null : null,
@@ -2893,8 +2876,10 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   protected async refreshTemplateContent(): Promise<void> {
-    const templateName = this.session.state.notificationConfig?.templateName;
+    const config = this.session.state.notificationConfig;
+    const templateName = config?.templateName;
     if (!templateName) {
+      this.templateContentFetching = false;
       this.templateContentHtml = null;
       this.templateContentError = null;
       this.lastTemplateContentTemplateName = null;
@@ -2904,18 +2889,25 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
         this.applyTemplateContentFragmentPresence();
       } else {
         this.templateContentFetching = true;
+        this.templateContentHtml = null;
         this.templateContentError = null;
         try {
           const response = await this.mailService.localTemplateContent(templateName);
-          this.templateContentHtml = response?.htmlContent ?? null;
-          this.lastTemplateContentTemplateName = templateName;
-          this.applyTemplateContentFragmentPresence();
+          if (this.session.state.notificationConfig === config) {
+            this.templateContentHtml = response?.htmlContent ?? null;
+            this.lastTemplateContentTemplateName = templateName;
+            this.applyTemplateContentFragmentPresence();
+          }
         } catch (error) {
           this.logger.error("localTemplateContent failed:", error);
-          this.templateContentError = "Could not load template content.";
-          this.templateContentHtml = null;
+          if (this.session.state.notificationConfig === config) {
+            this.templateContentError = "Could not load template content.";
+            this.templateContentHtml = null;
+          }
         } finally {
-          this.templateContentFetching = false;
+          if (this.session.state.notificationConfig === config) {
+            this.templateContentFetching = false;
+          }
         }
       }
     }
@@ -2930,7 +2922,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   private applyTemplateContentFragmentPresence(): void {
-    if (this.templateHasTopBottomPlaceholders() || !!this.session.state.notificationConfig?.body) {
+    if (this.templateHasTopBottomPlaceholders() || !!this.session.state.notificationConfig?.body?.trim()) {
       this.ensureTemplateContentFragment();
     } else {
       this.removeTemplateContentFragment();
@@ -3069,10 +3061,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   estimatedSendTime(): string {
     const count = this.session.state.brandingMode === BrandingMode.UNBRANDED
       ? 1
-      : this.session.state.selectedMemberIds.length
-      + (this.session.state.externalRecipients?.length ?? 0)
-      + (this.session.state.ccRecipients?.length ?? 0)
-      + (this.session.state.bccRecipients?.length ?? 0);
+      : this.recipientResolution.uniqueSendEntries().length;
     if (count === 0) {
       return "0s";
     } else {
@@ -3089,6 +3078,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   sendingChannelLabel(): string {
     if (this.recipientResolution.sendingAsCampaign()) {
       return "to the whole list";
+    } else if (this.recipientResolution.uniqueSendEntries().length === 1) {
+      return "one email using To, Cc and Bcc";
     } else if (this.contentIsPersonalised() || this.recipientAddressesArePrivate()) {
       return "to each member individually";
     } else if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
@@ -3111,11 +3102,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
         errors.push("Choose which mailing list to send to");
       }
     } else {
-      const headerCount = (this.session.state.externalRecipients?.length ?? 0)
-        + (this.session.state.ccRecipients?.length ?? 0)
-        + (this.session.state.bccRecipients?.length ?? 0);
-      if (this.session.state.selectedMemberIds.length === 0 && headerCount === 0) {
-        errors.push("Select at least one member");
+      if ((this.session.state.externalRecipients ?? []).length === 0) {
+        errors.push("Add at least one To recipient");
       }
       const blockedMembers = this.unavailableSelectedMembers();
       errors.push(...blockedMembers.map(entry => `${this.memberFullName(entry.member)} ${entry.reason} and cannot be emailed — remove this member from the recipients to continue`));
@@ -3549,11 +3537,15 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     const fallback = EMAIL_COMPOSER_STEPS.find(step => step.key === key)?.hint ?? "";
     switch (key) {
       case EmailComposerStepKey.RECIPIENTS: {
-        if (this.session.state.brandingMode !== BrandingMode.UNBRANDED && this.session.state.recipientMode === RecipientMode.ENTIRE_LIST) {
+        const to = this.session.state.externalRecipients ?? [];
+        const listOnTo = this.session.state.brandingMode !== BrandingMode.UNBRANDED
+          && this.session.state.recipientMode === RecipientMode.ENTIRE_LIST
+          && to.some(recipient => recipient.listId === this.session.state.selectedListId);
+        if (listOnTo) {
           const list = this.recipientSources.availableLists().find(item => item.id === this.session.state.selectedListId);
           return list ? this.recipientSources.listNameAndCount(list) : fallback;
         } else {
-          const total = composerRecipientCount(this.session.state.externalRecipients ?? [])
+          const total = composerRecipientCount(to)
             + composerRecipientCount(this.session.state.ccRecipients ?? [])
             + composerRecipientCount(this.session.state.bccRecipients ?? []);
           return total > 0 ? this.recipientCountSummary() : fallback;
@@ -3599,7 +3591,13 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   protected startNewEmail(): void {
-    if (this.confirmLeaveComposer("New email", "discard and start a new email")) {
+    if (this.warnUnsaved && this.shouldWarnAboutUnsavedChanges() && !this.newArmed) {
+      this.newArmed = true;
+      this.session.notify.warning({
+        title: "Discard email content?",
+        message: "You have unsent email content. Click New again to discard this email and start a new one."
+      });
+    } else {
       this.newComposition();
     }
   }
@@ -3655,6 +3653,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   protected cancelArmed: boolean = false;
+  protected newArmed: boolean = false;
   protected sendConfirm = new Confirm();
 
   private hasUnsavedChanges(): boolean {
@@ -3775,9 +3774,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   protected showMenuItems(): ButtonDropdownItem[] {
     return [
       {id: ComposerShowAction.DRAFTS, label: `${this.draftsPanelOpen ? "Hide drafts" : "Drafts"} (${this.drafts.length})`, icon: this.faFolderOpen},
-      {id: ComposerShowAction.SENT, label: `${this.sentEmailsPanelOpen ? "Hide sent" : "Sent"} (${this.sentEmails.length})`, icon: this.faPaperPlane},
-      {id: "show-new-divider", type: ButtonDropdownItemType.DIVIDER},
-      {id: ComposerShowAction.NEW, label: "New email", icon: this.faFile, tooltip: "Abandon this email and start a new one"}
+      {id: ComposerShowAction.SENT, label: `${this.sentEmailsPanelOpen ? "Hide sent" : "Sent"} (${this.sentEmails.length})`, icon: this.faPaperPlane}
     ];
   }
 
@@ -3794,8 +3791,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       this.toggleDraftsPanel();
     } else if (action === ComposerShowAction.SENT) {
       this.toggleSentEmailsPanel();
-    } else if (action === ComposerShowAction.NEW) {
-      this.startNewEmail();
     }
   }
 
@@ -3913,7 +3908,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
         await this.refreshDrafts();
         this.session.notify.success({
           title: this.composeShared ? "Draft saved and shared" : "Draft saved",
-          message: this.composeShared ? `${draft.title} is visible to the committee.` : draft.title
+          message: this.draftStatusDetail(draft.title, true)
         });
         return true;
       } catch (error) {
@@ -3955,6 +3950,21 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     globalThis.location.assign(url);
   }
 
+  private draftStatusDetail(title: string, saved: boolean): string {
+    const unbranded = this.session.state.brandingMode === BrandingMode.UNBRANDED;
+    if (saved && this.composeShared) {
+      if (unbranded) {
+        return "Visible to the committee.";
+      } else {
+        return `${title} is visible to the committee.`;
+      }
+    } else if (unbranded) {
+      return "";
+    } else {
+      return title;
+    }
+  }
+
   protected async revertToSavedDraft(): Promise<void> {
     if (!(!this.session.currentDraftId)) {
       await this.loadDraft(this.session.currentDraftId);
@@ -3988,7 +3998,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
             ? this.session.state.selectedListId?.toString() ?? null
             : null
         });
-        this.session.notify.success({title: "Draft loaded", message: draft.title});
+        this.session.notify.success({title: "Draft loaded", message: this.draftStatusDetail(draft.title, false)});
       }
     } catch (error) {
       this.logger.error("loadDraft failed:", error);
@@ -4159,6 +4169,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     this.routeCompositionKey = null;
     this.unbrandedSenderAlertDismissed = false;
     this.session.state = defaultEmailComposerState();
+    this.composeSettingsExpanded = false;
     this.currentComposition = null;
     this.pendingForwardedHeaderLines = [];
     this.templateContentHtml = null;
@@ -4169,7 +4180,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     this.fragmentEditor.expandedFragmentIds.clear();
     this.recipients.narrowMembersExpanded = true;
     this.recipients.recipientAddressModeTouched = false;
-    this.userPickedEmailType = false;
+    this.userPickedEmailType = !!config;
     this.recipients.userPickedRecipientMode = false;
     this.recipients.unbrandedPopulateField = RecipientField.TO;
     this.recipients.expandedRecipientListIds.clear();
@@ -4196,10 +4207,24 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     this.session.currentDraftId = null;
     this.userHasEditedComposer = false;
     this.cancelArmed = false;
+    this.newArmed = false;
     this.lastSavedAt = null;
     this.composeShared = false;
     this.draftsPanelOpen = false;
-    this.setActiveStepperTab(EmailComposerStepKey.TEMPLATE, {
+    this.batchProgress = null;
+    this.batchJobLost = false;
+    this.campaignSendComplete = false;
+    this.nextConfigAfterSend = null;
+    this.documents.committeeFiles = new Map();
+    this.documents.committeeFileUrlInput = "";
+    this.documents.committeeFileUrlError = null;
+    this.documents.committeeFileUrlAllowedIds = null;
+    this.sendConfirm.clear();
+    this.session.notify.hide();
+    if (config) {
+      this.applyNotificationConfig(config);
+    }
+    const tabParams: Record<string, string | null | undefined> = {
       [StoredValue.MEMBER]: null,
       [StoredValue.DRAFT_ID]: null,
       [StoredValue.COPY_OF]: null,
@@ -4213,23 +4238,12 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       [StoredValue.MESSAGE]: null,
       [StoredValue.EVENT]: null,
       [StoredValue.COMMITTEE_FILE]: null,
-      [StoredValue.PRE_FILTER]: null,
       [StoredValue.AUDIENCE]: null
-    });
-    this.batchProgress = null;
-    this.batchJobLost = false;
-    this.campaignSendComplete = false;
-    this.nextConfigAfterSend = null;
-    this.documents.committeeFiles = new Map();
-    this.documents.committeeFileUrlInput = "";
-    this.documents.committeeFileUrlError = null;
-    this.documents.committeeFileUrlAllowedIds = null;
-    this.sendConfirm.clear();
-    this.session.notify.hide();
-    if (config) {
-      this.userPickedEmailType = true;
-      this.applyNotificationConfig(config);
+    };
+    if (!config) {
+      tabParams[StoredValue.PRE_FILTER] = null;
     }
+    this.setActiveStepperTab(EmailComposerStepKey.TEMPLATE, tabParams);
   }
 
   protected lastSavedDescription(): string {
@@ -4348,12 +4362,15 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       }
       const {top, bottom, combined} = this.composedBodyParts();
       const entries = this.previewEntries();
-      if (entries.length > 0 && this.previewRecipientIndex >= entries.length) {
+      if (entries.length === 0) {
+        this.emailPreview?.showError("Add at least one To recipient to preview this email.");
+      } else {
+      if (this.previewRecipientIndex >= entries.length) {
         this.previewRecipientIndex = entries.length - 1;
       }
-      const entry = entries[this.previewRecipientIndex] ?? null;
-      const memberId = entry?.member?.id ?? this.memberLoginService.loggedInMember().memberId;
-      const member = await this.memberService.getById(memberId);
+      const entry = entries[this.previewRecipientIndex];
+      const memberId = entry?.member?.id ?? null;
+      const member = memberId ? await this.memberService.getById(memberId) : null;
       const params = this.mailMessagingService.createSendSmtpEmailParams(member, this.session.state.notificationConfig as NotificationConfig, combined, this.session.state.subject, "", top, bottom);
       if ((combined || "").includes("volunteerMergeFields")) {
         await this.ensureVolunteerSnapshot();
@@ -4373,6 +4390,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
           showTitle: this.session.state.showTitle
         };
       await this.emailPreview.render(request);
+      }
     }
   }
 
@@ -4635,10 +4653,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     this.unbrandedSenderAlertDismissed = true;
   }
 
-  protected dismissRecipientsChosenAlert(): void {
-    this.recipientsChosenAlertDismissed = true;
-  }
-
   protected dismissRecipientAddressesPrivateAlert(): void {
     this.recipientAddressesPrivateAlertDismissed = true;
   }
@@ -4844,16 +4858,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     await this.documents.resolveCommitteeFileLinksForSend();
     const {top, bottom, combined} = this.composedBodyParts();
     const isUnbranded = this.session.state.brandingMode === BrandingMode.UNBRANDED;
-    const unbrandedSender = this.sender.unbrandedSenderInfo();
-    const brandedSender = this.sender.resolvedBrandedSenderIdentity();
-    const senderEmail = isUnbranded ? unbrandedSender.email : brandedSender?.email;
-    const senderName = isUnbranded ? unbrandedSender.name || unbrandedSender.description : brandedSender?.name;
     const expandedTo = this.recipientResolution.expandedHeaderRecipients(this.session.state.externalRecipients ?? []);
-    const toRecipients = expandedTo.length > 0
-      ? expandedTo
-      : (senderEmail
-        ? [{email: senderEmail, name: senderName, saveForReuse: false}]
-        : []);
+    const toRecipients = expandedTo;
     const ccRecipients = this.recipientResolution.expandedHeaderRecipients(this.session.state.ccRecipients ?? []);
     const bccRecipients = this.recipientResolution.expandedHeaderRecipients(this.session.state.bccRecipients ?? []);
     const splitTo = batchSendRecipientSplit(toRecipients);

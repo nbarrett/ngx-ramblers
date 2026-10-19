@@ -3,29 +3,32 @@ import {Component, EventEmitter, Input, Output} from "@angular/core";
 import {FontAwesomeModule} from "@fortawesome/angular-fontawesome";
 import {faArrowRight, faTriangleExclamation, faXmark} from "@fortawesome/free-solid-svg-icons";
 import {TooltipDirective} from "ngx-bootstrap/tooltip";
+import {DELAYED_TOOLTIP_PROVIDERS} from "../tooltip-config";
 import {EM_DASH_WITH_SPACES} from "../../../models/content-text.model";
 
 @Component({
   selector: "app-alert-message",
   imports: [FontAwesomeModule, TooltipDirective],
-  host: {"[hidden]": "dismissed"},
+  providers: DELAYED_TOOLTIP_PROVIDERS,
+  host: {"[hidden]": "dismissed", "[attr.title]": "null"},
   styles: `
     :host
       display: block
+      position: relative
     :host[hidden]
       display: none
     .alert-message-row
-      display: flex
-      align-items: flex-start
-      gap: var(--space-3, 12px)
+      display: block
     .alert-message-content
-      flex: 1
       min-width: 0
+      width: 100%
     .alert-message-title
       display: flex
       align-items: center
       gap: 8px
       margin-bottom: var(--space-2, 8px)
+      padding-right: 2.25rem
+      box-sizing: border-box
       font-size: inherit
       line-height: 1.2
     .alert-message-title fa-icon
@@ -34,13 +37,16 @@ import {EM_DASH_WITH_SPACES} from "../../../models/content-text.model";
       line-height: 1
       flex-shrink: 0
     .alert-message-body
-      display: flex
-      flex-direction: column
-      gap: var(--space-2, 8px)
+      display: block
     .alert-message-separator
       display: none
-    .alert-message-actions
+    .alert-message-actions,
+    .alert-message-details:not(:empty)
       margin-top: var(--space-2, 8px)
+    .alert-message-details
+      clear: both
+    .alert-message-details:empty
+      display: none
     :host ::ng-deep .alert-message-content a
       font-weight: 700
       text-decoration: none
@@ -53,8 +59,13 @@ import {EM_DASH_WITH_SPACES} from "../../../models/content-text.model";
         color: inherit
     @media (min-width: 768px)
       :host-context(.alert-panel-compact) .alert-message-row
-        align-items: center
+        display: flex
+        align-items: flex-start
+        gap: var(--space-3, 12px)
       :host-context(.alert-panel-compact) .alert-message-content
+        flex: 1
+        min-width: 0
+        width: auto
         display: flow-root
       :host-context(.alert-panel-compact) .alert-message-title
         float: left
@@ -62,6 +73,7 @@ import {EM_DASH_WITH_SPACES} from "../../../models/content-text.model";
         line-height: inherit
         gap: 0
         margin: 0
+        padding-right: 0
       :host-context(.alert-panel-compact) .alert-message-title fa-icon
         margin-right: 8px
       :host-context(.alert-panel-compact) .alert-message-content:has(> .alert-message-body:not(:empty)) .alert-message-separator
@@ -72,19 +84,23 @@ import {EM_DASH_WITH_SPACES} from "../../../models/content-text.model";
         display: none
       :host-context(.alert-panel-compact) .alert-message-body:not(:empty)
         display: block
-      :host-context(.alert-panel-compact) .alert-message-body:not(:empty) ::ng-deep *
+      :host-context(.alert-panel-compact) .alert-message-body:not(:empty) ::ng-deep > :is(div, p):not(.form-check)
         display: inline
       :host-context(.alert-panel-compact) .alert-message-actions
         display: block
         clear: both
+      :host-context(.alert-panel-compact) .alert-message-dismiss
+        position: static
     .alert-message-dismiss
+      position: absolute
+      top: 0
+      right: 0
       display: inline-flex
       align-items: center
       justify-content: center
       flex-shrink: 0
       width: 28px
       height: 28px
-      margin-left: auto
       padding: 0
       border: none
       border-radius: 50%
@@ -110,6 +126,7 @@ import {EM_DASH_WITH_SPACES} from "../../../models/content-text.model";
             </a>
           </div>
         }
+        <div class="alert-message-details"><ng-content select="[alertDetails]"/></div>
       </div>
       <button type="button" class="alert-message-dismiss" tooltip="Dismiss"
               container="body" placement="bottom" [attr.aria-label]="title ? 'Dismiss ' + title : 'Dismiss message'"

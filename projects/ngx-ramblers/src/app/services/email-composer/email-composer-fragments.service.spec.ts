@@ -1,7 +1,8 @@
 import {TestBed} from "@angular/core/testing";
 import {beforeEach, describe, expect, it} from "vitest";
 import {defaultEmailComposerState} from "../../functions/email-composer";
-import {BrandingMode, ComposerFragmentKind, SectionDividerStyle} from "../../models/email-composer.model";
+import {BrandingMode, ComposerFragmentKind, EmailCompositionKind, SectionDividerStyle} from "../../models/email-composer.model";
+import {NotificationConfig} from "../../models/mail.model";
 import {DateUtilsService} from "../date-utils.service";
 import {StringUtilsService} from "../string-utils.service";
 import {EmailComposerFragmentsService} from "./email-composer-fragments.service";
@@ -66,6 +67,23 @@ describe("composer fragment editing", () => {
     const rendered = service.fragmentsForRender(state);
     expect(state.fragmentOrder).toEqual([]);
     expect(rendered.some(fragment => fragment.kind === ComposerFragmentKind.INTRO)).toBe(true);
+  });
+
+  it.each([null, "", "   "])("omits template content from a newsletter with body %j", body => {
+    const service = TestBed.inject(EmailComposerFragmentsService);
+    const state = defaultEmailComposerState();
+    state.compositionKind = EmailCompositionKind.NEWSLETTER;
+    state.notificationConfig = {id: "newsletter", body} as NotificationConfig;
+    service.ensureFragmentOrder(state);
+    expect(state.fragmentOrder.some(fragment => fragment.kind === ComposerFragmentKind.TEMPLATE_CONTENT)).toBe(false);
+  });
+
+  it("keeps configured template wording in branded emails", () => {
+    const service = TestBed.inject(EmailComposerFragmentsService);
+    const state = defaultEmailComposerState();
+    state.notificationConfig = {id: "welcome", body: "Welcome to the group."} as NotificationConfig;
+    service.ensureFragmentOrder(state);
+    expect(state.fragmentOrder.some(fragment => fragment.kind === ComposerFragmentKind.TEMPLATE_CONTENT)).toBe(true);
   });
 
   it("keeps expansion and drag state separate between composer instances", () => {
