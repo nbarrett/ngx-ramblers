@@ -55,11 +55,33 @@ describe("RouteFollowCacheService recovery", () => {
   it("does not count a failed tile request as an offline download", async () => {
     const cache = Object.create(RouteFollowCacheService.prototype) as RouteFollowCacheService;
     cache["logger"] = {warn: vi.fn()} as unknown as typeof cache["logger"];
+    vi.stubGlobal("caches", {
+      open: vi.fn().mockResolvedValue({match: () => Promise.resolve(null), put: vi.fn()}),
+      match: () => Promise.resolve(null)
+    });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Unavailable", {status: 503})));
     try {
       const result = await cache.prefetchTiles(["https://group.example.org.uk/tile"]);
       expect(result.saved).toBe(0);
       expect(result.total).toBe(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps a successful tile download for later map loads", async () => {
+    const cache = Object.create(RouteFollowCacheService.prototype) as RouteFollowCacheService;
+    cache["logger"] = {warn: vi.fn()} as unknown as typeof cache["logger"];
+    const put = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("caches", {
+      open: vi.fn().mockResolvedValue({match: () => Promise.resolve(null), put}),
+      match: () => Promise.resolve(null)
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("png", {status: 200})));
+    try {
+      const result = await cache.prefetchTiles(["https://group.example.org.uk/tile"]);
+      expect(result.saved).toBe(1);
+      expect(put).toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
     }

@@ -23,6 +23,7 @@ import { NumberUtilsService } from "../../../services/number-utils.service";
 import { GoogleMapsService } from "../../../services/google-maps.service";
 import { BroadcastService } from "../../../services/broadcast-service";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { WalkLocationEditComponent } from "./walk-location-edit";
@@ -46,7 +47,7 @@ describe("Walk location coordinates", () => {
       {provide: NotifierService, useValue: {createGlobalAlert: () => ({hide: vi.fn(), warning, success: vi.fn()})}},
       {provide: WalkDisplayService, useValue: {gridReferenceFrom: location => location.grid_reference_10, googleMapsUrl: () => null}},
       ...[MapMarkerStyleService, GpxParserService, MapZoomService, DateUtilsService, StringUtilsService, NumberUtilsService,
-        GoogleMapsService, BroadcastService, WalksConfigService, UrlService, ActivatedRoute]
+        GoogleMapsService, BroadcastService, WalksConfigService, SystemConfigService, UrlService, ActivatedRoute]
         .map(provide => ({provide, useValue: {}}))
     ]});
     state.map = TestBed.runInInjectionContext(() => new MapEditComponent());

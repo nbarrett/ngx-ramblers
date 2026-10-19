@@ -292,6 +292,20 @@
   min-height: 40px
   padding: 0
 
+.app-home-walk-actions .btn,
+.app-home-walk-actions .btn:hover,
+.app-home-walk-actions .btn:focus,
+.app-home-walk-actions .btn:active
+  background: transparent
+  background-image: none
+  border-color: transparent
+  box-shadow: none
+  color: var(--app-ink)
+
+.app-home-walk-actions .btn:focus-visible
+  outline: 2px solid var(--app-muted)
+  outline-offset: 2px
+
 .app-home-map-action
   display: inline-flex
   align-items: center
@@ -318,10 +332,66 @@
 .app-home-walk-photo
   flex: 0 0 120px
   width: 120px
+  height: 120px
   align-self: stretch
-  height: auto
   object-fit: cover
+  object-position: center
   border-radius: 0
+  margin: 0
+  display: block
+
+.app-home-walk-photo-fallback
+  object-position: 90% 45%
+  background: #cfe6d4
+
+.app-home-walk-map
+  flex: 0 0 120px
+  width: 120px
+  height: 120px
+  align-self: stretch
+  overflow: hidden
+  pointer-events: auto
+  touch-action: none
+
+.app-home-walk-map .app-home-walk-photo,
+.app-home-walk-map app-card-image-or-map
+  width: 120px
+  height: 120px
+  object-fit: cover
+
+  ::ng-deep .leaflet-container,
+  ::ng-deep .map-edit-surface
+    pointer-events: auto
+    touch-action: none
+
+  ::ng-deep .map-card-image,
+  ::ng-deep .map-card-image-events
+    height: 120px
+    box-shadow: none
+    border-radius: 0
+
+  ::ng-deep .leaflet-control-zoom
+    display: none
+
+  ::ng-deep .leaflet-control-attribution
+    font-size: 6px
+    line-height: 1
+    padding: 0 3px
+    background: rgba(255, 255, 255, 0.7)
+    max-width: 100%
+    white-space: normal
+
+.app-home-card-copy .event-badge
+  align-self: flex-start
+  display: inline-block
+  max-width: 100%
+  font-size: 0.65rem
+  font-weight: 600
+  line-height: 1.2
+  padding: 2px 6px 3px
+  margin-left: 0
+  margin-top: 6px
+  white-space: normal
 
 .app-home-route-main
   display: flex
@@ -356,7 +426,11 @@
   gap: 8px
 
 .app-home-route-card .app-home-card-copy
+  display: flex
+  flex-direction: column
+  justify-content: flex-start
   padding: 10px 12px
+  min-width: 0
 
 .app-home-kicker
   text-transform: uppercase

@@ -20,6 +20,7 @@ import { Logger, LoggerFactory } from "../logger-factory.service";
 
 import { LegacyWalkingRoute } from "../../models/legacy-walking-recovery.model";
 import { nativeWalkingSite, nativeWalkingStorageKey } from "../../functions/native-walking";
+import { fetchFollowTile } from "../../functions/follow-tile-cache";
 
 const DB_NAME = "ngx-follow";
 const DB_VERSION = 1;
@@ -231,8 +232,8 @@ export class RouteFollowCacheService {
     const result = await unique.reduce(async (previous, url, index) => {
       const acc = await previous;
       try {
-        const response = await fetch(url, {mode: "cors", credentials: "same-origin"});
-        if (!response.ok) {
+        const response = await fetchFollowTile(url);
+        if (!response.ok && response.type !== "opaque") {
           throw new Error(`Map tile request failed: ${response.status}`);
         }
         const buffer = await response.arrayBuffer();

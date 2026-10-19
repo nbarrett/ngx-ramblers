@@ -20,6 +20,14 @@ export class MapMarkerStyleService {
     return this.teardropPinSvg(color, `<circle cx="14" cy="14" r="4.5" fill="#ffffff"/>`);
   }
 
+  smallPreviewPinIcon(provider: MapProvider, walkStatus?: WalkStatus): L.DivIcon {
+    if (provider === MapProvider.OS || provider === MapProvider.AERIAL) {
+      return this.explorerPinIcon(walkStatus, 14);
+    } else {
+      return this.markerIcon(provider, "", walkStatus);
+    }
+  }
+
   numberedMarkerIcon(label: string, provider: MapProvider, style: string, travelBearing: number | null = null): L.DivIcon {
     const color = this.numberedMarkerColour(provider);
     const text = escapeHtml(label || "");
@@ -63,7 +71,7 @@ export class MapMarkerStyleService {
   followLocationIcon(heading: number, size = FollowPointerSize.MEDIUM): L.DivIcon {
     const rotation = heading || 0;
     const pixels = followPointerPixels(size);
-    const html = `<div class="follow-location-chevron" style="transform:rotate(${rotation}deg)">
+    const html = `<div class="follow-location-chevron" style="--pointer-heading:${rotation}deg;transform:rotate(${rotation}deg)">
       <svg width="${pixels.width}" height="${pixels.height}" viewBox="0 0 26 28" aria-hidden="true">
         <path d="M13 2.2 L23.8 24.6 L13 18.8 L2.2 24.6 Z" fill="#d81b60" stroke="#ffffff" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
       </svg>
@@ -106,17 +114,24 @@ export class MapMarkerStyleService {
     return undefined;
   }
 
-  private explorerPinIcon(walkStatus?: WalkStatus): L.DivIcon {
+  private explorerPinIcon(walkStatus?: WalkStatus, size = 28): L.DivIcon {
     const isCancelled = walkStatus === WalkStatus.CANCELLED;
     const color = isCancelled ? "#999999" : "#453C90";
     const opacity = isCancelled ? "0.6" : "1";
+    const height = Math.round(size * 36 / 28);
     const cancelledMarks = isCancelled ? `<line x1="8" y1="8" x2="20" y2="20" stroke="#ffffff" stroke-width="2"/><line x1="20" y1="8" x2="8" y2="20" stroke="#ffffff" stroke-width="2"/>` : "";
-    const html = this.teardropPinSvg(color, `<circle cx="14" cy="14" r="4.5" fill="#ffffff"/>${cancelledMarks}`, opacity);
-    return L.divIcon({ className: "os-explorer-pin", html, iconSize: [28, 36] as any, iconAnchor: [14, 36] as any, popupAnchor: [0, -28] as any });
+    const html = this.teardropPinSvg(color, `<circle cx="14" cy="14" r="4.5" fill="#ffffff"/>${cancelledMarks}`, opacity, size, height);
+    return L.divIcon({
+      className: size < 28 ? "os-explorer-pin os-explorer-pin-small" : "os-explorer-pin",
+      html,
+      iconSize: [size, height] as any,
+      iconAnchor: [size / 2, height] as any,
+      popupAnchor: [0, -height + 8] as any
+    });
   }
 
-  private teardropPinSvg(color: string, inner: string, opacity = "1"): string {
-    return `<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="display:block;color:${color};opacity:${opacity}">
+  private teardropPinSvg(color: string, inner: string, opacity = "1", width = 28, height = 36): string {
+    return `<svg width="${width}" height="${height}" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="display:block;color:${color};opacity:${opacity}">
         <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill="currentColor" stroke="#ffffff" stroke-width="2"/>
         ${inner}
       </svg>`;

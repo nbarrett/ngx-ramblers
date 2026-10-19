@@ -1224,16 +1224,18 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   onVisibilityChange(): void {
     if (document.visibilityState === "hidden") {
       this.persistFollowSession(true);
-    } else if (document.visibilityState === "visible" && this.progress && isLiveFollowMode(this.progress.mode)) {
-      const action = this.recordingSession ? MobileAppAction.RECORD : MobileAppAction.FOLLOW;
-      if (this.mobileAccess.allowed(action)) {
-        this.followService.resumeWatchIfLive();
-        this.followService.listenForCompass();
-        this.mapRef?.invalidateSize();
-        void this.requestWakeLock();
-      } else {
-        this.pause();
-        this.persistError = "You no longer have permission to resume this session.";
+    } else if (document.visibilityState === "visible") {
+      this.mapTiles.redrawLoadedTiles(this.mapRef);
+      if (this.progress && isLiveFollowMode(this.progress.mode)) {
+        const action = this.recordingSession ? MobileAppAction.RECORD : MobileAppAction.FOLLOW;
+        if (this.mobileAccess.allowed(action)) {
+          this.followService.resumeWatchIfLive();
+          this.followService.listenForCompass();
+          void this.requestWakeLock();
+        } else {
+          this.pause();
+          this.persistError = "You no longer have permission to resume this session.";
+        }
       }
     }
   }
@@ -3443,6 +3445,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       this.pointerMarker.setLatLng([latitude, longitude]);
       const chevron = this.pointerMarker.getElement()?.querySelector(".follow-location-chevron") as HTMLElement | null;
       if (chevron) {
+        chevron.style.setProperty("--pointer-heading", `${rotation}deg`);
         chevron.style.transform = `rotate(${rotation}deg)`;
       } else {
         this.pointerMarker.setIcon(this.markerStyle.followLocationIcon(rotation, this.pointerSize));

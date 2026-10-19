@@ -3,6 +3,23 @@ import { AppHomeComponent } from "./app-home";
 import { AppHomeView, RouteFollowMode, RouteFollowSession, RouteFollowSummary } from "../../models/route-follow.model";
 import { StoredValue } from "../../models/ui-actions";
 import { DistanceUnit } from "../../models/search.model";
+import {ExtendedGroupEvent} from "../../models/group-event.model";
+
+describe("walk recording action", () => {
+  it.each([
+    {complete: false, editable: true, hasStart: true, expected: false},
+    {complete: true, editable: true, hasStart: false, expected: false},
+    {complete: true, editable: false, hasStart: true, expected: false},
+    {complete: true, editable: true, hasStart: true, expected: true}
+  ])("requires completed details, edit permission and a start location: $complete, $editable, $hasStart", ({complete, editable, hasStart, expected}) => {
+    const component = Object.create(AppHomeComponent.prototype) as AppHomeComponent;
+    Object.assign(component, {
+      display: {walkDetailsComplete: () => complete, allowEdits: () => editable},
+      payloadService: {walkHasStart: () => hasStart}
+    });
+    expect(component.canRecordWalk({} as ExtendedGroupEvent)).toBe(expected);
+  });
+});
 
 describe("map list batches", () => {
   it("shows twenty cards at a time, appends batches and resets the display window when filtering changes", () => {
