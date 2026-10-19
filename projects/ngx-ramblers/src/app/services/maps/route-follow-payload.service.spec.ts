@@ -18,6 +18,18 @@ describe("RouteFollowPayloadService", () => {
     expect(payload.description).toBe("");
   });
 
+  it.each([
+    {latitude: 0, longitude: 0, expected: false},
+    {latitude: null, longitude: null, expected: false},
+    {latitude: 91, longitude: 0, expected: false},
+    {latitude: 51, longitude: Infinity, expected: false},
+    {latitude: 51.2, longitude: 0, expected: true},
+    {latitude: 51.2, longitude: 0.7, expected: true}
+  ])("recognises a usable walk start at $latitude, $longitude", ({latitude, longitude, expected}) => {
+    const walk = {groupEvent: {start_location: {latitude, longitude}}} as ExtendedGroupEvent;
+    expect(service.walkHasStart(walk)).toBe(expected);
+  });
+
   const pageWithRoute: PageContent = {
     path: "walks/routes/recommended/barham-and-four-churches-walk",
     rows: [

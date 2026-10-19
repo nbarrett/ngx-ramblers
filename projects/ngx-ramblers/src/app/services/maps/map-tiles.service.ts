@@ -22,8 +22,67 @@ import {
 import { Proj4LeafletApi } from "../../models/proj4leaflet.model";
 import { installLeafletMapGestures } from "./map-gestures";
 import { nativeApiUrl } from "../../functions/native-walking";
+import { fetchFollowTile } from "../../functions/follow-tile-cache";
 
 installLeafletMapGestures();
+
+class FollowTileLayer extends L.TileLayer {
+  private readonly tileBlobs = new WeakMap<HTMLImageElement, string>();
+  private readonly unloadedTiles = new WeakSet<HTMLImageElement>();
+
+  constructor(urlTemplate: string, options?: L.TileLayerOptions) {
+    super(urlTemplate, options);
+    this.on("tileunload", (event: L.LeafletEvent) => {
+      const tile = (event as L.TileEvent).tile as HTMLImageElement;
+      this.unloadedTiles.add(tile);
+      const objectUrl = this.tileBlobs.get(tile);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        this.tileBlobs.delete(tile);
+      }
+    });
+  }
+
+  override createTile(coords: L.Coords, done?: L.DoneCallback): HTMLElement {
+    const tile = document.createElement("img");
+    tile.alt = "";
+    L.DomEvent.on(tile, "load", () => {
+      if (done) {
+        done(null, tile);
+      }
+    });
+    L.DomEvent.on(tile, "error", () => {
+      if (done) {
+        done(new Error("Map tile failed to load"), tile);
+      }
+    });
+    const url = this.getTileUrl(coords);
+    tile.dataset.tileUrl = url;
+    void fetchFollowTile(url).then(response => {
+      if (this.unloadedTiles.has(tile)) {
+        return null;
+      } else if (response.type === "opaque") {
+        tile.src = url;
+        return null;
+      } else if (response.ok) {
+        return response.blob();
+      } else {
+        throw new Error("Map tile request failed");
+      }
+    }).then(blob => {
+      if (blob && !this.unloadedTiles.has(tile)) {
+        const objectUrl = URL.createObjectURL(blob);
+        this.tileBlobs.set(tile, objectUrl);
+        tile.src = objectUrl;
+      }
+    }).catch(() => {
+      if (!this.unloadedTiles.has(tile)) {
+        tile.src = url;
+      }
+    });
+    return tile;
+  }
+}
 
 @Injectable({ providedIn: "root" })
 export class MapTilesService {
@@ -46,6 +105,13 @@ export class MapTilesService {
 
   allowCachedOsTiles(allowed: boolean): void {
     this.cachedOsTilesAllowed = allowed;
+  }
+
+  redrawLoadedTiles(map: L.Map | null): void {
+    if (map) {
+      map.eachLayer(layer => this.redrawLayerTiles(layer));
+      map.invalidateSize();
+    }
   }
 
   initializeProjections(): void {
@@ -72,25 +138,25 @@ export class MapTilesService {
     };
     if (provider === MapProvider.AERIAL) {
       return L.layerGroup([
-        this.withTileRetry(L.tileLayer(AERIAL_IMAGERY_URL, {...options, attribution: AERIAL_ATTRIBUTION})),
-        this.withTileRetry(L.tileLayer(AERIAL_LABELS_URL, {...options, pane: "overlayPane"}))
+        this.withTileRetry(new FollowTileLayer(AERIAL_IMAGERY_URL, {...options, attribution: AERIAL_ATTRIBUTION})),
+        this.withTileRetry(new FollowTileLayer(AERIAL_LABELS_URL, {...options, pane: "overlayPane"}))
       ]);
     } else if (provider === MapProvider.OS) {
       if (!this.osApiKeyConfigured()) {
-        return this.withBranding(this.withTileRetry(L.tileLayer(this.osmUrl(), {
+        return this.withBranding(this.withTileRetry(new FollowTileLayer(this.osmUrl(), {
           ...options,
           attribution: "© OpenStreetMap (OS Maps unavailable)",
           maxZoom: 19,
           maxNativeZoom: 19
         })), false);
       } else {
-        return this.withBranding(this.withTileRetry(L.tileLayer(this.osProxyUrl(style), {
+        return this.withBranding(this.withTileRetry(new FollowTileLayer(this.osProxyUrl(style), {
           ...options,
           attribution: this.osBranding.attributionHtml()
         })), true);
       }
     } else {
-      return this.withBranding(this.withTileRetry(L.tileLayer(this.osmUrl(), {
+      return this.withBranding(this.withTileRetry(new FollowTileLayer(this.osmUrl(), {
         ...options,
         attribution: "© OpenStreetMap"
       })), false);
@@ -201,6 +267,14 @@ export class MapTilesService {
 
   private static readonly MAX_TILE_RETRIES = 3;
 
+  private redrawLayerTiles(layer: L.Layer): void {
+    if (layer instanceof L.TileLayer) {
+      layer.redraw();
+    } else if (layer instanceof L.LayerGroup) {
+      layer.eachLayer(child => this.redrawLayerTiles(child));
+    }
+  }
+
   private withTileRetry(layer: L.TileLayer): L.TileLayer {
     const attempts = new WeakMap<HTMLImageElement, number>();
     layer.on("tileload", (event: L.LeafletEvent) => {
@@ -215,9 +289,10 @@ export class MapTilesService {
         const used = attempts.get(tile) ?? 0;
         if (used < MapTilesService.MAX_TILE_RETRIES) {
           attempts.set(tile, used + 1);
-          const baseSrc = this.stripRetryParam(tile.src);
+          const baseSrc = tile.dataset.tileUrl || this.stripRetryParam(tile.src);
           window.setTimeout(() => {
-            if (this.stripRetryParam(tile.src) === baseSrc) {
+            const current = tile.dataset.tileUrl || this.stripRetryParam(tile.src);
+            if (current === baseSrc) {
               const separator = baseSrc.includes("?") ? "&" : "?";
               tile.src = `${baseSrc}${separator}retry=${used + 1}`;
             }

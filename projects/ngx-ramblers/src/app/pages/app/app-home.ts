@@ -15,7 +15,7 @@ import { NgSelectModule } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription, take } from "rxjs";
-import { faArrowLeft, faCalendarDay, faCheck, faCircle, faCircleCheck, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faShareNodes, faSliders, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faCalendarDay, faCheck, faRoute, faCircleCheck, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faShareNodes, faSliders, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { PageContentType } from "../../models/content-text.model";
@@ -66,13 +66,14 @@ import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { StoredValue } from "../../models/ui-actions";
 import { UiActionsService } from "../../services/ui-actions.service";
 import { OsMapsRoutePreviewMapComponent } from "../walks/walk-admin/os-maps-route-preview-map";
+import { CardImageOrMap } from "../../modules/common/card/image/card-image-or-map";
 import { MediaQueryService } from "../../services/committee/media-query.service";
 import { OsMapsExportService } from "../../services/maps/os-maps-export.service";
 import { OsMapsListedRoute } from "../../models/os-maps-export.model";
 import { CurrentLocationService } from "../../services/maps/current-location.service";
 import { DistanceRangeSlider } from "../../components/distance-range-slider/distance-range-slider";
 import { DistanceRange, DistanceUnit } from "../../models/search.model";
-import { KM_PER_MILE } from "../../models/walk.model";
+import { DisplayedWalk, EventType, FALLBACK_MEDIA, KM_PER_MILE } from "../../models/walk.model";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { LoginModalComponent } from "../login/login-modal/login-modal.component";
@@ -89,26 +90,34 @@ const MAP_LIST_BATCH_SIZE = 20;
 @Component({
   selector: "app-home",
   template: `
-    <div #homeScroll class="app-home container" [class.app-home-choosing-site]="choosingSite" [class.is-keyboard]="siteKeyboardOpen">
+    <div #homeScroll class="app-home container" [class.app-home-choosing-site]="choosingSite"
+         [class.is-keyboard]="siteKeyboardOpen">
       @if (choosingSite) {
         <section class="app-home-site" aria-label="Choose your area or group">
-          <div class="app-home-welcome-brand bg-white text-dark rounded p-2 mb-3 d-flex align-items-center justify-content-center gap-2">
+          <div
+            class="app-home-welcome-brand bg-white text-dark rounded p-2 mb-3 d-flex align-items-center justify-content-center gap-2">
             <img class="app-home-logo" src="favicon.svg" alt="" width="36" height="36">
             <strong>NGX Ramblers</strong>
           </div>
-          <p>Access NGX walks, maps and route recording with a real mobile experience. It is endorsed by Ramblers and is separate from the main Ramblers app. <a [href]="ngxRamblersWebsite" target="_blank" rel="noopener noreferrer">Find out more about NGX Ramblers</a>.</p>
+          <p>Access NGX walks, maps and route recording with a real mobile experience. It is endorsed by Ramblers and is
+            separate from the main Ramblers app. <a [href]="ngxRamblersWebsite" target="_blank"
+                                                    rel="noopener noreferrer">Find out more about NGX Ramblers</a>.</p>
           <h1>Choose your area or group</h1>
           <p>Choose an area, optionally a group, or enter an NGX website. We'll remember your choice.</p>
           @if (siteUrlEntry) {
             <label for="app-site-url">NGX website</label>
-            <input id="app-site-url" type="url" class="form-control" inputmode="url" autocapitalize="none" autocomplete="url"
-                   spellcheck="false" placeholder="https://group.example.org.uk" [ngModel]="siteUrlDraft" (ngModelChange)="siteWebsiteChanged($event)">
+            <input id="app-site-url" type="url" class="form-control" inputmode="url" autocapitalize="none"
+                   autocomplete="url"
+                   spellcheck="false" placeholder="https://group.example.org.uk" [ngModel]="siteUrlDraft"
+                   (ngModelChange)="siteWebsiteChanged($event)">
           } @else {
             <app-area-selector id="walking-app-area" label="Area" [areaCode]="siteAreaCode" [disabled]="connectingSite"
                                (areaChanged)="siteAreaChanged($event)"/>
             @if (siteAreaCode) {
-              <app-group-selector [appendTo]="null" label="Group (optional)" [areaCode]="siteAreaCode" [groupCode]="siteGroupCode" [disabled]="connectingSite"
-                                  (areaChanged)="siteDirectoryAreaChanged($event)" (groupChanged)="siteGroupChanged($event)"/>
+              <app-group-selector [appendTo]="null" label="Group (optional)" [areaCode]="siteAreaCode"
+                                  [groupCode]="siteGroupCode" [disabled]="connectingSite"
+                                  (areaChanged)="siteDirectoryAreaChanged($event)"
+                                  (groupChanged)="siteGroupChanged($event)"/>
             }
           }
           @if (checkingSite) {
@@ -121,7 +130,8 @@ const MAP_LIST_BATCH_SIZE = 20;
             </div>
           }
           <div class="d-flex flex-column gap-2">
-            <button class="btn btn-primary" type="button" (click)="connectGroupSite()" [disabled]="connectingSite || checkingSite || !siteUrlDraft || (!siteUrlEntry && !siteChecked)">
+            <button class="btn btn-primary" type="button" (click)="connectGroupSite()"
+                    [disabled]="connectingSite || checkingSite || !siteUrlDraft || (!siteUrlEntry && !siteChecked)">
               {{ connectingSite ? "Checking" : "Continue" }}
             </button>
             <button class="btn btn-quiet" type="button" (click)="toggleSiteWebsiteEntry()" [disabled]="connectingSite">
@@ -130,400 +140,460 @@ const MAP_LIST_BATCH_SIZE = 20;
           </div>
         </section>
       } @else {
-      <div class="app-home-chrome">
-        <app-pull-to-refresh #listRefresh [refreshAction]="refreshRoutes" [allowLinkPull]="true" [inline]="true"/>
-      <div class="app-home-header">
-        <a class="app-home-brand" routerLink="/" aria-label="Website home" tooltip="Website home" [isDisabled]="!tooltipsEnabled">
-          @if (logoUrl) {
-            <img class="app-home-logo" [src]="logoUrl" [alt]="groupName">
-          }
-          <h1 [class.visually-hidden]="!!logoUrl">{{ groupName }}</h1>
-        </a>
-        @if (!customising) {
-          <div class="app-home-search">
-            <fa-icon class="app-home-search-icon" [icon]="faMagnifyingGlass"/>
-            <input type="search" class="form-control" [placeholder]="view === AppHomeView.MAPS ? 'Search maps' : 'Search walks'"
-                   [ngModel]="routeSearch" (ngModelChange)="onRouteSearch($event)"
-                   autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false"
-                   [attr.aria-label]="view === AppHomeView.MAPS ? 'Search maps' : 'Search walks'">
-            @if (routeSearch) {
-              <button class="app-home-search-clear" type="button" (click)="onRouteSearch('')" aria-label="Clear search">
-                <fa-icon [icon]="faXmark"/>
+        <div class="app-home-chrome">
+          <app-pull-to-refresh #listRefresh [refreshAction]="refreshRoutes" [allowLinkPull]="true" [inline]="true"/>
+          <div class="app-home-header">
+            <a class="app-home-brand" routerLink="/" aria-label="Website home" tooltip="Website home"
+               [isDisabled]="!tooltipsEnabled">
+              @if (logoUrl) {
+                <img class="app-home-logo" [src]="logoUrl" [alt]="groupName">
+              }
+              <h1 [class.visually-hidden]="!!logoUrl">{{ groupName }}</h1>
+            </a>
+            @if (!customising) {
+              <div class="app-home-search">
+                <fa-icon class="app-home-search-icon" [icon]="faMagnifyingGlass"/>
+                <input type="search" class="form-control"
+                       [placeholder]="view === AppHomeView.MAPS ? 'Search maps' : 'Search walks'"
+                       [ngModel]="routeSearch" (ngModelChange)="onRouteSearch($event)"
+                       autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false"
+                       [attr.aria-label]="view === AppHomeView.MAPS ? 'Search maps' : 'Search walks'">
+                @if (routeSearch) {
+                  <button class="app-home-search-clear" type="button" (click)="onRouteSearch('')"
+                          aria-label="Clear search">
+                    <fa-icon [icon]="faXmark"/>
+                  </button>
+                }
+              </div>
+            }
+            @if (!customising && ((view === AppHomeView.MAPS && layout.savedRoutes) || (view === AppHomeView.UPCOMING && layout.upcomingWalks))) {
+              <span class="app-home-match-count app-home-header-match-count" role="status"
+                    aria-live="polite">{{ matchCountLabel() }}</span>
+            }
+            <div class="app-home-header-actions">
+              <button class="btn btn-quiet btn-icon d-none d-md-inline-flex" type="button"
+                      (click)="listRefresh.refresh()" [disabled]="listRefresh.refreshing"
+                      aria-label="Refresh walks and maps" tooltip="Refresh walks and maps">
+                <fa-icon [icon]="faArrowsRotate"/>
               </button>
-            }
+              <button class="btn btn-icon" type="button" (click)="customiseTooltip.hide(); toggleCustomising()"
+                      [class.btn-primary]="customising" [class.btn-quiet]="!customising"
+                      [attr.aria-expanded]="customising" aria-controls="app-home-customise"
+                      [attr.aria-label]="customising ? 'Back' : 'Customise'"
+                      [tooltip]="customising ? 'Back' : 'Customise'" [isDisabled]="!tooltipsEnabled"
+                      #customiseTooltip="bs-tooltip">
+                <fa-icon [icon]="customising ? faArrowLeft : faSliders"/>
+              </button>
+            </div>
           </div>
-        }
-        @if (!customising && ((view === AppHomeView.MAPS && layout.savedRoutes) || (view === AppHomeView.UPCOMING && layout.upcomingWalks))) {
-          <span class="app-home-match-count app-home-header-match-count" role="status" aria-live="polite">{{ matchCountLabel() }}</span>
-        }
-        <div class="app-home-header-actions">
-          <button class="btn btn-quiet btn-icon d-none d-md-inline-flex" type="button"
-                  (click)="listRefresh.refresh()" [disabled]="listRefresh.refreshing"
-                  aria-label="Refresh walks and maps" tooltip="Refresh walks and maps">
-            <fa-icon [icon]="faArrowsRotate"/>
-          </button>
-        <button class="btn btn-icon" type="button" (click)="customiseTooltip.hide(); toggleCustomising()"
-                [class.btn-primary]="customising" [class.btn-quiet]="!customising"
-                [attr.aria-expanded]="customising" aria-controls="app-home-customise"
-                [attr.aria-label]="customising ? 'Back' : 'Customise'"
-                [tooltip]="customising ? 'Back' : 'Customise'" [isDisabled]="!tooltipsEnabled" #customiseTooltip="bs-tooltip">
-          <fa-icon [icon]="customising ? faArrowLeft : faSliders"/>
-        </button>
-        </div>
-      </div>
 
-      @if (!customising) {
-        <div class="app-home-controls" role="group" aria-label="Walking app views and actions">
-          <button class="btn" [class.btn-primary]="view === AppHomeView.MAPS" [class.btn-quiet]="view !== AppHomeView.MAPS"
-                  type="button" (click)="chooseView(AppHomeView.MAPS)">
-            <fa-icon [icon]="faMap"/><span>Maps</span>
-          </button>
-          <button class="btn" [class.btn-primary]="view === AppHomeView.UPCOMING" [class.btn-quiet]="view !== AppHomeView.UPCOMING"
-                  type="button" (click)="chooseView(AppHomeView.UPCOMING)">
-            <fa-icon [icon]="faCalendarDay"/><span>Upcoming</span>
-          </button>
-          @if (view === AppHomeView.MAPS && layout.savedRoutes) {
-            <button class="btn" type="button" [attr.aria-pressed]="nearbyOnly"
-                    [class.btn-primary]="nearbyOnly" [class.btn-quiet]="!nearbyOnly" (click)="chooseNearby()">
-              <fa-icon [icon]="nearbyOnly ? faCheck : faLocationDot"/><span>Near me</span>
-            </button>
-            <button class="btn" type="button" [attr.aria-pressed]="favouritesOnly"
-                    [class.btn-primary]="favouritesOnly" [class.btn-quiet]="!favouritesOnly"
-                    (click)="chooseFavourites()">
-              <fa-icon [icon]="favouritesOnly ? faCheck : faStar"/><span>Favourites</span>
-            </button>
-            <button class="btn btn-primary" type="button" (click)="chooseGpxFile()"
-                    [disabled]="importingGpx || (memberLogin.memberLoggedIn() && !mobileAccess.allowed(MobileAppAction.IMPORT))">
-              <fa-icon [icon]="faFileImport"/><span>{{ importingGpx ? "Importing…" : "Import GPX" }}</span>
-            </button>
+          @if (!customising) {
+            <div class="app-home-controls" role="group" aria-label="Walking app views and actions">
+              <button class="btn" [class.btn-primary]="view === AppHomeView.MAPS"
+                      [class.btn-quiet]="view !== AppHomeView.MAPS"
+                      type="button" (click)="chooseView(AppHomeView.MAPS)">
+                <fa-icon [icon]="faMap"/>
+                <span>Maps</span>
+              </button>
+              <button class="btn" [class.btn-primary]="view === AppHomeView.UPCOMING"
+                      [class.btn-quiet]="view !== AppHomeView.UPCOMING"
+                      type="button" (click)="chooseView(AppHomeView.UPCOMING)">
+                <fa-icon [icon]="faCalendarDay"/>
+                <span>Upcoming</span>
+              </button>
+              @if (view === AppHomeView.MAPS && layout.savedRoutes) {
+                <button class="btn" type="button" [attr.aria-pressed]="nearbyOnly"
+                        [class.btn-primary]="nearbyOnly" [class.btn-quiet]="!nearbyOnly" (click)="chooseNearby()">
+                  <fa-icon [icon]="nearbyOnly ? faCheck : faLocationDot"/>
+                  <span>Near me</span>
+                </button>
+                <button class="btn" type="button" [attr.aria-pressed]="favouritesOnly"
+                        [class.btn-primary]="favouritesOnly" [class.btn-quiet]="!favouritesOnly"
+                        (click)="chooseFavourites()">
+                  <fa-icon [icon]="favouritesOnly ? faCheck : faStar"/>
+                  <span>Favourites</span>
+                </button>
+                <button class="btn btn-primary" type="button" (click)="chooseGpxFile()"
+                        [disabled]="importingGpx || (memberLogin.memberLoggedIn() && !mobileAccess.allowed(MobileAppAction.IMPORT))">
+                  <fa-icon [icon]="faFileImport"/>
+                  <span>{{ importingGpx ? "Importing…" : "Import GPX" }}</span>
+                </button>
+              }
+              <button class="btn btn-primary" type="button" aria-label="Record a route"
+                      [disabled]="memberLogin.memberLoggedIn() && !mobileAccess.allowed(MobileAppAction.RECORD)"
+                      (click)="recordStandaloneRoute()">
+                <fa-icon [icon]="faLocationDot"/>
+                <span>Record route</span>
+              </button>
+            </div>
+            @if (view === AppHomeView.MAPS && layout.savedRoutes) {
+              <label class="visually-hidden" for="app-home-creator">Creator</label>
+              <div class="app-home-filter-summary">
+                <ng-select labelForId="app-home-creator" class="app-home-creator" [ngModel]="creator"
+                           (ngModelChange)="chooseCreator($event)" [clearable]="false" [searchable]="false">
+                  <ng-option value="">All creators</ng-option>
+                  @for (contributor of creatorOptions(); track contributor.memberId) {
+                    <ng-option [value]="contributor.memberId">{{ contributor.name }}</ng-option>
+                  }
+                </ng-select>
+              </div>
+              @if (nearbyOnly) {
+                <app-distance-range-slider class="app-home-nearby-slider"
+                                           label="Within"
+                                           [singleThumb]="true"
+                                           [minValue]="1"
+                                           [maxValue]="APP_NEARBY_MILES_MAX"
+                                           [range]="nearbyRange"
+                                           (rangeInput)="onNearbyRangeInput($event)"
+                                           (rangeChange)="onNearbyRange($event)">
+                </app-distance-range-slider>
+              }
+            }
           }
-          <button class="btn btn-primary" type="button" aria-label="Record a route"
-                  [disabled]="memberLogin.memberLoggedIn() && !mobileAccess.allowed(MobileAppAction.RECORD)" (click)="recordStandaloneRoute()">
-            <fa-icon [icon]="faLocationDot"/><span>Record route</span>
-          </button>
         </div>
-        @if (view === AppHomeView.MAPS && layout.savedRoutes) {
-          <label class="visually-hidden" for="app-home-creator">Creator</label>
-          <div class="app-home-filter-summary">
-          <ng-select labelForId="app-home-creator" class="app-home-creator" [ngModel]="creator"
-                     (ngModelChange)="chooseCreator($event)" [clearable]="false" [searchable]="false">
-            <ng-option value="">All creators</ng-option>
-            @for (contributor of creatorOptions(); track contributor.memberId) {
-              <ng-option [value]="contributor.memberId">{{ contributor.name }}</ng-option>
-            }
-          </ng-select>
+        @if (!customising && view === AppHomeView.MAPS && layout.savedRoutes) {
+          <input #gpxInput class="d-none" type="file" accept=".gpx,application/gpx+xml"
+                 ng2FileSelect [uploader]="gpxUploader">
+          <div ng2FileDrop [uploader]="gpxUploader" class="drop-zone app-home-import-drop">
+            Or drop a GPX here
           </div>
-        @if (nearbyOnly) {
-          <app-distance-range-slider class="app-home-nearby-slider"
-            label="Within"
-            [singleThumb]="true"
-            [minValue]="1"
-            [maxValue]="APP_NEARBY_MILES_MAX"
-            [range]="nearbyRange"
-            (rangeInput)="onNearbyRangeInput($event)"
-            (rangeChange)="onNearbyRange($event)">
-          </app-distance-range-slider>
         }
-        }
-      }
-      </div>
-      @if (!customising && view === AppHomeView.MAPS && layout.savedRoutes) {
-        <input #gpxInput class="d-none" type="file" accept=".gpx,application/gpx+xml"
-               ng2FileSelect [uploader]="gpxUploader">
-        <div ng2FileDrop [uploader]="gpxUploader" class="drop-zone app-home-import-drop">
-          Or drop a GPX here
-        </div>
-      }
 
-      @if (customising) {
-        <section id="app-home-customise" class="app-home-customise" [attr.aria-label]="'Choose what appears in ' + groupName">
-          <div class="thumbnail-heading-frame">
-          <div class="thumbnail-heading">Views</div>
-          <label class="app-home-customise-item">
-            <input type="checkbox" [checked]="layout.savedRoutes" (change)="setLayout('savedRoutes', $event)">
-            <span>
+        @if (customising) {
+          <section id="app-home-customise" class="app-home-customise"
+                   [attr.aria-label]="'Choose what appears in ' + groupName">
+            <div class="thumbnail-heading-frame">
+              <div class="thumbnail-heading">Views</div>
+              <label class="app-home-customise-item">
+                <input type="checkbox" [checked]="layout.savedRoutes" (change)="setLayout('savedRoutes', $event)">
+                <span>
               <strong>Maps</strong>
               <span>Shared routes, GPX imports and recordings.</span>
             </span>
-          </label>
-          <label class="app-home-customise-item">
-            <input type="checkbox" [checked]="layout.upcomingWalks" (change)="setLayout('upcomingWalks', $event)">
-            <span>
+              </label>
+              <label class="app-home-customise-item">
+                <input type="checkbox" [checked]="layout.upcomingWalks" (change)="setLayout('upcomingWalks', $event)">
+                <span>
               <strong>Upcoming walks</strong>
               <span>The group's published walk programme.</span>
             </span>
-          </label>
-          @if (listPreferences.hiddenCount()) {
-            <button class="btn btn-quiet" type="button" (click)="showHiddenMaps()">{{ listPreferences.hiddenMapsActionLabel() }}</button>
-          }
-          </div>
-          <div class="thumbnail-heading-frame">
-          <div class="thumbnail-heading">App</div>
-          <div class="d-flex gap-2">
-          <button class="btn btn-quiet" type="button" (click)="versionCheck.reloadNow()" [disabled]="!navigatorOnline() || !!activeSession">
-            Update app
-          </button>
-          @if (nativeSite.origin()) {
-            <button class="btn btn-quiet" type="button" (click)="changeGroupSite()" [disabled]="!!activeSession">
-              Change group
-            </button>
-          }
-          </div>
-          <p class="mt-2">Update after finishing your walk.</p>
-          @if (nativeSite.origin()) {
-            <p class="mb-0">{{ nativeSite.origin() }} · Changing group signs you out.</p>
-          }
-          </div>
-          @if (legacyRecovery.routes.length || legacyRecovery.session || legacyMessage || legacyError) {
+              </label>
+              @if (listPreferences.hiddenCount()) {
+                <button class="btn btn-quiet" type="button"
+                        (click)="showHiddenMaps()">{{ listPreferences.hiddenMapsActionLabel() }}
+                </button>
+              }
+            </div>
             <div class="thumbnail-heading-frame">
-              <div class="thumbnail-heading">Recover saved data</div>
-              <p>Restore only earlier data belonging to {{ groupName }}.</p>
-              @if (legacyRecovery.routes.length) {
-                <label for="legacy-walking-maps">Saved maps</label>
-                <ng-select labelForId="legacy-walking-maps" [items]="legacyRecovery.routes" bindLabel="title" bindValue="key"
-                           [multiple]="true" [disabled]="legacyBusy" [(ngModel)]="legacySelectedKeys"/>
-              }
-              @if (legacyRecovery.session) {
-                <label class="app-home-customise-item my-2">
-                  <input type="checkbox" [(ngModel)]="legacyRestoreSession" [disabled]="legacyBusy">
-                  <span>Unfinished: {{ legacyRecovery.session.payload?.title || "Saved walking session" }}</span>
-                </label>
-              }
-              @if (legacyMessage) {
-                <div class="alert alert-success d-flex align-items-start" role="status">
-                  <fa-icon [icon]="faCircleCheck" class="me-2 mt-1"/>
-                  <div><strong class="d-block">Data restored</strong>{{ legacyMessage }}</div>
-                </div>
-              }
-              @if (legacyError) {
-                <div class="alert alert-warning d-flex align-items-start" role="alert">
-                  <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
-                  <div><strong class="d-block">Recovery not completed</strong>{{ legacyError }}</div>
-                </div>
-              }
-              @if (legacyConfirm) {
-                <div class="alert alert-warning d-flex align-items-start mt-2" role="alert">
-                  <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
-                  <div><strong class="d-block">Restore to this site?</strong>Confirm it belongs to {{ nativeSite.origin() }}. Original copies are kept.</div>
-                </div>
-                <div class="d-flex gap-2">
-                  <button class="btn btn-primary" type="button" (click)="restoreLegacyWalkingData()" [disabled]="legacyBusy">{{ legacyBusy ? "Restoring…" : "Confirm restore" }}</button>
-                  <button class="btn btn-quiet" type="button" (click)="legacyConfirm = false" [disabled]="legacyBusy">Cancel</button>
-                </div>
-              } @else if (legacyRecovery.routes.length || legacyRecovery.session) {
-                <button class="btn btn-primary mt-2" type="button" (click)="legacyConfirm = true" [disabled]="!legacySelectedKeys.length && !legacyRestoreSession">Restore selected data</button>
-              }
-            </div>
-          }
-          <div class="thumbnail-heading-frame">
-          <div class="thumbnail-heading">Appearance</div>
-          <ng-container *ngTemplateOutlet="appearanceControls"/>
-          </div>
-        </section>
-      }
-
-      @if (!customising && view === AppHomeView.MAPS && layout.savedRoutes) {
-        @if (locationError) {
-          <p class="app-home-empty">{{ locationError }}</p>
-        }
-        @if (importError) {
-          <div class="alert alert-danger d-flex align-items-start" role="alert">
-            <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
-            <div>
-              <strong>Could not import that GPX</strong>
-              <p class="mb-0">{{ importError }}</p>
-            </div>
-          </div>
-        }
-      }
-
-      @if (listPreferences.syncMessage) {
-        <div class="alert alert-warning d-flex align-items-start gap-2" role="status">
-          <fa-icon [icon]="faCircleExclamation"/>
-          <div><strong>Map preferences</strong><p class="mb-0">{{ listPreferences.syncMessage }}</p></div>
-          <button class="btn btn-quiet btn-icon ms-auto" type="button" tooltip="Dismiss" aria-label="Dismiss map preferences message"
-                  (click)="listPreferences.syncMessage = null"><fa-icon [icon]="faXmark"/></button>
-        </div>
-      }
-
-      @if (!customising && view === AppHomeView.MAPS && layout.savedRoutes && activeSession) {
-        <section class="app-home-section">
-          <h2>Continue your route</h2>
-          <a class="app-home-card" [routerLink]="routeLink(activeSession)"
-             [queryParams]="routeQuery(activeSession)">
-            <div class="app-home-card-copy">
-              <h3>Your walk is ready to resume</h3>
-              <p class="app-home-meta">Your route and progress have been saved on this device.</p>
-            </div>
-            <span class="btn btn-primary app-home-card-btn">Resume</span>
-          </a>
-        </section>
-      }
-
-      @if (!customising && showInstallHint) {
-        <section class="app-home-install">
-          <fa-icon [icon]="faCircleExclamation"/>
-          <div>
-            <strong>Add {{ groupName }} to your Home Screen</strong>
-            @if (platform === AppInstallPlatform.IOS) {
-              <p>Tap <fa-icon [icon]="faShareNodes"/> Share, then Add to Home Screen. It then opens like an app, with no website header.</p>
-            } @else if (platform === AppInstallPlatform.ANDROID) {
-              <p>Tap Add to Home Screen, or open the browser menu and choose Add to Home screen / Install app.</p>
-            } @else {
-              <p>Open this page on your phone, then add it to your Home Screen for the full-screen app.</p>
-            }
-            @if (canInstall) {
-              <button class="btn btn-primary app-home-install-btn" type="button" (click)="install()">Add to Home Screen</button>
-            }
-          </div>
-          <button class="btn btn-icon app-home-install-dismiss" type="button" (click)="dismissInstallHint()"
-                  aria-label="Dismiss" tooltip="Dismiss" [isDisabled]="!tooltipsEnabled">
-            <fa-icon [icon]="faXmark"/>
-          </button>
-        </section>
-      }
-
-      @if (!customising && view === AppHomeView.MAPS && layout.savedRoutes) {
-        <section class="app-home-section app-home-map-list">
-          <h2 class="visually-hidden">Maps</h2>
-          @for (route of displayedRoutes(); track routeKey(route)) {
-            <div class="app-home-card app-home-route-card">
-              <a class="app-home-route-main" [routerLink]="routeLink(route)"
-                 [queryParams]="routeQuery(route)">
-                <app-os-maps-route-preview-map class="flush" fill [route]="listedOsMapsRoute(route)"
-                                              [gpxFile]="route.gpxFile || null" [cacheKey]="routeKey(route)"
-                                              [points]="previewPoints[routeKey(route) || ''] || []"/>
-              <div class="app-home-card-copy">
-                <h3>{{ route.title }}</h3>
-              @if (route.description) {
-                <p class="app-home-meta">{{ route.description }}</p>
-              }
-
-                <p class="app-home-meta">
-                  @if (milesAwayLabel(route)) {
-                    {{ milesAwayLabel(route) }}
-                  }
-                  @if (route.distanceMiles) {
-                    @if (milesAwayLabel(route)) {
-                      ·
-                    }
-                    {{ milesLabel(route.distanceMiles) }}
-                  }
-                  @if (route.startDescription) {
-                    @if (milesAwayLabel(route) || route.distanceMiles) {
-                      ·
-                    }
-                    {{ route.startDescription }}
-                  }
-                </p>
-                @if (route.ramblersSlug) {
-                  <p class="app-home-meta">Saved from a Ramblers route link</p>
-                }
-              <app-route-audit [audit]="route" iconsOnly showDates [walkedAt]="route.walkedAt" [walkedByName]="route.walkedByName"/>
-              </div>
-              </a>
-              <app-route-map-actions [favourite]="isFavourite(route)" [showHide]="isWebsiteMap(route)"
-                                     (favouriteToggle)="toggleFavourite(route)"
-                                     (hide)="removeSavedRoute(route)">
-                @if (!isWebsiteMap(route) && confirmingRemoveKey === routeKey(route)) {
-                  <button class="app-home-map-action app-home-map-action-danger" type="button"
-                          aria-label="Confirm delete" tooltip="Confirm delete" [isDisabled]="!tooltipsEnabled"
-                          (click)="confirmRemoveSavedRoute(route); $event.stopPropagation()">
-                    <fa-icon [icon]="faTrash"/>
-                  </button>
-                } @else if (!isWebsiteMap(route)) {
-                  <button class="app-home-map-action" type="button"
-                          aria-label="Delete" tooltip="Delete" [isDisabled]="!tooltipsEnabled"
-                          (click)="beginRemoveSavedRoute(route); $event.stopPropagation()">
-                    <fa-icon [icon]="faTrash"/>
+              <div class="thumbnail-heading">App</div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-quiet" type="button" (click)="versionCheck.reloadNow()"
+                        [disabled]="!navigatorOnline() || !!activeSession">
+                  Update app
+                </button>
+                @if (nativeSite.origin()) {
+                  <button class="btn btn-quiet" type="button" (click)="changeGroupSite()" [disabled]="!!activeSession">
+                    Change group
                   </button>
                 }
-              </app-route-map-actions>
-            </div>
-          }
-          @if (moreRoutesAvailable()) {
-            <div app-visibility-observer="more-maps" [observeOnce]="false" rootMargin="240px 0px"
-                 (visible)="showMoreRoutes()">
-              <button class="btn btn-quiet w-100" type="button" (click)="showMoreRoutes()">Show more maps</button>
-            </div>
-          }
-          @if (visibleRoutes().length === 0) {
-            <p class="app-home-empty">{{ emptyMapsMessage() }}</p>
-          }
-        </section>
-      }
-
-      @if (!customising && view === AppHomeView.UPCOMING && !layout.upcomingWalks) {
-        <div class="app-home-empty">
-          <p>Upcoming walks are turned off in Customise. The group's programme is on the website; show it here to follow those walks.</p>
-          <button class="btn btn-primary" type="button" (click)="enableSection('upcomingWalks')">Show the programme</button>
-        </div>
-      }
-
-      @if (!customising && view === AppHomeView.MAPS && !layout.savedRoutes) {
-        <div class="app-home-empty">
-          <p>Maps are turned off in Customise.</p>
-          <button class="btn btn-primary" type="button" (click)="enableSection('savedRoutes')">Show maps</button>
-        </div>
-      }
-
-      @if (!customising && view === AppHomeView.UPCOMING && layout.upcomingWalks) {
-      <section class="app-home-section">
-        <h2 class="visually-hidden">Upcoming walks</h2>
-        @if (loading) {
-          <p class="app-home-empty">Finding walks…</p>
-        } @else if (visibleWalks().length === 0) {
-          <p class="app-home-empty">{{ emptyWalksMessage() }}</p>
-        }
-        @for (walk of visibleWalks(); track walk.id) {
-          <article class="app-home-card app-home-route-card">
-            <a class="app-home-route-main" [routerLink]="walkDetailsLink(walk)">
-              @if (walkPhoto(walk)) {
-                <img class="app-home-walk-photo" [src]="walkPhoto(walk)" [alt]="walk.groupEvent?.title || 'Walk photo'">
+              </div>
+              <p class="mt-2">Update after finishing your walk.</p>
+              @if (nativeSite.origin()) {
+                <p class="mb-0">{{ nativeSite.origin() }} · Changing group signs you out.</p>
               }
-              <div class="app-home-card-copy">
-                <h3>{{ walk.groupEvent?.title }}</h3>
-                <p class="app-home-meta">
-                  {{ walk.groupEvent?.start_date_time | displayDate }}
-                  ·
-                  {{ walk.groupEvent?.start_date_time | displayTime }}
-                  @if (walk.groupEvent?.distance_miles) {
-                    · {{ milesLabel(walk.groupEvent.distance_miles) }}
-                  }
-                </p>
-                @if (walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode) {
-                  <p class="app-home-meta">{{ walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode }}</p>
+            </div>
+            @if (legacyRecovery.routes.length || legacyRecovery.session || legacyMessage || legacyError) {
+              <div class="thumbnail-heading-frame">
+                <div class="thumbnail-heading">Recover saved data</div>
+                <p>Restore only earlier data belonging to {{ groupName }}.</p>
+                @if (legacyRecovery.routes.length) {
+                  <label for="legacy-walking-maps">Saved maps</label>
+                  <ng-select labelForId="legacy-walking-maps" [items]="legacyRecovery.routes" bindLabel="title"
+                             bindValue="key"
+                             [multiple]="true" [disabled]="legacyBusy" [(ngModel)]="legacySelectedKeys"/>
+                }
+                @if (legacyRecovery.session) {
+                  <label class="app-home-customise-item my-2">
+                    <input type="checkbox" [(ngModel)]="legacyRestoreSession" [disabled]="legacyBusy">
+                    <span>Unfinished: {{ legacyRecovery.session.payload?.title || "Saved walking session" }}</span>
+                  </label>
+                }
+                @if (legacyMessage) {
+                  <div class="alert alert-success d-flex align-items-start" role="status">
+                    <fa-icon [icon]="faCircleCheck" class="me-2 mt-1"/>
+                    <div><strong class="d-block">Data restored</strong>{{ legacyMessage }}</div>
+                  </div>
+                }
+                @if (legacyError) {
+                  <div class="alert alert-warning d-flex align-items-start" role="alert">
+                    <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                    <div><strong class="d-block">Recovery not completed</strong>{{ legacyError }}</div>
+                  </div>
+                }
+                @if (legacyConfirm) {
+                  <div class="alert alert-warning d-flex align-items-start mt-2" role="alert">
+                    <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                    <div><strong class="d-block">Restore to this site?</strong>Confirm it belongs
+                      to {{ nativeSite.origin() }}. Original copies are kept.
+                    </div>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-primary" type="button" (click)="restoreLegacyWalkingData()"
+                            [disabled]="legacyBusy">{{ legacyBusy ? "Restoring…" : "Confirm restore" }}
+                    </button>
+                    <button class="btn btn-quiet" type="button" (click)="legacyConfirm = false" [disabled]="legacyBusy">
+                      Cancel
+                    </button>
+                  </div>
+                } @else if (legacyRecovery.routes.length || legacyRecovery.session) {
+                  <button class="btn btn-primary mt-2" type="button" (click)="legacyConfirm = true"
+                          [disabled]="!legacySelectedKeys.length && !legacyRestoreSession">Restore selected data
+                  </button>
                 }
               </div>
+            }
+            <div class="thumbnail-heading-frame">
+              <div class="thumbnail-heading">Appearance</div>
+              <ng-container *ngTemplateOutlet="appearanceControls"/>
+            </div>
+          </section>
+        }
+
+        @if (!customising && view === AppHomeView.MAPS && layout.savedRoutes) {
+          @if (locationError) {
+            <p class="app-home-empty">{{ locationError }}</p>
+          }
+          @if (importError) {
+            <div class="alert alert-danger d-flex align-items-start" role="alert">
+              <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+              <div>
+                <strong>Could not import that GPX</strong>
+                <p class="mb-0">{{ importError }}</p>
+              </div>
+            </div>
+          }
+        }
+
+        @if (listPreferences.syncMessage) {
+          <div class="alert alert-warning d-flex align-items-start gap-2" role="status">
+            <fa-icon [icon]="faCircleExclamation"/>
+            <div><strong>Map preferences</strong>
+              <p class="mb-0">{{ listPreferences.syncMessage }}</p></div>
+            <button class="btn btn-quiet btn-icon ms-auto" type="button" tooltip="Dismiss"
+                    aria-label="Dismiss map preferences message"
+                    (click)="listPreferences.syncMessage = null">
+              <fa-icon [icon]="faXmark"/>
+            </button>
+          </div>
+        }
+
+        @if (!customising && view === AppHomeView.MAPS && layout.savedRoutes && activeSession) {
+          <section class="app-home-section">
+            <h2>Continue your route</h2>
+            <a class="app-home-card" [routerLink]="routeLink(activeSession)"
+               [queryParams]="routeQuery(activeSession)">
+              <div class="app-home-card-copy">
+                <h3>Your walk is ready to resume</h3>
+                <p class="app-home-meta">Your route and progress have been saved on this device.</p>
+              </div>
+              <span class="btn btn-primary app-home-card-btn">Resume</span>
             </a>
-            <div class="app-home-route-actions">
-              @if (payloadService.walkHasGpx(walk)) {
-                <a class="btn btn-primary btn-icon" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.ROUTE"
-                   [queryParams]="walkQuery(walk)" aria-label="Follow" tooltip="Follow" [isDisabled]="!tooltipsEnabled">
-                  <fa-icon [icon]="faPersonWalking"/>
-                </a>
-              } @else if (canRecordWalk(walk)) {
-                <a class="btn btn-primary btn-icon" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.ROUTE"
-                   [queryParams]="walkQuery(walk)" aria-label="Record route" tooltip="Record route" [isDisabled]="!tooltipsEnabled">
-                  <fa-icon class="red-icon" [icon]="faCircle"/>
-                </a>
-              }
-              <a class="btn btn-quiet btn-icon" [routerLink]="walkDetailsLink(walk)"
-                 aria-label="Walk details" tooltip="Walk details" [isDisabled]="!tooltipsEnabled">
-                <fa-icon [icon]="faCircleInfo"/>
-              </a>
-            </div>
-          </article>
+          </section>
         }
-      </section>
-      }
 
-      @if (!customising) {
-      <section class="app-home-section">
-        <h2>Appearance</h2>
-        <ng-container *ngTemplateOutlet="appearanceControls"/>
-      </section>
-      }
+        @if (!customising && showInstallHint) {
+          <section class="app-home-install">
+            <fa-icon [icon]="faCircleExclamation"/>
+            <div>
+              <strong>Add {{ groupName }} to your Home Screen</strong>
+              @if (platform === AppInstallPlatform.IOS) {
+                <p>Tap
+                  <fa-icon [icon]="faShareNodes"/>
+                  Share, then Add to Home Screen. It then opens like an app, with no website header.
+                </p>
+              } @else if (platform === AppInstallPlatform.ANDROID) {
+                <p>Tap Add to Home Screen, or open the browser menu and choose Add to Home screen / Install app.</p>
+              } @else {
+                <p>Open this page on your phone, then add it to your Home Screen for the full-screen app.</p>
+              }
+              @if (canInstall) {
+                <button class="btn btn-primary app-home-install-btn" type="button" (click)="install()">Add to Home
+                  Screen
+                </button>
+              }
+            </div>
+            <button class="btn btn-icon app-home-install-dismiss" type="button" (click)="dismissInstallHint()"
+                    aria-label="Dismiss" tooltip="Dismiss" [isDisabled]="!tooltipsEnabled">
+              <fa-icon [icon]="faXmark"/>
+            </button>
+          </section>
+        }
+
+        @if (!customising && view === AppHomeView.MAPS && layout.savedRoutes) {
+          <section class="app-home-section app-home-map-list">
+            <h2 class="visually-hidden">Maps</h2>
+            @for (route of displayedRoutes(); track routeKey(route)) {
+              <div class="app-home-card app-home-route-card">
+                <a class="app-home-route-main" [routerLink]="routeLink(route)"
+                   [queryParams]="routeQuery(route)">
+                  <app-os-maps-route-preview-map class="flush" fill [route]="listedOsMapsRoute(route)"
+                                                 [gpxFile]="route.gpxFile || null" [cacheKey]="routeKey(route)"
+                                                 [points]="previewPoints[routeKey(route) || ''] || []"/>
+                  <div class="app-home-card-copy">
+                    <h3>{{ route.title }}</h3>
+                    @if (route.description) {
+                      <p class="app-home-meta">{{ route.description }}</p>
+                    }
+
+                    <p class="app-home-meta">
+                      @if (milesAwayLabel(route)) {
+                        {{ milesAwayLabel(route) }}
+                      }
+                      @if (route.distanceMiles) {
+                        @if (milesAwayLabel(route)) {
+                          ·
+                        }
+                        {{ milesLabel(route.distanceMiles) }}
+                      }
+                      @if (route.startDescription) {
+                        @if (milesAwayLabel(route) || route.distanceMiles) {
+                          ·
+                        }
+                        {{ route.startDescription }}
+                      }
+                    </p>
+                    @if (route.ramblersSlug) {
+                      <p class="app-home-meta">Saved from a Ramblers route link</p>
+                    }
+                    <app-route-audit [audit]="route" iconsOnly showDates [walkedAt]="route.walkedAt"
+                                     [walkedByName]="route.walkedByName"/>
+                  </div>
+                </a>
+                <app-route-map-actions [favourite]="isFavourite(route)" [showHide]="isWebsiteMap(route)"
+                                       (favouriteToggle)="toggleFavourite(route)"
+                                       (hide)="removeSavedRoute(route)">
+                  @if (!isWebsiteMap(route) && confirmingRemoveKey === routeKey(route)) {
+                    <button class="app-home-map-action app-home-map-action-danger" type="button"
+                            aria-label="Confirm delete" tooltip="Confirm delete" [isDisabled]="!tooltipsEnabled"
+                            (click)="confirmRemoveSavedRoute(route); $event.stopPropagation()">
+                      <fa-icon [icon]="faTrash"/>
+                    </button>
+                  } @else if (!isWebsiteMap(route)) {
+                    <button class="app-home-map-action" type="button"
+                            aria-label="Delete" tooltip="Delete" [isDisabled]="!tooltipsEnabled"
+                            (click)="beginRemoveSavedRoute(route); $event.stopPropagation()">
+                      <fa-icon [icon]="faTrash"/>
+                    </button>
+                  }
+                </app-route-map-actions>
+              </div>
+            }
+            @if (moreRoutesAvailable()) {
+              <div app-visibility-observer="more-maps" [observeOnce]="false" rootMargin="240px 0px"
+                   (visible)="showMoreRoutes()">
+                <button class="btn btn-quiet w-100" type="button" (click)="showMoreRoutes()">Show more maps</button>
+              </div>
+            }
+            @if (visibleRoutes().length === 0) {
+              <p class="app-home-empty">{{ emptyMapsMessage() }}</p>
+            }
+          </section>
+        }
+
+        @if (!customising && view === AppHomeView.UPCOMING && !layout.upcomingWalks) {
+          <div class="app-home-empty">
+            <p>Upcoming walks are turned off in Customise. The group's programme is on the website; show it here to
+              follow those walks.</p>
+            <button class="btn btn-primary" type="button" (click)="enableSection('upcomingWalks')">Show the programme
+            </button>
+          </div>
+        }
+
+        @if (!customising && view === AppHomeView.MAPS && !layout.savedRoutes) {
+          <div class="app-home-empty">
+            <p>Maps are turned off in Customise.</p>
+            <button class="btn btn-primary" type="button" (click)="enableSection('savedRoutes')">Show maps</button>
+          </div>
+        }
+
+        @if (!customising && view === AppHomeView.UPCOMING && layout.upcomingWalks) {
+          <section class="app-home-section">
+            <h2 class="visually-hidden">Upcoming walks</h2>
+            @if (loading) {
+              <p class="app-home-empty">Finding walks…</p>
+            } @else if (visibleWalks().length === 0) {
+              <p class="app-home-empty">{{ emptyWalksMessage() }}</p>
+            }
+            @for (walk of visibleWalks(); track walk.id) {
+              <article class="app-home-card app-home-route-card">
+                <a class="app-home-route-main" [routerLink]="walkDetailsLink(walk)">
+                  @if (walkPhoto(walk)) {
+                    <img class="app-home-walk-photo" [src]="walkPhoto(walk)"
+                         [alt]="walk.groupEvent?.title || 'Walk photo'">
+                  } @else if (display.displayMapAsImageFallback(walk)) {
+                    <div class="app-home-walk-map"
+                         [app-visibility-observer]="walk.id"
+                         [observeOnce]="false"
+                         rootMargin="160px 0px"
+                         (visibilityChange)="onWalkThumbVisible(walk.id, $event)">
+                      @if (walkThumbVisible[walk.id]) {
+                        <app-card-image-or-map [displayedWalk]="displayedWalk(walk)"
+                                               [maxColumns]="3" [chrome]="false" [preview]="true"/>
+                      } @else {
+                        <img class="app-home-walk-photo app-home-walk-photo-fallback" [src]="FALLBACK_MEDIA.url" [alt]="FALLBACK_MEDIA.alt">
+                      }
+                    </div>
+                  } @else {
+                    <img class="app-home-walk-photo app-home-walk-photo-fallback" [src]="FALLBACK_MEDIA.url" [alt]="FALLBACK_MEDIA.alt">
+                  }
+                  <div class="app-home-card-copy">
+                    <h3>{{ walk.groupEvent?.title || displayedWalk(walk).latestEventType?.description }}</h3>
+                    <p class="app-home-meta">
+                      {{ walk.groupEvent?.start_date_time | displayDate }}
+                      ·
+                      {{ walk.groupEvent?.start_date_time | displayTime }}
+                      @if (walk.groupEvent?.distance_miles) {
+                        · {{ milesLabel(walk.groupEvent.distance_miles) }}
+                      }
+                    </p>
+                    @if (walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode) {
+                      <p
+                        class="app-home-meta">{{ walk.groupEvent?.start_location?.description || walk.groupEvent?.start_location?.postcode }}</p>
+                    }
+                    @let leaderName = display.visibleLeaderDisplayName(walk).trim();
+                    @if (leaderName) {
+                      <p class="app-home-meta"><fa-icon [icon]="faPersonWalking" class="me-1"/>Walk leader: {{ leaderName }}</p>
+                    }
+                    @if (display.walkPopulationLocal() && displayedWalk(walk).status !== EventType.APPROVED) {
+                      <div
+                        class="badge event-badge sunset-badge">{{ displayedWalk(walk).latestEventType?.description }}
+                      </div>
+                    }
+                  </div>
+                </a>
+                <div class="app-home-route-actions app-home-walk-actions">
+                  @if (payloadService.walkHasGpx(walk)) {
+                    <a class="btn btn-primary btn-icon" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.ROUTE"
+                       [queryParams]="walkQuery(walk)" aria-label="Follow" tooltip="Follow"
+                       [isDisabled]="!tooltipsEnabled">
+                      <fa-icon [icon]="faPersonWalking"/>
+                    </a>
+                  } @else if (canRecordWalk(walk)) {
+                    <a class="btn btn-primary btn-icon" [routerLink]="'/' + AppPath.ROOT + '/' + AppPath.ROUTE"
+                       [queryParams]="walkQuery(walk)" aria-label="Record route" tooltip="Record route"
+                       [isDisabled]="!tooltipsEnabled">
+                      <fa-icon class="red-icon" [icon]="faRoute"/>
+                    </a>
+                  }
+                  <a class="btn btn-quiet btn-icon" [routerLink]="walkDetailsLink(walk)"
+                     aria-label="Walk details" tooltip="Walk details" [isDisabled]="!tooltipsEnabled">
+                    <fa-icon [icon]="faCircleInfo"/>
+                  </a>
+                </div>
+              </article>
+            }
+          </section>
+        }
       }
     </div>
     <ng-template #appearanceControls>
@@ -553,7 +623,7 @@ const MAP_LIST_BATCH_SIZE = 20;
     </ng-template>
   `,
   styleUrls: ["./app-home.sass"],
-  imports: [AreaSelector, GroupSelector, NgSelectModule, PullToRefreshComponent, VisibilityObserverDirective, RouterLink, FormsModule, FontAwesomeModule, RouteAuditComponent, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, TooltipModule, DistanceRangeSlider, NgTemplateOutlet, FileUploadModule, RouteMapActionsComponent]
+  imports: [AreaSelector, GroupSelector, NgSelectModule, PullToRefreshComponent, VisibilityObserverDirective, RouterLink, FormsModule, FontAwesomeModule, RouteAuditComponent, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, CardImageOrMap, TooltipModule, DistanceRangeSlider, NgTemplateOutlet, FileUploadModule, RouteMapActionsComponent]
 })
 export class AppHomeComponent implements OnInit, OnDestroy {
   protected readonly refreshRoutes = async (): Promise<void> => {
@@ -625,6 +695,9 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected layout: AppHomeLayout = {savedRoutes: true, upcomingWalks: true};
   protected readonly APP_NEARBY_MILES_MAX = APP_NEARBY_MILES_MAX;
   protected readonly AppHomeView = AppHomeView;
+  protected readonly EventType = EventType;
+  protected readonly FALLBACK_MEDIA = FALLBACK_MEDIA;
+  protected walkThumbVisible: Record<string, boolean> = {};
   protected view = AppHomeView.MAPS;
   protected favouritesOnly = false;
   protected nearbyOnly = false;
@@ -653,7 +726,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected readonly faArrowLeft = faArrowLeft;
   protected readonly faCalendarDay = faCalendarDay;
   protected readonly faCheck = faCheck;
-  protected readonly faCircle = faCircle;
+  protected readonly faRoute = faRoute;
   protected readonly faCircleHalfStroke = faCircleHalfStroke;
   protected readonly faCircleCheck = faCircleCheck;
   protected readonly faCircleExclamation = faCircleExclamation;
@@ -993,7 +1066,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   visibleWalks(): ExtendedGroupEvent[] {
     const needle = this.routeSearch.trim().toLowerCase();
     return this.walks.filter(walk => {
-      const allowed = !this.display.awaitingLeader(walk) && !this.display.walkHiddenFromPublic(walk);
+      const allowed = !this.display.walkHiddenFromPublic(walk);
       const named = needle.length === 0 || (walk.groupEvent?.title || "").toLowerCase().includes(needle);
       return allowed && named;
     });
@@ -1002,6 +1075,16 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   walkPhoto(walk: ExtendedGroupEvent): string | null {
     const media = this.mediaQueryService.imageSource(walk);
     return media?.url ? this.urlService.imageSource(media.url) : null;
+  }
+
+  displayedWalk(walk: ExtendedGroupEvent): DisplayedWalk {
+    return this.display.toDisplayedWalk(walk);
+  }
+
+  onWalkThumbVisible(walkId: string, visible: boolean): void {
+    if (this.walkThumbVisible[walkId] !== visible) {
+      this.walkThumbVisible = {...this.walkThumbVisible, [walkId]: visible};
+    }
   }
 
   emptyWalksMessage(): string {
@@ -1247,7 +1330,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   }
 
   canRecordWalk(walk: ExtendedGroupEvent): boolean {
-    return this.display.allowEdits(walk) && this.payloadService.walkHasStart(walk);
+    return this.display.walkDetailsComplete(walk) && this.display.allowEdits(walk) && this.payloadService.walkHasStart(walk);
   }
 
   walkQuery(walk: ExtendedGroupEvent): Record<string, string> {

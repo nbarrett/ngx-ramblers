@@ -48,6 +48,7 @@ describe("route follow compass pointer", () => {
     view["syncPointer"](51, 0, view["pointerHeading"]());
     expect(view["compassHeadingText"]).toBe(`${heading}°`);
     expect(chevron.style.transform).toBe(`rotate(${heading}deg)`);
+    expect(chevron.style.getPropertyValue("--pointer-heading")).toBe(`${heading}deg`);
   });
 
   it("adds route-up map rotation once while keeping the pointer on its compass bearing", () => {

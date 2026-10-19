@@ -103,6 +103,72 @@ describe("MapTilesService", () => {
     expect(layers[0].options.attribution).toContain("Esri");
     expect(layers[0].options.maxZoom).toBe(19);
   });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("does not create a blob URL when a tile is unloaded during its download", async () => {
+    const pending: {resolve: (value: Response) => void} = {resolve: null};
+    vi.stubGlobal("caches", {open: vi.fn().mockResolvedValue({match: () => new Promise<Response>(resolve => pending.resolve = resolve)})});
+    const createObjectURL = vi.fn();
+    vi.stubGlobal("URL", {createObjectURL, revokeObjectURL: vi.fn()});
+    const service = TestBed.inject(MapTilesService);
+    const layer = service.createBaseLayer(MapProvider.OSM, "") as L.TileLayer;
+    vi.spyOn(layer, "getTileUrl").mockReturnValue("https://group.example.org.uk/tile.png");
+    const tile = layer["createTile"](Object.assign(L.point(1, 1), {z: 2}), vi.fn()) as HTMLImageElement;
+    await vi.waitFor(() => expect(pending.resolve).not.toBeNull());
+    layer.fire("tileunload", {tile});
+    const blob = vi.fn().mockResolvedValue(new Blob());
+    pending.resolve({ok: true, type: "basic", blob} as unknown as Response);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(blob).not.toHaveBeenCalled();
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(tile.getAttribute("src")).toBeNull();
+  });
+
+  it("releases a tile URL on unload and ignores a blob that finishes after unload", async () => {
+    const pending: {resolve: (value: Blob) => void} = {resolve: null};
+    const blob = vi.fn().mockImplementation(() => new Promise<Blob>(resolve => pending.resolve = resolve));
+    vi.stubGlobal("caches", {open: vi.fn().mockResolvedValue({match: vi.fn().mockResolvedValue({ok: true, type: "basic", blob})})});
+    const createObjectURL = vi.fn().mockReturnValue("blob:tile");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", {createObjectURL, revokeObjectURL});
+    const layer = TestBed.inject(MapTilesService).createBaseLayer(MapProvider.OSM, "") as L.TileLayer;
+    vi.spyOn(layer, "getTileUrl").mockReturnValue("https://group.example.org.uk/tile.png");
+    const tile = layer["createTile"](Object.assign(L.point(1, 1), {z: 2}), vi.fn()) as HTMLImageElement;
+    await vi.waitFor(() => expect(pending.resolve).not.toBeNull());
+    layer.fire("tileunload", {tile});
+    pending.resolve(new Blob());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(createObjectURL).not.toHaveBeenCalled();
+
+    blob.mockResolvedValue(new Blob());
+    const loaded = layer["createTile"](Object.assign(L.point(1, 1), {z: 2}), vi.fn()) as HTMLImageElement;
+    await vi.waitFor(() => expect(loaded.src).toBe("blob:tile"));
+    layer.fire("tileunload", {tile: loaded});
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:tile");
+  });
+
+  it("loads an opaque cached tile through its original URL without reading its body", async () => {
+    const blob = vi.fn().mockResolvedValue(new Blob());
+    const response = {type: "opaque", ok: false, blob} as unknown as Response;
+    const match = vi.fn().mockResolvedValue(response);
+    vi.stubGlobal("caches", {open: vi.fn().mockResolvedValue({match})});
+    vi.stubGlobal("fetch", vi.fn());
+    const service = TestBed.inject(MapTilesService);
+    const layer = service.createBaseLayer(MapProvider.OSM, "") as L.TileLayer;
+    vi.spyOn(layer, "getTileUrl").mockReturnValue("https://group.example.org.uk/tiles/2/1/1.png");
+    const tile = layer["createTile"](Object.assign(L.point(1, 1), {z: 2}), vi.fn()) as HTMLImageElement;
+
+    await vi.waitFor(() => expect(tile.src).toBe(tile.dataset.tileUrl));
+
+    expect(blob).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(match).toHaveBeenCalledWith(tile.dataset.tileUrl);
+    expect(tile.src).not.toContain("retry=");
+  });
 });
 
 describe("MapTilesService without an OS Maps key", () => {

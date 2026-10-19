@@ -63,7 +63,9 @@ export class RouteFollowPayloadService {
 
   walkHasStart(walk: ExtendedGroupEvent | null): boolean {
     const start = walk?.groupEvent?.start_location;
-    return isNumber(start?.latitude) && isNumber(start?.longitude);
+    return Number.isFinite(start?.latitude) && Number.isFinite(start?.longitude)
+      && Math.abs(start.latitude) <= 90 && Math.abs(start.longitude) <= 180
+      && !(start.latitude === 0 && start.longitude === 0);
   }
 
   rowHasGpx(row: PageContentRow | null): boolean {

@@ -17,7 +17,7 @@ export class OsMapsBrandingService {
 
   attributionHtml(): string {
     const year = this.copyrightYear();
-    return `${OS_MAPS_ATTRIBUTION_LEAD} ${year} · <a href="${OsMapsBrandingHref.TERMS}" target="_blank" rel="noopener">Terms</a> · <a href="${OsMapsBrandingHref.ERROR_REPORTING}" target="_blank" rel="noopener">Report an error</a>`;
+    return `${OS_MAPS_ATTRIBUTION_LEAD} ${year}<span class="os-api-branding-links"> · <a href="${OsMapsBrandingHref.TERMS}" target="_blank" rel="noopener">Terms</a> · <a href="${OsMapsBrandingHref.ERROR_REPORTING}" target="_blank" rel="noopener">Report an error</a></span>`;
   }
 
   attachTo(map: L.Map): void {

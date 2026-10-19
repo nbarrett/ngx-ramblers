@@ -11,10 +11,11 @@ import { AlertInstance, NotifierService } from "../../../services/notifier.servi
 import { WalkDisplayService } from "../walk-display.service";
 import { StringUtilsService } from "../../../services/string-utils.service";
 import { WalksConfigService } from "../../../services/system/walks-config.service";
+import { SystemConfigService } from "../../../services/system/system-config.service";
 import { WalksConfig } from "../../../models/walks-config.model";
 import { AddressQueryService } from "../../../services/walks/address-query.service";
 import { GridReferenceLookupResponse } from "../../../models/address-model";
-import { DEFAULT_OS_STYLE, LocationType, MapProvider, UK_MAP_CENTER, UK_MAP_ZOOM } from "../../../models/map.model";
+import { DEFAULT_OS_STYLE, LocationType, MapProvider, OSMapStyle, OSMapStyleKey, UK_MAP_CENTER, UK_MAP_ZOOM } from "../../../models/map.model";
 import { UK_POSTCODE_PATTERN } from "../../../models/locate.model";
 import { formattedUkPostcode } from "../../../functions/locate";
 import { isString } from "es-toolkit/compat";
@@ -40,6 +41,9 @@ const COMBINED_MAP_BOUNDS_PADDING = 0.25;
 
 @Component({
     selector: "[app-map-edit]",
+    host: {
+      "[class.preview]": "preview"
+    },
     template: `
     @if (mapReady()) {
       <div class="map-edit-surface"
@@ -57,16 +61,42 @@ const COMBINED_MAP_BOUNDS_PADDING = 0.25;
       .map-edit-surface
         width: 100%
         height: 100%
+      :host.preview ::ng-deep .leaflet-control-attribution
+        font-size: 6px
+        line-height: 1
+        padding: 0 3px
+        max-width: 100%
+        white-space: normal
+        background: rgba(255, 255, 255, 0.65)
+      :host.preview ::ng-deep .os-api-branding
+        gap: 2px
+        padding: 1px 2px
+        font: 6px / 7px Arial, Helvetica, sans-serif
+      :host.preview ::ng-deep .os-api-branding-logo
+        width: 18px
+        height: 6px
+      :host.preview ::ng-deep .os-api-branding-text
+        display: block
+        white-space: normal
+        overflow: visible
+      :host.preview ::ng-deep .os-api-branding-links,
+      :host.preview ::ng-deep .leaflet-control-zoom
+        display: none
     `],
     imports: [LeafletModule]
 })
 export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   protected id: string;
   public readonly = false;
+  public preview = false;
 
   @Input("readonly") set readonlyValue(value: boolean) {
     this.readonly = coerceBooleanProperty(value);
     this.logger.info("readonly:", this.readonly);
+  }
+
+  @Input("preview") set previewValue(value: boolean) {
+    this.preview = coerceBooleanProperty(value);
   }
 
   @Input() initialZoomOffset: number | null = null;
@@ -126,6 +156,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   private resizeObserver: ResizeObserver | null = null;
   private resizeFitTimer: ReturnType<typeof setTimeout> | null = null;
   private walksConfigService = inject(WalksConfigService);
+  private systemConfigService = inject(SystemConfigService);
   private addressQueryService = inject(AddressQueryService);
   private gridReferences = inject(GridReferenceService);
   private locationLookups = new WeakMap<LocationDetails, number>();
@@ -231,7 +262,9 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   private effectiveZoomOffset(): number {
-    return this.initialZoomOffset ?? -(this.walksConfig?.mapZoomOutLevels ?? 2);
+    const config = this.walksConfig || this.walksConfigService.walksConfig();
+    const configured = this.initialZoomOffset ?? -(config?.mapZoomOutLevels ?? 2);
+    return this.preview ? configured - 4 : configured;
   }
 
   private initializeSubscriptions() {
@@ -282,11 +315,14 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   private async prepareLocationsAndConfigure(): Promise<void> {
+    if (!this.systemConfigService.systemConfig()) {
+      await firstValueFrom(this.systemConfigService.events());
+    }
     await this.fillLatLngFromPostcode(this.locationDetails);
     if (this.showCombinedMap) {
       await this.fillLatLngFromPostcode(this.endLocationDetails);
     }
-    if (this.hasCoords(this.locationDetails) || this.clickPlacesMissingPin) {
+    if (!this.destroyed && (this.hasCoords(this.locationDetails) || this.clickPlacesMissingPin)) {
       this.configureMap();
     } else {
       this.logger.error("Invalid LatLng: latitude or longitude is undefined");
@@ -319,7 +355,16 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     const endLatLng = hasEnd ? L.latLng(this.endLocationDetails.latitude, this.endLocationDetails.longitude) : null;
     const bounds = hasStart && hasEnd ? L.latLngBounds(startLatLng, endLatLng).pad(COMBINED_MAP_BOUNDS_PADDING) : undefined;
     const center = bounds ? bounds.getCenter() : startLatLng;
-    const initialZoom = hasStart ? Math.max(1, Math.min(15, maxZoom) - 1 + this.effectiveZoomOffset()) : UK_MAP_ZOOM;
+    const initialZoom = this.preview
+      ? this.mapTiles.matchingZoom(
+        MapProvider.OS,
+        OSMapStyle[OSMapStyleKey.LEISURE_27700].key,
+        7,
+        provider,
+        style,
+        startLatLng.lat
+      )
+      : hasStart ? Math.max(1, Math.min(15, maxZoom) - 1 + this.effectiveZoomOffset()) : UK_MAP_ZOOM;
 
     this.options = {
       layers: [base],
@@ -328,7 +373,15 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
       crs,
       maxZoom,
       zoomSnap: 0.5,
-      zoomDelta: 0.5
+      zoomDelta: 0.5,
+      zoomControl: !this.preview,
+      attributionControl: true,
+      dragging: true,
+      touchZoom: true,
+      scrollWheelZoom: !this.preview,
+      doubleClickZoom: !this.preview,
+      boxZoom: !this.preview,
+      keyboard: !this.preview
     };
 
     this.provider = provider;
@@ -338,18 +391,22 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     this.endMarker = null;
     this.comparisonMarker = null;
     if (hasStart) {
-      const markerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
+      const markerIcon = this.preview
+        ? this.markerStyle.smallPreviewPinIcon(provider, this.walkStatus)
+        : this.markerStyle.markerIcon(provider, style, this.walkStatus);
       this.startMarker = L.marker(startLatLng, {
-        draggable: !this.readonly,
+        draggable: !this.readonly && !this.preview,
         icon: markerIcon as any
       });
-      this.startMarker.on("dragstart", () => this.startMarker?.closePopup());
-      this.startMarker.on("drag", (event) => this.zone.run(() => this.previewPinLocation((event.target as L.Marker).getLatLng(), this.locationDetails)));
-      this.startMarker.on("dragend", (event) => this.zone.run(() => this.onMarkerDragEnd(event)));
-      this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
+      if (!this.preview) {
+        this.startMarker.on("dragstart", () => this.startMarker?.closePopup());
+        this.startMarker.on("drag", (event) => this.zone.run(() => this.previewPinLocation((event.target as L.Marker).getLatLng(), this.locationDetails)));
+        this.startMarker.on("dragend", (event) => this.zone.run(() => this.onMarkerDragEnd(event)));
+        this.bindLocationPopup(this.startMarker, this.locationDetails, this.primaryPinRole());
+      }
       this.layers.push(this.startMarker);
     }
-    if (hasEnd) {
+    if (hasEnd && !this.preview) {
       const endMarkerIcon = this.markerStyle.markerIcon(provider, style, this.walkStatus);
       this.endMarker = L.marker(endLatLng, {
         draggable: !this.readonly,
@@ -421,8 +478,8 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
 
         if (latLngs.length >= 2) {
           const routeColor = this.routeColor || PaletteColor.ROSE;
-          const coreWeight = this.routeWeight || 8;
-          const haloWeight = coreWeight + 4;
+          const coreWeight = this.preview ? 3 : (this.routeWeight || 8);
+          const haloWeight = coreWeight + (this.preview ? 2 : 4);
           const coreOpacity = this.routeOpacity ?? 0.8;
           const haloOpacity = 0.5;
 
@@ -443,10 +500,10 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
           this.layers = [...this.layers, ...this.gpxLayers];
           this.logger.info("loadAndRenderGpxRoute: drew route for load", sequence, "layers now:", this.layers.length);
 
-          this.fitBounds = this.mapZoom.calculateBoundsFromLayers(this.gpxLayers, { paddingPercent: 0.15 });
+          this.fitBounds = this.mapZoom.calculateBoundsFromLayers(this.gpxLayers, { paddingPercent: this.preview ? 0.4 : 0.15 });
 
           if (this.map && this.fitBounds) {
-            this.mapZoom.invalidateAndApplyBounds(this.map, this.fitBounds, { maxZoom: 15 });
+            this.mapZoom.invalidateAndApplyBounds(this.map, this.fitBounds, { maxZoom: this.preview ? 8 : 15 });
           }
         }
       }
@@ -469,7 +526,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
         this.zone.run(() => {
           const zoomLevel = map.getZoom();
           this.logger.info("Map zoom level changed:", zoomLevel);
-          if (!this.showCombinedMap && !this.gpxFile?.awsFileName && !this.comparisonPreview && this.locationDetails?.latitude && this.locationDetails?.longitude) {
+          if (!this.preview && !this.showCombinedMap && !this.gpxFile?.awsFileName && !this.comparisonPreview && this.locationDetails?.latitude && this.locationDetails?.longitude) {
             map.panTo(L.latLng(this.locationDetails.latitude, this.locationDetails.longitude));
           }
           if (this.referenceZoom != null) {
@@ -482,17 +539,19 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
 
       setTimeout(() => {
         if (this.destroyed || this.map !== map) {
-          return;
-        }
-        map.invalidateSize();
-        if (this.fitBounds) {
-          this.mapZoom.applyBoundsToMap(map, this.fitBounds, { maxZoom: 15 });
-        } else if (!this.gpxFile?.awsFileName) {
-          const { latitude, longitude } = this.locationDetails;
-          const baseZoom = this.mapZoom.calculateSinglePointZoom(map, { defaultZoom: 15, mapMaxZoom: map.getMaxZoom() });
-          this.referenceZoom = Math.min(baseZoom, map.getMaxZoom());
-          const zoom = Math.max(1, this.referenceZoom + this.effectiveZoomOffset());
-          map.setView(L.latLng(latitude, longitude), zoom);
+        } else {
+          map.invalidateSize();
+          if (this.preview) {
+            map.attributionControl?.setPrefix("");
+          } else if (this.fitBounds) {
+            this.mapZoom.applyBoundsToMap(map, this.fitBounds, { maxZoom: 15 });
+          } else if (!this.gpxFile?.awsFileName) {
+            const { latitude, longitude } = this.locationDetails;
+            const baseZoom = this.mapZoom.calculateSinglePointZoom(map, { defaultZoom: 15, mapMaxZoom: map.getMaxZoom() });
+            this.referenceZoom = Math.min(baseZoom, map.getMaxZoom());
+            const zoom = Math.max(1, this.referenceZoom + this.effectiveZoomOffset());
+            map.setView(L.latLng(latitude, longitude), zoom);
+          }
         }
       }, 100);
     }

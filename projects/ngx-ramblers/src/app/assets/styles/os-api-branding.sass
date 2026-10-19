@@ -34,7 +34,8 @@
   text-overflow: ellipsis
   white-space: normal
 
-.os-maps-route-preview
+.os-maps-route-preview,
+.app-home-walk-map
   container-type: inline-size
   container-name: os-preview
 
@@ -63,6 +64,31 @@
   .os-api-branding-logo
     width: 28px
     height: 8px
+
+  .os-api-branding-text
+    -webkit-line-clamp: 1
+    white-space: nowrap
+    display: block
+
+@container os-preview (max-width: 140px)
+  .os-api-branding
+    max-height: none
+    gap: 2px
+    padding: 1px 2px
+    font: 6px / 7px Arial, Helvetica, sans-serif
+    justify-content: flex-start
+
+  .os-api-branding-logo
+    width: 18px
+    height: 6px
+
+  .os-api-branding-text
+    display: block
+    white-space: normal
+    overflow: visible
+
+  .os-api-branding-links
+    display: none
 
 .os-api-branding-text a
   color: #0071bc

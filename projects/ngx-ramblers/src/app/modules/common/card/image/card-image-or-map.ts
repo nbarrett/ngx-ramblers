@@ -21,22 +21,24 @@ import { CardImageComponent } from "./card-image";
 @Component({
   selector: "app-card-image-or-map",
   template: `
-    @if (displayedWalk?.walkAccessMode?.walkWritable) {
-      <app-walk-lead-edit-button [displayedWalk]="displayedWalk"
-                                 [appearance]="WalkLeadEditAppearance.OVERLAY"/>
-    } @else {
-      <a [href]="navigationUrl()"
-         class="btn pager-btn me-0 button-container">
-        <fa-icon [icon]="faEye"/>
-        <span class="ms-2">view</span>
-      </a>
+    @if (chrome) {
+      @if (displayedWalk?.walkAccessMode?.walkWritable) {
+        <app-walk-lead-edit-button [displayedWalk]="displayedWalk"
+                                   [appearance]="WalkLeadEditAppearance.OVERLAY"/>
+      } @else {
+        <a [href]="navigationUrl()"
+           class="btn pager-btn me-0 button-container">
+          <fa-icon [icon]="faEye"/>
+          <span class="ms-2">view</span>
+        </a>
+      }
     }
     @if (mapFallbackActive()) {
       <div [app-visibility-observer]="'walk-map-' + displayedWalk?.walk?.id" (visible)="mapVisible = true">
         @if (mapVisible) {
           @if (imageNavigationEnabled) {
             <a [href]="navigationUrl()" class="d-block">
-              <div app-map-edit readonly
+              <div app-map-edit readonly [preview]="preview"
                    [class]="determineClass()"
                    [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
                    [walkStatus]="displayedWalk.walk?.groupEvent?.status"
@@ -47,7 +49,7 @@ import { CardImageComponent } from "./card-image";
                    [notify]="notify"></div>
             </a>
           } @else {
-            <div app-map-edit readonly
+            <div app-map-edit readonly [preview]="preview"
                  [class]="determineClass()"
                  [locationDetails]="displayedWalk.walk?.groupEvent?.start_location"
                  [walkStatus]="displayedWalk.walk?.groupEvent?.status"
@@ -90,11 +92,13 @@ export class CardImageOrMap implements OnInit {
   public mediaQueryService = inject(MediaQueryService);
   protected readonly faEye = faEye;
   protected readonly WalkLeadEditAppearance = WalkLeadEditAppearance;
+  protected chrome = true;
+  protected preview = false;
   protected mapVisible = false;
   protected basicMedia: BasicMedia;
   protected imageNavigationEnabled: boolean;
   private _displayedWalk: DisplayedWalk;
-  @Input() notify!: AlertInstance;
+  @Input() notify: AlertInstance;
   @Input() maxColumns!: number;
   @Input() navigationHref: string;
 
@@ -109,6 +113,14 @@ export class CardImageOrMap implements OnInit {
 
   @Input("imageNavigationEnabled") set imageNavigationEnabledValue(imageNavigationEnabled: boolean) {
     this.imageNavigationEnabled = coerceBooleanProperty(imageNavigationEnabled);
+  }
+
+  @Input("chrome") set chromeValue(value: boolean) {
+    this.chrome = coerceBooleanProperty(value);
+  }
+
+  @Input("preview") set previewValue(value: boolean) {
+    this.preview = coerceBooleanProperty(value);
   }
 
   ngOnInit() {
