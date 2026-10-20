@@ -66,6 +66,10 @@ export class OsMapsExportService {
     return firstValueFrom(this.http.delete<{deleted: boolean}>(`${this.baseUrl}/routes/${encodeURIComponent(routeId)}`));
   }
 
+  clearUnimported(account = OsMapsAccountScope.GROUP): Promise<{cleared: number; remaining: number}> {
+    return firstValueFrom(this.http.post<{cleared: number; remaining: number}>(`${this.baseUrl}/routes/clear-unimported`, {account}));
+  }
+
   importedRoutes(): Promise<OsMapsListedRoute[]> {
     return firstValueFrom(this.http.get<OsMapsListedRoute[]>(`${this.baseUrl}/imported-routes`));
   }

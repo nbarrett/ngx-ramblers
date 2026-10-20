@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { of } from "rxjs";
 import { OsMapsExportPage } from "./os-maps-export";
 import { OsMapsExportService } from "../../../services/maps/os-maps-export.service";
+import { RouteFollowPayloadService } from "../../../services/maps/route-follow-payload.service";
 import { OsMapsRouteListCacheService } from "../../../services/maps/os-maps-route-list-cache.service";
 import { RouteListPreferencesService } from "../../../services/maps/route-list-preferences.service";
 import { LoggerFactory } from "../../../services/logger-factory.service";
@@ -37,6 +38,7 @@ describe("OS Maps export job reconnection", () => {
   const service = {
     listing: vi.fn(),
     deleteRoute: vi.fn(),
+    clearUnimported: vi.fn(),
     latestExportResult: vi.fn(),
     exportRoutes: vi.fn(),
     cancelActive: vi.fn(),
@@ -80,6 +82,7 @@ describe("OS Maps export job reconnection", () => {
       {provide: SystemConfigService, useValue: {osMapsLoginConfigured: () => true, events: () => of(null)}},
       {provide: StringUtilsService, useValue: {kebabCase: (value: string) => value, pluraliseWithCount: () => "1 GPX file"}},
       {provide: RamblersUploadAuditService, useValue: {all: async () => ({response: []})}},
+      {provide: RouteFollowPayloadService, useValue: {gpxDownloadUrl: () => null}},
       ...[DistanceValidationService, DateUtilsService, UiActionsService, UrlService, WalkDisplayService, Router]
         .map(provide => ({provide, useValue: {}}))
     ]});

@@ -17,7 +17,7 @@ import { RouteAuditComponent } from "../../../modules/common/route-audit";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faTrash, faArrowLeft, faArrowUpRightFromSquare, faXmark, faArrowDownWideShort, faArrowUpShortWide, faBookmark, faCalendarDays, faCheck, faCircleCheck, faCircleExclamation, faDownload, faEyeSlash, faLocationDot, faMagnifyingGlass, faMap, faPersonWalking, faPowerOff, faSpinner, faStar, faSync } from "@fortawesome/free-solid-svg-icons";
+import { faTrash, faArrowLeft, faArrowUpRightFromSquare, faXmark, faArrowDownWideShort, faArrowUpShortWide, faBookmark, faCalendarDays, faCheck, faCircleCheck, faCircleExclamation, faDownload, faEraser, faEyeSlash, faLocationDot, faMagnifyingGlass, faMap, faPersonWalking, faPowerOff, faSpinner, faStar, faSync } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -48,6 +48,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { UIDateFormat } from "../../../models/date-format.model";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { OsMapsExportService } from "../../../services/maps/os-maps-export.service";
+import { RouteFollowPayloadService } from "../../../services/maps/route-follow-payload.service";
 import { OsMapsRouteListCacheService } from "../../../services/maps/os-maps-route-list-cache.service";
 import { DistanceValidationService } from "../../../services/walks/distance-validation.service";
 import { DistanceUnit } from "../../../models/search.model";
@@ -65,10 +66,11 @@ import { serenityFeatureFromFileName, SerenityFeature } from "../../../models/se
 import { RamblersUploadAuditService } from "../../../services/walks/ramblers-upload-audit.service";
 import { AuditType, RamblersUploadAudit, Status } from "../../../models/ramblers-upload-audit.model";
 import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk-programme-page";
+import { GpxFileImportComponent } from "../../../modules/common/gpx-file-import";
 
 @Component({
   selector: "app-os-maps-export",
-  imports: [DistanceRangeSlider, OsMapsPersonalAccountComponent, SortableTableComponent, SortableTableCellDirective, RouterLink, RouteAuditComponent, WalkProgrammePageComponent, FormsModule, FontAwesomeModule, OsMapsLoginRequiredAlertComponent, SerenityJobAuditPanelComponent, TabsetComponent, TabDirective, TooltipDirective, OsMapsRoutePreviewMapComponent, ResizerComponent, RouteMapActionsComponent],
+  imports: [DistanceRangeSlider, OsMapsPersonalAccountComponent, SortableTableComponent, SortableTableCellDirective, RouterLink, RouteAuditComponent, WalkProgrammePageComponent, FormsModule, FontAwesomeModule, OsMapsLoginRequiredAlertComponent, SerenityJobAuditPanelComponent, TabsetComponent, TabDirective, TooltipDirective, OsMapsRoutePreviewMapComponent, ResizerComponent, RouteMapActionsComponent, GpxFileImportComponent],
   template: `
     <app-walk-programme-page>
       @if (!loginConfigured && account === OsMapsAccountScope.GROUP) {
@@ -104,6 +106,17 @@ import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk
               {{ cancelling ? "Stopping…" : "Stop job" }}
             </button>
           }
+        }
+        <app-gpx-file-import class="d-flex flex-wrap align-items-center gap-2 flex-grow-1"
+                            [disabled]="busy()"
+                            (imported)="onGpxFileImported()"
+                            (failed)="onGpxFileImportFailed($event)"/>
+        @if (isAdmin() && listing.listedAt && unimportedCount() > 0) {
+          <button type="button" class="btn btn-quiet" (click)="confirmClearUnimported = true"
+                  [disabled]="busy() || clearingUnimported">
+            <fa-icon [icon]="faEraser" class="me-2"/>
+            Clear not imported
+          </button>
         }
         @if (isAdmin()) {
           <div class="os-maps-account-control d-flex align-items-center gap-2">
@@ -157,6 +170,24 @@ import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk
             <div class="mt-2 d-flex gap-2">
               <button type="button" class="btn btn-primary btn-sm" (click)="cancelActive()"><fa-icon [icon]="faPowerOff" class="me-2"/>Stop job</button>
               <button type="button" class="btn btn-quiet btn-sm" (click)="confirmCancel = false"><fa-icon [icon]="faXmark" class="me-2"/>Cancel</button>
+            </div>
+          </div>
+        </div>
+      }
+      @if (confirmClearUnimported) {
+        <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+          <fa-icon [icon]="faCircleExclamation"/>
+          <div class="flex-grow-1">
+            <strong>Clear routes that are not yet imported?</strong>
+            <div>This removes the skeleton listing loaded from OS Maps. Imported GPX routes stay on this page. You can load the listing again from OS Maps later.</div>
+            <div class="mt-2 d-flex gap-2">
+              <button type="button" class="btn btn-danger btn-sm" (click)="clearUnimported()" [disabled]="clearingUnimported">
+                <fa-icon [icon]="clearingUnimported ? faSpinner : faEraser" [animation]="clearingUnimported ? 'spin' : null" class="me-2"/>
+                Clear {{ stringUtils.pluraliseWithCount(unimportedCount(), "listed route") }}
+              </button>
+              <button type="button" class="btn btn-quiet btn-sm" (click)="confirmClearUnimported = false" [disabled]="clearingUnimported">
+                <fa-icon [icon]="faXmark" class="me-2"/>Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -368,6 +399,14 @@ import { WalkProgrammePageComponent } from "../walk-programme-view-selector/walk
                               <fa-icon [icon]="faArrowUpRightFromSquare"/>
                               Open
                             </button>
+                          }
+                          @if (gpxDownloadUrl(route)) {
+                            <a [href]="gpxDownloadUrl(route)" [download]="gpxDownloadFileName(route)"
+                               class="btn btn-quiet"
+                               [attr.aria-label]="'Download GPX for ' + route.title">
+                              <fa-icon [icon]="faDownload"/>
+                              Download GPX
+                            </a>
                           }
                           @if (route.gpxFile?.awsFileName && isAdmin()) {
                             <span class="os-maps-route-delete" [tooltip]="route.walks?.length ? 'Cannot delete a route linked to a walk' : null" container="body">
@@ -595,11 +634,12 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   locationError = "";
   private logger = inject(LoggerFactory).createLogger("OsMapsExportPage", NgxLoggerLevel.ERROR);
   private osMapsExportService = inject(OsMapsExportService);
+  private routeFollowPayload = inject(RouteFollowPayloadService);
   private listCache = inject(OsMapsRouteListCacheService);
   private distanceValidation = inject(DistanceValidationService);
   private dateUtils = inject(DateUtilsService);
   private uiActions = inject(UiActionsService);
-  private stringUtils = inject(StringUtilsService);
+  protected stringUtils = inject(StringUtilsService);
   private activatedRoute = inject(ActivatedRoute);
   private urlService = inject(UrlService);
   private router = inject(Router);
@@ -615,6 +655,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   jobFeature = SerenityFeature.OS_MAPS_EXPORT;
   private destroyed = false;
   faTrash = faTrash;
+  faEraser = faEraser;
   faArrowLeft = faArrowLeft;
   faArrowUpRightFromSquare = faArrowUpRightFromSquare;
   faXmark = faXmark;
@@ -652,6 +693,8 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   checkingJob = true;
   cancelling = false;
   confirmCancel = false;
+  confirmClearUnimported = false;
+  clearingUnimported = false;
   activeTabId = OsMapsExportTab.ROUTES;
   errorMessage = "";
   warningMessage = "";
@@ -931,6 +974,20 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
     return isOsMapsRouteUrl(route.url);
   }
 
+  gpxDownloadUrl(route: OsMapsListedRoute): string | null {
+    return this.routeFollowPayload.gpxDownloadUrl(route.gpxFile);
+  }
+
+  gpxDownloadFileName(route: OsMapsListedRoute): string {
+    const original = route.gpxFile?.originalFileName;
+    if (original) {
+      return original.toLowerCase().endsWith(".gpx") ? original : `${original}.gpx`;
+    } else {
+      const slug = (route.title || "route").replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase();
+      return `${slug || "route"}.gpx`;
+    }
+  }
+
   protected readonly routeAuditCreatedLabel = routeAuditCreatedLabel;
 
   emptyMessage(): string {
@@ -1175,6 +1232,41 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
 
   busy(): boolean {
     return this.loading || this.converting || this.checkingJob || this.listingLoading;
+  }
+
+  onGpxFileImported(): void {
+    this.clearMessages();
+    this.successMessage = "The GPX file has been imported. It now appears in the route list.";
+    void this.loadListing();
+  }
+
+  onGpxFileImportFailed(message: string): void {
+    this.successMessage = "";
+    this.warningMessage = "";
+    this.errorMessage = message;
+  }
+
+  unimportedCount(): number {
+    return this.listing.unimportedCount ?? this.listing.routes.filter(route => !route.importedAt).length;
+  }
+
+  async clearUnimported(): Promise<void> {
+    if (!this.clearingUnimported) {
+      this.clearingUnimported = true;
+      this.clearMessages();
+      try {
+        const result = await this.osMapsExportService.clearUnimported(this.account);
+        this.confirmClearUnimported = false;
+        this.selectedIds.clear();
+        this.successMessage = result.cleared === 0
+          ? "There were no listed routes waiting to import."
+          : `Removed ${this.stringUtils.pluraliseWithCount(result.cleared, "listed route")} that had not been imported. Imported routes are unchanged.`;
+        await this.loadListing();
+      } catch (error) {
+        this.errorMessage = this.failureMessage(error, "Could not clear listed routes that are not yet imported");
+      }
+      this.clearingUnimported = false;
+    }
   }
 
   async onJobFinished(fileName: string): Promise<void> {
