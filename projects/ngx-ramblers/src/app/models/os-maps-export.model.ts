@@ -76,6 +76,7 @@ export interface OsMapsRouteListing {
   routes: OsMapsListedRoute[];
   matchedCount?: number;
   totalCount?: number;
+  unimportedCount?: number;
   users?: string[];
 }
 

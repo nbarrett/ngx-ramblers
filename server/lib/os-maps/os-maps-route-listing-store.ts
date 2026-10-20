@@ -72,6 +72,24 @@ export function listedRouteFromImportedRecord(record: OsMapsImportedRouteRecord)
   };
 }
 
+export function importedOsMapsListingRoutes(routes: OsMapsListedRoute[]): OsMapsListedRoute[] {
+  return (routes || []).filter(route => !!route.importedAt);
+}
+
+export async function clearUnimportedOsMapsListing(ownerMemberId: string | null = null): Promise<{cleared: number; remaining: number}> {
+  const key = ownerMemberId || LISTING_KEY;
+  return mongooseClient.execute(async () => {
+    const document = await osMapsRouteListing.findOne({key}).lean();
+    const routes = document?.routes || [];
+    const kept = importedOsMapsListingRoutes(routes);
+    const cleared = routes.length - kept.length;
+    if (cleared > 0) {
+      await osMapsRouteListing.updateOne({key}, {$set: {routes: kept}});
+    }
+    return {cleared, remaining: kept.length};
+  });
+}
+
 export async function removeOsMapsRouteFromApp(routeId: string): Promise<void> {
   await mongooseClient.execute(async () => {
     await osMapsRouteListing.updateMany({}, {$pull: {routes: {id: routeId}}});

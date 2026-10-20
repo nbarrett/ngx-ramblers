@@ -2,7 +2,7 @@ import { accessibleRoutes, canEditImportedRoute, routeAdmin } from "./os-maps-ro
 import { OsMapsAccountScope, OsMapsImportContext, OsMapsRouteListFilter, OS_MAPS_ROUTE_PAGE_SIZE, RouteVisibility } from "../../../projects/ngx-ramblers/src/app/models/os-maps-export.model";
 import { routesWithWalkReferences } from "./os-maps-route-walks";
 import { pageOsMapsListedRoutes } from "./os-maps-route-listing-page";
-import { removeOsMapsRouteFromApp } from "./os-maps-route-listing-store";
+import { clearUnimportedOsMapsListing, removeOsMapsRouteFromApp } from "./os-maps-route-listing-store";
 import { routeContributorFrom } from "../auth/request-member";
 import { Request, Response } from "express";
 import { isArray, isNumber, isObject, isString, keys } from "es-toolkit/compat";
@@ -51,6 +51,7 @@ export async function listOsMapsRoutes(req: Request, res: Response): Promise<voi
       routes: withWalks,
       matchedCount: paged.matchedCount,
       totalCount: paged.totalCount,
+      unimportedCount: accessible.filter(route => !route.importedAt).length,
       users: paged.users
     });
   } catch (error) {
@@ -236,6 +237,16 @@ export async function cancelOsMapsExport(_req: Request, res: Response): Promise<
     res.json({cancelled: workerOutcome.cancelled || !!abandoned, jobId: abandoned?.jobId || latest?.jobId});
   } catch (error) {
     debugLog("cancel export failed:", (error as Error).message);
+    res.status(500).json({error: (error as Error).message});
+  }
+}
+
+export async function clearUnimportedOsMapsRoutes(req: Request, res: Response): Promise<void> {
+  try {
+    const result = await clearUnimportedOsMapsListing(accountOwner(req));
+    res.json(result);
+  } catch (error) {
+    debugLog("clear unimported listing failed:", (error as Error).message);
     res.status(500).json({error: (error as Error).message});
   }
 }

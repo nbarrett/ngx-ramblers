@@ -3,6 +3,7 @@ import express from "express";
 import * as authConfig from "../auth/auth-config";
 import { tileProxy } from "./os-maps-proxy";
 import {
+  clearUnimportedOsMapsRoutes,
   deleteOsMapsRoute,
   exportOsMapsRoute,
   latestOsMapsExportJobResult,
@@ -28,6 +29,7 @@ router.get("/routes/:routeId", authConfig.authenticate(), osMapsImportedRoute);
 router.delete("/routes/:routeId", authConfig.authenticate(), authConfig.requireAdmin, deleteOsMapsRoute);
 router.put("/routes/:routeId", authConfig.authenticate(), updateOsMapsImportedRoute);
 router.post("/routes/refresh", authConfig.authenticate(), refreshOsMapsRoutes);
+router.post("/routes/clear-unimported", authConfig.authenticate(), authConfig.requireAdmin, clearUnimportedOsMapsRoutes);
 router.post("/export", authConfig.authenticate(), exportOsMapsRoute);
 router.post("/export/cancel", authConfig.authenticate(), authConfig.requireAdmin, cancelOsMapsExport);
 router.get("/export/latest", authConfig.authenticate(), latestOsMapsExportJobResult);

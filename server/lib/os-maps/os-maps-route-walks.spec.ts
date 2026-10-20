@@ -8,7 +8,8 @@ import { StoredValue } from "../../../projects/ngx-ramblers/src/app/models/ui-ac
 import { walkReferencesRoute, withRouteWalks } from "./os-maps-route-walks";
 import * as references from "./os-maps-route-walks";
 import * as listingStore from "./os-maps-route-listing-store";
-import { deleteOsMapsRoute } from "./os-maps-export-controller";
+import { clearUnimportedOsMapsRoutes, deleteOsMapsRoute } from "./os-maps-export-controller";
+import { importedOsMapsListingRoutes } from "./os-maps-route-listing-store";
 
 const route: OsMapsListedRoute = {
   id: "1001", number: 17, title: "Hillside Park", url: "https://explore.osmaps.com/route/1001",
@@ -89,5 +90,25 @@ describe("delete route protection", () => {
     await deleteOsMapsRoute({params: {routeId: route.id}} as unknown as Request, response as unknown as Response);
     expect(remove.calledOnceWithExactly(route.id)).toBe(true);
     expect(response.json.calledWith({deleted: true})).toBe(true);
+  });
+});
+
+describe("clear unimported listing", () => {
+  const sandbox = sinon.createSandbox();
+  afterEach(() => sandbox.restore());
+
+  it("keeps imported listing rows and drops skeleton rows", () => {
+    const imported = {...route, importedAt: 1};
+    const skeleton = {...route, id: "1002", importedAt: null, gpxFile: null};
+    expect(importedOsMapsListingRoutes([imported, skeleton])).toEqual([imported]);
+  });
+
+  it("reports how many skeleton rows were removed", async () => {
+    const clear = sandbox.stub(listingStore, "clearUnimportedOsMapsListing").resolves({cleared: 12, remaining: 3});
+    const response = {status: sinon.stub(), json: sinon.stub()};
+    response.status.returns(response);
+    await clearUnimportedOsMapsRoutes({user: {walkAdmin: true, memberId: "admin"}, body: {account: "group"}} as unknown as Request, response as unknown as Response);
+    expect(clear.calledOnce).toBe(true);
+    expect(response.json.calledWith({cleared: 12, remaining: 3})).toBe(true);
   });
 });
