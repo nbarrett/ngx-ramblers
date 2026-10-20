@@ -34,7 +34,8 @@ import {
   PageContentRow,
   PageContentType,
   StringMatch,
-  Transformation
+  Transformation,
+  MIGRATED_IMAGE_HEIGHT
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import {
@@ -1106,6 +1107,7 @@ export class PageTransformationEngine {
         imageSource,
         alt,
         imageBorderRadius: 6,
+        imageHeight: MIGRATED_IMAGE_HEIGHT,
         contentText: caption,
         showTextAfterImage: caption ? true : undefined,
         accessLevel: AccessLevel.PUBLIC
@@ -1500,6 +1502,7 @@ export class PageTransformationEngine {
       imageSource,
       alt,
       imageBorderRadius: 6,
+      imageHeight: MIGRATED_IMAGE_HEIGHT,
       contentText: caption,
       showTextAfterImage: caption ? !matcher.captionBeforeImage : undefined
     };
@@ -1520,7 +1523,7 @@ export class PageTransformationEngine {
     const alt = match.image.alt || "Image";
     this.markImageIndices(ctx, [match.index]);
     debugLog(`   ✅ Matched image by alt at index ${match.index}`);
-    return {imageSource, alt, imageBorderRadius: 6};
+    return {imageSource, alt, imageBorderRadius: 6, imageHeight: MIGRATED_IMAGE_HEIGHT};
   }
 
   private async matchFirstImage(
@@ -1541,6 +1544,7 @@ export class PageTransformationEngine {
       imageSource,
       alt,
       imageBorderRadius: 6,
+      imageHeight: MIGRATED_IMAGE_HEIGHT,
       contentText: caption,
       showTextAfterImage: caption ? !matcher?.captionBeforeImage : undefined
     };
@@ -1566,6 +1570,7 @@ export class PageTransformationEngine {
       imageSource,
       alt,
       imageBorderRadius: 6,
+      imageHeight: MIGRATED_IMAGE_HEIGHT,
       contentText: caption,
       showTextAfterImage: caption ? !matcher?.captionBeforeImage : undefined
     };
@@ -1601,6 +1606,7 @@ export class PageTransformationEngine {
       imageSource,
       alt,
       imageBorderRadius: 6,
+      imageHeight: MIGRATED_IMAGE_HEIGHT,
       contentText: caption,
       showTextAfterImage: caption ? !matcher?.captionBeforeImage : undefined
     };
@@ -2724,6 +2730,7 @@ export class PageTransformationEngine {
         column.imageSource = item.column.imageSource;
         column.alt = item.column.alt;
         column.imageBorderRadius = item.column.imageBorderRadius ?? column.imageBorderRadius;
+        column.imageHeight = item.column.imageHeight ?? column.imageHeight ?? MIGRATED_IMAGE_HEIGHT;
         imageApplied = true;
       }
       if (item.column.contentText && supportsText) {

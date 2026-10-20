@@ -27,6 +27,7 @@ import { WalkProgrammeViewSelector } from "./walk-programme-view-selector";
       height: 0
     .programme-chrome.sticky-toolbar
       top: 0
+      overflow-anchor: none
     @media (max-width: 768px)
       .programme-chrome.sticky-toolbar
         position: static
@@ -45,9 +46,19 @@ export class WalkProgrammePageComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     if (this.sticky && this.stickySentinel) {
       this.observer = new IntersectionObserver(entries => {
-        const scrolledPastChrome = entries.some(entry => !entry.isIntersecting && entry.boundingClientRect.top < 0);
-        this.zone.run(() => this.condensed.set(scrolledPastChrome));
-      });
+        const entry = entries[0];
+        if (entry) {
+          const scrolledPast = entry.boundingClientRect.top < -24;
+          const backAtTop = entry.boundingClientRect.top >= 0;
+          this.zone.run(() => {
+            if (scrolledPast) {
+              this.condensed.set(true);
+            } else if (backAtTop) {
+              this.condensed.set(false);
+            }
+          });
+        }
+      }, {threshold: [0, 1]});
       this.observer.observe(this.stickySentinel.nativeElement);
     }
   }

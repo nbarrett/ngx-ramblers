@@ -144,6 +144,9 @@ import { AdvancedToggle } from "../../../shared/components/advanced-toggle";
         .walk-search-toolbar
           display: contents
 
+        .search-alert-inline
+          width: 100%
+
         .walk-search-pagination
           position: sticky
           top: 0

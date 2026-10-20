@@ -43,7 +43,7 @@ function exactDateIn(text: string): GalleryDate | null {
 }
 
 function monthAndYearIn(text: string): GalleryDate | null {
-  const year = text.match(/\b((?:19|20)\d{2})\b/);
+  const year = text.match(/((?:19|20)\d{2})/);
   const monthName = [...text.matchAll(MONTH_NAME_PATTERN)].map(match => match[1]).pop();
   if (!year) {
     return null;

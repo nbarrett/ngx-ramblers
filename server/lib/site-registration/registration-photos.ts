@@ -19,7 +19,7 @@ import { galleryDateFrom, MONTH_NAME_PATTERN } from "../../../projects/ngx-rambl
 import { albumPhotoPaths } from "./registration-content";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeFromObject } from "../shared/dates";
 
-const IGNORED_WORDS = new Set(["and", "the", "of", "a", "an", "to", "from", "at", "in", "on", "via", "with", "walk", "walks", "circular", "short", "long", "photos", "photo", "gallery", "stage", "part", "group", "ramblers", "day"]);
+const IGNORED_WORDS = new Set(["and", "the", "of", "a", "an", "to", "from", "at", "in", "on", "via", "with", "walk", "walks", "circular", "short", "long", "photos", "photo", "gallery", "stage", "part", "group", "ramblers", "day", "days", "spring", "summer", "autumn", "winter", "holiday", "holidays", "coach", "ramble", "rambles", "afternoon", "morning", "evening", "celebration", "celebrations", "anniversary"]);
 const SHORT_DESCRIPTION_LENGTH = 90;
 
 function significantWords(text: string): Set<string> {
@@ -31,9 +31,9 @@ function significantWords(text: string): Set<string> {
     .filter(word => word.length > 2 && !IGNORED_WORDS.has(word)));
 }
 
-function sameDay(walk: RegistrationWalkCandidate, date: GalleryDate): boolean {
+function samePeriod(walk: RegistrationWalkCandidate, date: GalleryDate): boolean {
   const [year, month, day] = walk.startDateTime.slice(0, 10).split("-").map(Number);
-  return year === date.year && month === date.month && (date.day === null || day === date.day);
+  return year === date.year && (date.month === null || month === date.month) && (date.day === null || day === date.day);
 }
 
 function sharedWordCount(title: string, walk: RegistrationWalkCandidate): number {
@@ -42,19 +42,26 @@ function sharedWordCount(title: string, walk: RegistrationWalkCandidate): number
 }
 
 export function matchingWalk(title: string, date: GalleryDate | null, walks: RegistrationWalkCandidate[]): {walk: RegistrationWalkCandidate | null; reason: string} {
-  if (!date?.month) {
-    return {walk: null, reason: "no month or day could be read from the gallery"};
+  if (!date?.year) {
+    return {walk: null, reason: "no date could be read from the gallery"};
   } else {
-    const candidates = walks.filter(walk => sameDay(walk, date));
+    const candidates = walks.filter(walk => samePeriod(walk, date));
     const scored = candidates.map(walk => ({walk, score: sharedWordCount(title, walk)})).sort((left, right) => right.score - left.score);
     const best = scored[0];
     const runnerUp = scored[1];
+    const period = date.day ? "day" : date.month ? "month" : "year";
     if (!best) {
-      return {walk: null, reason: date.day ? "no walk on that day" : "no walks that month"};
+      return {walk: null, reason: `no walks that ${period}`};
     } else if (date.day && scored.length === 1) {
       return {walk: best.walk, reason: "the only walk on that day"};
     } else if (best.score === 0) {
-      return {walk: null, reason: "no walk that month shares a place name with the gallery"};
+      const wider = walks.map(walk => ({walk, score: sharedWordCount(title, walk)})).sort((left, right) => right.score - left.score);
+      const uniquePlace = wider[0]?.score >= 2 && wider[0].score > (wider[1]?.score || 0);
+      if (uniquePlace) {
+        return {walk: wider[0].walk, reason: `shares ${wider[0].score} place names with a walk`};
+      } else {
+        return {walk: null, reason: `no walk that ${period} shares a place name with the gallery`};
+      }
     } else if (runnerUp && runnerUp.score === best.score) {
       return {walk: null, reason: "two walks match equally well"};
     } else {
@@ -80,7 +87,7 @@ function albumTitle(album: MigratedAlbum): string {
 
 export function albumGalleryDate(album: MigratedAlbum, pages: RegistrationPage[]): GalleryDate | null {
   const source = sourcePageFor(album, pages);
-  return galleryDateFrom(source?.url, source?.title, albumTitle(album));
+  return galleryDateFrom(source?.url, source?.title, albumTitle(album), album.album?.name, ...(album.sourceImageUrls || []).slice(0, 1));
 }
 
 function withCarousel(album: MigratedAlbum, update: object): MigratedAlbum {
@@ -141,8 +148,14 @@ function linkListText(text: string): boolean {
   return links.length >= 3 && remaining.length < (text || "").length * 0.2;
 }
 
+function listingPhotoDump(row: PageContentRow): boolean {
+  const nestedImages = (row.columns || []).flatMap(column => column.rows || []).filter(nested => (nested.columns || []).some(column => !!column.imageSource));
+  return !!row.showSwiper && nestedImages.length > 1;
+}
+
 function withoutLinkLists(rows: PageContentRow[]): PageContentRow[] {
   return rows.filter(row => row.type !== PageContentType.ALBUM_INDEX)
+    .filter(row => !listingPhotoDump(row))
     .filter(row => !(row.type === PageContentType.TEXT && (row.columns || []).length > 0 && (row.columns || []).every(column => linkListText(column.contentText) && !column.imageSource)));
 }
 
@@ -176,10 +189,17 @@ export function photosByYear(pages: PageContent[], registrationPages: Registrati
     });
     const yearPages: PageContent[] = datedYears
       .filter(year => !pages.some(page => page.path === `${root}/${year}`))
-      .map(year => ({
-        path: `${root}/${year}`,
-        rows: templateRows(templates.year, `${root}/${year}`, `${year}`, mapCenter)
-      }));
+      .map(year => {
+        const rows = templateRows(templates.year, `${root}/${year}`, `${year}`, mapCenter);
+        const cover = firstImageIn(moved.filter(page => page.path.startsWith(`${root}/${year}/`)).flatMap(page => page.rows || []));
+        return {
+          path: `${root}/${year}`,
+          rows: cover ? rows.map((row, index) => index === 0 ? {
+            ...row,
+            columns: (row.columns || []).map((column, columnIndex) => columnIndex === 0 ? {...column, imageSource: cover} : column)
+          } : row) : rows
+        };
+      });
     return [...moved.map(page => page.path === root ? {
       ...page,
       rows: withMigrationNoteLast([...withoutLinkLists(page.rows || []), ...templateRows(templates.index, root, "", mapCenter)])

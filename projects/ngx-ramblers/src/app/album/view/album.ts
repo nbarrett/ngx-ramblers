@@ -247,7 +247,7 @@ export class AlbumComponent implements OnInit {
   private applyContentMetadata(contentMetadata: ContentMetadata, complete = true) {
     this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
     this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
-    const slideCount = this.albumView === AlbumView.GRID ? this.lazyLoadingMetadata?.contentMetadata?.files?.length : 10;
+    const slideCount = this.lazyLoadingMetadata?.contentMetadata?.files?.length || 0;
     this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS, slideCount);
     if (complete) {
       this.noImages = !contentMetadata?.files?.length;
@@ -260,8 +260,8 @@ export class AlbumComponent implements OnInit {
     this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
     this.lazyLoadingMetadataService.replaceContentMetadata(this.lazyLoadingMetadata, contentMetadata, this.duplicateImages, ALL_PHOTOS);
     const unshownSlides = this.lazyLoadingMetadata.availableSlides.length - this.lazyLoadingMetadata.selectedSlides.length;
-    if (this.albumView === AlbumView.GRID && unshownSlides > 0) {
-      this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata, unshownSlides, "grid shows every image");
+    if (unshownSlides > 0) {
+      this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata, unshownSlides, "album shows every image");
     }
     this.noImages = !contentMetadata?.files?.length;
     this.lazyLoadingMetadataChange.emit(this.lazyLoadingMetadata);

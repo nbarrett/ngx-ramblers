@@ -23,6 +23,7 @@ import {
 
 export const EM_DASH = " — ";
 export const EM_DASH_WITH_SPACES = ` ${EM_DASH} `;
+export const MIGRATED_IMAGE_HEIGHT = 450;
 
 export const ALBUM_INDEX_PAGE_SELECT = {
   path: 1,

@@ -219,7 +219,12 @@ iframe
 
 @media (min-width: 769px)
   .sticky-toolbar.condensed .sticky-collapsible
-    display: none
+    visibility: hidden
+    max-height: 0
+    margin: 0
+    padding: 0
+    overflow: hidden
+    pointer-events: none
 
 .thumbnail-heading-frame-contained
   padding: var(--space-5)

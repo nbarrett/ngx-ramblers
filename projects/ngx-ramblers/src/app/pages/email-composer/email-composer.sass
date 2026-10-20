@@ -214,15 +214,25 @@
 .composer-sticky-chrome
   position: -webkit-sticky
   position: sticky
-  top: env(safe-area-inset-top, 0px)
+  top: 0
   z-index: 1050
   background: #fff
-  padding: 4px 0 0
+  padding: calc(4px + env(safe-area-inset-top, 0px)) 0 0
   margin: 0
   overflow: visible
   display: flex
   flex-direction: column
   align-items: stretch
+
+  &::before
+    content: ''
+    position: absolute
+    bottom: 100%
+    left: 0
+    right: 0
+    height: env(safe-area-inset-top, 0px)
+    background: inherit
+    pointer-events: none
 
 :host ::ng-deep .tiptap-sticky-region-active
   top: var(--tiptap-toolbar-offset, 0px)
@@ -608,7 +618,7 @@
     order: 3
     grid-column: auto
 
-  .composer-workspace-actions > .btn-sunset
+  .composer-workspace-actions > .composer-send-action
     order: 4
 
   .composer-workspace-actions > .composer-maximise-toggle

@@ -12,7 +12,9 @@ import {
   PageContentRow,
   AlbumData,
   PageContentType,
-  StringMatch
+  StringMatch,
+  MIGRATED_IMAGE_HEIGHT,
+  DEFAULT_GRID_OPTIONS
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import * as mongooseClient from "../mongo/mongoose-client";
 import { pageContent as pageContentModel } from "../mongo/models/page-content";
@@ -50,16 +52,25 @@ import mongoose from "mongoose";
 import { fetchFlickrGroupPool, fetchUserAlbums, flickrAlbumUrlsIn, flickrGroupAsAlbum, flickrGroupNamesIn, flickrProvider, flickrUserAlbumsUrlsIn, parseUserAlbumsUrl } from "../external-album/flickr-provider";
 import { externalAlbumDocuments, importExternalAlbum } from "../external-album/external-album-import-service";
 import { SourceSiteUnavailableError, sourceSiteLimiter } from "../site-registration/source-site-limiter";
+import { dateTimeFromObject } from "../shared/dates";
 import { registrationCommitteeCandidatesFromMarkdown } from "../site-registration/registration-committee";
 import { RegistrationNavbarPath } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
+import {
+  eventGalleryAlbumLinksFromHtml,
+  eventGalleryImagesFromHtml,
+  eventGalleryIndexImages,
+  eventGalleryPaginationUrls,
+  isEventGalleryAlbumUrl,
+  isEventGalleryListingHtml
+} from "./event-gallery";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
 debugLog.enabled = true;
 
-const MIN_IMAGES_FOR_PAGE_ALBUM = 4;
+const MIN_IMAGES_FOR_PAGE_ALBUM = 3;
 const MIN_IMAGES_FOR_GALLERY_ALBUM = 1;
 const MIN_IMAGES_FOR_HOME_CAROUSEL = 2;
-const MIGRATED_CAROUSEL_HEIGHT = 400;
+const MIGRATED_CAROUSEL_HEIGHT = MIGRATED_IMAGE_HEIGHT;
 const REPEATED_BLOCK_PAGE_SHARE = 0.2;
 const MIN_PAGES_FOR_REPEATED_BLOCK = 3;
 
@@ -576,6 +587,16 @@ async function createPageContent(ctx: Ctx, content: ScrapedPage, contentTextItem
   return pageContent;
 }
 
+function eventGalleryCarousel(name: string, title: string, sourceUrl = ""): AlbumData {
+  const date = galleryDateFrom(title, sourceUrl, name);
+  return {
+    ...migratedAlbumCarousel(name, title, "", false, AlbumView.GRID),
+    allowSwitchView: false,
+    gridViewOptions: {...DEFAULT_GRID_OPTIONS, showTitles: false, showDates: false, gap: 0.25},
+    eventDate: date ? dateTimeFromObject({year: date.year, month: date.month || 1, day: date.day || 1}).toMillis() : null
+  };
+}
+
 function migratedAlbumCarousel(name: string, title: string, introductoryText: string, showPreAlbumText: boolean, albumView: AlbumView = AlbumView.GALLERY): AlbumData {
   return {
     name,
@@ -693,55 +714,77 @@ async function scrapeGalleryLinks(ctx: Ctx): Promise<PageLink[]> {
   }
 }
 
+async function scrapeAlbumImages(ctx: Ctx, albumLink: PageLink): Promise<ScrapedImage[]> {
+  if (ctx.config.publicHtmlOnly || isEventGalleryAlbumUrl(albumLink.path)) {
+    return eventGalleryImagesFromHtml(await listingHtml(ctx, albumLink.path), albumLink.path);
+  } else {
+    const page = await createPage(ctx);
+    try {
+      const response = await page.goto(albumLink.path, {waitUntil: "networkidle", timeout: 60000});
+      if (response && !response.ok()) {
+        debugLog(`Failed to load ${albumLink.path}: Status ${response.status()}`);
+        return [];
+      } else {
+        const html = await page.content();
+        const fromEventGallery = eventGalleryImagesFromHtml(html, albumLink.path);
+        if (fromEventGallery.length) {
+          return fromEventGallery;
+        } else {
+          return page.evaluate((contentSelector: string): ScrapedImage[] => {
+            const contentNode = document.querySelector(contentSelector) || document.body;
+            const imageNodes = contentNode.querySelectorAll("img");
+            return Array.from(imageNodes).map((img) => ({
+              src: img.src,
+              alt: img.alt
+            })).filter(item => item.alt !== "logo");
+          }, ctx.config.contentSelector);
+        }
+      }
+    } finally {
+      await page.close();
+    }
+  }
+}
+
 async function scrapeAlbum(ctx: Ctx, albumLink: PageLink): Promise<MigratedAlbum> {
-  const page = await createPage(ctx);
-  debugLog(`✅ Scraping gallery ${albumLink.path}`);
+  debugLog(`Scraping gallery ${albumLink.path}`);
   try {
-    const response = await page.goto(albumLink.path, {waitUntil: "networkidle", timeout: 60000});
-    if (response && !response.ok()) {
-      debugLog(`❌ Failed to load ${albumLink.path}: Status ${response.status()}`);
+    const images = await scrapeAlbumImages(ctx, albumLink);
+    if (!images.length) {
       return null;
+    } else {
+      const files = images.map((img, index) => albumFileFromSource(img, index, decodeURIComponent(img.src)));
+      const name = albumFrom(albumLink.title);
+      const album: ContentMetadata = {
+        rootFolder: RootFolder.siteContent,
+        name,
+        aspectRatio: null,
+        files,
+        coverImage: files[0]?.image || null,
+        imageTags: [],
+        maxImageSize: DEFAULT_ALBUM_MAX_IMAGE_SIZE
+      } as any;
+      const pageContent: PageContent = {
+        path: isEventGalleryAlbumUrl(albumLink.path) ? `${RegistrationNavbarPath.PHOTOS}/${toKebabCase(albumLink.title)}` : name,
+        rows: [{
+          maxColumns: 1,
+          showSwiper: false,
+          type: PageContentType.ALBUM,
+          columns: [{columns: 12, accessLevel: AccessLevel.PUBLIC, imageSource: files[0]?.image || null}],
+          carousel: eventGalleryCarousel(name, albumLink.title, albumLink.path)
+        }]
+      };
+      if (ctx.config.persistData) {
+        const savedAlbum = await mongooseClient.upsert<ContentMetadata>(contentMetadata, {name}, album);
+        const savedPageContent = await mongooseClient.upsert<PageContent>(pageContentModel, {path: pageContent.path}, pageContent);
+        return {album: savedAlbum, pageContent: savedPageContent, sourcePagePath: pageContent.path, sourceImageUrls: images.map(image => image.src)};
+      } else {
+        return {album, pageContent, sourcePagePath: pageContent.path, sourceImageUrls: images.map(image => image.src)};
+      }
     }
-    const images: ScrapedImage[] = await page.evaluate((contentSelector: string): ScrapedImage[] => {
-      const contentNode = document.querySelector(contentSelector) || document.body;
-      const imageNodes = contentNode.querySelectorAll("img");
-      return Array.from(imageNodes).map((img) => ({
-        src: img.src,
-        alt: img.alt
-      })).filter(item => item.alt !== "logo");
-    }, ctx.config.contentSelector);
-    const files = images.map((img, index) => albumFileFromSource(img, index, decodeURIComponent(img.src)));
-    const name = albumFrom(albumLink.title);
-    const album: ContentMetadata = {
-      rootFolder: RootFolder.siteContent,
-      name,
-      aspectRatio: null,
-      files,
-      coverImage: null,
-      imageTags: [],
-      maxImageSize: DEFAULT_ALBUM_MAX_IMAGE_SIZE
-    } as any;
-    const pageContent: PageContent = {
-      path: name,
-      rows: [{
-        maxColumns: 1,
-        showSwiper: false,
-        type: PageContentType.ALBUM,
-        columns: [{columns: 12, accessLevel: AccessLevel.PUBLIC}],
-        carousel: migratedAlbumCarousel(name, albumLink.title, "To be completed", true)
-      }]
-    };
-    if (ctx.config.persistData) {
-      const savedAlbum = await mongooseClient.upsert<ContentMetadata>(contentMetadata, {name}, album);
-      const savedPageContent = await mongooseClient.upsert<PageContent>(pageContentModel, {path: name}, pageContent);
-      return {album: savedAlbum, pageContent: savedPageContent};
-    }
-    return {album, pageContent};
   } catch (error) {
-    debugLog(`❌ Error scraping ${albumLink.path}:`, error);
+    debugLog(`Error scraping ${albumLink.path}:`, error);
     return null;
-  } finally {
-    await page.close();
   }
 }
 
@@ -762,6 +805,21 @@ function decorativeRamblersWebsImage(img: ScrapedImage): boolean {
   return /\/wpimages\/wp[0-9a-f_]+/.test(src) && !/\.jpe?g($|\?)/.test(src);
 }
 
+export function weakHomeCarouselImage(src: string): boolean {
+  return /\.png(\?|$)/i.test(src || "") || /logo|blank\.gif|administrator\/cache/i.test(src || "");
+}
+
+export function withHomeCarouselFromGalleries(albums: MigratedAlbum[]): MigratedAlbum[] {
+  const home = albums.find(album => homePage({path: album.sourcePagePath || ""} as PageContent));
+  const covers = albums.filter(album => album !== home).map(album => album.album.files?.[0]).filter(file => file?.image && !weakHomeCarouselImage(file.image));
+  const homeFiles = (home?.album.files || []).filter(file => !weakHomeCarouselImage(file.image));
+  if (!home || covers.length < MIN_IMAGES_FOR_HOME_CAROUSEL || homeFiles.length >= MIN_IMAGES_FOR_HOME_CAROUSEL) {
+    return albums;
+  } else {
+    return albums.map(album => album === home ? {...album, album: {...album.album, files: covers.slice(0, 12)}} : album);
+  }
+}
+
 async function albumFromImages(ctx: Ctx, title: string, images: ScrapedImage[], albumView: AlbumView = AlbumView.GALLERY): Promise<MigratedAlbum | null> {
   const usable = albumView === AlbumView.CAROUSEL ? images.filter(image => !decorativeRamblersWebsImage(image)) : images;
   const files = ctx.config.uploadTos3
@@ -777,9 +835,9 @@ async function albumFromImages(ctx: Ctx, title: string, images: ScrapedImage[], 
     name,
     aspectRatio: null,
     files,
-    coverImage: null,
+    coverImage: files[0]?.image || null,
     imageTags: [],
-    maxImageSize: 1024
+    maxImageSize: DEFAULT_ALBUM_MAX_IMAGE_SIZE
   } as any;
   const pageContent: PageContent = {
     path: name,
@@ -787,8 +845,10 @@ async function albumFromImages(ctx: Ctx, title: string, images: ScrapedImage[], 
       maxColumns: 1,
       showSwiper: false,
       type: PageContentType.ALBUM,
-      columns: [{columns: 12, accessLevel: AccessLevel.PUBLIC}],
-      carousel: migratedAlbumCarousel(name, title, "", false, albumView)
+      columns: [{columns: 12, accessLevel: AccessLevel.PUBLIC, imageSource: files[0]?.image || null}],
+      carousel: albumView === AlbumView.GRID
+        ? {...migratedAlbumCarousel(name, title, "", false, albumView), allowSwitchView: false, gridViewOptions: {...DEFAULT_GRID_OPTIONS, showTitles: false, showDates: false, gap: 0.25}}
+        : migratedAlbumCarousel(name, title, "", false, albumView)
     }]
   };
   if (ctx.config.persistData) {
@@ -811,14 +871,20 @@ export function pageImageRuns(page: PageContent, minimumImages = MIN_IMAGES_FOR_
   const imageOnly = (row: PageContentRow) => (row.columns || []).length > 0
     && (row.columns || []).every(column => !!column.imageSource && !meaningfulText(column.contentText) && !column.rows?.length);
   const imagesOf = (rows: PageContentRow[]) => rows.flatMap(row => (row.columns || []).map(column => ({src: column.imageSource, alt: column.alt && column.alt !== "Image" ? column.alt : ""})));
+  const nestedDumpImages = (row: PageContentRow): ScrapedImage[] => (row.columns || []).flatMap(column =>
+    (column.rows || []).flatMap(nested => (nested.columns || [])
+      .filter(nestedColumn => !!nestedColumn.imageSource)
+      .map(nestedColumn => ({src: nestedColumn.imageSource, alt: nestedColumn.alt && nestedColumn.alt !== "Image" ? nestedColumn.alt : ""})))
+  );
   const nestedImageRows = (row: PageContentRow) => (row.columns || []).length > 0
     && (row.columns || []).every(column => !meaningfulText(column.contentText) && !column.imageSource && (column.rows || []).length > 0 && column.rows.every(imageOnly))
     ? (row.columns || []).flatMap(column => column.rows)
     : [];
   const runs = (page.rows || []).reduce((found, row) => {
     const nestedImages = imagesOf(nestedImageRows(row));
-    if (nestedImages.length >= minimumImages) {
-      return {rows: found.rows, images: [...found.images, ...nestedImages]};
+    const dumpImages = nestedImages.length >= minimumImages ? nestedImages : nestedDumpImages(row);
+    if (dumpImages.length >= minimumImages) {
+      return {rows: found.rows, images: [...found.images, ...dumpImages]};
     } else {
       return {rows: [...found.rows, row], images: found.images};
     }
@@ -863,13 +929,13 @@ async function pageAlbums(ctx: Ctx, pageContents: PageContent[]): Promise<{pages
   return pageContents.reduce(async (previous, page) => {
     const collected = await previous;
     const home = homePage(page);
-    const gallery = (ctx.config.galleryPathPrefixes || []).some(prefix => (page.path || "").startsWith(prefix));
+    const gallery = (ctx.config.galleryPathPrefixes || []).some(prefix => (page.path || "").startsWith(prefix) || page.path === prefix.replace(/\/$/, ""));
     const runs = pageImageRuns(page, home ? MIN_IMAGES_FOR_HOME_CAROUSEL : gallery ? MIN_IMAGES_FOR_GALLERY_ALBUM : MIN_IMAGES_FOR_PAGE_ALBUM);
-    if (runs.images.length === 0) {
+    if (runs.images.length === 0 || (gallery && eventGalleryIndexImages(runs.images))) {
       return {pages: [...collected.pages, page], albums: collected.albums};
     } else {
       const title = `${titleCase((page.path || "home").split("/").pop().replace(/-/g, " "))} photos`;
-      const album = await albumFromImages(ctx, title, runs.images, home ? AlbumView.CAROUSEL : AlbumView.GALLERY);
+      const album = await albumFromImages(ctx, title, runs.images, home ? AlbumView.CAROUSEL : AlbumView.GRID);
       if (album) {
         progress(`Collected ${pluraliseWithCount(runs.images.length, "photo")} from ${page.path} into the album ${title}`);
         return {pages: [...collected.pages, {...page, rows: runs.rows}], albums: [...collected.albums, {...album, sourcePagePath: page.path, sourceImageUrls: runs.images.map(image => image.src)}]};
@@ -956,8 +1022,51 @@ async function albumFromFlickr(ctx: Ctx, url: string, pagePath: string, albums: 
   }
 }
 
+async function listingHtml(ctx: Ctx, url: string): Promise<string> {
+  if (ctx.config.publicHtmlOnly) {
+    return fetchPublicSiteHtml(url);
+  } else {
+    const page = await createPage(ctx);
+    try {
+      await page.goto(url, {waitUntil: "domcontentloaded", timeout: 30000});
+      return page.content();
+    } finally {
+      await page.close();
+    }
+  }
+}
+
+async function scrapeEventGalleryLinks(ctx: Ctx): Promise<PageLink[]> {
+  const listingUrls = [...new Set((ctx.config.parentPages || []).map(page => page.url).filter(Boolean))];
+  const collected = await listingUrls.reduce(async (previous, listingUrl) => {
+    const links = await previous;
+    try {
+      const html = await listingHtml(ctx, listingUrl);
+      if (!isEventGalleryListingHtml(html, listingUrl)) {
+        return links;
+      } else {
+        const albums = eventGalleryAlbumLinksFromHtml(html, listingUrl);
+        const pages = await eventGalleryPaginationUrls(html, listingUrl).reduce(async (inner, pageUrl) => {
+          const found = await inner;
+          try {
+            return [...found, ...eventGalleryAlbumLinksFromHtml(await listingHtml(ctx, pageUrl), pageUrl)];
+          } catch (error) {
+            progress(`Skipped Event Gallery page ${pageUrl}: ${(error as Error).message}`);
+            return found;
+          }
+        }, Promise.resolve([] as PageLink[]));
+        return [...links, ...albums, ...pages];
+      }
+    } catch (error) {
+      progress(`Skipped Event Gallery listing ${listingUrl}: ${(error as Error).message}`);
+      return links;
+    }
+  }, Promise.resolve([] as PageLink[]));
+  return collected.filter((link, index) => collected.findIndex(item => item.path === link.path) === index);
+}
+
 async function migrateAlbums(ctx: Ctx, flickrGroups: FlickrGroupLink[] = [], flickrAlbums: FlickrAlbumLink[] = [], pageAlbumsCollected: MigratedAlbum[] = []): Promise<MigratedAlbum[]> {
-  const rawLinks = ctx.config.specificAlbums && ctx.config.specificAlbums.length > 0 ? ctx.config.specificAlbums : await scrapeGalleryLinks(ctx);
+  const rawLinks = ctx.config.specificAlbums && ctx.config.specificAlbums.length > 0 ? ctx.config.specificAlbums : [...await scrapeGalleryLinks(ctx), ...await scrapeEventGalleryLinks(ctx)];
   const galleryLinks = (rawLinks || []).filter(l => l && isString(l.path) && /^https?:\/\//i.test(l.path));
   const albums: MigratedAlbum[] = [];
   if (galleryLinks.length) {
@@ -1394,7 +1503,7 @@ export async function migrateStaticSite(configInput: SiteMigrationConfig, browse
       }
     }
     const collected = await pageAlbums(ctx, withoutRepeatedBlocks(pageContents));
-    const albums = [...collected.albums, ...await migrateAlbums(ctx, flickrGroupLinks(collected.pages), flickrAlbumLinks(collected.pages), collected.albums)];
+    const albums = withHomeCarouselFromGalleries([...collected.albums, ...await migrateAlbums(ctx, flickrGroupLinks(collected.pages), flickrAlbumLinks(collected.pages), collected.albums)]);
     assertSourceSiteResponding(ctx);
     if (config.publicHtmlOnly) {
       const requests = sourceSiteLimiter.summary(config.baseUrl);

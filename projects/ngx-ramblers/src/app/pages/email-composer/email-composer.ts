@@ -787,7 +787,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               <div class="email-composer-step-hint">{{ stepHint(stepperActiveTab) }}</div>
             </div>
       <div class="composer-workspace-actions gap-2">
-          @if (!sendComplete() || batchJobLost) {
+          @if ((!sendComplete() || batchJobLost) && !sendConfirm.notificationsOutstanding()) {
             <button type="button" class="btn btn-quiet"
                     (click)="startNewEmail()"
                     tooltip="Start a new email"
@@ -813,6 +813,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                                  [items]="showMenuItems()"
                                  (itemSelect)="onShowMenu($event)"/>
           }
+            @if (!sendConfirm.notificationsOutstanding()) {
             <div class="composer-flow-tools">
             @switch (stepperActiveTab) {
               @case (EmailComposerStepKey.TEMPLATE) {
@@ -853,9 +854,10 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               }
             }
             </div>
+            }
             @if (!sendComplete()) {
               @if (sendConfirm.notificationsOutstanding()) {
-                <button type="button" class="btn btn-sunset text-nowrap"
+                <button type="button" class="btn btn-primary composer-send-action text-nowrap"
                         (click)="confirmAndSend()"
                         [disabled]="sendInProgress">
                   <fa-icon [icon]="faPaperPlane"/> Confirm send
@@ -866,11 +868,12 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                   <fa-icon [icon]="faXmark"/> Cancel
                 </button>
               } @else {
-                <button type="button" class="btn btn-sunset text-nowrap" (click)="armSend()" [disabled]="sendDisabled() || hasSendBlockers()" [title]="'Send ' + sendingChannelLabel()">
+                <button type="button" class="btn btn-primary composer-send-action text-nowrap" (click)="armSend()" [disabled]="sendDisabled() || hasSendBlockers()" [title]="'Send ' + sendingChannelLabel()">
                   <fa-icon [icon]="faPaperPlane"/> Send
                 </button>
               }
             }
+          @if (!sendConfirm.notificationsOutstanding()) {
           <button type="button" class="btn btn-quiet composer-maximise-toggle" (click)="composerPanel.toggle()"
                   [tooltip]="composerPanel.maximised ? composerPanel.restoreTooltip : composerPanel.maximiseTooltip">
             <fa-icon [icon]="composerPanel.maximised ? faCompress : faExpand"/>{{ composerPanel.maximised ? 'Restore' : 'Maximise' }}
@@ -878,6 +881,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           <button type="button" class="btn btn-quiet" (click)="exitComposer()">
             <fa-icon [icon]="faXmark"/>Exit
           </button>
+          }
         </div>
             @if (!draftsPanelOpen && !sentEmailsPanelOpen) {
               <ng-container *ngTemplateOutlet="composerStatusAlerts"/>

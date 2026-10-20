@@ -1,7 +1,37 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import AdmZip from "adm-zip";
+import sinon from "sinon";
+import { PDFParse } from "pdf-parse";
 import { convertBufferToMarkdown, convertHtmlToMarkdown, convertWordClipboardHtml, replacePdfImagePlaceholders } from "./document-conversion";
+
+describe("PDF conversion without an image destination", () => {
+  it("keeps table text without waiting for image extraction or rendering", async () => {
+    const sandbox = sinon.createSandbox();
+    const items = ["Route", "Distance", "Grade"].flatMap((label, row) =>
+      ["Hillside Park", "Five miles", "Easy"].map((value, column) => ({
+        str: `${label} ${value}`, fontName: "Body", height: 12, width: 30,
+        transform: [12, 0, 0, 12, column * 200, 700 - row * 30]
+      })));
+    sandbox.stub(PDFParse.prototype, "getInfo").callsFake(async function () {
+      (this as any).doc = {numPages: 1, getPage: async () => ({getTextContent: async () => ({items})})};
+      return {} as any;
+    });
+    const images = sandbox.stub(PDFParse.prototype, "getImage").returns(new Promise(() => null));
+    const screenshots = sandbox.stub(PDFParse.prototype, "getScreenshot").returns(new Promise(() => null));
+    const destroy = sandbox.stub(PDFParse.prototype, "destroy").resolves();
+    try {
+      const result = await convertBufferToMarkdown(Buffer.from("example"), "route-guide.pdf");
+      expect(result.markdown).toContain("Route Hillside Park");
+      expect(result.markdown).toContain("Grade Easy");
+      expect(images.called).toBe(false);
+      expect(screenshots.called).toBe(false);
+      expect(destroy.calledOnce).toBe(true);
+    } finally {
+      sandbox.restore();
+    }
+  });
+});
 
 describe("clipboard HTML conversion", () => {
   it("reconstructs Word headings and pseudo lists and moves floating images after their paragraph", async () => {
