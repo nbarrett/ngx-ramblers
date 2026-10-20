@@ -26,6 +26,7 @@ import { humaniseFileStemFromUrl, titleCase } from "../shared/string-utils";
 import { CONTACT_US_TYPE } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { assembleRegistrationPages, isRegistrationFeaturePath, proposedRegistrationNavigation, unusedRegistrationPath } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import { Link } from "../../../projects/ngx-ramblers/src/app/models/page.model";
+import { isEventGalleryListingUrl, isGalleryPaginationPath } from "../migration/event-gallery";
 
 export { proposedRegistrationNavigation };
 
@@ -616,7 +617,8 @@ export function earlierImportFilters(pagePaths: string[], albumNames: string[]) 
 export function withSourcePageAlbums(pages: PageContent[], albums: MigratedAlbum[]): PageContent[] {
   const leaf = (path: string) => (path || "").split("/").pop();
   return pages.map(page => {
-    const albumRows = albums
+    const listing = page.path === RegistrationNavbarPath.PHOTOS || page.path.startsWith(`${RegistrationNavbarPath.PHOTOS}/`);
+    const albumRows = listing ? [] : albums
       .filter(album => album.sourcePagePath && (
         page.path === album.sourcePagePath
         || page.path.endsWith(`/${album.sourcePagePath}`)
@@ -687,10 +689,10 @@ export function registrationMigrationConfig(registration: StoredSiteRegistration
     contentSelector: contentSelectors[registration.flavour],
     excludeSelectors: [...COMMON_EXCLUDE_SELECTORS, ...(flavourExcludeSelectors[registration.flavour] || [])],
     excludeImageUrls: repeatedLayoutImagePaths(registration.pages),
-    galleryPathPrefixes: [`${RegistrationNavbarPath.PHOTOS}/`],
+    galleryPathPrefixes: [RegistrationNavbarPath.PHOTOS, `${RegistrationNavbarPath.PHOTOS}/`],
     enabled: true, uploadTos3: false, persistData: false, publicHtmlOnly: true, requireSourceFidelity,
     defaultPageTransformation: registrationTransformation(),
-    parentPages: selected.filter(page => page.url && !isDocumentUrl(page.url) && !isRegistrationFeaturePath(page.path) && !isRamblersWalksListing(page.path, page.title)).map(page => ({
+    parentPages: selected.filter(page => page.url && !isDocumentUrl(page.url) && !isRegistrationFeaturePath(page.path) && !isRamblersWalksListing(page.path, page.title) && !isGalleryPaginationPath(page.path, page.url)).map(page => ({
       url: registrationSourceUrl(page.url), pathPrefix: page.path, parentPageMode: page.proposed ? ParentPageMode.INDEX : ParentPageMode.AS_IS,
       selectedChildren: page.type === RegistrationPageType.INDEX ? selected.filter(child => child.parentPath === page.path).map(child => ({path: registrationSourceUrl(child.url), contentPath: child.path, title: child.title})) : [],
       migrateChildren: false,
@@ -702,6 +704,8 @@ export function registrationMigrationConfig(registration: StoredSiteRegistration
 
 export function registrationContentType(page: RegistrationPage): RegistrationPageType {
   if (page.proposed && page.type === RegistrationPageType.INDEX) {
+    return RegistrationPageType.INDEX;
+  } else if (isEventGalleryListingUrl(page.url || "") || isGalleryPaginationPath(page.path, page.url)) {
     return RegistrationPageType.INDEX;
   } else {
     return registrationPageType(page.path, page.title);

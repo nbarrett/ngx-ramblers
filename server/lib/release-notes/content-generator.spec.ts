@@ -314,6 +314,8 @@ describe("content-generator generateMarkdown commit body paragraphs", () => {
     const markdown = generateMarkdown(data, "owner/repo");
     expect(markdown).toContain("[**Admin → Members → Member Bulk Load**](/admin/members/member-bulk-load \"{{siteUrl}}\")");
     expect(markdown).toContain("[Inbox](/admin/inbox \"{{siteUrl}}\")");
+    const platform = createReleaseNotesData([makeCommit("## What's new\n\nOpen **Admin → Platform → Environment management → Site registrations**.")], null, "owner/repo");
+    expect(generateMarkdown(platform, "owner/repo")).toContain("[**Admin → Platform → Environment management → Site registrations**](/admin/platform/environment-management/registrations \"{{siteUrl}}\")");
   });
 
   it("preserves paragraph breaks between sections in a commit body", () => {

@@ -1,5 +1,5 @@
 import { values } from "es-toolkit/compat";
-import { AdminContentPath, AdminMembersPath, AdminPath, AdminProfilePath, AdminSettingsPath } from "../models/admin-route-paths.model";
+import { AdminContentPath, AdminMembersPath, AdminPath, AdminPlatformPath, AdminProfilePath, AdminSettingsPath } from "../models/admin-route-paths.model";
 import { AppPath } from "../models/route-follow.model";
 import { DEFAULT_WALKS_AREA, WALKS_AREA_FEATURE_SEGMENTS, WalksAdminSegment, walksAdminPath, walksLeaderPath } from "../models/walks-route-paths.model";
 
@@ -10,6 +10,7 @@ export function applicationContentPaths(): string[] {
     ...values(AdminMembersPath),
     ...values(AdminProfilePath),
     ...values(AdminSettingsPath),
+    ...values(AdminPlatformPath),
     DEFAULT_WALKS_AREA,
     walksLeaderPath(DEFAULT_WALKS_AREA),
     walksAdminPath(DEFAULT_WALKS_AREA),
@@ -28,7 +29,7 @@ export function isDocumentationContentPath(pathname: string): boolean {
 
 export function isApplicationContentPath(pathname: string): boolean {
   const clean = (pathname || "").replace(/^\//, "").split(/[?#]/)[0];
-  const blocked = clean.startsWith("admin/platform") || clean.startsWith("admin/api") || clean.startsWith("admin/page-content") || clean.startsWith("admin/MIGRATIONS");
+  const blocked = clean.startsWith("admin/api") || clean.startsWith("admin/page-content") || clean.startsWith("admin/MIGRATIONS");
   return !!clean && !isDocumentationContentPath(pathname) && !blocked
     && applicationContentPaths().some(path => clean === path || clean.startsWith(`${path}/`));
 }

@@ -145,6 +145,8 @@ describe("site registration content discovery", () => {
     expect(registrationPageType("contact-us/committee", "Committee", "committee")).toBe(RegistrationPageType.TEXT);
     expect(registrationPageType("committee")).toBe(RegistrationPageType.TEXT);
     expect(registrationPageType("scrapbook/gallery")).toBe(RegistrationPageType.GALLERY);
+    expect(registrationContentType({url: "https://group.example.org.uk/index.php?option=com_eventgallery&view=events", path: "photos", title: "Photos", type: RegistrationPageType.GALLERY, selected: true, parentPath: null, proposed: false} as any)).toBe(RegistrationPageType.INDEX);
+    expect(registrationContentType({url: "https://group.example.org.uk/photos.html?start=50", path: "photos/2", title: "Photos", type: RegistrationPageType.GALLERY, selected: true, parentPath: null, proposed: false} as any)).toBe(RegistrationPageType.INDEX);
     expect(registrationPageType("about-us")).toBe(RegistrationPageType.TEXT);
   });
 
@@ -654,10 +656,10 @@ describe("site registration page addresses and layout images", () => {
   it("places an album from a page directly under that page's main heading", () => {
     const text = (contentText: string) => ({type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText}]});
     const albumRow = {type: PageContentType.ALBUM, maxColumns: 1, showSwiper: false, columns: [{columns: 12}]};
-    const pages = [{path: "photos", rows: [text("Search\n\n# Photos\n\nOur walks in pictures"), text("Migrated from the old site")]}, {path: "home", rows: [text("Welcome")]}];
-    const albums = [{album: {name: "gallery/group-photos"} as any, pageContent: {path: "gallery/group-photos", rows: [albumRow]}, sourcePagePath: "photos"}];
+    const pages = [{path: "about-us/holidays", rows: [text("Search\n\n# Holidays\n\nOur walks in pictures"), text("Migrated from the old site")]}, {path: "home", rows: [text("Welcome")]}];
+    const albums = [{album: {name: "gallery/group-photos"} as any, pageContent: {path: "gallery/group-photos", rows: [albumRow]}, sourcePagePath: "about-us/holidays"}];
     const placed = withSourcePageAlbums(pages, albums);
-    expect(placed[0].rows.map(row => row.type === PageContentType.ALBUM ? "album" : row.columns[0].contentText)).toEqual(["Search\n\n# Photos", "album", "Our walks in pictures", "Migrated from the old site"]);
+    expect(placed[0].rows.map(row => row.type === PageContentType.ALBUM ? "album" : row.columns[0].contentText)).toEqual(["Search\n\n# Holidays", "album", "Our walks in pictures", "Migrated from the old site"]);
     expect(placed[1]).toEqual(pages[1]);
   });
 

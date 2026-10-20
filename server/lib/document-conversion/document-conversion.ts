@@ -275,7 +275,7 @@ async function uploadedImagePaths(images: ExtractedPdfImage[], imageUploader?: P
 }
 
 async function convertPdf(buffer: Buffer, imageUploader?: PdfImageUploader): Promise<DocumentConversionResponse> {
-  const styled: StyledPdfExtraction = await extractStyledPdfMarkdown(buffer).catch(error => {
+  const styled: StyledPdfExtraction = await extractStyledPdfMarkdown(buffer, !!imageUploader).catch(error => {
     debugLog("styled extraction failed, falling back to plain text extraction:", error);
     return null;
   });

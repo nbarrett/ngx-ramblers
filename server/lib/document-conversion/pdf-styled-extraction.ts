@@ -152,7 +152,7 @@ function isTablePage(lines: StyledLine[]): boolean {
   return tableLines >= TABLE_PAGE_MINIMUM_LINES && lines.length > 0 && tableLines / lines.length >= TABLE_PAGE_LINE_RATIO;
 }
 
-export async function extractStyledPdfMarkdown(buffer: Buffer): Promise<StyledPdfExtraction> {
+export async function extractStyledPdfMarkdown(buffer: Buffer, includeImages = true): Promise<StyledPdfExtraction> {
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({data: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)});
   try {
@@ -165,15 +165,15 @@ export async function extractStyledPdfMarkdown(buffer: Buffer): Promise<StyledPd
       const textContent = await page.getTextContent();
       pageLines.push(linesFromTextContent(textContent.items));
     }
-    const imageResult: any = await parser.getImage({imageBuffer: true}).catch(error => {
+    const imageResult: any = includeImages ? await parser.getImage({imageBuffer: true}).catch(error => {
       debugLog("image extraction failed:", error);
       return null;
-    });
+    }) : null;
     const images = contentImages(imageResult, pdfDocument.numPages);
-    const tablePageNumbers = pageLines
+    const tablePageNumbers = includeImages ? pageLines
       .map((lines, index) => ({lines, pageNumber: index + 1}))
       .filter(page => isTablePage(page.lines))
-      .map(page => page.pageNumber);
+      .map(page => page.pageNumber) : [];
     if (tablePageNumbers.length > 0) {
       const screenshots: any = await parser.getScreenshot({partial: tablePageNumbers, scale: 2, imageBuffer: true}).catch(error => {
         debugLog("table page screenshot failed:", error);

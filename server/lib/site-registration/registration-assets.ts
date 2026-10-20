@@ -133,13 +133,16 @@ export async function migrateRegistrationAssets(registration: StoredSiteRegistra
       onProgress(`Left ${withoutQuery(href)} on the current website`);
     } else {
       try {
+        onProgress(`Reading linked document ${sourceFile}`);
         const buffer = await fetchPublicSiteDocument(href);
         if (/\.(pdf|docx)$/i.test(sourceFile)) {
+          onProgress(`Converting linked document ${sourceFile}`);
           const converted = await convertBufferToMarkdown(buffer, sourceFile);
           const path = unusedRegistrationPath(usedPaths, `${link.parentPath}/${documentSlug(link, converted.suggestedTitle || "")}`);
           usedPaths.add(path);
           documentPages.push({path, rows: convertedDocumentRows(converted.markdown)});
           replacements.set(href, `/${path}`);
+          onProgress(`Converted linked document ${sourceFile}`);
         } else {
           onProgress(`Left ${withoutQuery(href)} on the current website`);
         }

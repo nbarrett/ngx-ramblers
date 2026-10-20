@@ -37,6 +37,7 @@ describe("registration-photos", () => {
       expect(galleryDateFrom("Olney Aug 2026")).toEqual({year: 2026, month: 8, day: null});
       expect(galleryDateFrom("Mike Mellor Way Sept 2026")).toEqual({year: 2026, month: 9, day: null});
       expect(galleryDateFrom("No date here")).toBe(null);
+      expect(galleryDateFrom("https://group.example.org.uk/walks-gallery/event/Chessvalley2026.html")).toEqual({year: 2026, month: null, day: null});
     });
   });
 
@@ -58,6 +59,20 @@ describe("registration-photos", () => {
         {id: "b", startDateTime: "2026-08-02T10:00:00Z", title: "Park circuit", location: ""}
       ]).reason).toBe("two walks match equally well");
     });
+
+    it("links a gallery that only has a year when one walk that year shares the place name", () => {
+      expect(matchingWalk("Chess Valley Walk Coach Ramble, Hertfordshire", {year: 2026, month: null, day: null}, [
+        ...walks,
+        {id: "w6", startDateTime: "2026-09-06T10:00:00Z", title: "Chess Valley Coach Ramble", location: "Chorleywood"}
+      ]).walk?.id).toBe("w6");
+    });
+
+    it("still links when the place name is unique even if the walk year differs", () => {
+      expect(matchingWalk("Chess Valley Walk Coach Ramble, Hertfordshire", {year: 2024, month: null, day: null}, [
+        ...walks,
+        {id: "w6", startDateTime: "2026-09-06T10:00:00Z", title: "Chess Valley Coach Ramble", location: "Chorleywood"}
+      ]).walk?.id).toBe("w6");
+    });
   });
 
   describe("albumsLinkedToWalks", () => {
@@ -68,6 +83,18 @@ describe("registration-photos", () => {
       expect(carousel.eventId).toBe("w4");
       expect(carousel.eventDate).toBeGreaterThan(0);
       expect(linked.links[0].walk?.title).toBe("Olney");
+    });
+
+    it("dates an Event Gallery album from its folder year when the title has no month", () => {
+      const eventAlbum = {
+        ...album("gallery/chess-valley-photos", "Chess Valley Walk Coach Ramble, Hertfordshire", "photos/chess-valley-walk-coach-ramble-hertfordshire"),
+        sourceImageUrls: ["https://group.example.org.uk/components/com_eventgallery/helpers/image.php?folder=Chessvalley2026&file=a.jpeg"]
+      };
+      const linked = albumsLinkedToWalks([eventAlbum], [], [
+        ...walks,
+        {id: "w6", startDateTime: "2026-09-06T10:00:00Z", title: "Chess Valley Coach Ramble", location: "Chorleywood"}
+      ]);
+      expect(linked.albums[0].pageContent.rows[0].carousel.eventId).toBe("w6");
     });
   });
 
@@ -115,6 +142,19 @@ describe("registration-photos", () => {
       expect(year.albumIndex.renderModes).toEqual([IndexRenderMode.MAP, IndexRenderMode.ACTION_BUTTONS]);
       expect(year.albumIndex.contentPaths).toEqual([{contentPath: "photos/2026", stringMatch: "starts-with", maxPathSegments: 1}]);
       expect(landing.rows[1].albumIndex.contentPaths).toEqual([{contentPath: "photos", stringMatch: "starts-with", maxPathSegments: 1}]);
+    });
+
+    it("drops the old gallery listing dump so year cards can fill the photos index", () => {
+      const dump = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: true, columns: [{columns: 12, rows: [
+        {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, imageSource: "https://group.example.org.uk/a.jpg"}]},
+        {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, imageSource: "https://group.example.org.uk/b.jpg"}]}
+      ]}]};
+      const pages: PageContent[] = [
+        {path: "photos", rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "# Photos"}]}, dump]},
+        {path: "photos/olney-aug-2026", rows: [{type: PageContentType.ALBUM, maxColumns: 1, showSwiper: false, columns: [], carousel: {name: "x", eventDate: 1787482800000} as any}]}
+      ];
+      const landing = photosByYear(pages, [], templates, null).find(item => item.path === "photos");
+      expect(landing.rows.map(row => row.type)).toEqual([PageContentType.TEXT, PageContentType.ALBUM_INDEX]);
     });
 
     it("builds each year page from the template, filling in the year, its own path and the group's map centre", () => {

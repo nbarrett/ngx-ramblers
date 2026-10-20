@@ -51,7 +51,7 @@ import { TidyTextKind } from "../../../projects/ngx-ramblers/src/app/models/ai.m
 import { AccessLevel } from "../../../projects/ngx-ramblers/src/app/models/member-resource.model";
 import { assembleRegistrationPages, isRegistrationFeaturePath } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import {
-  ImageFit, IndexContentType, IndexRenderMode, PageContent, PageContentColumn, PageContentRow, PageContentType, StringMatch
+  ImageFit, IndexContentType, IndexRenderMode, MIGRATED_IMAGE_HEIGHT, PageContent, PageContentColumn, PageContentRow, PageContentType, StringMatch
 } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import {migrateRegistrationAssets} from "./registration-assets";
 import { documentMarkdown, isDocumentUrl } from "./registration-documents";
@@ -74,7 +74,7 @@ const debugLog = debug(envConfig.logNamespace("site-registration:jobs"));
 const workerId = randomUUID();
 const running = {active: false, registrationId: null as string | null};
 export const REGISTRATION_STOPPED_MESSAGE = "Stopped by the platform reviewer.";
-const LANDING_IMAGE_MAX_HEIGHT = 400;
+const LANDING_IMAGE_MAX_HEIGHT = MIGRATED_IMAGE_HEIGHT;
 const WALKS_MANAGER_SYNC_TIMEOUT_MS = 25 * 60 * 1000;
 
 async function leasedByThisWorker(id: string): Promise<boolean> {
@@ -382,8 +382,9 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "## Information"}]}]
   }, assembled.filter(page => page.parentPath === RegistrationNavbarPath.INFORMATION).length)] : [];
   const sourcePages = withSourcePageAlbums(migrated.pages.map(page => ({...page, rows: withoutEmptyRows(page.rows)})), migrated.albums).filter(page => !informationPages.some(information => information.path === page.path));
+  const albumPages = migrated.albums.map(album => album.pageContent).filter(page => page?.path && !sourcePages.some(source => source.path === page.path));
   const groupCentre: [number, number] | null = registration.group.latitude && registration.group.longitude ? [registration.group.latitude, registration.group.longitude] : null;
-  const migratedPages = photosByYear(withIntroductionPhotos([...sourcePages, ...informationPages], migrated.albums), registration.pages || [], photoTemplates, groupCentre)
+  const migratedPages = photosByYear(withIntroductionPhotos([...sourcePages, ...albumPages, ...informationPages], migrated.albums), registration.pages || [], photoTemplates, groupCentre)
     .map(page => ({...page, rows: withoutDuplicateHeadingImages(page.rows || [])}));
   const connection = await connectToEnvironmentMongo(context.envConfigData);
   try {

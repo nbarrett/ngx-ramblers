@@ -12,6 +12,10 @@ import { documentationHrefParts, documentationLinkPath } from "../../../projects
 import { isApplicationContentPath } from "../../../projects/ngx-ramblers/src/app/functions/application-content-paths";
 
 const adminPaths = [...values(AdminPath), ...values(AdminContentPath), ...values(AdminMembersPath), ...values(AdminPlatformPath), ...values(AdminProfilePath), ...values(AdminSettingsPath)];
+const platformMenuLinks: DocumentationMenuLink[] = [
+  {label: "Site registrations", path: `/${AdminPlatformPath.ENVIRONMENT_MANAGEMENT_REGISTRATIONS}`},
+  {label: "Environment management", path: `/${AdminPlatformPath.ENVIRONMENT_MANAGEMENT}`}
+];
 const proseFields = new Set(["contentText", "text", "introductoryText", "preAlbumText", "summary", "writtenDirections", "description"]);
 const protectedMarkdown = /(^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^ {0,3}\2[^\n]*(?:\n|$)|$(?![\s\S]))|^ {4}(?![-*+]\s)[^\n]*(?:\n|$)|!?\[(?:\\.|[^\]\\])*\]\((?:\\.|[^)\\\n])*\)|<a\b[^>]*>[\s\S]*?<\/a>|<img\b[^>]*>|`+[^`\n]*`+|<[^>\n]+>)/gim;
 const placeholderHost = /^(?:https?:\/\/)?(?:<your[- ]website[- ]address>|your[- ]website[- ]address|your-group(?:-site)?\.(?:org\.uk|example\.org\.uk)|example\.org\.uk)/i;
@@ -20,7 +24,7 @@ export function documentationMenuLinks(pages: PageContent[]): DocumentationMenuL
   const fromPaths = adminPaths.map(path => ({label: path.split("/").at(-1).replace(/-/g, " "), path: `/${path}`}));
   const fromPages = pages.flatMap(page => collectMenuLinks(page));
   const walkLinks = values(WalksAdminSegment).map(segment => ({label: segment.replace(/-/g, " "), path: `/${walksAdminPath(DEFAULT_WALKS_AREA, segment)}`}));
-  return [...fromPaths, ...fromPages, ...walkLinks];
+  return [...fromPaths, ...platformMenuLinks, ...fromPages, ...walkLinks];
 }
 
 function collectMenuLinks(value: unknown): DocumentationMenuLink[] {
@@ -102,9 +106,7 @@ function menuPath(label: string, context: DocumentationSweepContext): string | n
   } else if (parts.some(part => kebabCase(part) === "external-systems") && values(ExternalSystemsSubTab).includes(kebabCase(parts.at(-1)) as ExternalSystemsSubTab)) {
     return `/${AdminSettingsPath.SYSTEM_SETTINGS}?${StoredValue.TAB}=${kebabCase(SystemSettingsTab.EXTERNAL_SYSTEMS)}&${StoredValue.SUB_TAB}=${kebabCase(parts.at(-1))}`;
   } else {
-    if (preferred.some(path => path.startsWith("/admin/platform"))) {
-      return null;
-    } else if (preferred.length === 1) {
+    if (preferred.length === 1) {
       return preferred[0];
     } else {
       return parts.length > 1 ? menuPath(parts.slice(0, -1).join(" → "), context) : null;
@@ -119,10 +121,23 @@ function rewriteProse(text: string, context: DocumentationSweepContext): string 
     const path = documentationFeaturePath(value, context);
     return path ? documentationMarkdownLink(path, path) + suffix : raw;
   });
-  const emphasised = linked.replace(/\*\*([^*\n]*(?:→|»| > )[^*\n]*)\*\*/g, (original, label) => {
-    const path = menuPath(label, context);
-    return path ? documentationMarkdownLink(`**${label}**`, path) : original;
-  });
+  const emphasised = linked
+    .replace(/\*\*([^*\n]*(?:→|»| > )[^*\n]*)\*\*/g, (original, label) => {
+      const path = menuPath(label, context);
+      return path ? documentationMarkdownLink(`**${label}**`, path) : original;
+    })
+    .replace(/<strong>([^<]*(?:→|»| > )[^<]*)<\/strong>/g, (original, label) => {
+      const path = menuPath(label, context);
+      return path ? documentationMarkdownLink(`**${label}**`, path) : original;
+    })
+    .replace(/\*\*([^*\n]+)\*\*/g, (original, label) => {
+      if (/(?:→|»| > )/.test(label)) {
+        return original;
+      } else {
+        const paths = [...new Set(context.menuLinks.filter(link => kebabCase(link.label) === kebabCase(label)).map(link => link.path))];
+        return paths.length === 1 ? documentationMarkdownLink(`**${label}**`, paths[0]) : original;
+      }
+    });
   const labels = [...new Set([...context.menuLinks.map(link => link.label), ...values(SystemSettingsTab), ...values(MailSettingsTab)])].sort((a, b) => b.length - a.length).map(escapeRegExp).join("|");
   const menu = new RegExp(`\\b(?:Admin|Walks|System Settings|Mail Settings|Profile|Settings|Members|Content)(?:\\s*(?:→|>|»)\\s*(?:${labels}))+(?![\\w-])`, "gi");
   const cursor = {offset: 0};
@@ -179,7 +194,7 @@ export function rewriteDocumentationMarkdown(text: string, context: Documentatio
     cursor.offset = match.index + raw.length;
   }
   pieces.push(rewriteProse(text.slice(cursor.offset), context));
-  return pieces.join("");
+  return pieces.join("").replace(/<(strong|b)>(\[[^\]]+\]\([^)]+\))<\/\1>/gi, "$2");
 }
 
 export function sweepDocumentationPage(page: PageContent, context: DocumentationSweepContext, changes: DocumentationLinkChange[]): PageContent {

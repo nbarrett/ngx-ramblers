@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { discoverPhotoClusters, flickrAlbumLinks, flickrGroupLinks, pageImageRuns, skippedPageReason, withoutRepeatedBlocks } from "./migrate-static-site-engine";
+import { discoverPhotoClusters, flickrAlbumLinks, flickrGroupLinks, pageImageRuns, skippedPageReason, weakHomeCarouselImage, withHomeCarouselFromGalleries, withoutRepeatedBlocks } from "./migrate-static-site-engine";
 import { HttpError } from "../shared/http-error";
 
 function pageClosedBeforeReadFinishes() {
@@ -91,6 +91,27 @@ describe("pageImageRuns", () => {
     expect(runs.rows).toEqual([text("# Tyringham Riverside February 2025")]);
   });
 
+  it("takes a two-column nested photo dump into an album even when a caption sits on one of the photos", () => {
+    const pair = (left: string, right: string) => ({type: "text", maxColumns: 2, showSwiper: false, columns: [
+      {columns: 6, imageSource: `https://group.example/images/${left}.jpg`},
+      {columns: 6, imageSource: `https://group.example/images/${right}.jpg`}
+    ]});
+    const captioned = {type: "text", maxColumns: 1, showSwiper: false, columns: [{columns: 12, imageSource: "https://group.example/images/hero.jpg", contentText: "Latest update from the group"}]};
+    const page = {path: "information/c-b-news", rows: [
+      {type: "text", maxColumns: 1, showSwiper: true, columns: [{columns: 12, rows: [pair("a", "b"), captioned, pair("c", "d")]}]},
+      text("# C&B News")
+    ]} as any;
+    const runs = pageImageRuns(page);
+    expect(runs.images.map(item => item.src)).toEqual([
+      "https://group.example/images/a.jpg",
+      "https://group.example/images/b.jpg",
+      "https://group.example/images/hero.jpg",
+      "https://group.example/images/c.jpg",
+      "https://group.example/images/d.jpg"
+    ]);
+    expect(runs.rows).toEqual([text("# C&B News")]);
+  });
+
   it("leaves a page with only a few photos as it is", () => {
     const page = {path: "about", rows: [imageContainer(["a", "b"]), text("# About")]} as any;
     const runs = pageImageRuns(page);
@@ -153,5 +174,27 @@ describe("skippedPageReason", () => {
     expect(skippedPageReason(new HttpError(404, "https://group.example/newsletter31.pdf returned HTTP 404 (text/html)."))).toEqual("the old site no longer has this page");
     expect(skippedPageReason(new HttpError(500, "failed"))).toEqual("the old site answered with HTTP 500");
     expect(skippedPageReason(new Error("socket hang up"))).toEqual("socket hang up");
+  });
+});
+
+describe("home carousel photos", () => {
+  it("replaces logo-only home photos with walk gallery covers", () => {
+    expect(weakHomeCarouselImage("https://group.example.org.uk/images/group/Ramblers_Group_Logo.png")).toBe(true);
+    const home = {
+      sourcePagePath: "home",
+      album: {name: "gallery/home-photos", files: [{image: "https://group.example.org.uk/images/logo.png"}]}
+    } as any;
+    const walk = {
+      sourcePagePath: "photos/chess-valley",
+      album: {name: "gallery/2026/september/chess-valley", files: [{image: "https://group.example.org.uk/components/com_eventgallery/helpers/image.php?width=1600&folder=Chessvalley2026&file=a.jpeg"}]}
+    } as any;
+    const walkTwo = {
+      sourcePagePath: "photos/sheffield",
+      album: {name: "gallery/2026/august/sheffield", files: [{image: "https://group.example.org.uk/components/com_eventgallery/helpers/image.php?width=1600&folder=Sheffieldday1&file=b.jpeg"}]}
+    } as any;
+    expect(withHomeCarouselFromGalleries([home, walk, walkTwo])[0].album.files.map((file: any) => file.image)).toEqual([
+      walk.album.files[0].image,
+      walkTwo.album.files[0].image
+    ]);
   });
 });
