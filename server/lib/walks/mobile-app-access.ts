@@ -19,7 +19,12 @@ async function requireMobileAccess(req: Request, res: Response, next: NextFuncti
 }
 
 export async function requireMobileImport(req: Request, res: Response, next: NextFunction): Promise<void> {
-  await requireMobileAccess(req, res, next, req.body?.recordingId ? MobileAppAction.RECORD : MobileAppAction.IMPORT);
+  const user = req.user as MemberCookie || null;
+  if (user?.walkAdmin || user?.memberAdmin) {
+    next();
+  } else {
+    await requireMobileAccess(req, res, next, req.body?.recordingId ? MobileAppAction.RECORD : MobileAppAction.IMPORT);
+  }
 }
 
 export async function requireMobileEdit(req: Request, res: Response, next: NextFunction): Promise<void> {
