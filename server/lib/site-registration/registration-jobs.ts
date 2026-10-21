@@ -57,6 +57,7 @@ import {migrateRegistrationAssets} from "./registration-assets";
 import { documentMarkdown, isDocumentUrl } from "./registration-documents";
 import { ramblersHostedContactPhone, registrationHeaderButtons } from "./registration-content";
 import { fetchPublicSiteHtml } from "./public-site-fetch";
+import { socialConfigUpdates, socialLinksFromHtml } from "../migration/social-links";
 import { RegistrationSiteFlavour } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import {importRegistrationCommittee} from "./registration-committee";
 import {createAllSamplePageContent, PRIVACY_POLICY_PATH} from "../environment-setup/templates/sample-data/page-content-templates";
@@ -420,9 +421,14 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     }
     await withSourceContactDetails(connection, registration, importProgress);
     const availablePaths = new Set((await connection.db.collection<PageContent>("pageContent").find({"rows.0": {$exists: true}}, {projection: {path: 1}}).toArray()).map(page => page.path));
+    const socialLinks = socialLinksFromHtml(await fetchPublicSiteHtml(registration.website), registration.website);
+    if (socialLinks.length) {
+      importProgress(`Found ${pluraliseWithCount(socialLinks.length, "social media link")} on the current website`);
+    }
     await connection.db.collection("config").updateOne({key: ConfigKey.SYSTEM}, {$set: {
       "value.header.navigationButtons": registrationHeaderButtons(registration.website),
-      "value.group.pages": navigationPages(registration, availablePaths)
+      "value.group.pages": navigationPages(registration, availablePaths),
+      ...socialConfigUpdates(socialLinks)
     }});
     const importedHome = migratedPages.find(page => page.path === "home" || page.path === "index");
     if (importedHome?.rows?.length) {

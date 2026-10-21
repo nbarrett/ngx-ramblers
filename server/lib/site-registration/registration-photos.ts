@@ -50,15 +50,15 @@ export function matchingWalk(title: string, date: GalleryDate | null, walks: Reg
     const best = scored[0];
     const runnerUp = scored[1];
     const period = date.day ? "day" : date.month ? "month" : "year";
-    if (!best) {
-      return {walk: null, reason: `no walks that ${period}`};
-    } else if (date.day && scored.length === 1) {
+    if (date.day && scored.length === 1) {
       return {walk: best.walk, reason: "the only walk on that day"};
-    } else if (best.score === 0) {
+    } else if (!best || best.score === 0) {
       const wider = walks.map(walk => ({walk, score: sharedWordCount(title, walk)})).sort((left, right) => right.score - left.score);
       const uniquePlace = wider[0]?.score >= 2 && wider[0].score > (wider[1]?.score || 0);
       if (uniquePlace) {
         return {walk: wider[0].walk, reason: `shares ${wider[0].score} place names with a walk`};
+      } else if (!best) {
+        return {walk: null, reason: `no walks that ${period}`};
       } else {
         return {walk: null, reason: `no walk that ${period} shares a place name with the gallery`};
       }
@@ -231,13 +231,14 @@ export function shortDescription(rows: PageContentRow[]): string {
 export function registrationKeyAreas(navigation: RegistrationPage[], pages: PageContent[], albums: MigratedAlbum[], availablePaths: Set<string>): RegistrationKeyArea[] {
   const photoPool = albums.map(albumPhoto).filter(Boolean);
   const excluded = [RegistrationNavbarPath.HOME, RegistrationNavbarPath.ADMIN, RegistrationNavbarPath.INFORMATION,
-    RegistrationNavbarPath.WALKS, RegistrationNavbarPath.EVENTS] as string[];
+    RegistrationNavbarPath.EVENTS] as string[];
   const descriptionFor = (path: string): string => {
     const page = pages.find(candidate => candidate.path === path);
     const children = pages.filter(candidate => candidate.path.startsWith(`${path}/`) && candidate.path.split("/").length === path.split("/").length + 1);
     return shortDescription(withoutIndexRows(page?.rows || []))
       || children.map(child => shortDescription(withoutIndexRows(child.rows || []))).find(Boolean)
-      || "";
+      || (path === RegistrationNavbarPath.WALKS ? "See our forthcoming walks." : "")
+      || (path === RegistrationNavbarPath.PHOTOS ? "Photos from our walks." : "");
   };
   return navigation
     .filter(item => !item.parentPath && item.selected && !excluded.includes(item.path))
