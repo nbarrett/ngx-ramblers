@@ -187,14 +187,77 @@ function googleDates(event: CalendarPreviewEvent): string | null {
   }
 }
 
-function calendarBody(event: CalendarPreviewEvent): string | null {
-  const organiser = [event.organiser, event.organiserPhone, event.organiserEmail].filter(Boolean).map(escapeHtml).join(" ");
+function htmlToPlainText(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
+    .replace(/<\s*hr\s*\/?\s*>/gi, "\n")
+    .replace(/<\s*\/p\s*>/gi, "\n")
+    .replace(/<\s*\/div\s*>/gi, "\n")
+    .replace(/<a [^>]*href=["']([^"']+)["'][^>]*>/gi, "$1 ")
+    .replace(/<https?:\/\/[^>\s]+>/gi, match => match.slice(1, -1))
+    .replace(/<[^>]+>/g, "")
+    .replace(/_{3,}/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function keepCalendarDescriptionLine(line: string): boolean {
+  const text = line.trim();
+  if (!text) {
+    return false;
+  } else if (/^description:?$/i.test(text) || /^[-_─–=]{3,}$/.test(text)) {
+    return false;
+  } else if (/need help/i.test(text) || /system reference/i.test(text) || /meeting options/i.test(text) || /meetup-join/i.test(text) || /aka\.ms\/join/i.test(text)) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+export function tidyCalendarDescription(value: string): string {
+  return htmlToPlainText(value)
+    .split("\n")
+    .filter(keepCalendarDescriptionLine)
+    .join("\n")
+    .trim();
+}
+
+function calendarBodyParts(event: CalendarPreviewEvent): {description: string; organiser: string; url: string} {
+  const description = event.description ? tidyCalendarDescription(event.description) : "";
+  const organiser = [event.organiser, event.organiserPhone, event.organiserEmail].filter(Boolean).join(" ");
+  const organiserLine = organiser && !description.toLowerCase().includes(organiser.toLowerCase())
+    ? `${event.organiserLabel}: ${organiser}`
+    : "";
+  const url = event.url && !description.includes(event.url) ? event.url : "";
+  return {description, organiser: organiserLine, url};
+}
+
+function linkifyPlainText(value: string): string {
+  return escapeHtml(value)
+    .replace(/(https?:\/\/[^\s<]+)/g, "<a href=\"$1\">$1</a>")
+    .replace(/\n/g, "<br>");
+}
+
+function calendarHtmlBody(event: CalendarPreviewEvent): string | null {
+  const parts = calendarBodyParts(event);
   const rows = [
-    event.description ? `<strong>Description:</strong> ${escapeHtml(event.description)}` : null,
-    organiser ? `<strong>${event.organiserLabel}:</strong> ${organiser}` : null,
-    event.url ? `<strong>Website:</strong> <a href="${escapeHtml(event.url)}">${escapeHtml(event.url)}</a>` : null
+    parts.description ? linkifyPlainText(parts.description) : null,
+    parts.organiser ? escapeHtml(parts.organiser) : null,
+    parts.url ? `<a href="${escapeHtml(parts.url)}">${escapeHtml(parts.url)}</a>` : null
   ].filter(Boolean);
-  return rows.length ? rows.join("<br>") : null;
+  return rows.length ? rows.join("<br><br>") : null;
+}
+
+function calendarPlainBody(event: CalendarPreviewEvent): string | null {
+  const parts = calendarBodyParts(event);
+  const rows = [parts.description, parts.organiser, parts.url].filter(Boolean);
+  return rows.length ? rows.join("\n\n") : null;
 }
 
 export function googleCalendarUrl(event: CalendarPreviewEvent): string | null {
@@ -206,7 +269,7 @@ export function googleCalendarUrl(event: CalendarPreviewEvent): string | null {
     params.set("action", "TEMPLATE");
     params.set("text", event.title || "Event");
     params.set("dates", dates);
-    const body = calendarBody(event);
+    const body = calendarHtmlBody(event);
     if (body) {
       params.set("details", body);
     }
@@ -231,7 +294,7 @@ export function outlookCalendarUrl(event: CalendarPreviewEvent): string | null {
     params.set("subject", event.title || "Event");
     params.set("startdt", outlookIso(event.startsAt));
     params.set("enddt", outlookIso(event.endsAt || event.startsAt));
-    const body = calendarBody(event);
+    const body = calendarPlainBody(event);
     if (body) {
       params.set("body", body);
     }

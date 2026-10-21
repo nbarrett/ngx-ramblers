@@ -33,6 +33,7 @@ export interface MaintenanceMigrationFile {
 }
 
 export interface MigrationUpResult {
+  deferred?: boolean;
   skipped?: boolean;
   reason?: string;
 }

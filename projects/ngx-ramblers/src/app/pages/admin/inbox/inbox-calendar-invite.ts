@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
 import { isString } from "es-toolkit/compat";
-import { Component, inject, Input } from "@angular/core";
+import { Component, inject, Input, OnDestroy } from "@angular/core";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
   faCalendarDays,
@@ -24,8 +24,8 @@ import {
   InboxAttachment,
   InboxMessage
 } from "../../../models/inbox.model";
-import { browserCalendarApps, browserCalendarClientHints, calendarAppIcon, calendarAppLabel, calendarHrefFor } from "../../../functions/calendar-add";
-import { calendarInviteCanRsvp, isCalendarFile, parseIcsCalendar } from "../../../functions/ics-calendar";
+import { browserCalendarApps, browserCalendarClientHints, calendarAppIcon, calendarAppLabel, calendarHrefFor, tidyCalendarDescription } from "../../../functions/calendar-add";
+import { calendarInviteCanRsvp, calendarPublishDocument, isCalendarFile, parseIcsCalendar } from "../../../functions/ics-calendar";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -105,6 +105,7 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
                 @if (calendarHref(app); as href) {
                   <a class="btn" [class.btn-primary]="calendarIsPrimary(app)" [class.btn-quiet]="!calendarIsPrimary(app)"
                      [href]="href"
+                     [attr.download]="app === CalendarApp.LOCAL ? calendarDownloadName : null"
                      [attr.target]="app === CalendarApp.LOCAL ? null : '_blank'"
                      [attr.rel]="app === CalendarApp.LOCAL ? null : 'noopener'">
                     <fa-icon [icon]="calendarIcon(app)" class="me-2"/>{{ calendarLabel(app) }}
@@ -120,6 +121,7 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
             @if (calendarHref(app); as href) {
               <a class="btn" [class.btn-primary]="calendarIsPrimary(app)" [class.btn-quiet]="!calendarIsPrimary(app)"
                  [href]="href"
+                 [attr.download]="app === CalendarApp.LOCAL ? calendarDownloadName : null"
                  [attr.target]="app === CalendarApp.LOCAL ? null : '_blank'"
                  [attr.rel]="app === CalendarApp.LOCAL ? null : 'noopener'">
                 <fa-icon [icon]="calendarIcon(app)" class="me-2"/>{{ calendarLabel(app) }}
@@ -131,7 +133,7 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
     }
   `
 })
-export class InboxCalendarInviteComponent {
+export class InboxCalendarInviteComponent implements OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("InboxCalendarInviteComponent", NgxLoggerLevel.ERROR);
   private http = inject(HttpClient);
   private inboxService = inject(InboxService);
@@ -158,6 +160,8 @@ export class InboxCalendarInviteComponent {
   protected replyError: string | null = null;
   private currentMessage: InboxMessage | null = null;
   private calendarFileUrl: string | null = null;
+  protected calendarDownloadName = "event.ics";
+  private calendarObjectUrl: string | null = null;
 
   @Input() set message(value: InboxMessage | null) {
     this.currentMessage = value;
@@ -166,24 +170,63 @@ export class InboxCalendarInviteComponent {
     void this.loadInvite(value);
   }
 
+  ngOnDestroy(): void {
+    this.revokeCalendarObjectUrl();
+  }
+
+  private revokeCalendarObjectUrl(): void {
+    if (this.calendarObjectUrl) {
+      URL.revokeObjectURL(this.calendarObjectUrl);
+      this.calendarObjectUrl = null;
+    }
+  }
+
+  private calendarHrefFromEvent(event: CalendarPreviewEvent): string {
+    this.revokeCalendarObjectUrl();
+    const ics = calendarPublishDocument({
+      ...event,
+      description: event.description ? tidyCalendarDescription(event.description) : null
+    }, this.dateUtils.dateTimeNow().toMillis());
+    const blob = new Blob([ics], {type: "text/calendar;charset=utf-8"});
+    this.calendarObjectUrl = URL.createObjectURL(blob);
+    const slug = (event.title || "event").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "event";
+    this.calendarDownloadName = `${slug}.ics`;
+    return this.calendarObjectUrl;
+  }
+
   private async loadInvite(message: InboxMessage | null): Promise<void> {
-    const attachment = (message?.attachments ?? []).find(item => isCalendarFile(item.filename, item.contentType) && item.s3Key) as InboxAttachment | undefined;
-    if (!attachment?.s3Key) {
+    this.revokeCalendarObjectUrl();
+    const attachments = (message?.attachments ?? []).filter(item => item.s3Key);
+    const preferred = attachments.filter(item => isCalendarFile(item.filename, item.contentType));
+    const candidates = preferred.length > 0 ? preferred : attachments;
+    if (candidates.length === 0) {
       this.invite = null;
       this.inviteEvent = null;
       this.canRsvp = false;
       this.calendarFileUrl = null;
     } else {
-      try {
-        const url = this.urlService.sameOriginUrl(this.urlService.resourceRelativePathForAWSFileName(attachment.s3Key));
-        this.calendarFileUrl = url;
-        const text = await firstValueFrom(this.http.get(url, {responseType: "text"}));
-        const parsed = parseIcsCalendar(text);
-        this.invite = parsed;
-        this.inviteEvent = parsed.events[0] ?? null;
-        this.canRsvp = calendarInviteCanRsvp(parsed);
-      } catch (error) {
-        this.logger.error("calendar invite preview failed for", attachment, error);
+      const loaded = await candidates.reduce<Promise<{invite: CalendarInvite; text: string} | null>>(async (previous, attachment) => {
+        const already = await previous;
+        if (already) {
+          return already;
+        } else {
+          try {
+            const url = this.urlService.sameOriginUrl(this.urlService.resourceRelativePathForAWSFileName(attachment.s3Key));
+            const text = await firstValueFrom(this.http.get(url, {responseType: "text"}));
+            const parsed = parseIcsCalendar(text);
+            return parsed.events.length > 0 ? {invite: parsed, text} : null;
+          } catch (error) {
+            this.logger.error("calendar invite preview failed for", attachment, error);
+            return null;
+          }
+        }
+      }, Promise.resolve(null));
+      if (loaded) {
+        this.invite = loaded.invite;
+        this.inviteEvent = loaded.invite.events[0] ?? null;
+        this.canRsvp = calendarInviteCanRsvp(loaded.invite);
+        this.calendarFileUrl = this.inviteEvent ? this.calendarHrefFromEvent(this.inviteEvent) : null;
+      } else {
         this.invite = null;
         this.inviteEvent = null;
         this.canRsvp = false;

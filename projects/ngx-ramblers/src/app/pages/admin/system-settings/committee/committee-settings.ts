@@ -53,9 +53,11 @@ import {
   emailRoutingRuleAddress,
   isLiteralDomainAddressRule,
   EmailWorkerScript,
-  OrphanedWorkerRow,
+  CloudflareWorkerRow,
   NonSensitiveCloudflareConfig,
-  SHARED_INBOX_ROUTER_WORKER_NAME
+  inboxRouterWorkerName,
+  isInboxRouterWorkerName,
+  inboxRouterFallbackAddress,
 } from "../../../../models/cloudflare-email-routing.model";
 import { EnvironmentSettingsSubTab, SystemConfig } from "../../../../models/system.model";
 import { EnvironmentSetupTab } from "../../../../models/environment-setup.model";
@@ -92,6 +94,7 @@ import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { ContentTextEditor } from "../../../../modules/common/tiptap-editor/content-text-editor";
 import { CommitteeUnassignedRolesComponent } from "./committee-unassigned-roles";
 import { CommitteeMemberEditor } from "./committee-member";
+import { EmailRoutingLogComponent } from "./email-routing-log";
 import { RecipientMultiSelect } from "./recipient-multi-select";
 import { CloudflareButton } from "../../../../modules/common/third-parties/cloudflare-button";
 import { FormSaveActionsComponent } from "../../../../modules/common/form-save-actions/form-save-actions";
@@ -103,7 +106,7 @@ import { AsyncPipe } from "@angular/common";
 import { AlertComponent } from "ngx-bootstrap/alert";
 import { EnvironmentSetupService } from "../../../../services/environment-setup/environment-setup.service";
 import { SortableTableComponent } from "../../../../modules/common/sortable-table/sortable-table.component";
-import { SortableTableCellDirective } from "../../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { CloudflareWorkersList } from "../../../../modules/common/cloudflare-workers/cloudflare-workers-list";
 import { SortableTableColumn } from "../../../../modules/common/sortable-table/sortable-table.model";
 import { ThumbnailHeadingFrameComponent } from "../../../../modules/common/thumbnail-heading-frame/thumbnail-heading-frame";
 import { DurationPickerComponent } from "../../../../modules/common/duration-picker/duration-picker";
@@ -395,45 +398,13 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                   }
                   @if (platformAdminEnabled && orphanedWorkerRows.length) {
                     <div class="thumbnail-heading-frame mb-3">
-                      <div class="thumbnail-heading">Orphaned Cloudflare Workers</div>
-                      <app-sortable-table
-                        [columns]="orphanedWorkerColumns"
-                        [rows]="orphanedWorkerRows"
-                        defaultSortKey="id"
-                        emptyMessage="No orphaned Cloudflare workers"
-                        [trackBy]="trackOrphanedWorker">
-                        <ng-template appSortableTableCell="actions" let-row>
-                          <div class="d-flex gap-2">
-                            @if (workerServiceUrl(row.id)) {
-                              <a class="btn btn-icon btn-quiet"
-                                 [href]="workerServiceUrl(row.id)"
-                                 target="_blank"
-                                 tooltip="Open in Cloudflare">
-                                <fa-icon [icon]="faExternalLinkAlt"></fa-icon>
-                              </a>
-                            }
-                            @if (workerDeleteConfirmPending === row.id) {
-                              <button type="button" class="btn btn-icon btn-danger"
-                                tooltip="Confirm delete"
-                                (click)="deleteWorkerScript(row.id)">
-                                <fa-icon [icon]="faCheck"/>
-                              </button>
-                              <button type="button" class="btn btn-icon btn-quiet"
-                                tooltip="Cancel"
-                                (click)="cancelDeleteWorkerScript()">
-                                <fa-icon [icon]="faTimes"/>
-                              </button>
-                            } @else {
-                              <button type="button" class="btn btn-icon btn-danger"
-                                tooltip="Delete worker"
-                                [disabled]="workerDeletePending === row.id"
-                                (click)="requestDeleteWorkerScript(row.id)">
-                                <fa-icon [icon]="faTrash"/>
-                              </button>
-                            }
-                          </div>
-                        </ng-template>
-                      </app-sortable-table>
+                      <div class="thumbnail-heading">Cloudflare Workers Without a Rule on This Site</div>
+                      <p>These workers have no address rule on this site. <a [routerLink]="AdminPlatformPath.CLOUDFLARE_WORKERS">Check account-wide usage</a> before deleting.</p>
+                      <app-cloudflare-workers-list [rows]="orphanedWorkerRows" [accountId]="cloudflareAccountId"
+                        [allowDelete]="true" [deleteConfirmPending]="workerDeleteConfirmPending" [deletePending]="workerDeletePending"
+                        emptyMessage="No workers without a rule on this site"
+                        (requestDelete)="requestDeleteWorkerScript($event)" (cancelDelete)="cancelDeleteWorkerScript()"
+                        (deleteWorker)="deleteWorkerScript($event)"/>
                     </div>
                   }
                   @if (!editingRoleDraft) {
@@ -669,20 +640,20 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                               This site reads a Gmail account, so unmatched mail is forwarded to that account.
                             }
                           </p>
-                          @if (catchAllWorkerScriptName() && catchAllDeployedScriptOutOfDate && !editingCatchAll) {
-                            <div class="d-flex align-items-center mb-2">
-                              <app-cloudflare-button button
-                                [disabled]="catchAllRedeploying"
-                                [loading]="catchAllRedeploying"
-                                (click)="redeployCatchAllWorker()"
-                                title="Redeploy Worker with latest code"></app-cloudflare-button>
-                              <span class="small text-muted ms-2">Worker code is out of date - click to redeploy.</span>
-                            </div>
-                          }
                           @if (!editingCatchAll) {
-                            <button class="btn btn-sm btn-primary d-inline-flex align-items-center gap-2" type="button" (click)="startEditCatchAll()">
-                              <fa-icon [icon]="faEdit"/>Edit catch-all
-                            </button>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                              <button class="btn btn-sm btn-primary d-inline-flex align-items-center gap-2" type="button" (click)="startEditCatchAll()">
+                                <fa-icon [icon]="faEdit"/>Edit catch-all
+                              </button>
+                              @if (showCatchAllRedeploy()) {
+                                <app-cloudflare-button button
+                                  [disabled]="catchAllRedeploying"
+                                  [loading]="catchAllRedeploying"
+                                  (click)="redeployCatchAllWorker()"
+                                  title="Redeploy Worker with latest code"></app-cloudflare-button>
+                                <span class="small text-muted">{{ catchAllRedeployReason() }}</span>
+                              }
+                            </div>
                           } @else {
                             <div class="row g-2">
                               <div class="col-sm-4">
@@ -698,13 +669,13 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                               </div>
                               @if (catchAllDraftAction === CatchAllAction.SHARED_ROUTER) {
                                 <div class="col-sm-8">
-                                  <label class="form-label">Spare address if this site is down</label>
+                                  <label class="form-label">Spare address if this site is down (optional)</label>
                                   <input type="email" class="form-control form-control-sm"
                                          [(ngModel)]="catchAllDraftSingleDestination"
                                          name="catch-all-router-fallback"
                                          placeholder="a mailbox that is not this site">
                                   <div class="small text-muted mt-1">
-                                    Normal mail is filed in the Admin Inbox. This address is used only when the site does not answer, so the message is not lost.
+                                    Normal mail is filed in the Admin Inbox. An optional verified address receives mail if this site cannot accept it. Without one, delivery failures are reported in the worker logs.
                                   </div>
                                 </div>
                               }
@@ -800,6 +771,14 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                         </div>
                       </div>
                     }
+                </div>
+              </tab>
+              <tab heading="Email logs" [active]="tabActive('email-logs')" (selectTab)="selectTab('email-logs')">
+                <div class="img-thumbnail thumbnail-admin-edit">
+                  <p class="small text-muted mb-3">Inbound mail for this domain, from Cloudflare Email Routing. Includes catch-all and every role address.</p>
+                  <app-email-routing-log
+                    [workerScriptName]="inboxRouterScriptName()"
+                    routeType="worker"/>
                 </div>
               </tab>
               <tab heading="Configuration" [active]="tabActive('configuration')" (selectTab)="selectTab('configuration')">
@@ -945,10 +924,11 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
         </div>
       </div>
     </app-page>`,
-    imports: [PageComponent, TabsetComponent, TabDirective, ContentTextEditor, CommitteeMemberEditor, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent, ThumbnailHeadingFrameComponent, DurationPickerComponent, CommitteeUnassignedRolesComponent, SortableTableComponent, SortableTableCellDirective]
+    imports: [PageComponent, TabsetComponent, TabDirective, ContentTextEditor, CommitteeMemberEditor, EmailRoutingLogComponent, TooltipDirective, FontAwesomeModule, FormsModule, AlertComponent, AsyncPipe, RouterLink, RecipientMultiSelect, CloudflareButton, FormSaveActionsComponent, ThumbnailHeadingFrameComponent, DurationPickerComponent, CommitteeUnassignedRolesComponent, SortableTableComponent, CloudflareWorkersList]
 })
 export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   @ViewChild(CommitteeMemberEditor) private roleEditor: CommitteeMemberEditor | null = null;
+  protected readonly AdminPlatformPath = AdminPlatformPath;
   adminPlatformEnvironmentManagementSetupPath = AdminPlatformPath.ENVIRONMENT_MANAGEMENT_SETUP;
   public formSaveActions: FormSaveActions = {
     save: () => this.save(),
@@ -968,6 +948,9 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   private cloudflareUrl = inject(CloudflareUrlService);
   protected readonly cloudflareDashboardUrl = this.cloudflareUrl.dashboard();
   protected readonly cloudflareApiTokensUrl = this.cloudflareUrl.apiTokens();
+  inboxRouterScriptName(): string {
+    return inboxRouterWorkerName(this.cloudflareZoneName || this.baseDomain);
+  }
   private committeeQueryService = inject(CommitteeQueryService);
   private environmentSetupService = inject(EnvironmentSetupService);
   private inboxService = inject(InboxService);
@@ -1023,6 +1006,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   catchAllError: string | null = null;
   catchAllDeployedRecipients: string[] = [];
   catchAllDeployedScriptOutOfDate = false;
+  catchAllRouterNeedsRefresh = false;
   catchAllRedeploying = false;
   destinationAddresses: DestinationAddress[] = [];
   catchAllVerifying = false;
@@ -1332,14 +1316,6 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     return this.workerScriptsSorted.filter(script => !this.workerRuleForScript(script.id));
   }
 
-  readonly orphanedWorkerColumns: SortableTableColumn<OrphanedWorkerRow>[] = [
-    {key: "id", label: "Script", sortKey: "id", cellGetter: row => row.id},
-    {key: "mapped", label: "Mapped", sortKey: "mapped", cellGetter: row => row.mapped},
-    {key: "actions", label: ""}
-  ];
-
-  readonly trackOrphanedWorker = (_index: number, row: OrphanedWorkerRow) => row.id;
-
   readonly addressRuleColumns: SortableTableColumn<DomainRoutingRuleSummary>[] = [
     {key: "address", label: "Address", sortKey: "address", cellGetter: row => row.address},
     {key: "roleLabel", label: "Committee role", sortKey: "roleLabel", cellGetter: row => row.roleLabel || "Not a committee role mailbox"},
@@ -1348,7 +1324,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
 
   readonly trackAddressRule = (_index: number, row: DomainRoutingRuleSummary) => `${row.kind}-${row.address}`;
 
-  get orphanedWorkerRows(): OrphanedWorkerRow[] {
+  get orphanedWorkerRows(): CloudflareWorkerRow[] {
     return this.orphanedWorkerScripts.map(script => ({
       id: script.id,
       mapped: this.workerMappingLabel(script.id)
@@ -1423,13 +1399,6 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
       return this.cloudflareUrl.emailRoutingRules(this.cloudflareAccountId, this.cloudflareZoneId);
     }
     return null;
-  }
-
-  workerServiceUrl(scriptName: string): string {
-    if (!this.cloudflareAccountId || !scriptName) {
-      return null;
-    }
-    return this.cloudflareUrl.worker(this.cloudflareAccountId, scriptName);
   }
 
   workerMappingLabel(scriptName: string): string {
@@ -1735,15 +1704,13 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   catchAllResolvedAction(): CatchAllAction {
     if (!this.catchAllRule || !this.catchAllRule.enabled) {
       return CatchAllAction.DISABLED;
-    }
-    const action = this.catchAllRule.actions?.[0];
-    if (action?.type === EmailRoutingActionType.FORWARD) {
+    } else if (this.catchAllRule.actions?.[0]?.type === EmailRoutingActionType.FORWARD) {
       return CatchAllAction.FORWARD;
+    } else if (this.catchAllRule.actions?.[0]?.type === EmailRoutingActionType.WORKER) {
+      return isInboxRouterWorkerName(this.catchAllRule.actions[0].value?.[0]) ? CatchAllAction.SHARED_ROUTER : CatchAllAction.WORKER;
+    } else {
+      return CatchAllAction.DROP;
     }
-    if (action?.type === EmailRoutingActionType.WORKER) {
-      return action.value?.[0] === SHARED_INBOX_ROUTER_WORKER_NAME ? CatchAllAction.SHARED_ROUTER : CatchAllAction.WORKER;
-    }
-    return CatchAllAction.DROP;
   }
 
   catchAllStatusLabel(): string {
@@ -1850,8 +1817,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
   }
 
   private sharedRouterFallbackFromRuleName(): string {
-    const match = /\(fallback\s+(.+?)\)\s*$/.exec(this.catchAllRule?.name || "");
-    return match ? match[1].trim() : "";
+    return inboxRouterFallbackAddress(this.catchAllRule);
   }
 
   cancelEditCatchAll(): void {
@@ -1952,10 +1918,6 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
         this.catchAllError = "Enter a single destination email for the Forward action.";
         return;
       }
-      if (this.catchAllDraftAction === CatchAllAction.SHARED_ROUTER && cleaned.length !== 1) {
-        this.catchAllError = "Enter a single fallback forward address for the shared inbox router.";
-        return;
-      }
       if (this.catchAllDraftAction === CatchAllAction.WORKER && cleaned.length === 0) {
         this.catchAllError = "Add at least one destination email for the Multiple action.";
         return;
@@ -2002,24 +1964,43 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
     if (!scriptName || !this.baseDomain) {
       this.catchAllDeployedRecipients = [];
       this.catchAllDeployedScriptOutOfDate = false;
-      return;
-    }
+      this.catchAllRouterNeedsRefresh = false;
+    } else {
     try {
-      const info = await this.cloudflareEmailRoutingService.queryWorkerInfo(scriptName, {
-        roleEmail: `*@${this.baseDomain}`,
-        roleName: "catch-all"
-      });
+      const [info, health] = await Promise.all([
+        this.cloudflareEmailRoutingService.queryWorkerInfo(scriptName, {
+          roleEmail: `*@${this.baseDomain}`,
+          roleName: "catch-all"
+        }),
+        this.cloudflareEmailRoutingService.queryInboxRouterHealth()
+      ]);
       this.catchAllDeployedRecipients = info.recipients || [];
       this.catchAllDeployedScriptOutOfDate = info.upToDate === false;
+      this.catchAllRouterNeedsRefresh = health?.needsRefresh === true;
     } catch (err) {
       this.logger.error("Failed to load catch-all worker info for", scriptName, err);
       this.catchAllDeployedRecipients = [];
       this.catchAllDeployedScriptOutOfDate = false;
+      this.catchAllRouterNeedsRefresh = false;
+    }
     }
   }
 
   catchAllDeployedRecipientCount(): number {
     return this.catchAllDeployedRecipients?.length || 0;
+  }
+
+  showCatchAllRedeploy(): boolean {
+    return !!this.catchAllWorkerScriptName()
+      && (this.catchAllDeployedScriptOutOfDate || this.catchAllRouterNeedsRefresh);
+  }
+
+  catchAllRedeployReason(): string {
+    if (this.catchAllDeployedScriptOutOfDate) {
+      return "Worker code is out of date - click to redeploy.";
+    } else {
+      return "The last delivery failed signature verification - click to refresh the worker signing secret.";
+    }
   }
 
   catchAllDraftRecipientsChanged(): boolean {
@@ -2061,6 +2042,7 @@ export class CommitteeSettingsComponent implements OnInit, OnDestroy {
           destinations: recipients
         });
       }
+      this.catchAllRule = await this.cloudflareEmailRoutingService.queryCatchAllRule();
       await this.refreshDeployedCatchAllWorkerInfo();
     } catch (err) {
       this.logger.error("Failed to redeploy catch-all worker:", err);

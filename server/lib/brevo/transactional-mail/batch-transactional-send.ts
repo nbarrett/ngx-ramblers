@@ -72,7 +72,7 @@ import {
 } from "../../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { insertSentCopy } from "../../inbox/gmail-inbox-reader";
 import { recordOutboundMessage, recordOutboundReply } from "../../inbox/inbox-message-import";
-import { compositionSenderEmail } from "../../inbox/inbox-composition-sender";
+import { compositionSenderEmail, inboxAttachmentsFromComposer } from "../../inbox/inbox-composition-sender";
 import { normaliseEmail } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 import { unbrandedRecipientListsAllowed } from "./unbranded-recipient-lists";
 import { protectedEmailSendError } from "../../salesforce/salesforce-permissions";
@@ -482,13 +482,7 @@ async function performInboxWriteback(request: BatchTransactionalSendRequest, ema
           sentAt,
           externalSource: mailboxConnectionDoc?.provider ?? InboxReaderProvider.GMAIL_API,
           externalId: gmailInsert.id,
-          attachments: (emailRequest.attachments ?? []).map(attachment => ({
-            filename: attachment.name,
-            contentType: "application/octet-stream",
-            sizeBytes: attachment.sizeBytes ?? 0,
-            s3Key: attachment.url.split("api/aws/s3/")[1] ?? "",
-            contentId: null
-          }))
+          attachments: inboxAttachmentsFromComposer(emailRequest.attachments)
         };
         if (context) {
           await recordOutboundReply(alias, outboundMessage, context.threadId);

@@ -269,3 +269,25 @@ Configuration is in `migrations/migrate-mongo-config.ts`:
 - **Lock Collection**: `changelog_lock` (TTL: 300s)
 
 All npm migration scripts automatically use the config file in the migrations folder.
+
+### 20261021200000-scope-inbox-router-to-zone.ts
+
+Also ensures the Cloudflare Workers entry on Platform Admin using the shared, idempotent menu helper, including environments where router migration is skipped or deferred. This menu change belongs to the same migration.
+
+Moves an existing Direct-to-inbox catch-all from the legacy account-wide router to one worker per Cloudflare zone. It runs automatically on startup, including local development against the selected environment's configured services.
+
+| Current configuration | Migration behaviour |
+| --- | --- |
+| No selected inbox provider, or Gmail-connected inbox | Skip without contacting Cloudflare or changing mailbox connections |
+| Direct-to-inbox subdomain of another Cloudflare zone | Skip; the apex environment migrates the shared zone once |
+| Disabled catch-all, ordinary forwarding, drop rule or custom worker | Preserve the existing routing choice |
+| Active legacy inbox router on the zone apex | Publish the zone worker, configure its signing secret, then move the existing catch-all |
+| Already using the zone worker with HTTPS to the origin | Skip without republishing |
+| Relevant router with Off or Flexible origin encryption | Check the hostname's issued, unexpired Fly certificate, set Full (strict), and verify the resulting mode |
+| Full, Full (strict) or authenticated origin encryption | Keep the existing SSL mode |
+
+Only a fallback explicitly recorded on the zone's catch-all is preserved. The migration never copies the legacy worker's account-wide fallback, chooses a Gmail account, creates mailbox connections, switches providers, sends verification emails or deletes workers or secrets. Direct-to-inbox sites without a recorded fallback remain independent of Gmail; failures are reported by the worker instead of forwarding to an unchosen address. An existing target worker with an unrecorded fallback secret requires administrator review before it can be reused.
+
+API, certificate and deployment failures return a deferred result. The application can start, and the migration stays pending rather than being recorded as applied or skipped. It retries on a later restart or through the existing migration retry control. A retry after a partial upload is safe because routing moves only after the worker and required secrets are ready. The down migration retains the zone workers and SSL settings.
+
+For a local test, stop the running local site, then run `./bin/ngx-cli local dev <environment>` from the repository root. Startup logs report either the migrated zone and worker or the reason the environment was skipped or deferred. This uses that environment's real Cloudflare configuration. Restarting after success must leave the migrated worker untouched. Tests of SSL repair use mocked Cloudflare and Fly responses; there is no need to weaken a working live zone to exercise that branch.

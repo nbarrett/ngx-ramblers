@@ -1,7 +1,8 @@
 import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
-import { AdminPath } from "../../../../models/admin-route-paths.model";
+import { AdminPath, AdminSettingsPath } from "../../../../models/admin-route-paths.model";
+import { committeeMembersSettingsQueryParams } from "../../../../functions/committee-members";
 import { InboxRoleVisibility, SystemConfig } from "../../../../models/system.model";
 import {
   GoogleCloudProvisioningStepStatus,
@@ -22,11 +23,16 @@ import { SystemInboxRoleMailboxesComponent } from "./system-inbox-role-mailboxes
 import { InboxService } from "../../../../services/inbox/inbox.service";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import {
+  EmailRoutingActionType,
+  EmailRoutingRule,
+  InboxRouterHealth,
   GMAIL_INBOX_STEPS,
   GmailInboxSetupStepKey,
   inboxSettingsForProvider,
   InboxSettingsTab,
-  NonSensitiveCloudflareConfig
+  MxRecordStatus,
+  NonSensitiveCloudflareConfig,
+  isInboxRouterWorkerName
 } from "../../../../models/cloudflare-email-routing.model";
 import { AlertInstance, NotifierService } from "../../../../services/notifier.service";
 import { AlertTarget } from "../../../../models/alert-target.model";
@@ -152,7 +158,7 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
                 <div>
                   <strong>Confirm inbox switch</strong>
                   <p class="mb-2 mt-1">{{ switchConfirmCopy() }}</p>
-                  <p class="mb-2">Existing conversations, folders and attachments stay as they are. You can run this again; it only changes what is still on Gmail polling or the provider flag.</p>
+                  <p class="mb-2">Existing conversations, folders and attachments stay as they are. Running the switch again only applies steps that are not already in place.</p>
                   <button class="btn btn-primary me-2" type="button" (click)="confirmProviderSwitch()" [disabled]="switchBusy">
                     @if (switchBusy) {
                       <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
@@ -186,7 +192,7 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
                 This site is a subdomain of the <strong>{{ parentZoneName() }}</strong> Cloudflare zone, which it shares with other sites. Direct delivery for this subdomain is provided by that zone's shared inbox router, not by anything you configure here.
               </p>
               <ol class="text-muted small">
-                <li>On the <strong>{{ parentZoneName() }}</strong> site, set the catch-all to <strong>Shared inbox router</strong> (Committee Settings &rarr; Email routing).</li>
+                <li>On the <strong>{{ parentZoneName() }}</strong> site, in Committee Settings, set the catch-all Action to <strong>Deliver unmatched mail to this site's inbox</strong>.</li>
                 <li>Keep this site's provider set to <strong>Direct to inbox</strong> (above). The router then delivers any <code>&#64;{{ cloudflareConfig?.baseDomain }}</code> mail straight here.</li>
                 <li>Replies appear in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a> for whoever holds each role.</li>
               </ol>
@@ -197,13 +203,52 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
               </alert>
             } @else if (ownsZoneConfirmed()) {
               <p class="text-muted small mb-2">
-                With Direct to inbox selected, committee mail is delivered by the zone catch-all through the shared inbox router. Individual Cloudflare address rules are not needed.
+                With Direct to inbox selected, this site's zone catch-all delivers unmatched mail through its zone inbox router. Switching to Direct to inbox publishes that worker and points the catch-all at it. Individual Cloudflare address rules are not needed. Replies appear in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a>.
               </p>
-              <ol class="text-muted small">
-                <li>Make sure Cloudflare Email Routing and the MX records are in place for your domain.</li>
-                <li>On Committee Settings &rarr; Email routing, set the catch-all to <strong>Shared inbox router</strong> (Deliver unmatched mail to this site's inbox).</li>
-                <li>Replies then appear in <a [routerLink]="'/' + adminInboxPath">Admin &rarr; Inbox</a> for whoever holds each role.</li>
-              </ol>
+              @if (directInboxChecksLoading) {
+                <div class="small text-muted"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Checking routing…</div>
+              } @else {
+                <div class="d-flex flex-column gap-2">
+                  <div class="d-flex align-items-start">
+                    <fa-icon class="me-2 mt-1" [icon]="mxRecordsOk() ? faCircleCheck : faCircleExclamation"
+                             [class.text-success]="mxRecordsOk()" [class.text-warning]="!mxRecordsOk()"/>
+                    <div>
+                      <strong>MX records</strong> — {{ mxRecordsCheckDetail() }}
+                      @if (!mxRecordsOk() && mxRecordStatus && !mxRecordStatus.allPresent) {
+                        <button class="btn btn-primary btn-sm mt-2" type="button" [disabled]="mxRecordCreating"
+                                (click)="createMissingMxRecords()">
+                          @if (mxRecordCreating) {
+                            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
+                          }
+                          Add missing MX records
+                        </button>
+                      }
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-start">
+                    <fa-icon class="me-2 mt-1" [icon]="catchAllDeliversToInbox() ? faCircleCheck : faCircleExclamation"
+                             [class.text-success]="catchAllDeliversToInbox()" [class.text-warning]="!catchAllDeliversToInbox()"/>
+                    <div>
+                      <strong>Catch-all</strong> — {{ catchAllCheckDetail() }}
+                      @if (!catchAllDeliversToInbox()) {
+                        <a class="d-inline-block mt-1" [routerLink]="'/' + committeeSettingsPath"
+                           [queryParams]="committeeSettingsQueryParams">Open Committee Settings</a>
+                      }
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-start">
+                    <fa-icon class="me-2 mt-1" [icon]="inboxRouterOk() ? faCircleCheck : faCircleExclamation"
+                             [class.text-success]="inboxRouterOk()" [class.text-warning]="!inboxRouterOk()"/>
+                    <div>
+                      <strong>Inbox router</strong> — {{ inboxRouterCheckDetail() }}
+                      @if (!inboxRouterOk()) {
+                        <a class="d-inline-block mt-1" [routerLink]="'/' + committeeSettingsPath"
+                           [queryParams]="committeeSettingsQueryParams">Open Committee Settings to redeploy</a>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
             } @else {
               <alert type="warning" class="d-block mb-0">
                 <fa-icon [icon]="faTriangleExclamation"/>
@@ -492,6 +537,8 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
 })
 export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   adminInboxPath = AdminPath.INBOX;
+  committeeSettingsPath = AdminSettingsPath.COMMITTEE_SETTINGS;
+  committeeSettingsQueryParams = committeeMembersSettingsQueryParams();
 
   protected systemConfigInternal: SystemConfig;
   private logger = inject(LoggerFactory).createLogger("SystemGmailInboxSettingsComponent", NgxLoggerLevel.ERROR);
@@ -528,6 +575,12 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected readonly steps = GMAIL_INBOX_STEPS;
   protected readonly GmailInboxSetupStepKey = GmailInboxSetupStepKey;
   protected cloudflareConfig: NonSensitiveCloudflareConfig;
+  protected mxRecordStatus: MxRecordStatus | null = null;
+  protected mxRecordCreating = false;
+  protected catchAllRule: EmailRoutingRule | null = null;
+  protected inboxRouterHealth: InboxRouterHealth | null = null;
+  protected directInboxChecksLoading = false;
+  protected directInboxChecksError: string | null = null;
   protected readonly InboxReaderProvider = InboxReaderProvider;
   protected readonly InboxPrivacyMode = InboxPrivacyMode;
   protected readonly GoogleCloudProvisioningStepStatus = GoogleCloudProvisioningStepStatus;
@@ -594,7 +647,12 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     await this.refreshProviderSwitchStatus();
     this.cloudflareEmailRoutingService.queryCloudflareConfig().catch(error => this.logger.warn("Cloudflare config not available:", error));
     this.subscriptions.push(this.cloudflareEmailRoutingService.cloudflareConfigNotifications()
-      .subscribe(config => this.cloudflareConfig = config));
+      .subscribe(config => {
+        this.cloudflareConfig = config;
+        if (this.inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS && config?.ownsZone) {
+          void this.loadDirectInboxChecks();
+        }
+      }));
     this.subscriptions.push(this.committeeConfigService.committeeConfigEvents()
       .subscribe(committeeConfig => {
         this.committeeConfig = committeeConfig;
@@ -651,6 +709,88 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
 
   protected ownsZoneConfirmed(): boolean {
     return this.cloudflareConfig?.ownsZone === true;
+  }
+
+  private async loadDirectInboxChecks(): Promise<void> {
+    this.directInboxChecksLoading = true;
+    this.directInboxChecksError = null;
+    try {
+      const [mx, catchAll, health] = await Promise.all([
+        this.cloudflareEmailRoutingService.queryMxRecordStatus(),
+        this.cloudflareEmailRoutingService.queryCatchAllRule(),
+        this.cloudflareEmailRoutingService.queryInboxRouterHealth()
+      ]);
+      this.mxRecordStatus = mx;
+      this.catchAllRule = catchAll;
+      this.inboxRouterHealth = health;
+    } catch (err) {
+      this.logger.warn("Could not load Direct to inbox checks:", err);
+      this.directInboxChecksError = (err as Error)?.message || String(err);
+    } finally {
+      this.directInboxChecksLoading = false;
+    }
+  }
+
+  mxRecordsOk(): boolean {
+    return !!this.mxRecordStatus?.allPresent && (this.mxRecordStatus?.extraRecords?.length || 0) === 0;
+  }
+
+  mxRecordsCheckDetail(): string {
+    if (this.directInboxChecksError && !this.mxRecordStatus) {
+      return this.directInboxChecksError;
+    } else if (!this.mxRecordStatus) {
+      return "Not checked yet.";
+    } else if (this.mxRecordsOk()) {
+      return `Cloudflare Email Routing MX records for ${this.mxRecordStatus.subdomain} are in place.`;
+    } else if (!this.mxRecordStatus.allPresent) {
+      return `Missing Cloudflare Email Routing MX records for ${this.mxRecordStatus.subdomain}.`;
+    } else {
+      return `Conflicting MX records on ${this.mxRecordStatus.subdomain} will block inbound mail.`;
+    }
+  }
+
+  catchAllDeliversToInbox(): boolean {
+    const action = this.catchAllRule?.enabled ? this.catchAllRule.actions?.[0] : null;
+    return action?.type === EmailRoutingActionType.WORKER
+      && isInboxRouterWorkerName(action.value?.[0]);
+  }
+
+  catchAllCheckDetail(): string {
+    if (!this.catchAllRule) {
+      return "Catch-all could not be read.";
+    } else if (this.catchAllDeliversToInbox()) {
+      return "Unmatched mail is delivered to this site's inbox.";
+    } else if (!this.catchAllRule.enabled) {
+      return "Catch-all is off. Set it to Deliver unmatched mail to this site's inbox.";
+    } else {
+      return "Catch-all is not delivering unmatched mail to this site's inbox.";
+    }
+  }
+
+  inboxRouterOk(): boolean {
+    return !!this.inboxRouterHealth && !this.inboxRouterHealth.needsRefresh;
+  }
+
+  inboxRouterCheckDetail(): string {
+    if (!this.inboxRouterHealth) {
+      return "Not checked yet.";
+    } else if (this.inboxRouterHealth.needsRefresh) {
+      return "Cloudflare accepted mail that this site did not store. Redeploy the inbox router on Committee Settings.";
+    } else {
+      return "Recent inbound mail from the router is being stored.";
+    }
+  }
+
+  async createMissingMxRecords(): Promise<void> {
+    this.mxRecordCreating = true;
+    try {
+      this.mxRecordStatus = await this.cloudflareEmailRoutingService.createMissingMxRecords();
+    } catch (err) {
+      this.logger.error("Failed to create MX records:", err);
+      this.directInboxChecksError = (err as Error)?.message || String(err);
+    } finally {
+      this.mxRecordCreating = false;
+    }
   }
 
   protected parentZoneName(): string {
@@ -794,9 +934,13 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
 
   switchConfirmCopy(): string {
     if (this.pendingProvider === InboxReaderProvider.CLOUDFLARE_INGRESS) {
-      return "Direct to inbox will store committee mail in NGX. Gmail polling stops, but the Gmail connection and tokens stay so you can switch back. Catch-all routing on Committee Settings still needs to be the shared inbox router for new mail to arrive this way.";
+      if (this.isSharedZoneSubdomain()) {
+        return "Direct to inbox will store committee mail in NGX. Gmail polling stops; the Gmail connection and tokens stay so you can switch back. This site cannot publish a catch-all; new mail arrives here only if the parent zone site already delivers unmatched mail through its inbox router.";
+      } else {
+        return "Direct to inbox will store committee mail in NGX. This switch creates the Direct to inbox connection if it is missing, publishes this site's zone inbox router, and sets the Cloudflare catch-all to deliver unmatched mail here. Gmail polling stops; the Gmail connection and tokens stay so you can switch back.";
+      }
     } else {
-      return "Gmail-connected inbox will poll the connected Gmail account again. Direct to inbox stays available to switch back. Mail and folders already in NGX are left as they are.";
+      return "Gmail-connected inbox will poll the connected Gmail account again. The Cloudflare catch-all is left as it is, so Direct to inbox delivery continues until you change it in Committee Settings. Mail and folders already in NGX stay as they are.";
     }
   }
 

@@ -63,7 +63,7 @@ import { FormsModule } from "@angular/forms";
 import { CommitteeMemberLookupComponent } from "./committee-member-lookup";
 import { CreateOrAmendSenderComponent } from "../../send-emails/create-or-amend-sender";
 import { EmailRoutingStatusComponent } from "./email-routing-status";
-import { EmailRoutingLogComponent } from "./email-routing-log";
+
 import { CopyIconComponent } from "../../../../modules/common/copy-icon/copy-icon";
 import { MarkdownComponent } from "ngx-markdown";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -513,21 +513,13 @@ import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/c
               </div>
             </div>
           }
-          @case (CommitteeMemberTab.EMAIL_LOGS) {
-            <app-content-text-editor standalone category="admin" name="committee-email-logs-help" description="Email logs help"/>
-            <hr/>
-            <app-email-routing-log
-              [roleEmail]="roleEmail()"
-              [workerScriptName]="activeWorkerScriptName()"
-              [routeType]="activeRouteType()"/>
-          }
         }
         </div>
       </div>
     }
     `,
     styleUrls: ["./committee-member.sass"],
-  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, EmailRoutingLogComponent, CopyIconComponent, MarkdownComponent, ContentTextEditor, SectionToggle, RecipientMultiSelect, NgTemplateOutlet, AlertComponent, RouterLink, CommitteeRoleMailboxesComponent]
+  imports: [FormsModule, FontAwesomeModule, CommitteeMemberLookupComponent, CreateOrAmendSenderComponent, EmailRoutingStatusComponent, CopyIconComponent, MarkdownComponent, ContentTextEditor, SectionToggle, RecipientMultiSelect, NgTemplateOutlet, AlertComponent, RouterLink, CommitteeRoleMailboxesComponent]
 })
 export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeMemberEditor", NgxLoggerLevel.ERROR);
@@ -559,9 +551,6 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
       CommitteeMemberTab.INBOUND_FORWARDING,
       CommitteeMemberTab.CONTACT_US
     ];
-    if (this.cloudflareEmailRoutingService.emailForwardingAvailable()) {
-      nextTabs.push(CommitteeMemberTab.EMAIL_LOGS);
-    }
     const previous = this.tabs.join("|");
     const next = nextTabs.join("|");
     if (previous !== next) {

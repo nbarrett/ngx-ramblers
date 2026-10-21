@@ -5,15 +5,13 @@ export default {
   async email(message: ForwardableEmailMessage, env: NgxInboxEnv, _ctx: unknown): Promise<void> {
     const sharedSecret = env.NGX_INBOUND_SECRET;
     if (!sharedSecret) {
-      console.error("NGX_INBOUND_SECRET not configured on worker");
-      return;
+      throw new Error("NGX_INBOUND_SECRET not configured on worker");
     }
     const recipient = message.to || "";
     const atIndex = recipient.lastIndexOf("@");
     const domain = atIndex >= 0 ? recipient.slice(atIndex + 1).trim().toLowerCase() : "";
     if (!domain) {
-      console.error("Could not derive recipient domain from " + recipient);
-      return;
+      throw new Error("Could not derive recipient domain from " + recipient);
     }
     const fallback = (env.NGX_FALLBACK_FORWARD || "").trim();
     const forwardTo = async (address: string, reason: string): Promise<void> => {
@@ -32,7 +30,10 @@ export default {
         }
       }
     };
-    const forwardToFallback = (reason: string): Promise<void> => forwardTo(fallback, reason);
+    const forwardToFallback = (reason: string): Promise<void> => {
+      console.error("NGX inbox router fallback for " + domain + ": " + reason);
+      return forwardTo(fallback, reason);
+    };
 
     const webhookUrl = "https://" + domain + "/api/cloudflare/email-routing/inbound-inbox";
     const rawMimeBase64 = await encodeRawMimeBase64(message.raw);
@@ -56,21 +57,24 @@ export default {
       return;
     }
 
-    let action = "store";
+    let action = "";
     let forwardAddresses: string[] = [];
     try {
       const parsed = JSON.parse(await response.text());
       const inner = (parsed && parsed.response) || parsed || {};
-      action = inner.action || "store";
+      action = inner.action || "";
       forwardAddresses = ([] as string[]).concat(inner.to || []);
     } catch (_ignored) {
-      action = "store";
+      await forwardToFallback("webhook response was not JSON");
+      return;
     }
     if (action === "forward") {
       const destinations = forwardAddresses.length > 0 ? forwardAddresses : [fallback];
       for (const destination of destinations) {
         await forwardTo(destination, "site forwarding");
       }
+    } else if (action !== "store" && action !== "drop") {
+      await forwardToFallback("webhook returned unexpected action " + (action || "empty"));
     }
   }
 };

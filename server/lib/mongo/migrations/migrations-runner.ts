@@ -507,21 +507,25 @@ export class MigrationRunner {
 
           const upResult: MigrationUpResult = await migration.up(db, client) || {};
 
-          const changelogEntry: Record<string, any> = {
-            fileName,
-            startedAt,
-            appliedAt: dateTimeNow().toJSDate()
-          };
-
-          if (upResult.skipped) {
-            changelogEntry.skippedReason = upResult.reason || "Migration skipped";
-            debugLog(`Migration skipped: ${fileName} — ${changelogEntry.skippedReason}`);
+          if (upResult.deferred) {
+            debugLog("Migration deferred and left pending: %s — %s", fileName, upResult.reason || "Retry required");
           } else {
-            debugLog(`Successfully applied migration: ${fileName}`);
-          }
+            const changelogEntry: Record<string, any> = {
+              fileName,
+              startedAt,
+              appliedAt: dateTimeNow().toJSDate()
+            };
 
-          await changelogCollection.insertOne(changelogEntry);
-          appliedFiles.push(fileName);
+            if (upResult.skipped) {
+              changelogEntry.skippedReason = upResult.reason || "Migration skipped";
+              debugLog(`Migration skipped: ${fileName} — ${changelogEntry.skippedReason}`);
+            } else {
+              debugLog(`Successfully applied migration: ${fileName}`);
+            }
+
+            await changelogCollection.insertOne(changelogEntry);
+            appliedFiles.push(fileName);
+          }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           debugLog(`Failed to apply migration ${fileName}:`, error);
@@ -596,17 +600,22 @@ export class MigrationRunner {
       const upResult: MigrationUpResult = await migration.up(db, client) || {};
       await indexExistingCollections(db);
 
-      const changelogEntry: Record<string, any> = { fileName: normalisedName, startedAt, appliedAt: dateTimeNow().toJSDate() };
-
-      if (upResult.skipped) {
-        changelogEntry.skippedReason = upResult.reason || "Migration skipped";
-        debugLog(`Migration skipped: ${normalisedName} — ${changelogEntry.skippedReason}`);
+      if (upResult.deferred) {
+        debugLog("Migration deferred and left pending: %s — %s", normalisedName, upResult.reason || "Retry required");
+        return {success: true, message: upResult.reason || "Migration deferred; retry required", appliedFiles: []};
       } else {
-        debugLog(`Successfully applied migration: ${normalisedName}`);
-      }
+        const changelogEntry: Record<string, any> = { fileName: normalisedName, startedAt, appliedAt: dateTimeNow().toJSDate() };
 
-      await changelogCollection.insertOne(changelogEntry);
-      return { success: true, appliedFiles: [normalisedName] };
+        if (upResult.skipped) {
+          changelogEntry.skippedReason = upResult.reason || "Migration skipped";
+          debugLog(`Migration skipped: ${normalisedName} — ${changelogEntry.skippedReason}`);
+        } else {
+          debugLog(`Successfully applied migration: ${normalisedName}`);
+        }
+
+        await changelogCollection.insertOne(changelogEntry);
+        return { success: true, appliedFiles: [normalisedName] };
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const client = await mongoClient();

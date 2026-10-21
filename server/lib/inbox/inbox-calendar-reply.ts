@@ -32,6 +32,7 @@ import {
 import { defaultTenantSlug, derivedAliasForRoleType } from "./inbox-aliases";
 import { permittedToReadJunk, requestMember, requireInboxRoleAccess } from "./inbox-access";
 import { sendRfc822 } from "./gmail-inbox-reader";
+import { relayRawMime } from "../brevo/smtp-relay";
 
 const messageType = "inbox";
 const debugLog = debug(envConfig.logNamespace("inbox-calendar-reply"));
@@ -207,10 +208,11 @@ export async function sendCalendarReply(req: Request, res: Response): Promise<vo
             res.status(400).json({request: {messageType}, error: "This calendar file is not a meeting invitation you can reply to"});
           } else {
             const connection = await connectionForThread(thread, message);
-            if (!connection?.gmailAccountEmail) {
-              res.status(404).json({request: {messageType}, error: "No Gmail mailbox is connected for this conversation"});
+            const alias = await derivedAliasForRoleType(thread.roleType);
+            const fromEmail = connection?.gmailAccountEmail || alias?.roleEmail || "";
+            if (!fromEmail) {
+              res.status(404).json({request: {messageType}, error: "No mailbox is available to send this reply"});
             } else {
-              const alias = await derivedAliasForRoleType(thread.roleType);
               const memberId = requestMember(req).memberId;
               const loggedIn = memberId
                 ? await memberModel.findById(memberId).select("email firstName lastName").lean() as Pick<Member, "email" | "firstName" | "lastName"> | null
@@ -218,7 +220,7 @@ export async function sendCalendarReply(req: Request, res: Response): Promise<vo
               const memberName = loggedIn ? [loggedIn.firstName, loggedIn.lastName].filter(Boolean).join(" ").trim() || null : null;
               const attendee = pickAttendee(event, [
                 {email: alias?.roleEmail || "", name: memberName},
-                {email: connection.gmailAccountEmail, name: memberName},
+                {email: connection?.gmailAccountEmail || "", name: memberName},
                 {email: loggedIn?.email || "", name: memberName}
               ]);
               if (!attendee.email) {
@@ -230,7 +232,7 @@ export async function sendCalendarReply(req: Request, res: Response): Promise<vo
                 } else {
                   const ics = calendarReplyDocument(event, attendee, status, dateTimeNow().toMillis());
                   const rfc822 = buildReplyRfc822({
-                    fromEmail: connection.gmailAccountEmail,
+                    fromEmail,
                     fromName: attendee.name,
                     toEmail,
                     toName: event.organiser,
@@ -240,12 +242,21 @@ export async function sendCalendarReply(req: Request, res: Response): Promise<vo
                     inReplyTo: rfcMessageId(message.messageId),
                     references: (message.references ?? []).map(rfcMessageId).filter(Boolean)
                   });
-                  const sentId = await sendRfc822(connection, rfc822);
+                  if (connection?.gmailAccountEmail) {
+                    await sendRfc822(connection, rfc822);
+                  } else {
+                    await relayRawMime({
+                      rawMime: Buffer.from(rfc822, "utf8"),
+                      recipient: toEmail,
+                      envelopeFrom: fromEmail,
+                      envelopeTo: toEmail
+                    });
+                  }
                   await inboxMessageModel.updateOne(
                     {threadId: req.params.id, messageId},
                     {$set: {calendarRsvp: status}}
                   );
-                  debugLog(`calendar reply ${status} sent as ${sentId} from ${connection.gmailAccountEmail} to ${toEmail} for thread ${req.params.id}`);
+                  debugLog(`calendar reply ${status} sent from ${fromEmail} to ${toEmail} for thread ${req.params.id}`);
                   res.json({
                     request: {messageType},
                     response: {status, attendeeEmail: attendee.email}

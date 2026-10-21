@@ -39,6 +39,8 @@ export class HtmlFrameComponent implements OnDestroy {
   private mutationObserver: MutationObserver | null = null;
   private lastFrameHeight = 0;
   private focusOwner: Element | null = null;
+  private frameKeyListener: ((event: KeyboardEvent) => void) | null = null;
+  private boundKeyDocument: Document | null = null;
 
   @Input() set html(value: string) {
     this.renderHtml(value ?? "");
@@ -67,9 +69,40 @@ export class HtmlFrameComponent implements OnDestroy {
     this.resize();
     const frame = this.frame?.nativeElement;
     const owner = this.focusOwner;
+    const doc = frame?.contentDocument;
+    if (doc) {
+      this.bindFrameKeys(doc);
+    }
     if (frame && document.activeElement === frame && owner instanceof HTMLElement && owner !== frame) {
       owner.focus();
     }
+  }
+
+  private bindFrameKeys(doc: Document): void {
+    this.unbindFrameKeys();
+    this.frameKeyListener = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      const editing = !!target?.closest?.("input, textarea, select, [contenteditable]");
+      const mailboxKey = event.key === "Delete" || event.key === "Backspace" || event.key === "ArrowDown" || event.key === "ArrowUp";
+      if (mailboxKey && !editing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        window.dispatchEvent(new KeyboardEvent("keydown", {
+          key: event.key,
+          shiftKey: event.shiftKey,
+          bubbles: true
+        }));
+      }
+    };
+    doc.addEventListener("keydown", this.frameKeyListener);
+    this.boundKeyDocument = doc;
+  }
+
+  private unbindFrameKeys(): void {
+    if (this.boundKeyDocument && this.frameKeyListener) {
+      this.boundKeyDocument.removeEventListener("keydown", this.frameKeyListener);
+    }
+    this.boundKeyDocument = null;
+    this.frameKeyListener = null;
   }
 
   private wrap(html: string): string {
@@ -121,6 +154,7 @@ export class HtmlFrameComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.unbindFrameKeys();
     this.clearObservers();
     this.clearObjectUrl();
   }

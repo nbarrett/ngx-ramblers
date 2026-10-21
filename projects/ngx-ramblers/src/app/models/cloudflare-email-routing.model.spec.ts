@@ -7,6 +7,8 @@ import {
   EmailRoutingRule,
   emailRoutingRuleAddress,
   emailRoutingRuleIdentifier,
+  inboxRouterWorkerName,
+  isInboxRouterWorkerName,
   isLiteralDomainAddressRule,
   sharedInboxRouterRuleActive,
   SHARED_INBOX_ROUTER_WORKER_NAME
@@ -33,6 +35,25 @@ describe("sharedInboxRouterRuleActive", () => {
       ...rule,
       actions: [{type: EmailRoutingActionType.WORKER, value: ["other-worker"]}]
     })).toBe(false);
+  });
+
+  it("recognises a per-zone inbox router catch-all", () => {
+    expect(sharedInboxRouterRuleActive({
+      ...rule,
+      actions: [{type: EmailRoutingActionType.WORKER, value: ["email-inbox-router-group-example-org-uk"]}]
+    })).toBe(true);
+  });
+});
+
+describe("inboxRouterWorkerName", () => {
+  it("names the worker from the zone apex", () => {
+    expect(inboxRouterWorkerName("group.example.org.uk")).toBe("email-inbox-router-group-example-org-uk");
+  });
+
+  it("treats zone workers and the legacy account-wide name as inbox routers", () => {
+    expect(isInboxRouterWorkerName("email-inbox-router")).toBe(true);
+    expect(isInboxRouterWorkerName("email-inbox-router-group-example-org-uk")).toBe(true);
+    expect(isInboxRouterWorkerName("email-fwd-group-example-org-uk-catch-all")).toBe(false);
   });
 });
 

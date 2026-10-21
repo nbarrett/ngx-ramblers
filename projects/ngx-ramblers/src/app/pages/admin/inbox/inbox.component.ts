@@ -308,7 +308,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
               <div class="inbox-nav-group">
                 <div class="inbox-nav-row">
                   <button class="inbox-nav-twisty" type="button" (click)="inboxNodeExpanded = !inboxNodeExpanded"
-                          [attr.aria-expanded]="inboxNodeExpanded" aria-label="Expand inbox mailboxes">
+                          [attr.aria-expanded]="inboxNodeExpanded" aria-label="Expand inboxes">
                     <fa-icon [icon]="inboxNodeExpanded ? faChevronDown : faChevronRight"/>
                   </button>
                   <button class="inbox-nav-node" type="button" [class.active]="inboxNodeActive"
@@ -318,7 +318,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                           (dragover)="onFolderDragOver($event, InboxViewScope.ALL_ACCESSIBLE)"
                           (dragleave)="onFolderDragLeave($event, InboxViewScope.ALL_ACCESSIBLE)"
                           (drop)="onFolderDrop($event, null)">
-                    <fa-icon [icon]="faInbox" class="me-2"/><span class="inbox-nav-label">Inbox</span>
+                    <fa-icon [icon]="faInbox" class="me-2"/><span class="inbox-nav-label">Inboxes</span>
                     @if (unreadTotal > 0) {
                       <span class="inbox-nav-count">{{ unreadTotal }}</span>
                     }
@@ -377,34 +377,33 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                                  (blur)="saveRenameFolder()">
                         </form>
                       } @else if (folderPendingDeleteId === folder.id) {
-                        <div class="inbox-nav-folder-confirm-name inbox-nav-child">
-                          <fa-icon [icon]="faFolder" class="inbox-nav-node-icon"/>
-                          <span class="inbox-nav-label">{{ folder.name }}</span>
-                        </div>
                         <div class="inbox-nav-folder-confirm">
-                          <button class="inbox-nav-folder-confirm-keep" type="button"
-                                  tooltip="Remove the folder, leave the mail in Inbox"
-                                        [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
-                                  (click)="confirmDeleteUserFolder(folder, InboxFolderDeleteContents.INBOX)">
-                            <fa-icon [icon]="faInbox"/> Keep mail
-                          </button>
-                          <button class="inbox-nav-folder-confirm-delete" type="button"
-                                  tooltip="Remove the folder and the mail"
-                                        [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
-                                  (click)="confirmDeleteUserFolder(folder, InboxFolderDeleteContents.DELETED)">
-                            <fa-icon [icon]="faTrash"/> Delete mail
-                          </button>
-                          <button class="inbox-nav-folder-confirm-cancel" type="button"
-                                  aria-label="Cancel"
-                                  tooltip="Cancel"
-                                        [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
-                                  (click)="cancelDeleteUserFolder()">
-                            <fa-icon [icon]="faXmark"/>
-                          </button>
+                          <span class="inbox-nav-folder-confirm-copy">Keep mail or delete it?</span>
+                          <div class="inbox-nav-folder-confirm-actions">
+                            <button class="inbox-nav-folder-confirm-keep" type="button"
+                                    tooltip="Keep mail in Inbox"
+                                    [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
+                                    (click)="confirmDeleteUserFolder(folder, InboxFolderDeleteContents.INBOX)">
+                              <fa-icon [icon]="faInbox"/>
+                            </button>
+                            <button class="inbox-nav-folder-confirm-delete" type="button"
+                                    tooltip="Delete mail with the folder"
+                                    [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
+                                    (click)="confirmDeleteUserFolder(folder, InboxFolderDeleteContents.DELETED)">
+                              <fa-icon [icon]="faTrash"/>
+                            </button>
+                            <button class="inbox-nav-folder-confirm-cancel" type="button" aria-label="Cancel"
+                                    tooltip="Cancel"
+                                    [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
+                                    (click)="cancelDeleteUserFolder()">
+                              <fa-icon [icon]="faXmark"/>
+                            </button>
+                          </div>
                         </div>
                       } @else {
                         <button class="inbox-nav-node inbox-nav-child" type="button"
                                 [class.active]="selectedMailboxView === inboxUserFolderView(folder)"
+                                [attr.data-drop-folder]="folder.id"
                                 [tooltip]="'Click and hold to rename'"
                                     [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
                                 (click)="selectMailboxView(inboxUserFolderView(folder))"
@@ -470,7 +469,12 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                   </button>
                 }
                 <button class="inbox-nav-node" type="button" [class.active]="viewingDeleted"
-                        (click)="selectMailboxView(InboxThreadFolder.DELETED)">
+                        [class.inbox-nav-drop-target]="dropTargetView === InboxThreadFolder.DELETED"
+                        data-drop-folder="deleted"
+                        (click)="selectMailboxView(InboxThreadFolder.DELETED)"
+                        (dragover)="onFolderDragOver($event, InboxThreadFolder.DELETED)"
+                        (dragleave)="onFolderDragLeave($event, InboxThreadFolder.DELETED)"
+                        (drop)="onDeletedDrop($event)">
                   <fa-icon [icon]="faTrash" class="me-2"/><span class="inbox-nav-label">Deleted</span>
                 </button>
               </div>
@@ -589,7 +593,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
               }
             </div>
           }
-          <div class="inbox-thread-list" [class.inbox-list-compact]="layout.compactList" [class.inbox-list-has-location]="panel.maximised && !layout.mobile && !viewingDrafts" [class.inbox-list-range-selecting]="rangeSelectActive" tabindex="0" (keydown)="onThreadListKeydown($event)" (scroll)="rememberListPosition($event)"
+          <div class="inbox-thread-list" [class.inbox-list-compact]="layout.compactList" [class.inbox-list-has-location]="panel.maximised && !layout.mobile && !viewingDrafts" [class.inbox-list-range-selecting]="rangeSelectActive" tabindex="0" (scroll)="rememberListPosition($event)"
                [style.--inbox-from]="layout.columnShare.from + 'fr'"
                [style.--inbox-to]="layout.columnShare.to + 'fr'"
                [style.--inbox-location]="layout.columnShare.location + 'fr'"
@@ -1179,7 +1183,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onFolderPointerDown(event: PointerEvent, folder: InboxUserFolderView): void {
-    if (event.button === 0 && !this.fileDragActive) {
+    if (!this.fileDragActive && event.button === 0) {
       this.clearFolderHoldTimer();
       this.folderHoldOrigin = {x: event.clientX, y: event.clientY};
       this.folderHoldTimer = setTimeout(() => {
@@ -1273,29 +1277,67 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   async onFolderDrop(event: DragEvent, userFolderId: string | null): Promise<void> {
     event.preventDefault();
     this.dropTargetView = null;
+    const threadIds = this.droppedThreadIds(event);
+    if (threadIds) {
+      await this.fileThreadsToFolder(threadIds, userFolderId);
+    }
+  }
+
+  async onDeletedDrop(event: DragEvent): Promise<void> {
+    event.preventDefault();
+    this.dropTargetView = null;
+    const threadIds = this.droppedThreadIds(event);
+    if (threadIds) {
+      await this.moveDroppedThreadsToDeleted(threadIds);
+    }
+  }
+
+  private droppedThreadIds(event: DragEvent): string[] | null {
     const raw = event.dataTransfer?.getData("text/plain") || "[]";
     try {
       const parsed = JSON.parse(raw);
-      const threadIds = isArray(parsed) ? parsed.filter(id => isString(id)) : [];
-      await this.fileThreadsToFolder(threadIds, userFolderId);
+      return isArray(parsed) ? parsed.filter(id => isString(id)) : [];
     } catch (error) {
       this.logger.warn("Folder drop ignored", error);
+      return null;
     }
   }
 
   private async fileThreadsToFolder(threadIds: string[], userFolderId: string | null): Promise<void> {
-    if (threadIds.length > 0) {
+    const ids = this.expandThreadIdsForAction(threadIds);
+    if (ids.length > 0) {
       this.busy = true;
       try {
-        await this.inboxService.moveThreadsToFolder(threadIds, userFolderId);
+        await this.inboxService.moveThreadsToFolder(ids, userFolderId);
         this.clearThreadSelection();
         await this.refresh(false);
         const destination = userFolderId
           ? this.userFolders.find(folder => folder.id === userFolderId)?.name ?? "folder"
           : "Inbox";
-        this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(threadIds.length, "conversation")} moved to ${destination}`});
+        this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} moved to ${destination}`});
       } catch (error) {
         this.notify.error({title: "Move to folder", message: (error as Error).message});
+      } finally {
+        this.busy = false;
+      }
+    }
+  }
+
+  private async moveDroppedThreadsToDeleted(threadIds: string[]): Promise<void> {
+    const ids = this.expandThreadIdsForAction(threadIds);
+    if (ids.length > 0) {
+      this.busy = true;
+      try {
+        const {failed} = await this.deleteThreadIds(ids);
+        if (failed.length > 0) {
+          throw new Error("Could not move every conversation to Deleted");
+        }
+        this.clearThreadSelection();
+        await this.refresh(false);
+        this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} moved to Deleted`});
+      } catch (error) {
+        await this.refresh(false);
+        this.notify.error({title: "Delete", message: (error as Error).message});
       } finally {
         this.busy = false;
       }
@@ -1485,6 +1527,8 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (event.key === "Escape" && this.selectedThreadIds.size > 0) {
       event.preventDefault();
       this.clearThreadSelection();
+    } else if ((event.key === "Delete" || event.key === "Backspace" || event.key === "ArrowDown" || event.key === "ArrowUp") && this.canHandleMailboxShortcut(event)) {
+      this.onThreadListKeydown(event);
     }
   }
 
@@ -1575,6 +1619,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         this.keyboardSelectionAnchorIndex = index >= 0 ? index : null;
       }
       void this.openThread(thread);
+      this.focusThreadList();
     }
   }
 
@@ -1644,9 +1689,13 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onThreadRowPointerDown(event: PointerEvent, thread: InboxThread): void {
     if (event.pointerType !== "touch" && event.button === 0 && !(event.target as HTMLElement).closest("input, button, a, .inbox-col-resize")) {
-      event.preventDefault();
       const index = this.filteredThreads.findIndex(candidate => this.threadRowKey(candidate) === this.threadRowKey(thread));
       if (index >= 0) {
+        const row = (event.currentTarget as HTMLElement);
+        if (row.setPointerCapture) {
+          row.setPointerCapture(event.pointerId);
+        }
+        event.preventDefault();
         this.beginRowGesture(event, index, thread, this.canDragThreads);
       }
     }
@@ -1681,12 +1730,12 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.rangeSelectLastIndex = index;
     this.rangeSelectAllowFile = allowFileDrag;
     this.rangeSelectPointerId = event.pointerId;
-    const id = this.threadIdOf(thread);
+    const gestureIds = [...new Set(this.conversationActionThreads(thread).map(item => this.threadIdOf(item)))];
     const selected = this.selectedActionIds();
-    this.rangeSelectPreferFile = allowFileDrag && this.conversationSelected(thread) && selected.length > 0 && !event.shiftKey;
+    this.rangeSelectPreferFile = allowFileDrag && this.conversationSelected(thread) && selected.length > 0 && !this.rangeSelectAdditive;
     this.rangeSelectFileIds = this.rangeSelectPreferFile
-      ? [...new Set([id, ...selected])]
-      : [id];
+      ? [...new Set([...selected, ...gestureIds])]
+      : gestureIds;
     this.fileDragActive = false;
     this.fileDropOverFolder = false;
     this.ngZone.runOutsideAngular(() => {
@@ -1697,16 +1746,19 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       };
       const up = (upEvent: PointerEvent) => {
         if (upEvent.pointerId === this.rangeSelectPointerId) {
-          this.stopRangeSelect(true);
+          this.ngZone.run(() => {
+            this.updateFileDropAtPoint(upEvent.clientX, upEvent.clientY);
+            this.stopRangeSelect(true);
+          });
         }
       };
-      document.addEventListener("pointermove", move);
-      document.addEventListener("pointerup", up);
-      document.addEventListener("pointercancel", up);
+      document.addEventListener("pointermove", move, true);
+      document.addEventListener("pointerup", up, true);
+      document.addEventListener("pointercancel", up, true);
       this.rangeSelectCleanup = () => {
-        document.removeEventListener("pointermove", move);
-        document.removeEventListener("pointerup", up);
-        document.removeEventListener("pointercancel", up);
+        document.removeEventListener("pointermove", move, true);
+        document.removeEventListener("pointerup", up, true);
+        document.removeEventListener("pointercancel", up, true);
       };
     });
   }
@@ -1718,13 +1770,22 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       this.updateFileDropAtPoint(event.clientX, event.clientY);
     } else {
       const index = this.threadIndexAtPoint(event.clientX, event.clientY);
-      const dx = event.clientX - this.rangeSelectStartX;
       const dy = event.clientY - this.rangeSelectStartY;
-      const distance = Math.hypot(dx, dy);
-      const rangeMode = !this.rangeSelectPreferFile;
+      const distance = Math.hypot(event.clientX - this.rangeSelectStartX, dy);
+      const overNav = this.pointerOverFolderNav(event.clientX, event.clientY);
+      const pastFileThreshold = distance >= InboxComponent.FILE_DRAG_THRESHOLD_PX;
+      const rangeMode = !this.rangeSelectPreferFile && !overNav;
       const crossedRow = index >= 0 && index !== this.rangeSelectAnchorIndex
         && Math.abs(dy) >= InboxComponent.RANGE_SELECT_THRESHOLD_PX;
-      if (rangeMode && !this.rangeSelectActive && crossedRow) {
+      if (this.rangeSelectAllowFile && pastFileThreshold && !this.rangeSelectAdditive && (this.rangeSelectPreferFile || overNav || Math.abs(event.clientX - this.rangeSelectStartX) >= InboxComponent.FILE_DRAG_THRESHOLD_PX)) {
+        this.ngZone.run(() => {
+          if (this.rangeSelectActive || this.rangeSelectPreferFile) {
+            const selected = this.selectedActionIds();
+            this.rangeSelectFileIds = selected.length > 0 ? selected : this.rangeSelectFileIds;
+          }
+          this.startFileDrag(event.clientX, event.clientY);
+        });
+      } else if (rangeMode && !this.rangeSelectActive && crossedRow) {
         this.ngZone.run(() => {
           this.rangeSelectActive = true;
           this.suppressThreadClick = true;
@@ -1734,16 +1795,6 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         });
       } else if (rangeMode && this.rangeSelectActive && index >= 0 && index !== this.rangeSelectLastIndex) {
         this.ngZone.run(() => this.applyRangeSelect(this.rangeSelectAnchorIndex as number, index));
-      } else if (this.rangeSelectPreferFile && !this.rangeSelectActive
-        && distance >= InboxComponent.FILE_DRAG_THRESHOLD_PX) {
-        this.ngZone.run(() => this.startFileDrag(event.clientX, event.clientY));
-      } else if (this.rangeSelectActive && this.rangeSelectAllowFile
-        && this.selectedActionIds().length > 0
-        && this.pointerOverFolderNav(event.clientX, event.clientY)) {
-        this.ngZone.run(() => {
-          this.rangeSelectFileIds = this.selectedActionIds();
-          this.startFileDrag(event.clientX, event.clientY);
-        });
       }
     }
   }
@@ -1756,6 +1807,15 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     const ghost = document.createElement("div");
     ghost.className = "inbox-drag-ghost";
     ghost.textContent = this.stringUtils.pluraliseWithCount(this.rangeSelectFileIds.length, "conversation");
+    ghost.style.position = "fixed";
+    ghost.style.zIndex = "10000";
+    ghost.style.pointerEvents = "none";
+    ghost.style.padding = "0.35rem 0.7rem";
+    ghost.style.borderRadius = "0.375rem";
+    ghost.style.background = "var(--ramblers-mintcake, #9bc8ab)";
+    ghost.style.color = "#000";
+    ghost.style.fontSize = "0.85rem";
+    ghost.style.fontWeight = "600";
     document.body.appendChild(ghost);
     this.fileDragGhost = ghost;
     this.positionFileDragGhost(clientX, clientY);
@@ -1786,7 +1846,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     const raw = node?.getAttribute("data-drop-folder");
     if (raw === "inbox") {
       return {id: null};
-    } else if (raw) {
+    } else if (raw === "deleted" || raw) {
       return {id: raw};
     } else {
       return null;
@@ -1803,7 +1863,11 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       if (folder) {
         this.fileDropOverFolder = true;
         this.fileDropFolderId = folder.id;
-        this.dropTargetView = folder.id === null ? InboxViewScope.ALL_ACCESSIBLE : inboxUserFolderView(this.userFolders.find(item => item.id === folder.id) ?? {id: folder.id, name: "", slug: "", sortIndex: 0, unreadCount: 0});
+        this.dropTargetView = folder.id === null
+          ? InboxViewScope.ALL_ACCESSIBLE
+          : folder.id === "deleted"
+            ? InboxThreadFolder.DELETED
+            : inboxUserFolderView(this.userFolders.find(item => item.id === folder.id) ?? {id: folder.id, name: "", slug: "", sortIndex: 0, unreadCount: 0});
       } else {
         this.fileDropOverFolder = false;
         this.dropTargetView = null;
@@ -1860,7 +1924,11 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.removeFileDragGhost();
     this.dropTargetView = null;
     if (shouldFile) {
-      void this.fileThreadsToFolder(fileIds, folderId);
+      if (folderId === "deleted") {
+        void this.moveDroppedThreadsToDeleted(fileIds);
+      } else {
+        void this.fileThreadsToFolder(fileIds, folderId);
+      }
     }
   }
 
@@ -2310,9 +2378,23 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.filteredThreads.filter(thread => this.conversationSelected(thread)).length;
   }
 
+  private conversationActionThreads(thread: InboxThread): InboxThread[] {
+    return this.layout.groupingMode === InboxGroupingMode.MESSAGES
+      ? [thread]
+      : this.siblingConversationThreads(thread);
+  }
+
+  private expandThreadIdsForAction(threadIds: string[]): string[] {
+    const idSet = new Set(threadIds);
+    const matched = this.threads.filter(thread => idSet.has(this.threadIdOf(thread)));
+    const expanded = [...new Set(matched.flatMap(thread => this.conversationActionThreads(thread).map(item => this.threadIdOf(item))))];
+    return [...new Set([...threadIds, ...expanded])];
+  }
+
   private selectedActionIds(): string[] {
     return [...new Set(this.filteredThreads
       .filter(thread => this.selectedThreadIds.has(this.threadRowKey(thread)))
+      .flatMap(thread => this.conversationActionThreads(thread))
       .map(thread => this.threadIdOf(thread)))];
   }
 
@@ -2370,6 +2452,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   async deleteSelected(): Promise<void> {
     const ids = this.selectedActionIds();
+    const conversationCount = this.selectedConversationCount;
     if (ids.length === 0) {
       return;
     }
@@ -2379,7 +2462,10 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.viewingDeleted) {
         await this.inboxService.permanentlyDeleteThreads(ids);
       } else {
-        await Promise.all(ids.map(id => this.inboxService.deleteThread(id)));
+        const {failed} = await this.deleteThreadIds(ids);
+        if (failed.length > 0) {
+          throw new Error("Could not move every selected conversation to Deleted");
+        }
       }
       if (this.selectedThreadId && ids.includes(this.selectedThreadId)) {
         this.selectedThread = null;
@@ -2391,8 +2477,9 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedThreadIds.clear();
       this.allAvailableSelected = false;
       await this.refresh(false);
-      this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(ids.length, "conversation")} ${this.viewingDeleted ? "permanently deleted" : "moved to Deleted"}`});
+      this.notify.success({title: "Inbox", message: `${this.stringUtils.pluraliseWithCount(conversationCount, "conversation")} ${this.viewingDeleted ? "permanently deleted" : "moved to Deleted"}`});
     } catch (error) {
+      await this.refresh(false);
       this.notify.error({title: "Delete", message: (error as Error).message});
       this.logger.error("Failed to delete conversations:", error);
     } finally {
@@ -2520,14 +2607,15 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private async scheduleConversationDelete(thread: InboxThread): Promise<void> {
     this.dismissPendingDelete();
-    const threadId = this.threadIdOf(thread);
+    const actionIds = [...new Set(this.conversationActionThreads(thread).map(item => this.threadIdOf(item)))];
+    const idSet = new Set(actionIds);
     const list = this.filteredThreads;
     const currentIndex = this.currentConversationIndex();
     const nextThread = list[currentIndex + 1] ?? list[currentIndex - 1] ?? null;
-    const insertionIndex = this.threads.findIndex(candidate => this.threadIdOf(candidate) === threadId);
-    const removedThreads = this.threads.filter(candidate => this.threadIdOf(candidate) === threadId);
+    const insertionIndex = this.threads.findIndex(candidate => idSet.has(this.threadIdOf(candidate)));
+    const removedThreads = this.threads.filter(candidate => idSet.has(this.threadIdOf(candidate)));
     const wasUnread = this.conversationUnread(thread);
-    this.threads = this.threads.filter(candidate => this.threadIdOf(candidate) !== threadId);
+    this.threads = this.threads.filter(candidate => !idSet.has(this.threadIdOf(candidate)));
     this.threadListTotalCount = Math.max(0, this.threadListTotalCount - 1);
     if (wasUnread) {
       this.threadListUnreadCount = Math.max(0, this.threadListUnreadCount - 1);
@@ -2538,29 +2626,50 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clearSelectedMessages();
     const permanent = this.viewingDeleted;
     try {
-      await this.inboxService.deleteThread(threadId);
-      if (permanent) {
+      const {failed} = await this.deleteThreadIds(actionIds);
+      if (failed.length > 0) {
+        await this.refresh(false);
+        this.notify.error({title: "Delete", message: "Could not move every related conversation to Deleted"});
+      } else if (permanent) {
         this.notify.success({title: "Inbox", message: "Conversation permanently deleted"});
+        if (nextThread) {
+          await this.openThread(nextThread);
+        } else {
+          this.layout.mobileShowDetail = false;
+          this.syncThreadToUrl(null);
+        }
       } else {
         this.pendingDelete = {
-          threadId,
+          threadIds: actionIds,
           removedThreads,
           insertionIndex,
           selectedThread: thread,
           timer: setTimeout(() => this.dismissPendingDelete(), InboxComponent.DELETE_UNDO_MS)
         };
-      }
-      if (nextThread) {
-        await this.openThread(nextThread);
-      } else {
-        this.layout.mobileShowDetail = false;
-        this.syncThreadToUrl(null);
+        if (nextThread) {
+          await this.openThread(nextThread);
+        } else {
+          this.layout.mobileShowDetail = false;
+          this.syncThreadToUrl(null);
+        }
       }
     } catch (error) {
-      this.restoreRemovedThreads(removedThreads, insertionIndex, thread);
+      await this.refresh(false);
       this.notify.error({title: "Delete", message: (error as Error).message});
       this.logger.error("Failed to delete conversation:", error);
     }
+  }
+
+  private async deleteThreadIds(ids: string[]): Promise<{succeeded: string[]; failed: string[]}> {
+    const results = await Promise.allSettled(ids.map(id => this.inboxService.deleteThread(id).then(() => id)));
+    return results.reduce((outcome, result, index) => {
+      if (result.status === "fulfilled") {
+        outcome.succeeded.push(result.value);
+      } else {
+        outcome.failed.push(ids[index]);
+      }
+      return outcome;
+    }, {succeeded: [] as string[], failed: [] as string[]});
   }
 
   private restoreRemovedThreads(removedThreads: InboxThread[], insertionIndex: number, selectedThread: InboxThread | null): void {
@@ -2586,7 +2695,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.dismissPendingDelete();
     try {
-      await this.inboxService.restoreThread(pending.threadId);
+      await Promise.all(pending.threadIds.map(id => this.inboxService.restoreThread(id)));
       this.restoreRemovedThreads(pending.removedThreads, pending.insertionIndex, pending.selectedThread);
       if (pending.selectedThread) {
         this.layout.mobileShowDetail = this.layout.mobile;
@@ -2615,13 +2724,16 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onThreadListKeydown(event: KeyboardEvent): void {
+    const listElement = this.threadListElement() ?? (event.currentTarget instanceof HTMLElement ? event.currentTarget : null);
     if (event.key === "Delete" || event.key === "Backspace") {
-      if (this.selectedThreadIds.size > 0) {
+      if (this.busy) {
+        event.preventDefault();
+      } else if (this.selectedThreadIds.size > 0) {
         event.preventDefault();
         void this.deleteSelected();
-      } else if (this.selectedThreadId) {
+      } else if (this.selectedThreadId && listElement) {
         event.preventDefault();
-        void this.deleteFocusedThread(event.currentTarget as HTMLElement);
+        void this.deleteFocusedThread(listElement);
       }
     } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       const list = this.filteredThreads;
@@ -2640,10 +2752,41 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
           this.keyboardSelectionAnchorIndex = nextIndex;
         }
         if (nextThread && (currentIndex === -1 || this.threadRowKey(nextThread) !== this.threadRowKey(list[currentIndex]))) {
-          const listElement = event.currentTarget as HTMLElement;
-          void this.openThread(nextThread).then(() => this.scrollThreadRowIntoView(listElement, this.threadRowKey(nextThread)));
+          void this.openThread(nextThread).then(() => {
+            if (listElement) {
+              this.scrollThreadRowIntoView(listElement, this.threadRowKey(nextThread));
+            }
+          });
         }
       }
+    }
+  }
+
+  private canHandleMailboxShortcut(event: KeyboardEvent): boolean {
+    if (this.busy || this.viewingDrafts || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
+      return false;
+    } else {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return true;
+      } else {
+        const tag = target.tagName;
+        return tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT" && !target.isContentEditable;
+      }
+    }
+  }
+
+  private threadListElement(): HTMLElement | null {
+    if (isUndefined(window)) {
+      return null;
+    } else {
+      return window.document.querySelector<HTMLElement>(".inbox-thread-list");
+    }
+  }
+
+  private focusThreadList(): void {
+    if (!isUndefined(window)) {
+      window.requestAnimationFrame(() => this.threadListElement()?.focus({preventScroll: true}));
     }
   }
 
@@ -2667,39 +2810,40 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private async deleteFocusedThread(listElement: HTMLElement): Promise<void> {
-    const threadId = this.selectedThreadId;
-    if (!threadId) {
-      return;
-    }
-    const list = this.filteredThreads;
-    const currentIndex = this.currentConversationIndex();
-    const nextThread = list[currentIndex + 1] ?? list[currentIndex - 1] ?? null;
     const focused = this.selectedThread;
-    this.busy = true;
-    try {
-      await this.inboxService.deleteThread(threadId);
-      if (focused) {
+    if (focused) {
+      const actionIds = [...new Set(this.conversationActionThreads(focused).map(item => this.threadIdOf(item)))];
+      const list = this.filteredThreads;
+      const currentIndex = this.currentConversationIndex();
+      const nextThread = list[currentIndex + 1] ?? list[currentIndex - 1] ?? null;
+      this.busy = true;
+      try {
+        const {failed} = await this.deleteThreadIds(actionIds);
+        if (failed.length > 0) {
+          throw new Error("Could not move every related conversation to Deleted");
+        }
         this.selectedThreadIds.delete(this.threadRowKey(focused));
+        this.selectedThreadId = nextThread ? this.threadIdOf(nextThread) : null;
+        this.selectedThread = nextThread;
+        this.clearSelectedMessages();
+        this.syncThreadToUrl(nextThread);
+        await this.refresh(false);
+        const refreshed = nextThread ? this.filteredThreads.find(thread => this.threadIdOf(thread) === this.threadIdOf(nextThread)) : null;
+        if (refreshed) {
+          await this.openThread(refreshed);
+          this.scrollThreadRowIntoView(listElement, this.threadIdOf(refreshed));
+        } else if (!nextThread) {
+          this.selectedThread = null;
+          this.selectedThreadId = null;
+        }
+        this.notify.success({title: "Inbox", message: this.viewingDeleted ? "Conversation permanently deleted" : "Conversation moved to Deleted"});
+      } catch (error) {
+        await this.refresh(false);
+        this.notify.error({title: "Delete", message: (error as Error).message});
+        this.logger.error("Failed to delete conversation:", error);
+      } finally {
+        this.busy = false;
       }
-      this.selectedThreadId = nextThread ? this.threadIdOf(nextThread) : null;
-      this.selectedThread = nextThread;
-      this.clearSelectedMessages();
-      this.syncThreadToUrl(nextThread);
-      await this.refresh(false);
-      const refreshed = nextThread ? this.filteredThreads.find(thread => this.threadIdOf(thread) === this.threadIdOf(nextThread)) : null;
-      if (refreshed) {
-        await this.openThread(refreshed);
-        this.scrollThreadRowIntoView(listElement, this.threadIdOf(refreshed));
-      } else if (!nextThread) {
-        this.selectedThread = null;
-        this.selectedThreadId = null;
-      }
-      this.notify.success({title: "Inbox", message: this.viewingDeleted ? "Conversation permanently deleted" : "Conversation moved to Deleted"});
-    } catch (error) {
-      this.notify.error({title: "Delete", message: (error as Error).message});
-      this.logger.error("Failed to delete conversation:", error);
-    } finally {
-      this.busy = false;
     }
   }
 

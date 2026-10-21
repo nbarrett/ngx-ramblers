@@ -1,8 +1,9 @@
-import { BrandingMode } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { BrandingMode, EmailAttachment } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
-import { InboxAddress } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { InboxAddress, InboxAttachment } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { EmailComposerState } from "../../../projects/ngx-ramblers/src/app/models/email-composer.model";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
+import { isString } from "es-toolkit/compat";
 
 export interface CompositionSenderCandidates {
   brandingMode?: string;
@@ -11,6 +12,50 @@ export interface CompositionSenderCandidates {
   ownerEmail?: string;
   aliasEmail?: string;
   mailboxAccountEmail?: string;
+}
+
+function filenameFromComposerAttachment(attachment: EmailAttachment): string {
+  const named = isString(attachment.name) ? attachment.name.trim() : "";
+  if (named) {
+    return named;
+  } else {
+    const url = isString(attachment.url) ? attachment.url : "";
+    const path = url.split("?")[0];
+    const lastSegment = path.split("/").filter(Boolean).pop() ?? "";
+    try {
+      return decodeURIComponent(lastSegment);
+    } catch {
+      return lastSegment;
+    }
+  }
+}
+
+function s3KeyFromComposerAttachment(attachment: EmailAttachment): string {
+  const url = isString(attachment.url) ? attachment.url : "";
+  const marker = "api/aws/s3/";
+  const index = url.indexOf(marker);
+  if (index >= 0) {
+    return url.slice(index + marker.length);
+  } else {
+    return url;
+  }
+}
+
+export function inboxAttachmentsFromComposer(attachments: EmailAttachment[] | undefined): InboxAttachment[] {
+  return (attachments ?? []).flatMap(attachment => {
+    const filename = filenameFromComposerAttachment(attachment);
+    if (!filename) {
+      return [];
+    } else {
+      return [{
+        filename,
+        contentType: "application/octet-stream",
+        sizeBytes: attachment.sizeBytes ?? 0,
+        s3Key: s3KeyFromComposerAttachment(attachment),
+        contentId: null
+      }];
+    }
+  });
 }
 
 export function compositionSenderEmail(candidates: CompositionSenderCandidates): string {

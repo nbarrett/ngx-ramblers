@@ -29,7 +29,7 @@ import {
   registerGmailWatch,
   removeSpamLabel
 } from "./gmail-inbox-reader";
-import { compositionSenderEmail } from "./inbox-composition-sender";
+import { compositionSenderEmail, inboxAttachmentsFromComposer } from "./inbox-composition-sender";
 import { backfillStatedReplyAddress, isDeliveredToRole, recordOutboundMessage, storeInboundMessage } from "./inbox-message-import";
 import { sendInboxAlertToAllSubscribers } from "./inbox-web-push";
 import { AdminPath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
@@ -268,7 +268,7 @@ async function reconcileRecentSentCompositions(connection: InboxMailboxConnectio
         sentAt,
         externalSource: InboxReaderProvider.EMAIL_COMPOSER,
         externalId: compositionId,
-        attachments: state.attachments ?? []
+        attachments: inboxAttachmentsFromComposer(state.attachments)
       };
       const stored = await recordOutboundMessage(alias, outboundMessage, internalEmails);
       return stored ? recoveredCount + 1 : recoveredCount;

@@ -10,7 +10,7 @@ import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
 import { InboxMailboxConnection, InboxMessage, InboxMessageDirection, InboxNewMessageEvent, InboxReaderProvider, InboxThread, InboxThreadFolder, InboxThreadMessagesResponse, isInboxGeneralRoleType } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { markMessagesRead, markMessagesUnread, removeSpamLabel, trashMessage } from "./gmail-inbox-reader";
-import { permanentlyDeleteThread, recordThreadDeletion, restoreDeletedThread } from "./inbox-deleted";
+import { recordThreadDeletion, restoreDeletedThread } from "./inbox-deleted";
 import { broadcast } from "../websockets/websocket-broadcaster";
 import { MessageType } from "../../../projects/ngx-ramblers/src/app/models/websocket.model";
 import { inboxAccessForMember, requestMember, requireInboxConfigurationAdministrator, requestingMemberId } from "./inbox-access";
@@ -98,7 +98,6 @@ export async function deleteInboxThread(req: Request, res: Response): Promise<vo
       }
       const threadId = inboxThreadId(thread);
       if (thread.folder === InboxThreadFolder.DELETED) {
-        await permanentlyDeleteThread(threadId);
         res.json({ request: { messageType }, response: { deletedCount: 1 } });
       }
       else {

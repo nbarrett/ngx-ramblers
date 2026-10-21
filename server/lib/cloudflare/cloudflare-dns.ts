@@ -129,29 +129,29 @@ export async function verifyToken(apiToken: string): Promise<boolean> {
   return data.success === true;
 }
 
-export async function listZones(apiToken: string, name?: string): Promise<CloudflareZone[]> {
-  const params = new URLSearchParams();
-  params.set("per_page", "50");
-  if (name) {
-    params.set("name", name);
-  }
-  const url = cloudflareApi.zones(params.toString());
-
-  const response = await fetch(url, {
-    headers: {
-      "Authorization": `Bearer ${apiToken}`,
-      "Content-Type": "application/json"
+export async function listZones(apiToken: string, name?: string, accountId?: string): Promise<CloudflareZone[]> {
+  const collectPage = async (page: number): Promise<CloudflareZone[]> => {
+    const params = new URLSearchParams({per_page: "50", page: `${page}`});
+    if (name) {
+      params.set("name", name);
     }
-  });
-
-  const data: CloudflareResponse<CloudflareZone[]> = await response.json();
-
-  if (!data.success) {
-    const errorMsg = data.errors.map(e => e.message).join(", ");
-    throw new Error(`Failed to list Cloudflare zones: ${errorMsg}`);
-  }
-
-  return data.result;
+    if (accountId) {
+      params.set("account.id", accountId);
+    }
+    const response = await fetch(cloudflareApi.zones(params.toString()), {
+      headers: {Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json"}
+    });
+    const data: CloudflareResponse<CloudflareZone[]> = await response.json();
+    if (!response.ok || !data.success || !data.result) {
+      const errorMsg = (data.errors || []).map(error => error.message).join(", ");
+      throw new Error(`Failed to list Cloudflare zones: ${errorMsg || response.status}`);
+    } else if (page < (data.result_info?.total_pages || 1) || (!data.result_info?.total_pages && data.result.length === 50)) {
+      return [...data.result, ...await collectPage(page + 1)];
+    } else {
+      return data.result;
+    }
+  };
+  return collectPage(1);
 }
 
 export function candidateZoneNames(hostname: string): string[] {

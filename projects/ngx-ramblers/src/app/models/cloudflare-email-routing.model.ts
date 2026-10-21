@@ -1,4 +1,4 @@
-import { InboxSettingsConfig } from "./system.model";
+import { InboxRouterLastCall, InboxSettingsConfig } from "./system.model";
 import { InboxCatchAllMode, InboxReaderProvider } from "./inbox.model";
 import { apexHost } from "../functions/hosts";
 
@@ -68,6 +68,33 @@ export enum AddressRuleKind {
 }
 
 export const SHARED_INBOX_ROUTER_WORKER_NAME = "email-inbox-router";
+export const INBOX_ROUTER_WORKER_PREFIX = "email-inbox-router-";
+
+export function inboxRouterWorkerName(baseDomain: string): string {
+  const sanitised = (baseDomain || "").trim().toLowerCase().replace(/^www\./, "").replace(/\./g, "-");
+  if (!sanitised) {
+    return SHARED_INBOX_ROUTER_WORKER_NAME;
+  } else {
+    return `${INBOX_ROUTER_WORKER_PREFIX}${sanitised}`;
+  }
+}
+
+export function inboxRouterFallbackAddress(rule: EmailRoutingRule | null): string {
+  const forwarded = rule?.actions?.find(action => action.type === EmailRoutingActionType.FORWARD)?.value?.[0];
+  const namedFallback = /\(fallback\s+([^\s()]+@[^\s()]+)\)\s*$/.exec(rule?.name || "");
+  return (forwarded || namedFallback?.[1] || "").trim();
+}
+
+export interface InboxRouterDeployment {
+  scriptName: string;
+  changed: boolean;
+  detail: string;
+}
+
+export function isInboxRouterWorkerName(scriptName: string | null | undefined): boolean {
+  const name = (scriptName || "").trim();
+  return name === SHARED_INBOX_ROUTER_WORKER_NAME || name.startsWith(INBOX_ROUTER_WORKER_PREFIX);
+}
 
 export interface DomainRoutingRuleSummary {
   address: string;
@@ -113,7 +140,7 @@ export function isLiteralDomainAddressRule(rule: EmailRoutingRule, domain: strin
 export function addressRuleKind(rule: EmailRoutingRule): AddressRuleKind {
   const workerName = rule.actions?.find(action => action.type === EmailRoutingActionType.WORKER)?.value?.[0];
   const forwards = rule.actions?.some(action => action.type === EmailRoutingActionType.FORWARD);
-  if (workerName === SHARED_INBOX_ROUTER_WORKER_NAME) {
+  if (isInboxRouterWorkerName(workerName)) {
     return AddressRuleKind.INBOX_ROUTER;
   } else if (workerName) {
     return AddressRuleKind.WORKER;
@@ -296,9 +323,42 @@ export interface EmailWorkerScript {
   created_on?: string;
 }
 
-export interface OrphanedWorkerRow {
+export interface CloudflareWorkerRow {
   id: string;
   mapped: string;
+  status?: WorkerEmailUsageStatus;
+}
+
+export enum WorkerEmailUsageStatus {
+  REFERENCED = "Referenced by email routing",
+  UNREFERENCED = "No email routing references",
+  INCOMPLETE = "Email routing check incomplete",
+  RESERVED = "Reserved for site migration"
+}
+
+export enum CloudflareWorkerSortField {
+  SCRIPT = "id",
+  MAPPING = "mapped",
+  STATUS = "status"
+}
+
+export interface WorkerEmailReference {
+  scriptName: string;
+  zone: string;
+  rule: string;
+  enabled: boolean;
+}
+
+export interface WorkerZoneCheck {
+  zone: string;
+  references: WorkerEmailReference[];
+  errors: string[];
+}
+
+export interface CloudflareWorkerInventory {
+  accountId: string;
+  workers: CloudflareWorkerRow[];
+  zones: WorkerZoneCheck[];
 }
 
 export enum EmailForwardingMode {
@@ -360,11 +420,23 @@ export interface WorkerInvocationSummary {
   subrequests: number;
 }
 
+export enum EmailRoutingLogView {
+  ROUTING = "routing",
+  WORKER = "worker"
+}
+
 export interface EmailRoutingLogsRequest {
   startDate: string;
   endDate: string;
   recipientEmail?: string;
   limit?: number;
+}
+
+export interface InboxRouterHealth {
+  lastCall: InboxRouterLastCall | null;
+  cloudflareAcceptedLastDay: number;
+  storedLastDay: number;
+  needsRefresh: boolean;
 }
 
 export interface WorkerLogsRequest {
@@ -385,7 +457,7 @@ export function inboxSettingsForProvider(current: InboxSettingsConfig | null, pr
 export function sharedInboxRouterRuleActive(rule: EmailRoutingRule | null): boolean {
   return rule?.enabled === true
     && rule.actions?.some(action => action.type === EmailRoutingActionType.WORKER
-      && action.value?.includes(SHARED_INBOX_ROUTER_WORKER_NAME));
+      && isInboxRouterWorkerName(action.value?.[0]));
 }
 
 export enum GmailInboxSetupStepKey {

@@ -16,13 +16,14 @@ import { AlertTarget } from "../../models/alert-target.model";
 import { committeeOutboundEmailQueryParams } from "../../functions/committee-members";
 import { addressOnDomain, emailDomain, emailLocalPart, extractErrorMessage } from "../../functions/strings";
 import { AdminSettingsPath } from "../../models/admin-route-paths.model";
+import { CopyIconComponent } from "../../modules/common/copy-icon/copy-icon";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { AlertInstance, NotifierService } from "../../services/notifier.service";
 
 @Component({
   selector: "app-committee-role-mailboxes",
-  imports: [FontAwesomeModule, TooltipDirective, RouterLink, FormsModule],
+  imports: [FontAwesomeModule, TooltipDirective, RouterLink, FormsModule, CopyIconComponent],
   styles: [`
     button.mailbox-chip
       cursor: pointer
@@ -59,7 +60,9 @@ import { AlertInstance, NotifierService } from "../../services/notifier.service"
         <ul class="list-unstyled mb-0">
           @for (item of group.addresses; track item.email) {
             <li class="d-flex align-items-center flex-nowrap gap-2 pt-2">
-              <fa-icon [icon]="faEnvelope" class="fa-fw colour-mintcake"/>
+              <app-copy-icon [icon]="faEnvelope" [value]="item.email"
+                             iconClass="fa-fw colour-mintcake"
+                             elementName="email address"/>
               @if (editable && editingEmail === item.email) {
                 <input type="text" class="form-control form-control-sm mailbox-rename-input"
                        [(ngModel)]="editingLocalPart"

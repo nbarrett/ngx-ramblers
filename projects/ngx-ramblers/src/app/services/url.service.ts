@@ -158,7 +158,12 @@ export class UrlService {
 
   followOwnSiteHref(href: string, event?: Event): boolean {
     try {
-      const url = new URL(href, this.absoluteUrl());
+      const documentBase = new URL(this.document.baseURI);
+      const nativeSite = nativeWalkingSite();
+      const baseHref = nativeSite
+        ? new URL(`${documentBase.pathname}${documentBase.search}${documentBase.hash}`, nativeSite).href
+        : documentBase.href;
+      const url = new URL(href, baseHref);
       if (!this.ownSite(url) || url.pathname.startsWith("/api/")) {
         return false;
       } else {

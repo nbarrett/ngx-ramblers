@@ -29,8 +29,12 @@ import {
 } from "../inbox/inbox-aliases";
 import { ensureCloudflareIngressConnection } from "./cloudflare-ingress-connection";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
+import { InboxRouterCallResult } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { inboundWebhookSecret, verifyHmac } from "./inbound-signature";
 import { systemConfig } from "../config/system-config";
+import { config } from "../mongo/models/config";
+import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
+import { dateTimeNowAsValue } from "../shared/dates";
 
 const messageType = "cloudflare:inbound-inbox";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -136,9 +140,9 @@ export async function handleInboundInbox(req: Request, res: Response): Promise<v
     const signatureHeader = req.header("X-NGX-Signature");
     if (!verifyHmac(rawBody, signatureHeader, secret)) {
       errorDebugLog("HMAC signature verification failed");
+      await recordInboxRouterCall(InboxRouterCallResult.REJECTED, 401);
       res.status(401).json({request: {messageType}, error: {message: "Signature verification failed"}});
-      return;
-    }
+    } else {
     const payload = JSON.parse(rawBody) as InboundInboxPayload;
     if (!payload.rawMimeBase64) {
       res.status(400).json({request: {messageType}, error: {message: "Missing required field: rawMimeBase64"}});
@@ -193,12 +197,26 @@ export async function handleInboundInbox(req: Request, res: Response): Promise<v
         const internalEmails = await internalEmailsForConnection(connection);
         await Promise.all(aliases.map(alias => storeInboundMessage(alias, message, undefined, internalEmails)));
         debugLog("Stored inbound message %s under %s: %o", message.messageId, pluraliseWithCount(aliases.length, "role"), aliases.map(alias => alias.roleType));
+        await recordInboxRouterCall(InboxRouterCallResult.STORED, 200);
         res.status(200).json({request: {messageType}, response: {action: "store", stored: aliases.length, roleTypes: aliases.map(alias => alias.roleType)}});
       }
+    }
     }
   } catch (error) {
     const messageText = (error as Error).message || String(error);
     errorDebugLog("Unhandled inbound-inbox error: %s", messageText);
+    await recordInboxRouterCall(InboxRouterCallResult.ERROR, 500);
     res.status(500).json({request: {messageType}, error: {message: messageText}});
+  }
+}
+
+async function recordInboxRouterCall(result: InboxRouterCallResult, httpStatus: number): Promise<void> {
+  try {
+    await config.updateOne(
+      {key: ConfigKey.SYSTEM},
+      {$set: {"value.inbox.routerLastCall": {at: dateTimeNowAsValue(), result, httpStatus}}}
+    );
+  } catch (error) {
+    errorDebugLog("Failed to record inbox router call: %s", (error as Error).message || error);
   }
 }

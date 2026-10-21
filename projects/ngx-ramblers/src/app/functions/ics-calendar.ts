@@ -186,7 +186,11 @@ export function parseIcsEvents(source: string): CalendarPreviewEvent[] {
 export function isCalendarFile(filename: string, contentType?: string | null): boolean {
   const type = (contentType || "").toLowerCase();
   const name = (filename || "").toLowerCase();
-  return type === "text/calendar" || type.includes("ics") || name.endsWith(".ics");
+  if (type.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg)$/.test(name)) {
+    return false;
+  } else {
+    return type === "text/calendar" || type === "application/ics" || type.includes("text/calendar") || name.endsWith(".ics");
+  }
 }
 
 export function calendarInviteCanRsvp(invite: CalendarInvite): boolean {
@@ -256,6 +260,40 @@ export function calendarReplyDocument(
     `SUMMARY:${escapeIcsText(event.title || "Event")}`,
     event.organiserEmail ? `ORGANIZER${organiserName}:mailto:${event.organiserEmail}` : null,
     `ATTENDEE${attendeeName};PARTSTAT=${status}:mailto:${attendee.email}`,
+    `SEQUENCE:${event.sequence || 0}`,
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].filter(Boolean) as string[];
+  return lines.map(foldIcsLine).join("\r\n") + "\r\n";
+}
+
+export function calendarPublishDocument(event: CalendarPreviewEvent, stampMillis: number): string {
+  const stamp = DateTime.fromMillis(stampMillis, {zone: "utc"}).toFormat(UIDateFormat.ICAL_UTC_TIMESTAMP);
+  const organiserName = event.organiser ? `;CN=${escapeIcsText(event.organiser)}` : "";
+  const startLine = event.startsAt
+    ? (event.allDay ? `DTSTART;VALUE=DATE:${icsStamp(event.startsAt, true)}` : `DTSTART:${icsStamp(event.startsAt, false)}`)
+    : null;
+  const endLine = event.endsAt
+    ? (event.allDay ? `DTEND;VALUE=DATE:${icsStamp(event.endsAt, true)}` : `DTEND:${icsStamp(event.endsAt, false)}`)
+    : null;
+  const uid = event.uid || `event-${stamp}@ngx-ramblers`;
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//NGX Ramblers//Inbox//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${stamp}`,
+    startLine,
+    endLine,
+    `SUMMARY:${escapeIcsText(event.title || "Event")}`,
+    event.description ? `DESCRIPTION:${escapeIcsText(event.description)}` : null,
+    event.location ? `LOCATION:${escapeIcsText(event.location)}` : null,
+    event.url ? `URL:${event.url}` : null,
+    event.organiserEmail ? `ORGANIZER${organiserName}:mailto:${event.organiserEmail}` : null,
+    "STATUS:CONFIRMED",
     `SEQUENCE:${event.sequence || 0}`,
     "END:VEVENT",
     "END:VCALENDAR"

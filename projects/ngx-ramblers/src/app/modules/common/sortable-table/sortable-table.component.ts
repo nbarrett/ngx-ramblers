@@ -1,5 +1,6 @@
 import { AfterContentInit, Component, ContentChild, ContentChildren, EventEmitter, Input, OnChanges, Output, QueryList, SimpleChanges, TemplateRef } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
+import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from "@angular/cdk/drag-drop";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faChevronDown, faChevronRight, faChevronUp, faGripVertical } from "@fortawesome/free-solid-svg-icons";
@@ -17,8 +18,13 @@ import {
   selector: "app-sortable-table",
   imports: [NgTemplateOutlet, FontAwesomeModule, CdkDropList, CdkDrag, CdkDragHandle],
   template: `
-    <div class="sortable-table-card" [class.sortable-table-flat]="flat" [class.scrollable]="!!maxHeight" [style.max-height]="maxHeight">
-      <table class="sortable-table" [class.sortable-table-fixed-layout]="fixedLayout">
+    <div class="sortable-table-card"
+         [class.sortable-table-flat]="flat"
+         [class.scrollable]="!!maxHeight || freezeFirstColumn"
+         [class.freeze-first-column]="freezeFirstColumn"
+         [style.max-height]="maxHeight">
+      <table class="sortable-table" [class.sortable-table-fixed-layout]="fixedLayout || resizableColumns"
+             [style.width]="resizableColumns ? resizableTableWidth : null">
         <thead>
           <tr>
             @if (showDragHandle) {
@@ -26,9 +32,11 @@ import {
             }
             @for (column of columns; track column.key) {
               <th [class]="headerClassFor(column)"
-                  [style.width]="column.width || null"
+                  [style.width]="columnWidth(column)"
+                  [style.min-width]="columnWidth(column)"
                   [attr.title]="column.label || null"
                   [class.sortable]="!!column.sortKey"
+                  [class.resizable]="resizableColumns"
                   (click)="column.sortKey && toggleSort(column.sortKey)">
                 @if (headerTemplateFor(column.key); as headerTemplate) {
                   <ng-container *ngTemplateOutlet="headerTemplate"></ng-container>
@@ -37,6 +45,13 @@ import {
                 }
                 @if (sortKey && column.sortKey === sortKey) {
                   <fa-icon [icon]="sortDirection === ASCENDING ? faChevronUp : faChevronDown" class="ms-1" size="xs"/>
+                }
+                @if (resizableColumns) {
+                  <button type="button"
+                          class="sortable-table-col-resize"
+                          [attr.aria-label]="'Resize ' + column.label"
+                          (click)="$event.stopPropagation()"
+                          (pointerdown)="startColumnResize($event, column)"></button>
                 }
               </th>
             }
@@ -76,7 +91,7 @@ import {
                   </td>
                 }
                 @for (column of columns; track column.key) {
-                  <td [class]="cellClassFor(column)" [style.width]="column.width || null" [attr.data-label]="column.label || null">
+                  <td [class]="cellClassFor(column)" [style.width]="columnWidth(column)" [style.min-width]="columnWidth(column)" [attr.data-label]="column.label || null">
                     @if (templateFor(column.key); as cellTemplate) {
                       <ng-container *ngTemplateOutlet="cellTemplate; context: { $implicit: row, row: row }"></ng-container>
                     } @else {
@@ -87,9 +102,16 @@ import {
               </tr>
               @if (expandedRowTemplate && expandedWhen(row)) {
                 <tr class="sortable-table-expanded-row">
-                  <td [attr.colspan]="columnCount">
-                    <ng-container *ngTemplateOutlet="expandedRowTemplate.template; context: { $implicit: row, row: row }"></ng-container>
-                  </td>
+                  @if (freezeFirstColumn) {
+                    <td class="frozen-column"></td>
+                    <td [attr.colspan]="columnCount - 1">
+                      <ng-container *ngTemplateOutlet="expandedRowTemplate.template; context: { $implicit: row, row: row }"></ng-container>
+                    </td>
+                  } @else {
+                    <td [attr.colspan]="columnCount">
+                      <ng-container *ngTemplateOutlet="expandedRowTemplate.template; context: { $implicit: row, row: row }"></ng-container>
+                    </td>
+                  }
                 </tr>
               }
             }
@@ -134,6 +156,75 @@ import {
       top: 0
       z-index: 2
       background: linear-gradient(to bottom, rgb(225, 239, 230), rgb(240, 247, 242))
+
+    .sortable-table-card.scrollable.freeze-first-column
+      --sortable-table-frozen-col-width: 11rem
+
+    .sortable-table-card.scrollable.freeze-first-column thead th.frozen-column
+      position: sticky
+      top: 0
+      left: 0
+      z-index: 4
+      width: var(--sortable-table-frozen-col-width)
+      min-width: var(--sortable-table-frozen-col-width)
+      background: linear-gradient(to bottom, rgb(225, 239, 230), rgb(240, 247, 242))
+      box-shadow: 1px 0 0 rgba(0, 0, 0, 0.08)
+
+    .sortable-table-card.scrollable.freeze-first-column.sortable-table-flat thead th.frozen-column
+      background: var(--bs-body-bg)
+
+    .sortable-table-card.scrollable.freeze-first-column tbody td.frozen-column
+      position: sticky
+      left: 0
+      z-index: 1
+      width: var(--sortable-table-frozen-col-width)
+      min-width: var(--sortable-table-frozen-col-width)
+      background-color: inherit
+      box-shadow: 1px 0 0 rgba(0, 0, 0, 0.08)
+
+    .sortable-table-card.scrollable.freeze-first-column tbody tr:hover td.frozen-column
+      background-color: inherit
+
+    .sortable-table-card.scrollable.freeze-first-column tbody tr.sortable-table-expanded-row td.frozen-column
+      box-shadow: 1px 0 0 rgba(0, 0, 0, 0.08)
+
+    .sortable-table td.compact-cell
+      overflow: hidden
+      text-overflow: ellipsis
+      white-space: nowrap
+
+    .sortable-table th.resizable
+      position: relative
+
+    .sortable-table-col-resize
+      position: absolute
+      top: 0
+      right: 0
+      bottom: 0
+      width: 8px
+      padding: 0
+      border: none
+      background: transparent
+      cursor: col-resize
+      touch-action: none
+      z-index: 5
+
+    .sortable-table-col-resize::before
+      content: ""
+      position: absolute
+      top: 0
+      right: 0
+      bottom: 0
+      width: 1px
+      background: rgba(31, 31, 31, 0.2)
+
+    @media (max-width: 767.98px)
+      .sortable-table-card.scrollable.freeze-first-column thead th.frozen-column,
+      .sortable-table-card.scrollable.freeze-first-column tbody td.frozen-column
+        position: static
+        box-shadow: none
+        width: auto
+        min-width: 0
 
     .sortable-table
       width: 100%
@@ -190,6 +281,9 @@ import {
 
     .sortable-table tbody tr:last-child td
       border-bottom: none
+
+    .sortable-table tbody tr
+      isolation: isolate
 
     .sortable-table tbody tr:nth-child(odd)
       background-color: #ffffff
@@ -306,6 +400,18 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
   @Input() flat = false;
   @Input() fixedLayout = false;
   @Input() maxHeight: string | null = null;
+  freezeFirstColumn = false;
+  resizableColumns = false;
+
+  @Input("freezeFirstColumn")
+  set freezeFirstColumnValue(value: boolean) {
+    this.freezeFirstColumn = coerceBooleanProperty(value);
+  }
+
+  @Input("resizableColumns")
+  set resizableColumnsValue(value: boolean) {
+    this.resizableColumns = coerceBooleanProperty(value);
+  }
   @Input() defaultSortKey: string | null = null;
   @Input() defaultSortDirection: string = ASCENDING;
   @Input() emptyMessage: string = "No data to display";
@@ -327,6 +433,8 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
   protected sortDirection: string = ASCENDING;
   protected sortedRows: any[] = [];
   protected groupedRows: SortableTableGroup[] = [];
+  protected columnWidths: { [key: string]: string } = {};
+  private readonly columnResize = {key: null as string | null, startX: 0, startWidth: 0, moved: false};
 
   protected readonly ASCENDING = ASCENDING;
   protected readonly DESCENDING = DESCENDING;
@@ -386,15 +494,55 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
     }
   }
 
+  protected get resizableTableWidth(): string {
+    const widths = this.columns.map(column => this.columnWidth(column) || "10rem");
+    const dragWidth = this.showDragHandle ? ["3rem"] : [];
+    return `max(100%, calc(${[...dragWidth, ...widths].join(" + ") || "0px"}))`;
+  }
+
+  protected columnWidth(column: SortableTableColumn): string | null {
+    return this.columnWidths[column.key] || column.width || null;
+  }
+
+  protected startColumnResize(event: PointerEvent, column: SortableTableColumn): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const header = (event.currentTarget as HTMLElement).closest("th") as HTMLElement;
+    this.columnResize.key = column.key;
+    this.columnResize.startX = event.clientX;
+    this.columnResize.startWidth = header.getBoundingClientRect().width;
+    this.columnResize.moved = false;
+    window.addEventListener("pointermove", this.onColumnResizeMove);
+    window.addEventListener("pointerup", this.onColumnResizeEnd);
+  }
+
+  private readonly onColumnResizeMove = (event: PointerEvent): void => {
+    if (this.columnResize.key) {
+      const nextWidth = Math.max(48, this.columnResize.startWidth + event.clientX - this.columnResize.startX);
+      this.columnWidths = {...this.columnWidths, [this.columnResize.key]: `${nextWidth}px`};
+      this.columnResize.moved = true;
+    }
+  };
+
+  private readonly onColumnResizeEnd = (): void => {
+    window.removeEventListener("pointermove", this.onColumnResizeMove);
+    window.removeEventListener("pointerup", this.onColumnResizeEnd);
+    this.columnResize.key = null;
+  };
+
   protected toggleSort(sortKey: string): void {
-    if (this.sortKey === sortKey) {
+    if (this.columnResize.moved) {
+      this.columnResize.moved = false;
+    } else if (this.sortKey === sortKey) {
       this.sortDirection = this.sortDirection === ASCENDING ? DESCENDING : ASCENDING;
+      this.applySort();
+      this.sortChange.emit({ key: this.sortKey, direction: this.sortDirection });
     } else {
       this.sortKey = sortKey;
       this.sortDirection = ASCENDING;
+      this.applySort();
+      this.sortChange.emit({ key: this.sortKey, direction: this.sortDirection });
     }
-    this.applySort();
-    this.sortChange.emit({ key: this.sortKey, direction: this.sortDirection });
   }
 
   protected templateFor(key: string): TemplateRef<any> | null {
@@ -422,6 +570,7 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
     if (column.headerClass) parts.push(column.headerClass);
     if (column.align === SortableTableAlignment.CENTER) parts.push("text-center");
     if (column.align === SortableTableAlignment.RIGHT) parts.push("text-right");
+    if (this.freezeFirstColumn && this.columns[0]?.key === column.key) parts.push("frozen-column");
     return parts.join(" ");
   }
 
@@ -430,6 +579,7 @@ export class SortableTableComponent implements OnChanges, AfterContentInit {
     if (column.cellClass) parts.push(column.cellClass);
     if (column.align === SortableTableAlignment.CENTER) parts.push("text-center");
     if (column.align === SortableTableAlignment.RIGHT) parts.push("text-right");
+    if (this.freezeFirstColumn && this.columns[0]?.key === column.key) parts.push("frozen-column");
     return parts.join(" ");
   }
 
