@@ -16,6 +16,7 @@ import { Organisation } from "../../../models/system.model";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
+import { faKey, faSignInAlt, faTimes } from "@fortawesome/free-solid-svg-icons";
 
 @Component({
     selector: "app-login-modal-component",
@@ -64,24 +65,33 @@ import { ContactUsComponent } from "../../../committee/contact-us/contact-us";
           </div>
         </form>
       </div>
-      <div class="modal-footer flex-nowrap gap-1">
-          <input type="submit" #loginButton [disabled]="notifyTarget.busy" value="Login"
+      <div class="modal-footer flex-wrap justify-content-start gap-2">
+          <button type="button" #loginButton [disabled]="notifyTarget.busy"
             (click)="login()"
             title="Login"
-            class="btn btn-primary btn-sm">
-          <input type="reset" value="Cancel" (click)="close()" title="Cancel and don't login"
+            class="btn btn-primary m-0">
+            <fa-icon [icon]="faSignInAlt"/> Login
+          </button>
+          <button type="button" (click)="close()" title="Cancel and don't login"
             [disabled]="notifyTarget.busy"
-            class="btn btn-secondary btn-sm">
-          <input type="reset" value="Forgot Password" (click)="forgotPassword()"
+            class="btn btn-quiet m-0">
+            <fa-icon [icon]="faTimes"/> Cancel
+          </button>
+          <button type="button" (click)="forgotPassword()"
             title="I've forgotten my password"
             [disabled]="notifyTarget.busy"
-            class="btn btn-warning btn-sm">
+            class="btn btn-quiet m-0">
+            <fa-icon [icon]="faKey"/> Forgot Password
+          </button>
       </div>
     </div>`,
     styleUrls: ["./login-modal.component.sass"],
     imports: [FormsModule, FontAwesomeModule, ContactUsComponent]
 })
 export class LoginModalComponent implements OnInit, OnDestroy, AfterViewInit {
+  protected readonly faSignInAlt = faSignInAlt;
+  protected readonly faTimes = faTimes;
+  protected readonly faKey = faKey;
   private logger: Logger = inject(LoggerFactory).createLogger("LoginModalComponent", NgxLoggerLevel.ERROR);
   bsModalRef = inject(BsModalRef);
   private modalService = inject(BsModalService);
