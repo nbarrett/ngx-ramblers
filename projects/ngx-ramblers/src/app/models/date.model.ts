@@ -10,6 +10,14 @@ export interface DateRangeSliderPreset extends SelectablePreset {
   relativeDateRange?: RelativeDateRange;
 }
 
+export interface DateRangeSliderAxisTick {
+  value: number;
+  percent: number;
+  label: string;
+  start: boolean;
+  end: boolean;
+}
+
 export const DATE_RANGE_SLIDER_PRESETS: DateRangeSliderPreset[] = [
   {label: "Next 7 days", relativeDateRange: {direction: DateDirection.FUTURE, duration: {days: 7}}},
   {label: "Next month", relativeDateRange: {direction: DateDirection.FUTURE, duration: {months: 1}}},
