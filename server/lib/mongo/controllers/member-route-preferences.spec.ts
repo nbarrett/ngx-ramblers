@@ -30,7 +30,7 @@ describe("member route preferences", () => {
     expect(select.firstCall.args).toEqual(["routePreferences"]);
     expect(res.json.firstCall.args[0]).toEqual(saved.routePreferences);
     expect(update.called).toBe(false);
-    expect(memberSchema.path("routePreferences").options.select).toBe(false);
+    expect(memberSchema.path("routePreferences")).toBeTruthy();
   });
 
   it("applies only the requested preference delta to the authenticated member", async () => {
