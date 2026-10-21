@@ -454,7 +454,7 @@ export interface InboxDeletedIdentity extends Identifiable {
 }
 
 export interface InboxPendingDelete {
-  threadId: string;
+  threadIds: string[];
   removedThreads: InboxThread[];
   insertionIndex: number;
   selectedThread: InboxThread | null;

@@ -20,8 +20,12 @@ describe("UrlService", () => {
 
     const URL_PATH = "https://www.example.co.uk/admin/member-bulk-load/12398719823";
     const LOCATION_VALUE = {
+        baseURI: "https://www.example.co.uk/",
         location: {
-            href: URL_PATH
+            href: URL_PATH,
+            get pathname() { return new URL(this.href).pathname; },
+            get search() { return new URL(this.href).search; },
+            get hash() { return new URL(this.href).hash; }
         },
         querySelectorAll: () => []
     };
@@ -29,6 +33,7 @@ describe("UrlService", () => {
     beforeEach(() => {
         systemConfigEvents = new ReplaySubject<any>(1);
         LOCATION_VALUE.location.href = URL_PATH;
+        LOCATION_VALUE.baseURI = "https://www.example.co.uk/";
         const path = "/path-part-1/path-part-2/path-part-3";
         return TestBed.configureTestingModule({
             imports: [LoggerTestingModule],
@@ -83,6 +88,73 @@ describe("UrlService", () => {
             const service: UrlService = TestBed.inject(UrlService);
             expect(service.sameOriginUrl("https://cdn.example.com/image.png"))
                 .toBe("https://cdn.example.com/image.png");
+        });
+    });
+
+    describe("followOwnSiteHref", () => {
+        const articlePath = "/how-to/technical-articles/deliverability";
+        const destinationPath = "/how-to/technical-articles/direct-inbox";
+        const navigateByUrl = vi.fn().mockResolvedValue(true);
+
+        beforeEach(() => {
+            LOCATION_VALUE.location.href = `https://www.example.co.uk${articlePath}`;
+            navigateByUrl.mockClear();
+            Object.assign(TestBed.inject(Router), {navigateByUrl});
+        });
+
+        it.each([
+            ["how-to/technical-articles/direct-inbox", destinationPath],
+            ["./how-to/technical-articles/direct-inbox", destinationPath],
+            ["../how-to/technical-articles/direct-inbox", destinationPath],
+            [destinationPath, destinationPath],
+            [`${destinationPath}?${StoredValue.TAB}=inbox#setup`, `${destinationPath}?${StoredValue.TAB}=inbox#setup`],
+            [`https://www.example.co.uk${destinationPath}`, destinationPath],
+            [`https://example.co.uk${destinationPath}`, destinationPath],
+            [`?${StoredValue.TAB}=inbox`, `/?${StoredValue.TAB}=inbox`],
+            ["#setup", "/#setup"]
+        ])("resolves %s against the document base URL", (href, expected) => {
+            const service = TestBed.inject(UrlService);
+            const event = new Event("click", {cancelable: true});
+            expect(service.followOwnSiteHref(href, event)).toBe(true);
+            expect(navigateByUrl).toHaveBeenCalledWith(expected);
+            expect(event.defaultPrevented).toBe(true);
+        });
+
+        it("honours a document base directory instead of the current page directory", () => {
+            LOCATION_VALUE.baseURI = "https://www.example.co.uk/documentation/";
+            const service = TestBed.inject(UrlService);
+            expect(service.followOwnSiteHref("guides/inbox")).toBe(true);
+            expect(navigateByUrl).toHaveBeenCalledWith("/documentation/guides/inbox");
+        });
+
+        it.each([
+            "https://external.example.org.uk/guide",
+            "/api/aws/s3/documents/guide.pdf",
+            "api/aws/s3/documents/guide.pdf",
+            "mailto:chair@group.example.org.uk",
+            "tel:+441234567890"
+        ])("leaves %s to the browser", href => {
+            const service = TestBed.inject(UrlService);
+            const event = new Event("click", {cancelable: true});
+            expect(service.followOwnSiteHref(href, event)).toBe(false);
+            expect(navigateByUrl).not.toHaveBeenCalled();
+            expect(event.defaultPrevented).toBe(false);
+        });
+
+        it("resolves native relative links from the shell base onto the selected site", () => {
+            const nativeWindow = window as NativeWalkingWindow;
+            const previousSite = nativeWindow.ngxNativeSiteUrl;
+            const platform = vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+            nativeWindow.ngxNativeSiteUrl = "https://group.example.org.uk";
+            LOCATION_VALUE.baseURI = "capacitor://localhost/";
+            try {
+                const service = TestBed.inject(UrlService);
+                expect(service.followOwnSiteHref("how-to/technical-articles/direct-inbox")).toBe(true);
+                expect(navigateByUrl).toHaveBeenCalledWith(destinationPath);
+            } finally {
+                nativeWindow.ngxNativeSiteUrl = previousSite;
+                platform.mockRestore();
+            }
         });
     });
 

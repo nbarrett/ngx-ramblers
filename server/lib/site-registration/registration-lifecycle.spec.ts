@@ -1,3 +1,5 @@
+import { MIGRATED_IMAGE_HEIGHT } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import * as publicSiteFetch from "./public-site-fetch";
 import expect from "expect";
 import sinon from "sinon";
 import { afterEach, beforeEach, describe, it } from "mocha";
@@ -259,6 +261,7 @@ describe("site registration lifecycle", () => {
     sandboxState.sandbox.stub(environmentContext, "connectToEnvironmentMongo").resolves({db: targetDb, client: {close: sinon.stub().resolves()}} as any);
     sandboxState.sandbox.stub(osMapsProvision, "ensureOsMapsApiKey").resolves({apiKey: "os-key", message: "OS Maps API key already configured"});
     sandboxState.sandbox.stub(environmentsConfig, "setEnvironmentEstateDeploy").resolves();
+    sandboxState.sandbox.stub(publicSiteFetch, "fetchPublicSiteHtml").resolves("");
     const uploads = sandboxState.sandbox.stub(migrationFileUpload, "uploadMigrationBufferToS3").callsFake(async (_bucket, sourceName) => `site-content/${sourceName.split("/").pop()}`);
     sandboxState.sandbox.stub(importScrape, "registrationPhotoTemplates").resolves({index: {path: "photos-index", rows: []}, year: {path: "photos-year", rows: []}});
     sandboxState.sandbox.stub(importScrape, "scrapeRegistrationSite").resolves({pageContents: [{path: "about", rows: [
@@ -290,7 +293,7 @@ describe("site registration lifecycle", () => {
     expect(target.deletedPaths).toContain("contact-us");
     expect(uploads.callCount).toBe(0);
     expect(target.landingVisualImages).toEqual(["https://group.example/one.jpg", "https://group.example/two.jpg", "https://group.example/three.jpg"]);
-    expect(target.landingVisualHeights).toEqual([400, 400, 400]);
+    expect(target.landingVisualHeights).toEqual([MIGRATED_IMAGE_HEIGHT, MIGRATED_IMAGE_HEIGHT, MIGRATED_IMAGE_HEIGHT]);
     expect(sendEmail.firstCall.args[2]).toBe("reviewer@example.com");
   });
 });

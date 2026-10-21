@@ -319,6 +319,12 @@ const rp = adminRelativePath;
       canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
     },
     {
+      path: rp(AdminPlatformPath.CLOUDFLARE_WORKERS),
+      loadComponent: () => import("../../pages/admin/platform/cloudflare-workers.component")
+        .then(m => m.CloudflareWorkersComponent),
+      canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]
+    },
+    {
       path: rp(AdminPlatformPath.ROOT), loadComponent: () => import("../../pages/admin/platform/platform-landing.component")
         .then(m => m.PlatformLandingComponent),
       canActivate: [SystemHealthyGuard, EnvironmentAdminGuard]

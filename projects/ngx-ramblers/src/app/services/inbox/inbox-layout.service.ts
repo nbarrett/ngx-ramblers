@@ -26,12 +26,13 @@ export class InboxLayoutService implements OnDestroy {
     public readonly minListSize = 140;
     private static readonly LAYOUT_KEY = "inbox-layout";
     private static readonly SIZE_KEY = "inbox-list-size";
+    private static readonly STACKED_SIZE_KEY = "inbox-list-size-stacked";
     private static readonly NAV_KEY = "inbox-nav";
     private static readonly NAV_SIZE_KEY = "inbox-nav-size";
     private static readonly GROUPING_KEY = "inbox-grouping-mode";
     private static readonly DENSITY_KEY = "inbox-list-density";
     public compactList = false;
-    public columnShare = { from: 1.1, to: 1.4, location: 1.2, subject: 2, date: 1.5 };
+    public columnShare = { from: 1.6, to: 1.6, location: 1.2, subject: 1.8, date: 1.1 };
     public groupingMode: InboxGroupingMode = InboxGroupingMode.CONVERSATIONS;
     public mobileNavOpen = false;
     public navCollapsed = false;
@@ -76,7 +77,7 @@ export class InboxLayoutService implements OnDestroy {
     }
     persistListSize(): void {
         if (!isUndefined(window)) {
-            window.localStorage.setItem(InboxLayoutService.SIZE_KEY, String(Math.round(this.listSize)));
+            window.localStorage.setItem(this.listSizeKey(), String(Math.round(this.listSize)));
         }
         const span = this.layoutSpan();
         if (span > 0) {
@@ -108,6 +109,10 @@ export class InboxLayoutService implements OnDestroy {
                 const top = el.getBoundingClientRect().top;
                 const height = Math.max(240, window.innerHeight - top - 16);
                 el.style.height = `${height}px`;
+            }
+            const span = this.layoutSpan();
+            if (span > 0 && this.listRatio === null && !this.mobile) {
+                this.listRatio = this.listSize / span;
             }
         }
     }
@@ -141,13 +146,8 @@ export class InboxLayoutService implements OnDestroy {
                 }
             }
             const span = this.layoutSpan();
-            if (span > 0 && !this.mobile) {
-                if (this.listRatio === null) {
-                    this.listRatio = this.listSize / span;
-                }
-                else {
-                    this.listSize = Math.min(Math.max(Math.round(this.listRatio * span), this.minListSize), this.maxListSize);
-                }
+            if (span > 0 && !this.mobile && this.listRatio !== null) {
+                this.listSize = Math.min(Math.max(Math.round(this.listRatio * span), this.minListSize), this.maxListSize);
             }
         }
     }
@@ -164,13 +164,13 @@ export class InboxLayoutService implements OnDestroy {
         }
         else {
             this.stackedLayout = window.localStorage.getItem(InboxLayoutService.LAYOUT_KEY) === "stacked";
-            const storedSize = Number(window.localStorage.getItem(InboxLayoutService.SIZE_KEY));
-            this.listSize = Number.isFinite(storedSize) && storedSize >= this.minListSize ? storedSize : this.defaultListSize();
+            this.listRatio = null;
+            this.listSize = this.storedListSize() ?? this.defaultListSize();
             this.navCollapsed = window.localStorage.getItem(InboxLayoutService.NAV_KEY) === "collapsed";
             const storedGrouping = window.localStorage.getItem(InboxLayoutService.GROUPING_KEY);
             this.groupingMode = values(InboxGroupingMode).includes(storedGrouping as InboxGroupingMode) ? storedGrouping as InboxGroupingMode : InboxGroupingMode.CONVERSATIONS;
             this.compactList = window.localStorage.getItem(InboxLayoutService.DENSITY_KEY) === "compact";
-            const storedColumns = window.localStorage.getItem("inbox-column-share");
+            const storedColumns = window.localStorage.getItem("inbox-column-share-v2");
             if (storedColumns) {
                 try {
                     this.columnShare = validatedInboxColumnShare(JSON.parse(storedColumns), this.columnShare);
@@ -183,6 +183,19 @@ export class InboxLayoutService implements OnDestroy {
             this.navSize = Number.isFinite(storedNavSize) && storedNavSize >= this.minNavSize ? Math.min(storedNavSize, this.maxNavSize) : this.navSize;
         }
     }
+    private listSizeKey(): string {
+        return this.stackedLayout ? InboxLayoutService.STACKED_SIZE_KEY : InboxLayoutService.SIZE_KEY;
+    }
+
+    private storedListSize(): number | null {
+        if (isUndefined(window)) {
+            return null;
+        } else {
+            const storedSize = Number(window.localStorage.getItem(this.listSizeKey()));
+            return Number.isFinite(storedSize) && storedSize >= this.minListSize ? storedSize : null;
+        }
+    }
+
     private defaultListSize(): number {
         return this.stackedLayout ? 240 : 352;
     }
@@ -193,12 +206,12 @@ export class InboxLayoutService implements OnDestroy {
         }
     }
     toggleLayout(): void {
+        this.persistListSize();
         this.stackedLayout = !this.stackedLayout;
         this.listRatio = null;
-        this.listSize = this.defaultListSize();
+        this.listSize = this.storedListSize() ?? this.defaultListSize();
         if (!isUndefined(window)) {
             window.localStorage.setItem(InboxLayoutService.LAYOUT_KEY, this.stackedLayout ? "stacked" : "side-by-side");
-            window.localStorage.setItem(InboxLayoutService.SIZE_KEY, String(this.listSize));
         }
     }
     startColumnResize(event: PointerEvent, edge: InboxColumnResizeEdge): void {
@@ -246,7 +259,7 @@ export class InboxLayoutService implements OnDestroy {
         const stop = () => {
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", stop);
-            window.localStorage.setItem("inbox-column-share", JSON.stringify(this.columnShare));
+            window.localStorage.setItem("inbox-column-share-v2", JSON.stringify(this.columnShare));
         };
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", stop);

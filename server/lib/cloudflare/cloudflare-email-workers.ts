@@ -7,10 +7,9 @@ import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/
 import {
   EmailForwardingMode,
   EmailWorkerScript,
-  SHARED_INBOX_ROUTER_WORKER_NAME,
   WorkerScriptRecipientsInfo
 } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
-import { cloudflareApi, CloudflareResponse } from "./cloudflare.model";
+import { cloudflareApi, CloudflareResponse, CloudflareWorkerSecret } from "./cloudflare.model";
 import { envConfig } from "../env-config/env-config";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:email-workers"));
@@ -117,8 +116,6 @@ export function generateWorkerScript(
   });
 }
 
-export const ROUTER_WORKER_NAME = SHARED_INBOX_ROUTER_WORKER_NAME;
-
 export function generateRouterWorkerScript(): string {
   return `${MODE_MARKER_PREFIX} ngx-inbox-router\n` + loadTranspiledTemplate("ngx-inbox-router");
 }
@@ -143,7 +140,8 @@ export async function uploadWorkerScript(cloudflareConfig: CloudflareConfig, scr
 
   const metadata = JSON.stringify({
     main_module: "worker.js",
-    compatibility_date: "2024-01-01"
+    compatibility_date: "2024-01-01",
+    keep_bindings: ["secret_text"]
   });
 
   const formData = new FormData();
@@ -222,6 +220,22 @@ export function parseWorkerScriptInfo(scriptContent: string): WorkerScriptRecipi
     recipients: parseRecipientsFromScript(scriptContent),
     forwardingMode: detectForwardingMode(scriptContent)
   };
+}
+
+export async function workerSecretNames(cloudflareConfig: CloudflareConfig, scriptName: string): Promise<string[]> {
+  const response = await fetch(`${accountBaseUrl(cloudflareConfig.accountId)}/${scriptName}/secrets`, {
+    headers: headers(cloudflareConfig.apiToken)
+  });
+  if (response.status === 404) {
+    return [];
+  } else {
+    const data: CloudflareResponse<CloudflareWorkerSecret[]> = await response.json();
+    if (!data.success) {
+      throw new Error(`Could not inspect worker secret names: ${data.errors.map(error => error.message).join(", ")}`);
+    } else {
+      return data.result.map(secret => secret.name);
+    }
+  }
 }
 
 export async function uploadWorkerSecret(cloudflareConfig: CloudflareConfig, scriptName: string, secretName: string, secretValue: string): Promise<void> {

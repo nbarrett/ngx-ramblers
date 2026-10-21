@@ -2,6 +2,7 @@ import debug from "debug";
 import { CloudflareConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { DestinationAddress } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
 import { envConfig } from "../env-config/env-config";
+import { HttpError } from "../shared/http-error";
 import { cloudflareApi } from "./cloudflare.model";
 
 const debugLog = debug(envConfig.logNamespace("cloudflare:destination-addresses"));
@@ -103,4 +104,27 @@ export async function deleteDestinationAddress(cloudflareConfig: CloudflareConfi
   }
 
   debugLog("Destination address deleted: %s", addressId);
+}
+
+export async function ensureForwardDestinationVerified(cloudflareConfig: CloudflareConfig, email: string, registerIfMissing = true): Promise<void> {
+  const normalisedEmail = email.trim().toLowerCase();
+  const existing = (await listDestinationAddresses(cloudflareConfig))
+    .find(a => a.email?.trim().toLowerCase() === normalisedEmail);
+  if (existing?.verified) {
+    debugLog("Forward destination is verified: %s", normalisedEmail);
+  } else if (existing) {
+    throw new HttpError(400, `${email} is registered as a Cloudflare destination but has not been verified yet. Open the verification email Cloudflare sent to ${email}, click the link, then try again.`, "DestinationNotVerified");
+  } else if (!registerIfMissing) {
+    throw new HttpError(400, "The inbox router fallback is not a verified Cloudflare destination. Verify it in Committee Settings before retrying the migration.", "RouterFallbackNotVerified");
+  } else {
+    try {
+      await createDestinationAddress(cloudflareConfig, email);
+    } catch (error) {
+      if (/verification email has been sent too recently/i.test(error.message || "")) {
+        throw new HttpError(429, `Cloudflare recently sent a verification email to ${email}. Check that inbox for the link, then try again in a few minutes.`, "RateLimited");
+      }
+      throw new HttpError(400, `Could not register ${email} as a Cloudflare destination address: ${error.message}`, "DestinationRegistrationFailed");
+    }
+    throw new HttpError(400, `A verification email has been sent to ${email}. Click the link Cloudflare sent to that inbox, then try again.`, "DestinationVerificationSent");
+  }
 }

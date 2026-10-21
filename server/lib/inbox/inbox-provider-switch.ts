@@ -19,7 +19,7 @@ import { createOrUpdateKey } from "../mongo/controllers/config";
 import { systemConfig } from "../config/system-config";
 import { inboxMailboxConnection as inboxMailboxConnectionModel } from "../mongo/models/inbox-mailbox-connection";
 import { ensureCloudflareIngressConnection } from "../cloudflare/cloudflare-ingress-connection";
-import { configuredCloudflareForCurrentSite } from "../cloudflare/cloudflare-config";
+import { configuredCloudflareForCurrentSite, nonSensitiveCloudflareConfig } from "../cloudflare/cloudflare-config";
 import { ensureDirectInboxCatchAll } from "../cloudflare/direct-inbox-catch-all";
 import { stopGmailWatch } from "./gmail-inbox-reader";
 import { activateConnectionAfterReconnect } from "./inbox-poller";
@@ -92,7 +92,8 @@ async function applyCloudflareSwitch(tenantSlug: string, memberId: string): Prom
         detail: `Stopped Gmail polling on ${enabledGmail.length} connection${enabledGmail.length === 1 ? "" : "s"}`
       };
     })();
-  const catchAll = await ensureDirectInboxCatchAll(await configuredCloudflareForCurrentSite());
+  const site = await nonSensitiveCloudflareConfig();
+  const catchAll = await ensureDirectInboxCatchAll(await configuredCloudflareForCurrentSite(), site.baseDomain || "");
   return [
     {
       step: InboxProviderSwitchStep.CLOUDFLARE_CONNECTION,

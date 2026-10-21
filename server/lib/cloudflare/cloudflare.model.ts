@@ -3,6 +3,7 @@ export const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 export const cloudflareApi = {
   base: CLOUDFLARE_API_BASE,
   zones: (params = "") => `${CLOUDFLARE_API_BASE}/zones${params ? `?${params}` : ""}`,
+  zoneSslSetting: (zoneId: string) => `${CLOUDFLARE_API_BASE}/zones/${zoneId}/settings/ssl`,
   zoneDnsRecords: (zoneId: string, params = "") => `${CLOUDFLARE_API_BASE}/zones/${zoneId}/dns_records${params ? `?${params}` : ""}`,
   zoneDnsRecord: (zoneId: string, recordId: string) => `${CLOUDFLARE_API_BASE}/zones/${zoneId}/dns_records/${recordId}`,
   verifyToken: () => `${CLOUDFLARE_API_BASE}/user/tokens/verify`,
@@ -60,6 +61,7 @@ export interface CloudflareResponse<T> {
   success: boolean;
   errors: { code: number; message: string }[];
   result: T;
+  result_info?: {page?: number; total_pages?: number};
 }
 
 export interface DnsRecordResult {
@@ -133,4 +135,27 @@ export interface RulesetResult {
 export enum RecipientDeliveryStatus {
   Delivered = "delivered",
   Failed = "failed",
+}
+
+export enum CloudflareSslMode {
+  OFF = "off",
+  FLEXIBLE = "flexible",
+  FULL = "full",
+  STRICT = "strict",
+  ORIGIN_PULL = "origin_pull"
+}
+
+export interface CloudflareSslSetting {
+  value: CloudflareSslMode;
+  editable: boolean;
+}
+
+export interface InboxRouterDeploymentOptions {
+  fallbackAddress?: string;
+  registerMissingDestination?: boolean;
+}
+
+export interface CloudflareWorkerSecret {
+  name: string;
+  type: string;
 }

@@ -5,6 +5,7 @@ import { BehaviorSubject } from "rxjs";
 import { ApiResponse } from "../../models/api-response.model";
 import {
   ClearAddressRulesResponse,
+  CloudflareWorkerInventory,
   CreateOrUpdateEmailRouteRequest,
   CreateOrUpdateWorkerRequest,
   DestinationAddress,
@@ -13,6 +14,7 @@ import {
   EmailRoutingLogsRequest,
   EmailRoutingRule,
   EmailWorkerScript,
+  InboxRouterHealth,
   MxRecordStatus,
   NonSensitiveCloudflareConfig,
   UpdateCatchAllRequest,
@@ -45,6 +47,10 @@ export class CloudflareEmailRoutingService {
   private destinationAddressesLoaded = false;
   private configLoaded = false;
   private workersLoaded = false;
+
+  async workerInventory(): Promise<CloudflareWorkerInventory> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/workers/inventory`))).response;
+  }
 
   async queryRules(): Promise<EmailRoutingRule[]> {
     if (!this.rulesLoaded) {
@@ -241,6 +247,10 @@ export class CloudflareEmailRoutingService {
 
   workersNotifications(): BehaviorSubject<EmailWorkerScript[]> {
     return this.workersSubject;
+  }
+
+  async queryInboxRouterHealth(): Promise<InboxRouterHealth> {
+    return (await this.commonDataService.responseFrom(this.logger, this.http.get<ApiResponse>(`${this.BASE_URL}/inbox-router-health`))).response;
   }
 
   async queryEmailRoutingLogs(request: EmailRoutingLogsRequest): Promise<EmailRoutingLogEntry[]> {

@@ -113,6 +113,26 @@ describe("googleCalendarUrl", () => {
     expect(details).toContain(`<a href="https://www.example.co.uk/walks/chilham-circular">`);
   });
 
+  it("keeps the Teams join details and drops help and organiser-system links", () => {
+    const details = new URL(googleCalendarUrl(event({
+      description: "Description:\n________________\nMicrosoft Teams meeting\nJoin: https://teams.microsoft.com/meet/abc\nMeeting ID: 123 456\nPasscode: hunter2\n________________\nNeed help?&lt;https://aka.ms/JoinTeamsMeeting&gt; | System reference&lt;https://teams.microsoft.com/l/meetup-join/19%3ameeting_long&gt;\nFor organisers: Meeting options&lt;https://teams.microsoft.com/meetingOptions/?id=1&gt;",
+      organiser: "Alex Reed",
+      organiserEmail: "alex.reed@example.com",
+      organiserLabel: OrganiserLabel.ORGANISER,
+      url: null
+    }))).searchParams.get("details");
+    expect(details).toContain("Microsoft Teams meeting");
+    expect(details).toContain("Join:");
+    expect(details).toContain("https://teams.microsoft.com/meet/abc");
+    expect(details).toContain("Meeting ID: 123 456");
+    expect(details).toContain("Passcode: hunter2");
+    expect(details).not.toContain("Need help");
+    expect(details).not.toContain("System reference");
+    expect(details).not.toContain("meetup-join");
+    expect(details).not.toContain("meetingOptions");
+    expect(details).not.toContain("____");
+  });
+
 });
 
 describe("outlookCalendarUrl", () => {
@@ -128,7 +148,9 @@ describe("outlookCalendarUrl", () => {
     const url = outlookCalendarUrl(event({url: "https://www.example.co.uk/walks/chilham-circular"}));
     const body = new URL(url).searchParams.get("body");
     expect(body).toContain("A gentle loop");
-    expect(body).toContain(`<strong>Website:</strong> <a href="https://www.example.co.uk/walks/chilham-circular">`);
+    expect(body).toContain("https://www.example.co.uk/walks/chilham-circular");
+    expect(body).not.toContain("<strong>");
+    expect(body).not.toContain("<a href");
   });
 
   it("names the walk leader and their contact details in the event body", () => {
@@ -137,7 +159,7 @@ describe("outlookCalendarUrl", () => {
       organiserPhone: "07970 319734",
       organiserEmail: "rachel@example.co.uk"
     }))).searchParams.get("body");
-    expect(body).toContain("<strong>Walk leader:</strong> Rachel M 07970 319734 rachel@example.co.uk");
+    expect(body).toContain("Walk leader: Rachel M 07970 319734 rachel@example.co.uk");
   });
 
   it("names the organiser of a social event as the organiser, not the walk leader", () => {
@@ -145,7 +167,24 @@ describe("outlookCalendarUrl", () => {
       organiser: "Rachel M",
       organiserLabel: OrganiserLabel.ORGANISER
     }))).searchParams.get("body");
-    expect(body).toContain("<strong>Organiser:</strong> Rachel M");
+    expect(body).toContain("Organiser: Rachel M");
+  });
+
+  it("turns a Teams HTML description into readable plain text", () => {
+    const body = new URL(outlookCalendarUrl(event({
+      description: "<div>Microsoft Teams meeting</div>________________<br>Join: <a href=\"https://teams.microsoft.com/meet/abc\">https://teams.microsoft.com/meet/abc</a><br>Meeting ID: 123 456<br>Passcode: AB12xy",
+      organiser: "Alex Reed",
+      organiserEmail: "alex.reed@example.com",
+      organiserLabel: OrganiserLabel.ORGANISER,
+      url: null
+    }))).searchParams.get("body");
+    expect(body).toContain("Microsoft Teams meeting");
+    expect(body).toContain("Join: https://teams.microsoft.com/meet/abc");
+    expect(body).toContain("Meeting ID: 123 456");
+    expect(body).toContain("Passcode: AB12xy");
+    expect(body).toContain("Organiser: Alex Reed alex.reed@example.com");
+    expect(body).not.toContain("____");
+    expect(body).not.toContain("<br>");
   });
 
 });

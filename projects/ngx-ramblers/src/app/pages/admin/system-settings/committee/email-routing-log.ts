@@ -1,14 +1,17 @@
-import { Component, inject, Input, OnInit } from "@angular/core";
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, inject, Input, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { DateTime } from "luxon";
-import { sortBy } from "es-toolkit/compat";
-import { ASCENDING, DESCENDING } from "../../../../models/table-filtering.model";
+import { DESCENDING } from "../../../../models/table-filtering.model";
 import {
   EmailAuthResult,
   EmailRoutingLogEntry,
   EmailRoutingLogStatus,
+  EmailRoutingLogView,
   WorkerInvocationSummary
 } from "../../../../models/cloudflare-email-routing.model";
+import { SectionToggle } from "../../../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../../../models/section-toggle.model";
+import { StoredValue } from "../../../../models/ui-actions";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { DateUtilsService } from "../../../../services/date-utils.service";
 import { StringUtilsService } from "../../../../services/string-utils.service";
@@ -18,11 +21,15 @@ import { AlertComponent } from "ngx-bootstrap/alert";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { CloudflareButton } from "../../../../modules/common/third-parties/cloudflare-button";
 import { DateRange, DateRangeSlider } from "../../../../components/date-range-slider/date-range-slider";
+import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { SortableTableComponent } from "../../../../modules/common/sortable-table/sortable-table.component";
+import { SortableTableCellDirective, SortableTableExpandedRowDirective } from "../../../../modules/common/sortable-table/sortable-table-cell.directive";
+import { SortableTableAlignment, SortableTableColumn } from "../../../../modules/common/sortable-table/sortable-table.model";
 
 @Component({
   selector: "app-email-routing-log",
   template: `
-    <div class="d-flex align-items-center gap-2 mb-2">
+    <div class="d-flex align-items-center gap-2 mb-3">
       <app-date-range-slider class="flex-grow-1"
         [minDate]="logMinDate"
         [maxDate]="logMaxDate"
@@ -41,221 +48,162 @@ import { DateRange, DateRangeSlider } from "../../../../components/date-range-sl
         </alert>
       </div>
     }
-    <h6 class="section-heading">Email Routing Log</h6>
-    @if (emailRoutingLogs?.length) {
+    <div class="mt-2 mb-3">
+      <app-section-toggle fullWidth stackOnMobile
+        [tabs]="logViewTabs"
+        [selectedTab]="logView"
+        [queryParamKey]="StoredValue.EMAIL_LOG_VIEW"
+        (selectedTabChange)="onLogViewChange($event)"/>
+    </div>
+    @if (logView === EmailRoutingLogView.ROUTING) {
       @if (hasUniformMissingDmarcSummary()) {
         <div class="alert alert-warning py-2 small mb-2">
           All displayed messages were delivered with SPF and DKIM passing, but no DMARC policy was reported for the sender domain.
         </div>
       }
-      <div class="table-responsive" style="max-height: 400px; overflow-y: auto">
-        <table class="table table-sm email-log-table">
-          <thead class="sticky-top bg-white">
-            <tr>
-              <th class="sortable-header" (click)="sortEmailLogsBy('datetime')">
-                <span class="nowrap">Date/Time (UK)
-                  @if (emailLogSortField === 'datetime') {
-                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
-                  }
-                </span>
-              </th>
-              <th class="sortable-header" (click)="sortEmailLogsBy('from')">
-                <span class="nowrap">From
-                  @if (emailLogSortField === 'from') {
-                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
-                  }
-                </span>
-              </th>
-              <th class="sortable-header" (click)="sortEmailLogsBy('to')">
-                <span class="nowrap">To
-                  @if (emailLogSortField === 'to') {
-                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
-                  }
-                </span>
-              </th>
-              <th class="sortable-header" (click)="sortEmailLogsBy('subject')">
-                <span class="nowrap">Subject
-                  @if (emailLogSortField === 'subject') {
-                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
-                  }
-                </span>
-              </th>
-              <th class="sortable-header badge-column" (click)="sortEmailLogsBy('status')">
-                <span class="nowrap">Status
-                  @if (emailLogSortField === 'status') {
-                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
-                  }
-                </span>
-              </th>
-              <th class="sortable-header badge-column" (click)="sortEmailLogsBy('spf')">
-                <span class="nowrap">SPF
-                  @if (emailLogSortField === 'spf') {
-                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
-                  }
-                </span>
-              </th>
-              <th class="sortable-header badge-column" (click)="sortEmailLogsBy('dkim')">
-                <span class="nowrap">DKIM
-                  @if (emailLogSortField === 'dkim') {
-                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
-                  }
-                </span>
-              </th>
-              <th class="sortable-header badge-column" (click)="sortEmailLogsBy('dmarc')">
-                <span class="nowrap">DMARC
-                  @if (emailLogSortField === 'dmarc') {
-                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
-                  }
-                </span>
-              </th>
-              <th class="sortable-header error-column" (click)="sortEmailLogsBy('errorDetail')">
-                <span class="nowrap">Error
-                  @if (emailLogSortField === 'errorDetail') {
-                    <span class="sorting-header">{{ emailLogSortDirection }}</span>
-                  }
-                </span>
-              </th>
-            </tr>
-          </thead>
-          @for (log of emailRoutingLogs; track log.sessionId; let even = $even) {
-            <tbody [class.striped-group]="even">
-              <tr>
-                <td class="small text-nowrap">{{ displayLogDateTime(log.datetime) }}</td>
-                <td class="small">{{ log.from }}</td>
-                <td class="small">{{ log.to }}</td>
-                <td class="small">{{ log.subject }}</td>
-                <td class="badge-column"><span [class]="statusBadgeClass(log)">{{ log.status }}</span></td>
-                <td class="badge-column">@if (log.spf) {<span [class]="authBadgeClass(log.spf)">{{ log.spf }}</span>}</td>
-                <td class="badge-column">@if (log.dkim) {<span [class]="authBadgeClass(log.dkim)">{{ log.dkim }}</span>}</td>
-                <td class="badge-column">@if (log.dmarc) {<span [class]="authBadgeClass(log.dmarc)">{{ log.dmarc }}</span>}</td>
-                <td class="small error-column">{{ log.errorDetail }}</td>
-              </tr>
-              @if (showAuthSummary(log)) {
-                <tr>
-                  <td colspan="9" class="small text-muted border-0 pt-0 pb-2">{{ authSummary(log) }}</td>
-                </tr>
-              }
-            </tbody>
-          }
-        </table>
+      <div #logScroll class="email-log-scroll" [style.max-height]="logScrollMaxHeight" [style.height]="logScrollMaxHeight">
+        <app-sortable-table
+          [columns]="emailLogColumns"
+          [rows]="emailRoutingLogs || []"
+          [defaultSortKey]="'datetime'"
+          [defaultSortDirection]="DESCENDING"
+          [maxHeight]="logScrollMaxHeight"
+          freezeFirstColumn
+          resizableColumns
+          flat
+          [expandedWhen]="emailRowExpanded"
+          [trackBy]="trackEmailLog"
+          emptyMessage="No email routing log entries found for this period">
+          <ng-template appSortableTableCell="datetime" let-row>{{ displayLogDateTime(row.datetime) }}</ng-template>
+          <ng-template appSortableTableCell="from" let-row>
+            <span [tooltip]="row.from" container="body">{{ compactAddress(row.from) }}</span>
+          </ng-template>
+          <ng-template appSortableTableCell="to" let-row>
+            <span [tooltip]="row.to" container="body">{{ compactAddress(row.to) }}</span>
+          </ng-template>
+          <ng-template appSortableTableCell="subject" let-row>
+            <span [tooltip]="row.subject" container="body">{{ row.subject }}</span>
+          </ng-template>
+          <ng-template appSortableTableCell="status" let-row>
+            <span [class]="statusBadgeClass(row)" [tooltip]="authSummary(row) || null" container="body">{{ row.status }}</span>
+          </ng-template>
+          <ng-template appSortableTableCell="spf" let-row>
+            @if (row.spf) {
+              <span [class]="authBadgeClass(row.spf)">{{ row.spf }}</span>
+            }
+          </ng-template>
+          <ng-template appSortableTableCell="dkim" let-row>
+            @if (row.dkim) {
+              <span [class]="authBadgeClass(row.dkim)">{{ row.dkim }}</span>
+            }
+          </ng-template>
+          <ng-template appSortableTableCell="dmarc" let-row>
+            @if (row.dmarc) {
+              <span [class]="authBadgeClass(row.dmarc)">{{ row.dmarc }}</span>
+            }
+          </ng-template>
+          <ng-template appSortableTableExpandedRow let-row>
+            <div class="small text-muted">{{ authSummary(row) }}</div>
+          </ng-template>
+        </app-sortable-table>
       </div>
     }
-    @if (emailRoutingLogs && !emailRoutingLogs.length) {
-      <div class="text-muted small">No email routing log entries found for this period</div>
-    }
-    @if (workerScriptName) {
-      <h6 class="section-heading">Worker Invocation Log</h6>
-      @if (workerLogs?.length) {
-        <div class="table-responsive" style="max-height: 400px; overflow-y: auto">
-          <table class="table table-sm table-striped">
-            <thead class="sticky-top bg-white">
-              <tr>
-                <th class="sortable-header" (click)="sortWorkerLogsBy('datetime')">
-                  <span class="nowrap">Date/Time (UK)
-                    @if (workerLogSortField === 'datetime') {
-                      <span class="sorting-header">{{ workerLogSortDirection }}</span>
-                    }
-                  </span>
-                </th>
-                <th class="sortable-header" (click)="sortWorkerLogsBy('status')">
-                  <span class="nowrap">Status
-                    @if (workerLogSortField === 'status') {
-                      <span class="sorting-header">{{ workerLogSortDirection }}</span>
-                    }
-                  </span>
-                </th>
-                <th class="sortable-header" (click)="sortWorkerLogsBy('requests')">
-                  <span class="nowrap">Requests
-                    @if (workerLogSortField === 'requests') {
-                      <span class="sorting-header">{{ workerLogSortDirection }}</span>
-                    }
-                  </span>
-                </th>
-                <th class="sortable-header" (click)="sortWorkerLogsBy('errors')">
-                  <span class="nowrap">Errors
-                    @if (workerLogSortField === 'errors') {
-                      <span class="sorting-header">{{ workerLogSortDirection }}</span>
-                    }
-                  </span>
-                </th>
-                <th class="sortable-header" (click)="sortWorkerLogsBy('subrequests')">
-                  <span class="nowrap">Subrequests
-                    @if (workerLogSortField === 'subrequests') {
-                      <span class="sorting-header">{{ workerLogSortDirection }}</span>
-                    }
-                  </span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (log of workerLogs; track log.datetime + log.status) {
-                <tr>
-                  <td class="small text-nowrap">{{ displayLogDateTime(log.datetime) }}</td>
-                  <td>
-                    @if (log.errors > 0) {
-                      <span class="badge bg-danger">{{ log.status }}</span>
-                    } @else {
-                      <span class="badge bg-success">{{ log.status }}</span>
-                    }
-                  </td>
-                  <td>{{ log.requests }}</td>
-                  <td>{{ log.errors }}</td>
-                  <td>{{ log.subrequests }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-      @if (workerLogs && !workerLogs.length) {
-        <div class="text-muted small">No worker invocation entries found for this period</div>
-      }
+    @if (logView === EmailRoutingLogView.WORKER) {
+      <div #logScroll class="email-log-scroll" [style.max-height]="logScrollMaxHeight" [style.height]="logScrollMaxHeight">
+        <app-sortable-table
+          [columns]="workerLogColumns"
+          [rows]="workerLogs || []"
+          [defaultSortKey]="'datetime'"
+          [defaultSortDirection]="DESCENDING"
+          [maxHeight]="logScrollMaxHeight"
+          freezeFirstColumn
+          resizableColumns
+          flat
+          [trackBy]="trackWorkerLog"
+          emptyMessage="No worker invocation entries found for this period">
+          <ng-template appSortableTableCell="datetime" let-row>{{ displayLogDateTime(row.datetime) }}</ng-template>
+          <ng-template appSortableTableCell="status" let-row>
+            @if (row.errors > 0) {
+              <span class="badge bg-danger">{{ row.status }}</span>
+            } @else {
+              <span class="badge bg-success">{{ row.status }}</span>
+            }
+          </ng-template>
+        </app-sortable-table>
+      </div>
     }`,
   styles: [`
-    .sortable-header
-      cursor: pointer
-      user-select: none
-      &:hover
-        background-color: rgba(0, 0, 0, 0.05)
-    .sorting-header
-      font-size: 50%
-    .section-heading
-      border-top: 1px solid #dee2e6
-      padding-top: 0.75rem
-      margin: 0.75rem 0
     .auth-badge-neutral
       background-color: #adb5bd !important
       color: #fff !important
-    .email-log-table .badge-column
-      min-width: 4.75rem
-      padding-left: 0.5rem
-      padding-right: 0.5rem
-      text-align: center
-      white-space: nowrap
-    .email-log-table .error-column
-      padding-left: 0.75rem
-    .email-log-table tbody tr
-      --bs-table-bg: #fff
-    .email-log-table tbody.striped-group tr
-      --bs-table-bg: #f2f2f2
-    .email-log-table tbody tr td
-      border-bottom: none
-    .email-log-table tbody
-      border-bottom: 1px solid #dee2e6
+    .email-log-scroll
+      min-height: 200px
+      max-height: calc(100dvh - 32rem)
+      overflow: auto
+    :host ::ng-deep .email-log-scroll .sortable-table-card
+      min-height: 100%
+      height: 100%
+      max-height: 100%
   `],
-  imports: [AlertComponent, FontAwesomeModule, CloudflareButton, DateRangeSlider]
+  imports: [AlertComponent, FontAwesomeModule, CloudflareButton, DateRangeSlider, SectionToggle, TooltipDirective, SortableTableComponent, SortableTableCellDirective, SortableTableExpandedRowDirective]
 })
-export class EmailRoutingLogComponent implements OnInit {
+export class EmailRoutingLogComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("EmailRoutingLogComponent", NgxLoggerLevel.ERROR);
   private cloudflareEmailRoutingService = inject(CloudflareEmailRoutingService);
   private dateUtils = inject(DateUtilsService);
+  private host = inject(ElementRef<HTMLElement>);
+  private zone = inject(NgZone);
+  private changeDetector = inject(ChangeDetectorRef);
   public stringUtilsService = inject(StringUtilsService);
 
   protected readonly ALERT_ERROR = ALERT_ERROR;
+  protected readonly EmailRoutingLogView = EmailRoutingLogView;
+  protected readonly StoredValue = StoredValue;
+  protected readonly DESCENDING = DESCENDING;
+  logView: EmailRoutingLogView = EmailRoutingLogView.ROUTING;
+  logViewTabs: SectionToggleTab[] = [
+    {value: EmailRoutingLogView.ROUTING, label: "Email Routing Log"},
+    {value: EmailRoutingLogView.WORKER, label: "Worker Invocation Log"}
+  ];
+  @ViewChild("logScroll") logScroll: ElementRef<HTMLElement>;
+  logScrollMaxHeightPx = 0;
+  emailLogColumns: SortableTableColumn<EmailRoutingLogEntry>[] = [
+    {key: "datetime", label: "Date/Time (UK)", sortKey: "datetime", width: "11rem", cellClass: "text-nowrap"},
+    {key: "from", label: "From", sortKey: "from", width: "16rem", cellClass: "compact-cell"},
+    {key: "to", label: "To", sortKey: "to", width: "16rem", cellClass: "compact-cell"},
+    {key: "subject", label: "Subject", sortKey: "subject", width: "18rem", cellClass: "compact-cell"},
+    {key: "status", label: "Status", sortKey: "status", align: SortableTableAlignment.CENTER, cellClass: "text-nowrap"},
+    {key: "spf", label: "SPF", sortKey: "spf", align: SortableTableAlignment.CENTER, cellClass: "text-nowrap"},
+    {key: "dkim", label: "DKIM", sortKey: "dkim", align: SortableTableAlignment.CENTER, cellClass: "text-nowrap"},
+    {key: "dmarc", label: "DMARC", sortKey: "dmarc", align: SortableTableAlignment.CENTER, cellClass: "text-nowrap"}
+  ];
+  workerLogColumns: SortableTableColumn<WorkerInvocationSummary>[] = [
+    {key: "datetime", label: "Date/Time (UK)", sortKey: "datetime", width: "11rem", cellClass: "text-nowrap"},
+    {key: "status", label: "Status", sortKey: "status"},
+    {key: "requests", label: "Requests", sortKey: "requests", cellGetter: row => row.requests},
+    {key: "errors", label: "Errors", sortKey: "errors", cellGetter: row => row.errors},
+    {key: "subrequests", label: "Subrequests", sortKey: "subrequests", cellGetter: row => row.subrequests}
+  ];
   private readonly missingDmarcSummary = "Delivered - SPF and DKIM passed but no DMARC policy on sender domain";
 
+  get logScrollMaxHeight(): string {
+    if (this.logScrollMaxHeightPx > 0) {
+      return `${this.logScrollMaxHeightPx}px`;
+    } else {
+      return "calc(100dvh - 32rem)";
+    }
+  }
+
+  trackEmailLog = (_index: number, row: EmailRoutingLogEntry) => row.sessionId;
+  trackWorkerLog = (_index: number, row: WorkerInvocationSummary) => `${row.datetime}-${row.status}`;
+  emailRowExpanded = (row: EmailRoutingLogEntry) => {
+    const summary = this.authSummary(row);
+    return !!summary && !(this.hasUniformMissingDmarcSummary() && summary === this.missingDmarcSummary);
+  };
+
   @Input() roleEmail: string;
+  @Input() recipientEmails: string[] = [];
   @Input() routeType: string;
   private _workerScriptName: string;
 
@@ -280,16 +228,52 @@ export class EmailRoutingLogComponent implements OnInit {
   logMaxDate: DateTime;
   logDateRange: DateRange;
 
-  emailLogSortField = "datetime";
-  emailLogReverseSort = true;
-  emailLogSortDirection = DESCENDING;
-
-  workerLogSortField = "datetime";
-  workerLogReverseSort = true;
-  workerLogSortDirection = DESCENDING;
+  private readonly onViewportChange = () => this.fitLogScroll();
+  private resizeObserver: ResizeObserver = null;
 
   ngOnInit() {
     this.refreshAll();
+  }
+
+  ngAfterViewInit(): void {
+    this.fitLogScroll();
+    this.resizeObserver = new ResizeObserver(() => this.zone.run(() => this.fitLogScroll()));
+    this.resizeObserver.observe(this.host.nativeElement);
+    window.visualViewport?.addEventListener("resize", this.onViewportChange);
+    window.visualViewport?.addEventListener("scroll", this.onViewportChange);
+  }
+
+  ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+    window.visualViewport?.removeEventListener("resize", this.onViewportChange);
+    window.visualViewport?.removeEventListener("scroll", this.onViewportChange);
+  }
+
+  @HostListener("window:resize")
+  fitLogScroll(): void {
+    const el = this.logScroll?.nativeElement;
+    if (el) {
+      const tableBox = el.getBoundingClientRect();
+      if (tableBox.width > 0) {
+        const page = this.host.nativeElement.closest("app-committee-settings") || document;
+        const saveBar = page.querySelector("app-form-save-actions");
+        const saveBox = saveBar?.getBoundingClientRect();
+        const saveHeight = saveBox?.height || 48;
+        const gapBelowTable = saveBox ? Math.max(8, Math.round(saveBox.top - tableBox.bottom)) : 16;
+        const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+        const chromeBelow = saveHeight + gapBelowTable + 16;
+        const next = Math.max(200, Math.floor(viewportHeight - tableBox.top - chromeBelow));
+        if (next !== this.logScrollMaxHeightPx) {
+          this.logScrollMaxHeightPx = next;
+          this.changeDetector.detectChanges();
+        }
+      }
+    }
+  }
+
+  onLogViewChange(view: EmailRoutingLogView): void {
+    this.logView = view;
+    setTimeout(() => this.fitLogScroll());
   }
 
   async refreshAll() {
@@ -304,6 +288,7 @@ export class EmailRoutingLogComponent implements OnInit {
       await Promise.all(promises);
     } finally {
       this.loading = false;
+      setTimeout(() => this.fitLogScroll());
     }
   }
 
@@ -330,53 +315,34 @@ export class EmailRoutingLogComponent implements OnInit {
     };
   }
 
-  sortEmailLogsBy(field: string) {
-    if (this.emailLogSortField === field) {
-      this.emailLogReverseSort = !this.emailLogReverseSort;
-    } else {
-      this.emailLogSortField = field;
-      this.emailLogReverseSort = false;
-    }
-    this.emailLogSortDirection = this.emailLogReverseSort ? DESCENDING : ASCENDING;
-    this.applySortToEmailLogs();
-  }
-
-  sortWorkerLogsBy(field: string) {
-    if (this.workerLogSortField === field) {
-      this.workerLogReverseSort = !this.workerLogReverseSort;
-    } else {
-      this.workerLogSortField = field;
-      this.workerLogReverseSort = false;
-    }
-    this.workerLogSortDirection = this.workerLogReverseSort ? DESCENDING : ASCENDING;
-    this.applySortToWorkerLogs();
-  }
-
-  private applySortToEmailLogs() {
-    if (this.emailRoutingLogs?.length) {
-      const sorted = sortBy(this.emailRoutingLogs, [this.emailLogSortField]);
-      this.emailRoutingLogs = this.emailLogReverseSort ? sorted.reverse() : sorted;
-    }
-  }
-
-  private applySortToWorkerLogs() {
-    if (this.workerLogs?.length) {
-      const sorted = sortBy(this.workerLogs, [this.workerLogSortField]);
-      this.workerLogs = this.workerLogReverseSort ? sorted.reverse() : sorted;
-    }
-  }
-
   private async refreshEmailRoutingLogs() {
     const fromDate = this.dateUtils.asDateTime(this.logDateRange.from);
     const toDate = this.dateUtils.asDateTime(this.logDateRange.to);
     try {
-      this.emailRoutingLogs = await this.cloudflareEmailRoutingService.queryEmailRoutingLogs({
-        startDate: fromDate.toISO(),
-        endDate: toDate.toISO(),
-        recipientEmail: this.roleEmail,
-        limit: 100
-      });
-      this.applySortToEmailLogs();
+      const recipients = (this.recipientEmails?.length ? this.recipientEmails : [this.roleEmail]).filter(Boolean);
+      if (recipients.length === 0) {
+        this.emailRoutingLogs = await this.cloudflareEmailRoutingService.queryEmailRoutingLogs({
+          startDate: fromDate.toISO(),
+          endDate: toDate.toISO(),
+          limit: 100
+        });
+      } else {
+        const batches = await Promise.all(recipients.map(recipientEmail => this.cloudflareEmailRoutingService.queryEmailRoutingLogs({
+          startDate: fromDate.toISO(),
+          endDate: toDate.toISO(),
+          recipientEmail,
+          limit: 100
+        })));
+        const seen = new Set<string>();
+        this.emailRoutingLogs = batches.flat().filter(entry => {
+          const key = entry.sessionId || `${entry.datetime}|${entry.to}|${entry.subject}`;
+          const unseen = !seen.has(key);
+          if (unseen) {
+            seen.add(key);
+          }
+          return unseen;
+        });
+      }
     } catch (err) {
       this.error = this.friendlyError(err);
     }
@@ -392,7 +358,6 @@ export class EmailRoutingLogComponent implements OnInit {
         scriptName: this.workerScriptName,
         limit: 100
       });
-      this.applySortToWorkerLogs();
     } catch (err) {
       this.error = this.friendlyError(err);
     }
@@ -430,13 +395,13 @@ export class EmailRoutingLogComponent implements OnInit {
     return this.dateUtils.displayDateAbbreviatedTimeZone(dateValue);
   }
 
-  hasUniformMissingDmarcSummary(): boolean {
-    return this.emailRoutingLogs?.length > 1 && this.emailRoutingLogs.every(log => this.authSummary(log) === this.missingDmarcSummary);
+  compactAddress(value: string): string {
+    const match = (value || "").match(/<([^>]+)>/);
+    return match ? match[1] : value;
   }
 
-  showAuthSummary(log: EmailRoutingLogEntry): boolean {
-    const summary = this.authSummary(log);
-    return !!summary && !(this.hasUniformMissingDmarcSummary() && summary === this.missingDmarcSummary);
+  hasUniformMissingDmarcSummary(): boolean {
+    return this.emailRoutingLogs?.length > 1 && this.emailRoutingLogs.every(log => this.authSummary(log) === this.missingDmarcSummary);
   }
 
   authSummary(log: EmailRoutingLogEntry): string {
@@ -445,19 +410,29 @@ export class EmailRoutingLogComponent implements OnInit {
     const dmarc = (log.dmarc || "").toLowerCase();
     const status = log.status;
     const isWorkerRoute = this.routeType === "worker";
-
-    if (status === EmailRoutingLogStatus.DROPPED && isWorkerRoute) {
+    const failures: string[] = [];
+    if (spf === EmailAuthResult.FAIL || spf === EmailAuthResult.HARDFAIL) {
+      failures.push("SPF failed - sender IP not authorised for this domain");
+    } else if (spf === EmailAuthResult.SOFTFAIL) {
+      failures.push("SPF soft-failed - sender IP not explicitly authorised");
+    }
+    if (dkim === EmailAuthResult.FAIL) {
+      failures.push("DKIM failed - email signature could not be verified");
+    }
+    if (dmarc === EmailAuthResult.FAIL) {
+      failures.push("DMARC failed - sender domain policy rejected this email");
+    }
+    if (failures.length > 0) {
+      return failures.join(". ");
+    } else if (status === EmailRoutingLogStatus.DROPPED && isWorkerRoute) {
       if (this.workerErrorNear(log.datetime)) {
-        return "Worker invocation failed for this message - see Worker Invocation Log below. Mail to this address will not have been delivered.";
-      }
-      if (spf === EmailAuthResult.PASS && dkim === EmailAuthResult.PASS) {
+        return "Worker invocation failed for this message - see Worker Invocation Log. Mail to this address will not have been delivered.";
+      } else if (spf === EmailAuthResult.PASS && dkim === EmailAuthResult.PASS) {
         return "Handed off to worker for forwarding - authentication passed";
       } else {
         return "Handed off to worker for forwarding";
       }
-    }
-
-    if (status === EmailRoutingLogStatus.FORWARDED || status === EmailRoutingLogStatus.DELIVERED) {
+    } else if (status === EmailRoutingLogStatus.FORWARDED || status === EmailRoutingLogStatus.DELIVERED) {
       if (spf === EmailAuthResult.PASS && dkim === EmailAuthResult.PASS && dmarc === EmailAuthResult.PASS) {
         return "Fully authenticated and delivered";
       } else if (spf === EmailAuthResult.PASS && dkim === EmailAuthResult.PASS) {
@@ -465,32 +440,13 @@ export class EmailRoutingLogComponent implements OnInit {
       } else {
         return "Delivered despite incomplete authentication";
       }
-    }
-
-    const failures: string[] = [];
-    if (spf === EmailAuthResult.FAIL || spf === EmailAuthResult.HARDFAIL) {
-      failures.push("SPF failed — sender IP not authorised for this domain");
-    } else if (spf === EmailAuthResult.SOFTFAIL) {
-      failures.push("SPF soft-failed — sender IP not explicitly authorised");
-    }
-    if (dkim === EmailAuthResult.FAIL) {
-      failures.push("DKIM failed — email signature could not be verified");
-    }
-    if (dmarc === EmailAuthResult.FAIL) {
-      failures.push("DMARC failed — sender domain policy rejected this email");
-    }
-    if (failures.length > 0) {
-      return failures.join(". ");
-    }
-
-    if (status === EmailRoutingLogStatus.DROPPED) {
-      return log.errorDetail || "Email was dropped — check worker logs for details";
-    }
-    if (status === EmailRoutingLogStatus.REJECTED) {
+    } else if (status === EmailRoutingLogStatus.DROPPED) {
+      return log.errorDetail || "Email was dropped - check worker logs for details";
+    } else if (status === EmailRoutingLogStatus.REJECTED) {
       return "Email was rejected by the routing rule";
+    } else {
+      return "";
     }
-
-    return "";
   }
 
   private workerErrorNear(emailDateTime: string): boolean {

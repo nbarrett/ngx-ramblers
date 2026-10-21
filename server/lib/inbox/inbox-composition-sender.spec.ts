@@ -4,6 +4,7 @@ import { BrandingMode } from "../../../projects/ngx-ramblers/src/app/models/mail
 import {
   compositionSenderEmail,
   holdsMailboxAccountAddress,
+  inboxAttachmentsFromComposer,
   replacementSender,
   senderOutsideMailboxAccounts
 } from "./inbox-composition-sender";
@@ -181,6 +182,30 @@ describe("replacing mailbox account senders", () => {
       expect(replacementSender({name: "EKWG", email: "eastkentwalkinggroup@gmail.com"}, null, null)).toBeNull();
     });
 
+  });
+
+});
+
+describe("inboxAttachmentsFromComposer", () => {
+
+  it("maps composer name and url onto inbox filename and s3 key", () => {
+    expect(inboxAttachmentsFromComposer([
+      {name: "receipt.pdf", url: "https://group.example.org.uk/api/aws/s3/mail/receipt.pdf", sizeBytes: 1200},
+      {name: "invoice.pdf", url: "/api/aws/s3/mail/invoice.pdf"}
+    ])).toEqual([
+      {filename: "receipt.pdf", contentType: "application/octet-stream", sizeBytes: 1200, s3Key: "mail/receipt.pdf", contentId: null},
+      {filename: "invoice.pdf", contentType: "application/octet-stream", sizeBytes: 0, s3Key: "mail/invoice.pdf", contentId: null}
+    ]);
+  });
+
+  it("uses the url path when the composer attachment has no name, and drops attachments with neither", () => {
+    expect(inboxAttachmentsFromComposer([
+      {name: "", url: "/api/aws/s3/mail/walk-notes.pdf"},
+      {name: "  ", url: ""},
+      {name: "", url: ""}
+    ])).toEqual([
+      {filename: "walk-notes.pdf", contentType: "application/octet-stream", sizeBytes: 0, s3Key: "mail/walk-notes.pdf", contentId: null}
+    ]);
   });
 
 });

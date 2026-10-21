@@ -44,8 +44,9 @@ describe("inbox provider switch", () => {
       {id: "g1", provider: InboxReaderProvider.GMAIL_API, enabled: true, oauthRefreshTokenEncrypted: "token", syncMode: InboxSyncMode.POLL}
     ]);
     sandbox.stub(ingress, "ensureCloudflareIngressConnection").resolves({id: "cf1"} as any);
+    sandbox.stub(cloudflareConfig, "nonSensitiveCloudflareConfig").resolves({baseDomain: "group.example.org.uk"});
     sandbox.stub(cloudflareConfig, "configuredCloudflareForCurrentSite").resolves({zoneId: "zone-1"} as any);
-    sandbox.stub(directInboxCatchAll, "ensureDirectInboxCatchAll").resolves({changed: true, detail: "Catch-all now delivers to this site's inbox"});
+    sandbox.stub(directInboxCatchAll, "ensureDirectInboxCatchAll").resolves({scriptName: "email-inbox-router-group-example-org-uk", changed: true, detail: "Catch-all now delivers to this site's inbox"});
     sandbox.stub(gmailReader, "stopGmailWatch").resolves();
     const updateMany = sandbox.stub(inboxMailboxConnection, "updateMany").resolves({modifiedCount: 1} as any);
 
@@ -80,8 +81,9 @@ describe("inbox provider switch", () => {
       {id: "g1", provider: InboxReaderProvider.GMAIL_API, enabled: false, oauthRefreshTokenEncrypted: "token"}
     ]);
     sandbox.stub(ingress, "ensureCloudflareIngressConnection").resolves({id: "cf1"} as any);
+    sandbox.stub(cloudflareConfig, "nonSensitiveCloudflareConfig").resolves({baseDomain: "group.example.org.uk"});
     sandbox.stub(cloudflareConfig, "configuredCloudflareForCurrentSite").resolves({zoneId: "zone-1"} as any);
-    sandbox.stub(directInboxCatchAll, "ensureDirectInboxCatchAll").resolves({changed: false, detail: "Catch-all already delivers to this site's inbox"});
+    sandbox.stub(directInboxCatchAll, "ensureDirectInboxCatchAll").resolves({scriptName: "email-inbox-router-group-example-org-uk", changed: false, detail: "Catch-all already delivers to this site's inbox"});
     sandbox.stub(inboxMailboxConnection, "updateMany").resolves({modifiedCount: 0} as any);
 
     const result = await applyInboxProviderSwitch(InboxReaderProvider.CLOUDFLARE_INGRESS, "member-1");

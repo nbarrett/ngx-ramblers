@@ -77,6 +77,7 @@ export enum AdminSettingsPath {
 }
 
 export enum AdminPlatformPath {
+  CLOUDFLARE_WORKERS = "admin/platform/cloudflare-workers",
   ROOT = "admin/platform",
   ENVIRONMENT_MANAGEMENT = "admin/platform/environment-management",
   ENVIRONMENT_MANAGEMENT_REGISTRATIONS = "admin/platform/environment-management/registrations",

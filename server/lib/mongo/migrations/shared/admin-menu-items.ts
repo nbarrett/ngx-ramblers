@@ -523,7 +523,16 @@ export const SETTINGS_MENU_ITEMS: ActionButtonColumn[] = [
   }
 ];
 
+export const CLOUDFLARE_WORKERS_MENU_ITEM: ActionButtonColumn = {
+  accessLevel: "environmentAdmin",
+  title: "Cloudflare Workers",
+  icon: "faCloud",
+  href: AdminPlatformPath.CLOUDFLARE_WORKERS,
+  contentText: "Inspect account-wide workers and their email routing references across accessible zones"
+};
+
 export const PLATFORM_MENU_ITEMS: ActionButtonColumn[] = [
+  CLOUDFLARE_WORKERS_MENU_ITEM,
   {
     accessLevel: "environmentAdmin",
     title: "Environment Management",

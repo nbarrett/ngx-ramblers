@@ -1,7 +1,8 @@
 import expect from "expect";
-import { describe, it } from "mocha";
+import { afterEach, describe, it } from "mocha";
+import sinon from "sinon";
 import { EmailForwardingMode } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
-import { generateRouterWorkerScript, generateWorkerScript, transpileWorkerTemplate } from "./cloudflare-email-workers";
+import { generateRouterWorkerScript, generateWorkerScript, transpileWorkerTemplate, uploadWorkerScript } from "./cloudflare-email-workers";
 
 const webhookHelperNames = ["hmacSign", "encodeRawMimeBase64", "signAndPostWebhook"];
 
@@ -13,6 +14,17 @@ function expectSelfContainedWebhookWorker(script: string): void {
 }
 
 describe("cloudflare email workers", () => {
+  const sandbox = sinon.createSandbox();
+  afterEach(() => sandbox.restore());
+
+  it("preserves existing secret bindings when publishing worker code", async () => {
+    const request = sandbox.stub(global, "fetch").resolves(Response.json({success: true, result: {id: "worker-1"}}));
+    await uploadWorkerScript({accountId: "account-1", apiToken: "token"} as any, "email-inbox-router-group-example-org-uk", "export default {};");
+    const form = request.firstCall.args[1].body as FormData;
+    const metadata = JSON.parse(await (form.get("metadata") as Blob).text());
+    expect(metadata.keep_bindings).toEqual(["secret_text"]);
+  });
+
   it("generates a self-contained shared inbox router", () => {
     const script = generateRouterWorkerScript();
     expectSelfContainedWebhookWorker(script);

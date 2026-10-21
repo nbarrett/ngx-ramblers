@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { CalendarMethod, CalendarRsvpStatus, OrganiserLabel } from "../models/inbox.model";
 import {
   calendarInviteCanRsvp,
+  calendarPublishDocument,
   calendarReplyDocument,
   calendarReplyResponses,
   calendarRsvpSubject,
@@ -140,6 +141,8 @@ describe("isCalendarFile", () => {
     expect(isCalendarFile("invite.ics", "application/octet-stream")).toEqual(true);
     expect(isCalendarFile("meeting", "text/calendar")).toEqual(true);
     expect(isCalendarFile("notes.pdf", "application/pdf")).toEqual(false);
+    expect(isCalendarFile("screenshot.jpg", "image/jpeg")).toEqual(false);
+    expect(isCalendarFile("invite.ics", "image/jpeg")).toEqual(false);
   });
 
 });
@@ -170,6 +173,34 @@ describe("calendarReplyDocument", () => {
     expect(unfolded).toContain("ORGANIZER;CN=Ciaran Evans:mailto:Ciaran.Evans@ramblers.org.uk");
     expect(calendarRsvpSubject(CalendarRsvpStatus.ACCEPTED, "Microsoft Teams Meeting")).toEqual("Accepted: Microsoft Teams Meeting");
     expect(calendarRsvpSubject(CalendarRsvpStatus.DECLINED, "Microsoft Teams Meeting")).toEqual("Declined: Microsoft Teams Meeting");
+  });
+
+});
+
+describe("calendarPublishDocument", () => {
+
+  it("builds a METHOD:PUBLISH file Calendar.app can import", () => {
+    const event = parseIcsEvents([
+      "BEGIN:VEVENT",
+      "UID:meeting-1@example.org",
+      "DTSTART:20261022T140000Z",
+      "DTEND:20261022T143000Z",
+      "SUMMARY:Committee meeting",
+      "LOCATION:Microsoft Teams Meeting",
+      "DESCRIPTION:Microsoft Teams meeting\\nJoin: https://teams.example.org/meet/abc",
+      "ORGANIZER;CN=Alex Reed:mailto:alex.reed@example.com",
+      "END:VEVENT"
+    ].join("\n"))[0];
+    const document = calendarPublishDocument(event, DateTime.fromISO("2026-10-21T12:00:00Z", {zone: "utc"}).toMillis());
+    const unfolded = document.replace(/\r\n /g, "");
+    expect(unfolded).toContain("METHOD:PUBLISH");
+    expect(unfolded).toContain("UID:meeting-1@example.org");
+    expect(unfolded).toContain("SUMMARY:Committee meeting");
+    expect(unfolded).toContain("DTSTART:20261022T140000Z");
+    expect(unfolded).toContain("LOCATION:Microsoft Teams Meeting");
+    expect(unfolded).toContain("mailto:alex.reed@example.com");
+    expect(unfolded.startsWith("BEGIN:VCALENDAR")).toEqual(true);
+    expect(unfolded.trim().endsWith("END:VCALENDAR")).toEqual(true);
   });
 
 });

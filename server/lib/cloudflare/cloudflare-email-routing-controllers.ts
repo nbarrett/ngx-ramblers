@@ -23,7 +23,8 @@ import {
 import {
   createDestinationAddress,
   deleteDestinationAddress,
-  listDestinationAddresses
+  listDestinationAddresses,
+  ensureForwardDestinationVerified
 } from "./cloudflare-destination-addresses";
 import {
   deleteWorkerScript,
@@ -34,7 +35,6 @@ import {
   listWorkerScripts,
   parseRecipientsFromScript,
   parseWorkerScriptInfo,
-  ROUTER_WORKER_NAME,
   scriptsMatchIgnoringWhitespace,
   uploadWorkerScript,
   uploadWorkerSecret,
@@ -59,12 +59,18 @@ import {
   EmailRoutingActionType,
   emailRoutingRuleAddress,
   emailRoutingRuleIdentifier,
+  isInboxRouterWorkerName,
   isLiteralDomainAddressRule,
   UpdateCatchAllRequest,
   WorkerLogsRequest
 } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
-import { configuredEnvironments } from "../environments/environments-config";
+import { assertCatchAllOwnedByThisSite, ensureDirectInboxCatchAll, ensureRouterWorker } from "./direct-inbox-catch-all";
 import { pluraliseWithCount } from "../shared/string-utils";
+import { systemConfig } from "../config/system-config";
+import { InboxRouterCallResult } from "../../../projects/ngx-ramblers/src/app/models/system.model";
+import { InboxReaderProvider } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
+import { dateTimeNow } from "../shared/dates";
 
 const messageType = "cloudflare:email-routing";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -105,46 +111,6 @@ function forwardingModeLabel(mode: EmailForwardingMode): string {
   return "Worker forward";
 }
 
-async function ensureForwardDestinationVerified(cloudflareConfig: CloudflareConfig, email: string): Promise<void> {
-  const normalisedEmail = email.trim().toLowerCase();
-  const existing = (await listDestinationAddresses(cloudflareConfig))
-    .find(a => a.email?.trim().toLowerCase() === normalisedEmail);
-  if (existing?.verified) {
-    return;
-  }
-  if (existing) {
-    throw new HttpError(400, `${email} is registered as a Cloudflare destination but has not been verified yet. Open the verification email Cloudflare sent to ${email}, click the link, then try again.`, "DestinationNotVerified");
-  }
-  try {
-    await createDestinationAddress(cloudflareConfig, email);
-  } catch (error) {
-    if (/verification email has been sent too recently/i.test(error.message || "")) {
-      throw new HttpError(429, `Cloudflare recently sent a verification email to ${email}. Check that inbox for the link, then try again in a few minutes.`, "RateLimited");
-    }
-    throw new HttpError(400, `Could not register ${email} as a Cloudflare destination address: ${error.message}`, "DestinationRegistrationFailed");
-  }
-  throw new HttpError(400, `A verification email has been sent to ${email}. Click the link Cloudflare sent to that inbox, then try again.`, "DestinationVerificationSent");
-}
-
-async function inboundRouterSecret(): Promise<string | null> {
-  const environmentSecret = envConfig.value(Environment.NGX_INBOUND_SECRET)?.trim();
-  if (environmentSecret) {
-    return environmentSecret;
-  }
-  const environmentsConfig = await configuredEnvironments();
-  return environmentsConfig.secrets?.[Environment.NGX_INBOUND_SECRET]?.trim() || null;
-}
-
-async function ensureRouterWorker(cloudflareConfig: CloudflareConfig): Promise<string> {
-  const secret = await inboundRouterSecret();
-  if (!secret) {
-    throw new HttpError(400, `No shared inbound router secret is configured (${Environment.NGX_INBOUND_SECRET}). Set it in the platform admin shared secrets and redeploy this site before routing mail to inboxes.`, "RouterSecretMissing");
-  }
-  await uploadWorkerScript(cloudflareConfig, ROUTER_WORKER_NAME, generateRouterWorkerScript());
-  await uploadWorkerSecret(cloudflareConfig, ROUTER_WORKER_NAME, Environment.NGX_INBOUND_SECRET, secret);
-  return ROUTER_WORKER_NAME;
-}
-
 async function planCatchAllRule(
   action: CatchAllAction,
   destinations: string[],
@@ -179,19 +145,17 @@ async function planCatchAllRule(
     };
   }
   if (action === CatchAllAction.SHARED_ROUTER) {
-    if (destinations.length !== 1) {
-      throw new HttpError(400, "SHARED_ROUTER action requires exactly one fallback forward destination (where non-inbox mail goes).");
+    if (destinations.length > 1) {
+      throw new HttpError(400, "The inbox router accepts at most one optional fallback address.");
     }
-    await ensureForwardDestinationVerified(cloudflareConfig, destinations[0]);
-    const scriptName = await ensureRouterWorker(cloudflareConfig);
-    await uploadWorkerSecret(cloudflareConfig, scriptName, "NGX_FALLBACK_FORWARD", destinations[0]);
+    const fallback = destinations[0] || "";
+    const scriptName = await ensureRouterWorker(cloudflareConfig, baseDomain, fallback);
     return {
       enabled: true,
       actions: [{type: EmailRoutingActionType.WORKER, value: [scriptName]}],
-      nameSuffix: `Shared inbox router (fallback ${destinations[0]})`
+      nameSuffix: fallback ? `Shared inbox router (fallback ${fallback})` : "Shared inbox router"
     };
-  }
-  if (action === CatchAllAction.WORKER) {
+  } else if (action === CatchAllAction.WORKER) {
     if (forwardingMode !== EmailForwardingMode.NGX_INBOX && destinations.length === 0) {
       throw new HttpError(400, "WORKER action requires at least one destination");
     }
@@ -214,21 +178,8 @@ async function planCatchAllRule(
       actions: [{type: EmailRoutingActionType.WORKER, value: [catchAllScriptName]}],
       nameSuffix: forwardingMode === EmailForwardingMode.NGX_INBOX ? modeLabel : `${modeLabel} (${destinations.length} recipients)`
     };
-  }
-  throw new HttpError(400, `Unknown catch-all action: ${action}`);
-}
-
-async function assertCatchAllOwnedByThisSite(cloudflareConfig: CloudflareConfig, baseDomain: string): Promise<void> {
-  const host = (baseDomain || "").replace(/^www\./, "").trim().toLowerCase();
-  if (!host) {
-    return;
-  }
-  const zone = await zoneForHostname(cloudflareConfig.apiToken, host);
-  const zoneName = (zone?.name || "").trim().toLowerCase();
-  if (zoneName && host !== zoneName && host.endsWith(`.${zoneName}`)) {
-    throw new HttpError(403,
-      `The catch-all belongs to the ${zoneName} Cloudflare zone, which is shared by every site on that domain (including staging). This site (${host}) is a subdomain of it, so changing the catch-all here would affect the whole zone and every other site on it. Manage the catch-all from the ${zoneName} site instead.`,
-      "SubdomainCatchAllForbidden");
+  } else {
+    throw new HttpError(400, `Unknown catch-all action: ${action}`);
   }
 }
 
@@ -292,7 +243,7 @@ export async function putCatchAllRule(req: Request, res: Response): Promise<void
       errorDebugLog("Failed to delete previous catch-all worker script", existingWorkerScript, ":", cleanupError.message);
     }
   } else if (previousIsOrphaned) {
-    debugLog("Catch-all previously referenced %s - preserving (shared with another rule, not a dedicated catch-all script). The new catch-all rule points at %s.", existingWorkerScript, catchAllScriptName);
+    debugLog("Catch-all previously referenced %s - preserving (shared with another rule, not a dedicated catch-all script). The new catch-all rule points at %s.", existingWorkerScript, plan.actions[0]?.value?.[0] || request.action);
   }
 
   res.json({request: {messageType}, response: updated});
@@ -302,8 +253,13 @@ export async function postCatchAllRouterRedeploy(req: Request, res: Response): P
   const cloudflareConfig = await configuredCloudflareForCurrentSite();
   const nsConfig = await nonSensitiveCloudflareConfig();
   await assertCatchAllOwnedByThisSite(cloudflareConfig, nsConfig.baseDomain || "");
-  const scriptName = await ensureRouterWorker(cloudflareConfig);
-  res.json({request: {messageType}, response: {scriptName}});
+  const existing = await catchAllRule(cloudflareConfig);
+  if (!existing?.enabled || !existing.actions?.some(action => action.type === EmailRoutingActionType.WORKER && isInboxRouterWorkerName(action.value?.[0]))) {
+    throw new HttpError(400, "Only an active inbox router catch-all can be redeployed. Save the catch-all settings first.");
+  } else {
+    const response = await ensureDirectInboxCatchAll(cloudflareConfig, nsConfig.baseDomain || "");
+    res.json({request: {messageType}, response});
+  }
 }
 
 export async function postClearAddressRules(req: Request, res: Response): Promise<void> {
@@ -475,7 +431,7 @@ export async function getWorkerInfo(req: Request, res: Response): Promise<void> 
   let upToDate: boolean | undefined;
   const roleEmail = req.query.roleEmail as string | undefined;
   const roleName = req.query.roleName as string | undefined;
-  const isRouterCatchAllContext = req.params.scriptName === ROUTER_WORKER_NAME
+  const isRouterCatchAllContext = isInboxRouterWorkerName(req.params.scriptName)
     && (roleName === "catch-all" || (roleEmail || "").trim().startsWith("*@"));
   if (isRouterCatchAllContext) {
     const expected = generateRouterWorkerScript();
@@ -588,6 +544,38 @@ export async function renameWorker(req: Request, res: Response): Promise<void> {
   await deleteWorkerScript(cloudflareConfig, oldName);
 
   res.json({request: {messageType}, response: {oldName, newScriptName}});
+}
+
+export async function getInboxRouterHealth(_req: Request, res: Response): Promise<void> {
+  const lastCall = (await systemConfig())?.inbox?.routerLastCall || null;
+  const end = dateTimeNow();
+  const start = end.minus({hours: 24});
+  let cloudflareAcceptedLastDay = 0;
+  try {
+    const cloudflareConfig = await configuredCloudflareForCurrentSite();
+    const logs = await queryEmailRoutingLogs(cloudflareConfig, {
+      startDate: start.toUTC().toISO(),
+      endDate: end.toUTC().toISO(),
+      limit: 50
+    });
+    cloudflareAcceptedLastDay = logs.length;
+  } catch (error) {
+    errorDebugLog("inbox-router-health: could not read Cloudflare routing logs: %s", (error as Error).message || error);
+  }
+  const storedLastDay = await inboxMessageModel.countDocuments({
+    receivedAt: {$gte: start.toMillis()},
+    externalSource: InboxReaderProvider.CLOUDFLARE_INGRESS
+  });
+  const hmacRejected = lastCall?.result === InboxRouterCallResult.REJECTED;
+  res.json({
+    request: {messageType},
+    response: {
+      lastCall,
+      cloudflareAcceptedLastDay,
+      storedLastDay,
+      needsRefresh: hmacRejected
+    }
+  });
 }
 
 export async function postEmailRoutingLogs(req: Request, res: Response): Promise<void> {

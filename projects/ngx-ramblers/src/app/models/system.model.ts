@@ -486,6 +486,18 @@ export interface InboxRoleVisibility {
   inboxVisibleToRoleTypes?: string[];
 }
 
+export enum InboxRouterCallResult {
+  STORED = "stored",
+  REJECTED = "rejected",
+  ERROR = "error"
+}
+
+export interface InboxRouterLastCall {
+  at: number;
+  result: InboxRouterCallResult;
+  httpStatus: number;
+}
+
 export interface InboxSettingsConfig {
   provider: InboxReaderProvider;
   catchAll?: InboxCatchAllPolicy;
@@ -494,6 +506,7 @@ export interface InboxSettingsConfig {
     junk?: InboxRoleVisibility;
     other?: InboxRoleVisibility;
   };
+  routerLastCall?: InboxRouterLastCall;
 }
 
 export interface InboxPushConfig {

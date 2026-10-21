@@ -56,6 +56,35 @@ describe("inbox provider switch controls", () => {
     expect(component.pendingProvider).toBe(InboxReaderProvider.CLOUDFLARE_INGRESS);
   });
 
+  it("describes publishing the zone router when switching to Direct to inbox", () => {
+    const component = Object.assign(Object.create(SystemGmailInboxSettingsComponent.prototype), {
+      pendingProvider: InboxReaderProvider.CLOUDFLARE_INGRESS,
+      isSharedZoneSubdomain() {
+        return false;
+      }
+    });
+    expect(component.switchConfirmCopy()).toContain("publishes this site's zone inbox router");
+    expect(component.switchConfirmCopy()).not.toContain("Committee Settings still needs");
+  });
+
+  it("describes parent-zone catch-all when a subdomain switches to Direct to inbox", () => {
+    const component = Object.assign(Object.create(SystemGmailInboxSettingsComponent.prototype), {
+      pendingProvider: InboxReaderProvider.CLOUDFLARE_INGRESS,
+      isSharedZoneSubdomain() {
+        return true;
+      }
+    });
+    expect(component.switchConfirmCopy()).toContain("parent zone site");
+    expect(component.switchConfirmCopy()).not.toContain("publishes this site's zone inbox router");
+  });
+
+  it("describes leaving the catch-all in place when switching back to Gmail", () => {
+    const component = Object.assign(Object.create(SystemGmailInboxSettingsComponent.prototype), {
+      pendingProvider: InboxReaderProvider.GMAIL_API
+    });
+    expect(component.switchConfirmCopy()).toContain("catch-all is left as it is");
+  });
+
   it("does not send another confirmation while a switch is running", async () => {
     const apply = vi.fn();
     const component = Object.assign(Object.create(SystemGmailInboxSettingsComponent.prototype), {

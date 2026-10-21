@@ -2,6 +2,7 @@ import express from "express";
 import * as authConfig from "../auth/auth-config";
 import * as controller from "./cloudflare-email-routing-controllers";
 import { asyncRoute } from "../shared/async-route";
+import { requireWorkerInventoryAccess, workerInventory } from "./cloudflare-worker-inventory-controllers";
 
 const messageType = "cloudflare:email-routing";
 const router = express.Router();
@@ -21,6 +22,7 @@ router.post("/destination-addresses", authConfig.authenticate(), asyncRoute(mess
 router.post("/destination-addresses/resend", authConfig.authenticate(), asyncRoute(messageType, controller.postDestinationAddressResend));
 router.delete("/destination-addresses/:addressId", authConfig.authenticate(), asyncRoute(messageType, controller.deleteDestinationAddressById));
 
+router.get("/workers/inventory", authConfig.authenticate(), authConfig.requireAdmin, requireWorkerInventoryAccess, asyncRoute(messageType, workerInventory));
 router.get("/workers", authConfig.authenticate(), asyncRoute(messageType, controller.getWorkers));
 router.get("/workers/:scriptName/recipients", authConfig.authenticate(), asyncRoute(messageType, controller.getWorkerRecipients));
 router.get("/workers/:scriptName/info", authConfig.authenticate(), asyncRoute(messageType, controller.getWorkerInfo));
@@ -28,6 +30,7 @@ router.post("/workers", authConfig.authenticate(), asyncRoute(messageType, contr
 router.delete("/workers/:scriptName", authConfig.authenticate(), asyncRoute(messageType, controller.deleteWorker));
 router.put("/workers/:oldName/rename", authConfig.authenticate(), asyncRoute(messageType, controller.renameWorker));
 
+router.get("/inbox-router-health", authConfig.authenticate(), asyncRoute(messageType, controller.getInboxRouterHealth));
 router.post("/logs/email-routing", authConfig.authenticate(), asyncRoute(messageType, controller.postEmailRoutingLogs));
 router.post("/logs/workers", authConfig.authenticate(), asyncRoute(messageType, controller.postWorkerLogs));
 
