@@ -43,7 +43,11 @@ import { WalkLeadEditButton } from "../walk-view/walk-lead-edit-button";
           {{ row.title || "Untitled walk slot" }}
         </div>
         <div class="walk-row-meta">
-          <span><fa-icon [icon]="faPersonWalking"/> {{ row.leaderName || "No leader" }}</span>
+          @if (row.leaderName) {
+            <span><fa-icon [icon]="faPersonWalking"/> {{ row.leaderName }}</span>
+          } @else if (!display.walkPopulationWalksManager()) {
+            <span><fa-icon [icon]="faPersonWalking"/> No leader</span>
+          }
           @if (row.distanceMiles) {
             <span>{{ row.distanceMiles }} miles</span>
           }
@@ -150,7 +154,7 @@ export class WalkProgrammeRowComponent {
 
   whatsMissing(): string[] {
     return [
-      this.row.leaderName ? null : "leader",
+      this.row.leaderName || this.display.walkPopulationWalksManager() ? null : "leader",
       this.row.title ? null : "walk details",
       this.row.distanceMiles ? null : "distance",
       this.row.gradeDescription ? null : "grade",
