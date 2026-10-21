@@ -20,7 +20,7 @@ import { debounceTime } from "rxjs/operators";
 import { UIDateFormat } from "../../models/date-format.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
 import { PresetSelect } from "../../modules/common/preset-select/preset-select";
-import { DATE_RANGE_SLIDER_PRESETS, DateRangeSliderPreset } from "../../models/date.model";
+import { DATE_RANGE_SLIDER_PRESETS, DateRangeSliderAxisTick, DateRangeSliderPreset } from "../../models/date.model";
 import { DateDirection } from "../../models/search.model";
 
 export interface DateRange {
@@ -36,6 +36,50 @@ export function dateRangeSliderBounds(fromDate: DateTime, toDate: DateTime, padd
     minDate: fromDate.minus({milliseconds: paddingMillis}).startOf("day"),
     maxDate: toDate.plus({milliseconds: paddingMillis}).startOf("day")
   };
+}
+
+export function dateRangeSliderAxisTicks(
+  minDate: DateTime | null,
+  span: number,
+  labelFor: (date: DateTime) => string
+): DateRangeSliderAxisTick[] {
+  const empty: DateRangeSliderAxisTick[] = [];
+  if (!minDate || span <= 0) {
+    return empty;
+  } else {
+    const step = span <= 10 ? 1 : span <= 45 ? 7 : span <= 180 ? 14 : 30;
+    const rawCount = Math.floor(span / step);
+    const values = Array.from({length: rawCount + 1}, (_, index) => index * step);
+    const withEnd = values[values.length - 1] === span ? values : [...values, span];
+    const minPercent = 12;
+    const kept = withEnd.reduce((ticks: DateRangeSliderAxisTick[], value: number) => {
+      const percent = (value / span) * 100;
+      const previous = ticks[ticks.length - 1];
+      const candidate: DateRangeSliderAxisTick = {
+        value,
+        percent,
+        label: labelFor(minDate.plus({days: value})),
+        start: value === 0,
+        end: value === span
+      };
+      if (!previous) {
+        return [candidate];
+      } else if (percent - previous.percent < minPercent) {
+        if (value === span) {
+          return [...ticks.slice(0, -1), candidate];
+        } else {
+          return ticks;
+        }
+      } else {
+        return [...ticks, candidate];
+      }
+    }, empty);
+    return kept.map((tick, index) => ({
+      ...tick,
+      start: index === 0,
+      end: index === kept.length - 1
+    }));
+  }
 }
 
 @Component({
@@ -62,8 +106,15 @@ export function dateRangeSliderBounds(fromDate: DateTime, toDate: DateTime, padd
         </div>
 
         <div class="range-slider-container pb-0">
+          <div class="slider-ticks" aria-hidden="true">
+            @for (tick of axisTicks; track tick.value) {
+              <span class="slider-tick"
+                    [class.tick-start]="tick.start"
+                    [class.tick-end]="tick.end"
+                    [style.left.%]="tick.percent">{{ tick.label }}</span>
+            }
+          </div>
           <div class="range-slider-row">
-            <span class="range-edge text-start">{{ minDateLabel }}</span>
             <div class="slider-wrapper">
               <input
                 type="range"
@@ -88,7 +139,6 @@ export function dateRangeSliderBounds(fromDate: DateTime, toDate: DateTime, padd
                 <div class="slider-fill" [style.left.%]="fillLeft" [style.width.%]="fillWidth"></div>
               </div>
             </div>
-            <span class="range-edge text-end">{{ maxDateLabel }}</span>
           </div>
         </div>
       </div>
@@ -142,17 +192,31 @@ export function dateRangeSliderBounds(fromDate: DateTime, toDate: DateTime, padd
         position: relative
         padding: 0
 
+      .slider-ticks
+        position: relative
+        height: 1.15rem
+        margin-bottom: 0.35rem
+
+      .slider-tick
+        position: absolute
+        top: 0
+        transform: translateX(-50%)
+        white-space: nowrap
+        font-size: 0.75rem
+        line-height: 1.15rem
+        color: #6c757d
+        pointer-events: none
+
+      .slider-tick.tick-start
+        transform: translateX(0)
+
+      .slider-tick.tick-end
+        transform: translateX(-100%)
+
       .range-slider-row
         display: flex
         align-items: center
         gap: 1rem
-
-      .range-edge
-        flex: 0 0 120px
-        font-size: 0.875rem
-        color: #6c757d
-        line-height: 1
-        align-self: center
 
       .slider-wrapper
         position: relative
@@ -233,18 +297,9 @@ export function dateRangeSliderBounds(fromDate: DateTime, toDate: DateTime, padd
         .range-label.text-end
           text-align: left !important
         .range-slider-row
-          display: grid
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)
-          gap: var(--space-2)
+          display: block
           width: 100%
-        .range-edge
-          flex: none
-          width: auto
-        .range-edge.text-end
-          justify-self: end
         .slider-wrapper
-          grid-column: 1 / -1
-          grid-row: 2
           width: 100%
           margin: var(--space-2) 0
 
@@ -296,6 +351,7 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
   maxValue = 365;
   fromValue = 0;
   toValue = 30;
+  axisTicks: DateRangeSliderAxisTick[] = [];
   private ignoreViewChanges = 0;
 
   ngOnInit() {
@@ -321,14 +377,6 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
 
   private boundChanged(change: SimpleChanges[string]): boolean {
     return !!change && change.previousValue?.valueOf() !== change.currentValue?.valueOf();
-  }
-
-  get minDateLabel(): string {
-    return this.minDate ? this.dateUtils.asString(this.minDate, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "";
-  }
-
-  get maxDateLabel(): string {
-    return this.maxDate ? this.dateUtils.asString(this.maxDate, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED) : "";
   }
 
   get fromDateDisplay(): string {
@@ -472,6 +520,8 @@ export class DateRangeSlider implements OnInit, OnChanges, OnDestroy {
     }
     const totalDays = Math.max(0, Math.ceil(this.maxDate.diff(this.minDate, "days").days));
     this.maxValue = totalDays;
+    this.axisTicks = dateRangeSliderAxisTicks(this.minDate, this.maxValue, date =>
+      this.dateUtils.asString(date, undefined, UIDateFormat.DAY_MONTH_YEAR_ABBREVIATED));
     this.runWithoutViewChange(() => {
       this.fromValue = Math.min(this.fromValue, this.maxValue);
       this.toValue = Math.max(this.fromValue, Math.min(this.toValue, this.maxValue));
