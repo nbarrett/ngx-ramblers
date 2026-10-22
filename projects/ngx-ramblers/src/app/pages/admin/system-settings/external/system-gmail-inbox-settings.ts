@@ -125,7 +125,7 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
                 NGX reads mail from a connected Gmail account. Route committee addresses to that shared account so replies remain available in Admin &rarr; Inbox. Per-role forwarding to personal addresses is possible in this mode, but is discouraged because those messages bypass the shared inbox.
               }
             </div>
-            @if (memberAdmin && (inboxProvider === InboxReaderProvider.GMAIL_API || inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS)) {
+            @if (memberAdmin && !pendingProvider && (inboxProvider === InboxReaderProvider.GMAIL_API || inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS)) {
               <div class="mt-3">
                 @if (inboxProvider === InboxReaderProvider.GMAIL_API) {
                   <button class="btn btn-primary me-2" type="button"

@@ -149,6 +149,7 @@ import { PageComponent } from "../../page/page.component";
 import { Member, MemberBulkLoadDateMap } from "../../models/member.model";
 import { MemberBulkLoadAuditService } from "../../services/member/member-bulk-load-audit.service";
 import {
+  appendUniqueRecipients,
   batchSendJobWasLost,
   batchSendRecipientSplit,
   composerCommitteeRecipients,
@@ -787,7 +788,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               <div class="email-composer-step-hint">{{ stepHint(stepperActiveTab) }}</div>
             </div>
       <div class="composer-workspace-actions gap-2">
-          @if ((!sendComplete() || batchJobLost) && !sendConfirm.notificationsOutstanding()) {
+          @if (!sendComplete() || batchJobLost) {
             <button type="button" class="btn btn-quiet"
                     (click)="startNewEmail()"
                     tooltip="Start a new email"
@@ -813,7 +814,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                                  [items]="showMenuItems()"
                                  (itemSelect)="onShowMenu($event)"/>
           }
-            @if (!sendConfirm.notificationsOutstanding()) {
             <div class="composer-flow-tools">
             @switch (stepperActiveTab) {
               @case (EmailComposerStepKey.TEMPLATE) {
@@ -854,7 +854,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               }
             }
             </div>
-            }
             @if (!sendComplete()) {
               @if (sendConfirm.notificationsOutstanding()) {
                 <button type="button" class="btn btn-primary composer-send-action text-nowrap"
@@ -873,7 +872,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 </button>
               }
             }
-          @if (!sendConfirm.notificationsOutstanding()) {
           <button type="button" class="btn btn-quiet composer-maximise-toggle" (click)="composerPanel.toggle()"
                   [tooltip]="composerPanel.maximised ? composerPanel.restoreTooltip : composerPanel.maximiseTooltip">
             <fa-icon [icon]="composerPanel.maximised ? faCompress : faExpand"/>{{ composerPanel.maximised ? 'Restore' : 'Maximise' }}
@@ -881,7 +879,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           <button type="button" class="btn btn-quiet" (click)="exitComposer()">
             <fa-icon [icon]="faXmark"/>Exit
           </button>
-          }
         </div>
             @if (!draftsPanelOpen && !sentEmailsPanelOpen) {
               <ng-container *ngTemplateOutlet="composerStatusAlerts"/>
@@ -2046,6 +2043,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
                 this.session.state.subject = plan.subject;
               }
               this.session.state.introMarkdown = this.introEditor?.unwrapIfEnabled(plan.body) ?? plan.body;
+              this.introEditor?.syncValue(this.session.state.introMarkdown);
               this.session.state.addresseeType = AddresseeType.NONE;
               this.pendingForwardedHeaderLines = [];
               queueMicrotask(() => this.introEditor?.focusAtStart());
@@ -2053,18 +2051,20 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
           } else {
             if (parsed) {
               event.consume();
-              const incomingAddresses = [...parsed.to, ...parsed.cc];
-              const existing = new Set(this.session.state.externalRecipients.map(item => item.email.toLowerCase()));
-              const additions = incomingAddresses
-                .filter(addr => !existing.has(addr.email.toLowerCase()))
-                .map(addr => ({
-                  email: addr.email,
-                  name: addr.name || this.sender.nameFromEmail(addr.email) || undefined,
-                  saveForReuse: true
-                }));
-              if (additions.length > 0) {
-                this.session.state.externalRecipients = [...this.session.state.externalRecipients, ...additions];
-              }
+              const asRecipient = (addr: {name: string; email: string}) => ({
+                email: addr.email,
+                name: addr.name || this.sender.nameFromEmail(addr.email) || undefined,
+                saveForReuse: true
+              });
+              this.session.state.externalRecipients = appendUniqueRecipients(
+                this.session.state.externalRecipients,
+                parsed.to.map(asRecipient)
+              );
+              const toEmails = new Set(this.session.state.externalRecipients.map(item => item.email.toLowerCase()));
+              this.session.state.ccRecipients = appendUniqueRecipients(
+                this.session.state.ccRecipients ?? [],
+                parsed.cc.filter(addr => !toEmails.has(addr.email.toLowerCase())).map(asRecipient)
+              );
               if (parsed.subject) {
                 this.session.state.subject = parsed.subject;
               }
@@ -2074,6 +2074,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
               const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
               const forwardedMarkdown = buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, unwrappedBody);
               this.session.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, forwardedMarkdown, true);
+              this.introEditor?.syncValue(this.session.state.introMarkdown);
               this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
               queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
             }

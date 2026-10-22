@@ -33,13 +33,20 @@ describe("composer reply paste", () => {
   });
 
   it("still extracts recipients and subject when composing a new message", () => {
+    const introEditor = {
+      unwrapIfEnabled: vi.fn((text: string) => text),
+      syncValue: vi.fn(),
+      focusAtStart: vi.fn(),
+      focusAtEnd: vi.fn()
+    };
     const context = {
       session: {
         state: {
           brandingMode: BrandingMode.UNBRANDED,
           subject: "",
           introMarkdown: "",
-          externalRecipients: []
+          externalRecipients: [],
+          ccRecipients: []
         },
         inboxReplyContext: null
       },
@@ -47,6 +54,7 @@ describe("composer reply paste", () => {
       autoResolveTrackingUrls: vi.fn(() => Promise.resolve()),
       subjectStillAutomatic: vi.fn(() => false)
     };
+    Object.defineProperty(context, "introEditor", {get: () => introEditor});
     const event = {
       text: "From: Casey Green <casey.green@example.com>\nTo: Alex Reed <alex.reed@example.com>\nSubject: Weekend plans\n\nThanks for the details.",
       consume: vi.fn()
@@ -58,7 +66,63 @@ describe("composer reply paste", () => {
       {name: "Alex Reed", email: "alex.reed@example.com", saveForReuse: true},
       {name: "Casey Green", email: "casey.green@example.com", saveForReuse: true}
     ]);
+    expect(context.session.state.ccRecipients).toEqual([]);
     expect(context.session.state.introMarkdown).toContain("Thanks for the details.");
+    expect(introEditor.syncValue).toHaveBeenCalledWith(context.session.state.introMarkdown);
+  });
+
+  it("writes a pasted Outlook message into the focused compose editor", () => {
+    const introEditor = {
+      unwrapIfEnabled: vi.fn((text: string) => text),
+      syncValue: vi.fn(),
+      focusAtStart: vi.fn(),
+      focusAtEnd: vi.fn()
+    };
+    const context = {
+      session: {
+        state: {
+          brandingMode: BrandingMode.UNBRANDED,
+          subject: "",
+          introMarkdown: "",
+          externalRecipients: [],
+          ccRecipients: []
+        },
+        inboxReplyContext: null
+      },
+      sender: {nameFromEmail: vi.fn()},
+      autoResolveTrackingUrls: vi.fn(() => Promise.resolve()),
+      subjectStillAutomatic: vi.fn(() => false)
+    };
+    Object.defineProperty(context, "introEditor", {get: () => introEditor});
+    const event = {
+      text: [
+        "From: Alex Reed <alex.reed@example.com>",
+        "Date: Thursday, 22 October 2026 at 15:35",
+        "To: Casey Green <casey.green@example.com>",
+        "Cc: Jordan Lane <jordan.lane@example.com>",
+        "Subject: Re: Would you help me test the walking app?",
+        "",
+        "Dear Casey,",
+        "",
+        "Thank you for asking. Please contact Jordan instead.",
+        "",
+        "Alex"
+      ].join("\n"),
+      consume: vi.fn()
+    };
+    EmailComposer.prototype["onIntroRawPaste"].call(context as unknown as EmailComposer, event);
+    expect(event.consume).toHaveBeenCalled();
+    expect(context.session.state.subject).toBe("Re: Would you help me test the walking app?");
+    expect(context.session.state.externalRecipients).toEqual([
+      {name: "Casey Green", email: "casey.green@example.com", saveForReuse: true},
+      {name: "Alex Reed", email: "alex.reed@example.com", saveForReuse: true}
+    ]);
+    expect(context.session.state.ccRecipients).toEqual([
+      {name: "Jordan Lane", email: "jordan.lane@example.com", saveForReuse: true}
+    ]);
+    expect(context.session.state.introMarkdown).toContain("Dear Casey,");
+    expect(context.session.state.introMarkdown).toContain("Please contact Jordan instead.");
+    expect(introEditor.syncValue).toHaveBeenCalledWith(context.session.state.introMarkdown);
   });
 
   it("does not use a pasted heading as the reply subject", () => {
