@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { booleanAttribute, Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContent, PageContentColumn, PageContentRow } from "../../../models/content-text.model";
 import { AccessLevel } from "../../../models/member-resource.model";
@@ -6,7 +6,9 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
+import { PageService } from "../../../services/page.service";
 import { UrlService } from "../../../services/url.service";
+import { leadingMarkdownHeading } from "../../../functions/strings";
 import { SiteEditService } from "../../../site-edit/site-edit.service";
 import { Subscription } from "rxjs";
 import { ActionButtons } from "../action-buttons/action-buttons";
@@ -88,7 +90,8 @@ import { DocumentationLinksComponent } from "../documentation-links/documentatio
             <div [class]="actions.rowClasses(row)">
               <div class="col-12">
                 <app-dynamic-content-view [pageContent]="fragmentContentFor(row)" [contentPath]="fragmentPathFor(row)"
-                                          [contentDescription]="contentDescription || fragmentPathFor(row)"/>
+                                          [contentDescription]="contentDescription || fragmentPathFor(row)"
+                                          [liftPageTitle]="false"/>
               </div>
             </div>
           }
@@ -117,6 +120,7 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   fragmentService = inject(FragmentService);
   actions = inject(PageContentActionsService);
   siteEditService = inject(SiteEditService);
+  private pageService = inject(PageService);
   private pageContentRawData: PageContent;
 
   @Input("pageContent") set acceptChangesFrom(pageContent: PageContent) {
@@ -131,6 +135,7 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   public contentDescription: string;
   @Input()
   public notify: AlertInstance;
+  @Input({ transform: booleanAttribute }) liftPageTitle = false;
   public area: string;
   public viewablePageContent: PageContent;
   private subscriptions: Subscription[] = [];
@@ -156,13 +161,45 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+    if (this.liftPageTitle) {
+      this.pageService.setContentPageTitle(null);
+    }
   }
 
   private filterAndSet(pageContent: PageContent) {
     this.pageContentRawData = pageContent;
-    this.viewablePageContent = this.pageContentFilteredForAccessLevel(pageContent);
+    this.viewablePageContent = this.withLiftedPageTitle(this.pageContentFilteredForAccessLevel(pageContent));
     this.logger.info("pageContent:", pageContent, "filteredPageContent:", this.viewablePageContent);
     this.loadSharedFragments(this.viewablePageContent);
+  }
+
+  private withLiftedPageTitle(pageContent: PageContent): PageContent {
+    if (!this.liftPageTitle || !pageContent?.rows?.length) {
+      if (this.liftPageTitle) {
+        this.pageService.setContentPageTitle(null);
+      }
+      return pageContent;
+    } else {
+      const firstRow = pageContent.rows[0];
+      const firstColumn = firstRow?.columns?.[0];
+      const parsed = this.actions.isTextRow(firstRow) && !firstColumn?.rows?.length
+        ? leadingMarkdownHeading(firstColumn?.contentText)
+        : null;
+      if (!parsed) {
+        this.pageService.setContentPageTitle(null);
+        return pageContent;
+      } else {
+        this.pageService.setContentPageTitle(parsed.heading);
+        const remainder = parsed.rest.trim();
+        const keepRow = remainder || firstColumn?.imageSource || firstColumn?.youtubeId || (firstRow.columns || []).length > 1;
+        if (!keepRow) {
+          return { ...pageContent, rows: pageContent.rows.slice(1) };
+        } else {
+          const columns = firstRow.columns.map((column, index) => index === 0 ? { ...column, contentText: remainder } : column);
+          return { ...pageContent, rows: [{ ...firstRow, columns }, ...pageContent.rows.slice(1)] };
+        }
+      }
+    }
   }
 
   pageContentFilteredForAccessLevel(pageContent: PageContent): PageContent {

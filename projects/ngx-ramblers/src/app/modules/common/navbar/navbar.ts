@@ -1,4 +1,5 @@
-import { Component, HostListener, inject, OnDestroy, OnInit } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, HostListener, inject, OnDestroy, OnInit } from "@angular/core";
+import { DOCUMENT } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { NamedEvent, NamedEventType } from "../../../models/broadcast.model";
@@ -24,6 +25,7 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
 
 @Component({
     selector: "app-navbar",
+    host: {"[class.mobile-menu-open]": "navbarContentWithinCollapse && navbarExpanded"},
     template: `
       <div [ngClass]="outerClasses()">
         <nav class="navbar navbar-expand-lg px-0">
@@ -35,7 +37,8 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
                  [href]="urlService.baseUrl()" aria-current="page" target="_self">
                 @if (logo?.awsFileName) {
                   <img [src]="urlService.resourceRelativePathForAWSFileName(logo?.awsFileName)"
-                       [alt]="systemConfig?.group?.shortName" [width]="logo?.width">
+                       [alt]="systemConfig?.group?.shortName" [width]="logo?.width"
+                       (load)="publishNavbarHeight()">
                 }</a>
               @if (!belowLogoInline()) {
                 <app-site-search class="site-search-anchored"
@@ -129,9 +132,19 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
   margin-left: 4px
 
 @media (max-width: 991px)
+  :host
+    display: block
+    position: sticky
+    top: 0
+    z-index: 1030
+    background-color: var(--bs-body-bg, #fff)
   .navbar-container
+    flex-wrap: wrap
+    width: 100%
+    max-width: 100%
     padding-inline: var(--space-3)
     gap: var(--space-2)
+    overflow-x: hidden
   .brand-search-wrap
     flex: 1 1 0
     min-width: 0
@@ -155,20 +168,46 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
     padding: var(--space-2)
   .navbar-toggler app-svg
     display: inline-flex
+  :host(.mobile-menu-open)
+    position: fixed
+    inset: 0
+    z-index: 2200
+    background-color: var(--bs-body-bg, #fff)
+    min-height: 100dvh
+    overflow-y: auto
+    overscroll-behavior: contain
+    padding-top: env(safe-area-inset-top, 0px)
+    padding-bottom: env(safe-area-inset-bottom, 0px)
+  :host(.mobile-menu-open) > div
+    min-height: 100%
+  :host(.mobile-menu-open) .navbar-collapse
+    flex: 1 0 100%
+    width: 100%
+    max-width: 100%
+    min-width: 0
+    padding-inline: 0
+    max-height: none
+    overflow-x: hidden
+    overflow-y: visible
+  .navbar-toggler:focus:not(:focus-visible)
+    box-shadow: none
 `],
     imports: [SvgComponent, SiteSearchComponent, NavbarContentComponent, HeaderButtonsComponent, LoginPanelComponent, NgClass, NgStyle, SocialMediaLinksComponent]
 })
-export class NavbarComponent implements OnInit, OnDestroy {
+export class NavbarComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("NavbarComponent", NgxLoggerLevel.ERROR);
   private systemConfigService = inject(SystemConfigService);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
+  private host = inject(ElementRef<HTMLElement>);
+  private document = inject(DOCUMENT);
   urlService = inject(UrlService);
   public navbarContentWithinCollapse: boolean;
   public logo: Image;
   public navbarExpanded = false;
   public systemConfig: SystemConfig;
   private subscriptions: Subscription[] = [];
+  private navbarHeightObserver: ResizeObserver | null = null;
 
   protected readonly NavBarLocation = NavBarLocation;
   protected readonly colourCloudy = rgbColourCloudy;
@@ -184,12 +223,33 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   private detectWidth(width: number) {
     this.navbarContentWithinCollapse = width < 992;
+    this.publishNavbarHeight();
     this.logger.info("detectWidth:", width, "this.navbarContentWithinCollapse:", this.navbarContentWithinCollapse);
+  }
+
+  ngAfterViewInit(): void {
+    this.publishNavbarHeight();
+    const ResizeObserverType = this.document.defaultView?.ResizeObserver;
+    if (ResizeObserverType) {
+      this.navbarHeightObserver = new ResizeObserverType(() => this.publishNavbarHeight());
+      this.navbarHeightObserver.observe(this.host.nativeElement);
+    }
+    const logoImage = this.host.nativeElement.querySelector("img");
+    if (logoImage) {
+      logoImage.addEventListener("load", () => this.publishNavbarHeight());
+    }
+  }
+
+  publishNavbarHeight(): void {
+    const sticky = this.navbarContentWithinCollapse && !this.navbarExpanded;
+    const height = sticky ? this.host.nativeElement.getBoundingClientRect().height : 0;
+    this.document.documentElement.style.setProperty("--site-navbar-height", `${height}px`);
   }
 
   toggleNavBar() {
     this.logger.info("navbarExpanded to:", !this.navbarExpanded);
     this.navbarExpanded = !this.navbarExpanded;
+    this.publishNavbarHeight();
   }
 
   ngOnInit(): void {
@@ -207,6 +267,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
     this.broadcastService.on(NamedEventType.MENU_TOGGLE, (event: NamedEvent<boolean>) => {
       this.logger.info("menu toggled with event:", event);
       this.navbarExpanded = event.data;
+      this.publishNavbarHeight();
     });
     this.detectWidth(window.innerWidth);
   }
@@ -216,7 +277,9 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.navbarHeightObserver?.disconnect();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+    this.document.documentElement.style.removeProperty("--site-navbar-height");
   }
 
   icon() {

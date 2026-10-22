@@ -16,6 +16,7 @@ import {
   nextAppAppearance,
   routeAlignedMapHeading,
   FollowPointerSize,
+  FOLLOW_LOCATION_POINTER_PATH,
   followPointerPixels,
   followPointerSizeFrom,
   RouteFollowProgressPaint,
@@ -203,6 +204,11 @@ describe("followPointerPixels", () => {
   it("makes medium larger than the original 18px pointer", () => {
     expect(followPointerPixels(FollowPointerSize.MEDIUM).width).toBeGreaterThan(18);
     expect(followPointerPixels(FollowPointerSize.LARGE).width).toBeGreaterThan(followPointerPixels(FollowPointerSize.MEDIUM).width);
+  });
+
+  it("keeps three distinct pointer sizes for the location toggle", () => {
+    expect(followPointerPixels(FollowPointerSize.SMALL).width).toBeLessThan(followPointerPixels(FollowPointerSize.MEDIUM).width);
+    expect(FOLLOW_LOCATION_POINTER_PATH).toContain("M13 2.2");
   });
 
 });

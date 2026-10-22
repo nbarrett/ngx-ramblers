@@ -26,6 +26,7 @@ mkdirSync(mobileDirectory, {recursive: true});
 cpSync(resolve("dist/ngx-ramblers"), mobileDirectory, {recursive: true});
 const indexPath = resolve(mobileDirectory, "index.html");
 const bakedSite = requestedSite ? `window.ngxNativeSiteUrl=${JSON.stringify(new URL(requestedSite).origin)};` : "";
-const nativeSetup = `<script>window.ngxNativeDirectoryUrl=${JSON.stringify(new URL(directoryUrl).origin)};${bakedSite}const savedWalkingUrl=localStorage.getItem("app-last-url");history.replaceState(null,"",savedWalkingUrl&&/^\\/app(?:\\/|\\?|$)/.test(savedWalkingUrl)?savedWalkingUrl:"/app");</script>`;
+const bakedBuild = process.env.MOBILE_BUILD_NUMBER ? `window.ngxNativeBuildNumber=${JSON.stringify(process.env.MOBILE_BUILD_NUMBER)};` : "";
+const nativeSetup = `<script>window.ngxNativeDirectoryUrl=${JSON.stringify(new URL(directoryUrl).origin)};${bakedSite}${bakedBuild}const savedWalkingUrl=localStorage.getItem("app-last-url");history.replaceState(null,"",savedWalkingUrl&&/^\\/app(?:\\/|\\?|$)/.test(savedWalkingUrl)?savedWalkingUrl:"/app");</script>`;
 writeFileSync(indexPath, readFileSync(indexPath, "utf8").replace("<head>", "<head>" + nativeSetup));
 execFileSync("npx", requestedPlatform ? ["cap", "sync", requestedPlatform] : ["cap", "sync"], {stdio: "inherit"});

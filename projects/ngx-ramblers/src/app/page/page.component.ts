@@ -1,5 +1,5 @@
-import { booleanAttribute, Component, inject, Input, OnInit, signal, TemplateRef } from "@angular/core";
-import { NgTemplateOutlet } from "@angular/common";
+import { AfterViewInit, booleanAttribute, Component, effect, ElementRef, HostListener, inject, Input, OnDestroy, OnInit, signal, TemplateRef, ViewChild } from "@angular/core";
+import { DOCUMENT, NgTemplateOutlet } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { PageService } from "../services/page.service";
@@ -25,8 +25,10 @@ import { RouterLink } from "@angular/router";
           <ng-container [ngTemplateOutlet]="breadcrumbActions()"/>
           </div>
         }
-        @if (pageTitle && showTitle) {
-          <h1>{{ pageTitle }}</h1>
+        @if (displayedTitle() && showTitle) {
+          <div class="page-heading" #pageHeading>
+            <h1>{{ displayedTitle() }}</h1>
+          </div>
         }
         <div class="page-content">
           <ng-content></ng-content>
@@ -37,12 +39,19 @@ import { RouterLink } from "@angular/router";
     styleUrls: ["./page.component.sass"],
     imports: [RouterLink, NgTemplateOutlet]
 })
-export class PageComponent implements OnInit {
+export class PageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("PageComponent", NgxLoggerLevel.ERROR);
   pageService = inject(PageService);
+  private document = inject(DOCUMENT);
+  private host = inject(ElementRef<HTMLElement>);
   readonly breadcrumbActions = signal<TemplateRef<unknown> | null>(null);
-
+  @ViewChild("pageHeading") private pageHeading: ElementRef<HTMLElement> | null = null;
+  private headingObserver: ResizeObserver | null = null;
+  private titleHeightEffect = effect(() => {
+    this.pageService.contentPageTitle();
+    queueMicrotask(() => this.publishHeadingHeight());
+  });
 
   public pageTitle: string;
 
@@ -58,6 +67,7 @@ export class PageComponent implements OnInit {
     this.logger.info("Input:pageTitle:", pageTitle);
     this.pageTitle = pageTitle;
     this.pageService.setTitle(pageTitle);
+    this.publishHeadingHeight();
   }
 
   ngOnInit() {
@@ -68,6 +78,36 @@ export class PageComponent implements OnInit {
     }
   }
 
+  @HostListener("window:resize")
+  onWindowResize() {
+    this.publishHeadingHeight();
+  }
+
+  ngAfterViewInit() {
+    this.publishHeadingHeight();
+    const ResizeObserverType = this.document.defaultView?.ResizeObserver;
+    if (ResizeObserverType) {
+      this.headingObserver = new ResizeObserverType(() => this.publishHeadingHeight());
+      this.headingObserver.observe(this.host.nativeElement);
+    }
+  }
+
+  ngOnDestroy() {
+    this.headingObserver?.disconnect();
+    this.document.documentElement.style.removeProperty("--page-heading-height");
+  }
+
+  private publishHeadingHeight(): void {
+    const heading = this.pageHeading?.nativeElement
+      || this.host.nativeElement.querySelector(".page-heading");
+    const mobile = this.document.defaultView?.matchMedia("(max-width: 991.98px)").matches;
+    const height = heading && mobile ? heading.getBoundingClientRect().height : 0;
+    this.document.documentElement.style.setProperty("--page-heading-height", `${height}px`);
+  }
+
+  displayedTitle() {
+    return this.pageTitle || this.pageService.contentPageTitle();
+  }
 
   suppliedOrDefaultPageTitle() {
     this.logger.debug("suppliedOrDefaultPageTitle:pageTitle:", this.pageTitle, "pageSubtitle:", this.pageService.pageSubtitle());

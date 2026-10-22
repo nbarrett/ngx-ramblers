@@ -87,8 +87,11 @@ import { StoredValue } from "../../../models/ui-actions";
             <input #input [(ngModel)]="filterParameters.quickSearch"
                    (ngModelChange)="onSearchChange($event)"
                    id="quick-search"
+                   name="eventQuickSearch"
                    class="form-control input-md inline-label rounded"
-                   type="text" placeholder="Quick Search">
+                   type="search" placeholder="Quick Search"
+                   autocomplete="one-time-code" autocapitalize="none" autocorrect="off" spellcheck="false"
+                   data-lpignore="true" data-1p-ignore data-form-type="other">
           </div>
         </div>
       }

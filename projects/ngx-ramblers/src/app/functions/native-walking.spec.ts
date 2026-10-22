@@ -1,7 +1,7 @@
 import { NativeWalkingWindow } from "../models/native-route.model";
 import { Capacitor } from "@capacitor/core";
 import { StoredValue } from "../models/ui-actions";
-import { nativeApiUrl, nativeWalkingSite, parseHttpsOrigin, saveNativeWalkingSite } from "./native-walking";
+import { nativeApiUrl, nativeBuildLabel, nativeWalkingSite, parseHttpsOrigin, saveNativeWalkingSite } from "./native-walking";
 
 describe("nativeApiUrl", () => {
   it("uses the directory only for lookups before group selection", () => {
@@ -56,5 +56,15 @@ describe("nativeWalkingSite", () => {
     expect(nativeWalkingSite()).toBeNull();
     platform.mockRestore();
     delete (window as {ngxNativeSiteUrl?: string}).ngxNativeSiteUrl;
+  });
+});
+
+describe("nativeBuildLabel", () => {
+  it("returns a Build label from the baked native build number", () => {
+    delete (window as NativeWalkingWindow).ngxNativeBuildNumber;
+    expect(nativeBuildLabel()).toBeNull();
+    (window as NativeWalkingWindow).ngxNativeBuildNumber = "641";
+    expect(nativeBuildLabel()).toBe("Build 641");
+    delete (window as NativeWalkingWindow).ngxNativeBuildNumber;
   });
 });

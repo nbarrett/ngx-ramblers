@@ -3,3 +3,16 @@ main
 
 .page-content
   position: relative
+
+@media (max-width: 991.98px)
+  .page-heading
+    position: sticky
+    top: var(--site-navbar-height, 0px)
+    z-index: 1025
+    background: var(--bs-body-bg, #fff)
+    padding-top: 0.35rem
+    padding-bottom: 0.4rem
+    margin-bottom: 0.5rem
+
+  .page-heading h1
+    margin-bottom: 0

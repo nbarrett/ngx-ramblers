@@ -16,7 +16,11 @@
       padding: .75rem .375rem
       font-family: "Rucksack", serif
       text-decoration: none
-      white-space: nowrap !important
+      white-space: nowrap
+
+    @media (max-width: 991.98px)
+      a
+        white-space: normal
 
     a:hover
       text-decoration: none
@@ -36,6 +40,9 @@
     text-decoration: none
 
   @media (min-width: 992px)
+    a.active
+      background: linear-gradient($ramblers-colour-sunset, $ramblers-colour-sunset) 0 67% / 100% 0.25rem no-repeat
+
     ul
       display: flex
       width: max-content
@@ -55,12 +62,8 @@
 
 .ramblers-list-bg-light
   @extend .ramblers-list
-  a.active
-    background: linear-gradient($ramblers-colour-sunset, $ramblers-colour-sunset) 0 67% / 100% 0.25rem no-repeat
 
 .ramblers-list-bg-dark
   @extend .ramblers-list
   a
     color: $ramblers-colour-cloudy
-  a.active
-    background: linear-gradient($ramblers-colour-sunset, $ramblers-colour-sunset) 0 67% / 100% 0.25rem no-repeat

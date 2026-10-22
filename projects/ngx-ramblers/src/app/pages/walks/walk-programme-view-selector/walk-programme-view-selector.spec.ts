@@ -94,6 +94,6 @@ describe("WalkProgrammeViewSelector", () => {
     memberLoginService.allowWalkAdminEdits.mockReturnValue(true);
     const selector = TestBed.createComponent(WalkProgrammeViewSelector).componentInstance;
     await selector.openView(WalksAdminSegment.ROUTES);
-    expect(router.navigate).toHaveBeenCalledWith(["/go-walking/routes"], {queryParamsHandling: "preserve"});
+    expect(router.navigate).toHaveBeenCalledWith(["/go-walking/admin/routes"], {queryParamsHandling: "preserve"});
   });
 });

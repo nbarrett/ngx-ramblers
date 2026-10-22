@@ -149,8 +149,8 @@ import { AdvancedToggle } from "../../../shared/components/advanced-toggle";
 
         .walk-search-pagination
           position: sticky
-          top: 0
-          z-index: 1030
+          top: calc(var(--site-navbar-height, 0px) + var(--page-heading-height, 0px))
+          z-index: 1021
           isolation: isolate
           width: calc(100% + var(--bs-gutter-x, 1.5rem))
           margin-right: calc(var(--bs-gutter-x, 1.5rem) * -0.5)
@@ -215,9 +215,11 @@ import { AdvancedToggle } from "../../../shared/components/advanced-toggle";
         <div class="mb-2 mb-lg-0 flex-lg-fill">
           <input [(ngModel)]="filterParameters.quickSearch" #quickSearch
             (ngModelChange)="onSearchChange($event)"
-            name="quickSearch"
+            name="eventQuickSearch"
             class="form-control rounded w-100"
-            type="text" placeholder="Quick Search">
+            type="search" placeholder="Quick Search"
+            autocomplete="one-time-code" autocapitalize="none" autocorrect="off" spellcheck="false"
+            data-lpignore="true" data-1p-ignore data-form-type="other">
         </div>
         <div class="mb-2 mb-lg-0 flex-lg-fill">
           <app-preset-select [items]="dateRangePresets" [selected]="selectedDateRangePreset"
@@ -346,7 +348,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   ];
 
   alertInline(): boolean {
-    return !this.showPagination && !hasAdvancedCriteria(this.advancedCriteria);
+    return !this.showPagination && !hasAdvancedCriteria(this.advancedCriteria) && this.showAlertInline();
   }
 
   ngOnInit(): void {

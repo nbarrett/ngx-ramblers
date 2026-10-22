@@ -1,3 +1,9 @@
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
+import { faPersonHiking, faSliders } from "@fortawesome/free-solid-svg-icons";
+import { AppPath } from "../models/route-follow.model";
+import { StoredValue } from "../models/ui-actions";
+import { MobileAppAction } from "../models/walks-config.model";
+import { MobileAppAccessService } from "../services/maps/mobile-app-access.service";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { Router } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -19,9 +25,16 @@ const NGX_LITE_SOCIAL_PATHS = ["social-events", "group-events"];
     selector: "app-page-navigator",
     templateUrl: "./page-navigator.component.html",
     styleUrls: ["./page-navigator.component.sass"],
-    imports: [NgClass, RouterLink]
+    imports: [NgClass, RouterLink, FontAwesomeModule]
 })
 export class PageNavigatorComponent implements OnInit, OnDestroy {
+  protected mobileAppAccess = inject(MobileAppAccessService);
+  protected readonly MobileAppAction = MobileAppAction;
+  protected readonly AppPath = AppPath;
+  protected readonly appSettingsQuery = {[StoredValue.APP_SETTINGS]: true};
+  protected readonly faPersonHiking = faPersonHiking;
+  protected readonly faSliders = faSliders;
+
 
   private logger: Logger = inject(LoggerFactory).createLogger("PageNavigatorComponent", NgxLoggerLevel.ERROR);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);

@@ -30,7 +30,8 @@ import { MemberLoginService } from "../../../services/member/member-login.servic
     <app-dynamic-content-view [pageContent]="pageContent"
                               [notify]="notify"
                               [contentPath]="contentPath"
-                              [contentDescription]="contentDescription"/>`,
+                              [contentDescription]="contentDescription"
+                              [liftPageTitle]="liftPageTitle"/>`,
     styleUrls: ["./dynamic-content.sass"],
     imports: [DynamicContentSiteEditComponent, DynamicContentViewComponent]
 })
@@ -58,6 +59,10 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
     this.preventRedirect = coerceBooleanProperty(preventRedirect);
   }
 
+  @Input("liftPageTitle") set liftPageTitleValue(liftPageTitle: boolean) {
+    this.liftPageTitle = coerceBooleanProperty(liftPageTitle);
+  }
+
   @Input("defaultPageContent") set acceptChangesFrom(defaultPageContent: PageContent) {
     this.logger.info("acceptChangesFrom:defaultPageContent:", defaultPageContent);
     this.defaultPageContent = defaultPageContent;
@@ -70,6 +75,7 @@ export class DynamicContentComponent implements OnInit, OnDestroy {
   private areaAsContentPath: boolean;
   contentPathReadOnly: boolean;
   private preventRedirect: boolean;
+  liftPageTitle = false;
   public defaultPageContent: PageContent;
   public pageContent: PageContent;
   public notify: AlertInstance;

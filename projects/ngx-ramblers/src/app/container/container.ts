@@ -19,7 +19,7 @@ import { PullToRefreshComponent } from "../modules/common/pull-to-refresh/pull-t
 import { RouterHistoryService } from "../services/router-history.service";
 import { Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowLeft, faCheck, faCircleExclamation, faHouse, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faCheck, faCircleExclamation, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { nativeShareSupported } from "../functions/native-share";
 import { StoredValue } from "../models/ui-actions";
@@ -40,10 +40,10 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
       }
     }
     <div [class.app-shell]="appShellActive" [class.container]="!appShellActive">
+      @if (showNavbar()) {
+        <app-navbar/>
+      }
       @if (!appShellActive) {
-        @if (config) {
-          <app-navbar/>
-        }
         <app-view-as-bar/>
         <app-rejoin-meeting-banner/>
         <app-new-version-banner/>
@@ -51,9 +51,9 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
       <router-outlet/>
       @if (showFloatingNavigation()) {
         <button class="btn btn-primary btn-icon app-floating-navigation" type="button" (click)="navigationTooltip.hide(); navigateFloating()"
-                [attr.aria-label]="floatingNavLabel()"
-                [tooltip]="floatingNavLabel()" [isDisabled]="!appShell.tooltipsEnabled()" #navigationTooltip="bs-tooltip">
-          <fa-icon [icon]="floatingBackAvailable() ? faArrowLeft : faHouse"/>
+                aria-label="Back"
+                tooltip="Back" [isDisabled]="!appShell.tooltipsEnabled()" #navigationTooltip="bs-tooltip">
+          <fa-icon [icon]="faArrowLeft"/>
         </button>
       }
       @if (showFloatingShare()) {
@@ -80,7 +80,6 @@ export class ContainerComponent implements OnInit, OnDestroy {
   protected readonly faArrowLeft = faArrowLeft;
   protected readonly faCheck = faCheck;
   protected readonly faCircleExclamation = faCircleExclamation;
-  protected readonly faHouse = faHouse;
   protected readonly faShareNodes = faShareNodes;
   protected shareFeedback: string | null = null;
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
@@ -99,10 +98,17 @@ export class ContainerComponent implements OnInit, OnDestroy {
   protected config: SystemConfig;
   protected appShellActive = false;
 
+  protected showNavbar(): boolean {
+    return !!this.config && (!this.appShellActive
+      || (this.currentPath() === "/" + AppPath.ROOT && !this.nativeSite.needsChooser()));
+  }
+
   protected showFloatingNavigation(): boolean {
     const path = this.currentPath();
     const followPath = "/" + AppPath.ROOT + "/" + AppPath.ROUTE;
-    return !this.nativeSite.needsChooser() && this.appShell.installed() && !this.albumWorkflowActive() && !path.startsWith(followPath);
+    return !this.nativeSite.needsChooser() && this.appShell.installed() && !this.albumWorkflowActive()
+      && path !== "/" && path !== "/" + AppPath.ROOT && !path.startsWith(followPath)
+      && this.routerHistory.hasAppBackDestination();
   }
 
   protected showFloatingShare(): boolean {
@@ -114,32 +120,8 @@ export class ContainerComponent implements OnInit, OnDestroy {
     return this.router.parseUrl(this.router.url).queryParams[StoredValue.ALBUM_WORKFLOW] === "1";
   }
 
-  protected floatingBackAvailable(): boolean {
-    return !this.onWalkingAppHome() && this.routerHistory.hasAppBackDestination();
-  }
-
-  protected floatingNavLabel(): string {
-    if (this.floatingBackAvailable()) {
-      return "Back";
-    } else if (this.onWalkingAppHome()) {
-      return "Website home";
-    } else {
-      return "Home";
-    }
-  }
-
   protected navigateFloating(): void {
-    if (this.floatingBackAvailable()) {
-      this.routerHistory.navigateBackWithinApp();
-    } else if (this.onWalkingAppHome()) {
-      void this.router.navigateByUrl("/");
-    } else {
-      void this.router.navigateByUrl("/" + AppPath.ROOT);
-    }
-  }
-
-  private onWalkingAppHome(): boolean {
-    return this.currentPath() === "/" + AppPath.ROOT;
+    this.routerHistory.navigateBackWithinApp();
   }
 
   private currentPath(): string {

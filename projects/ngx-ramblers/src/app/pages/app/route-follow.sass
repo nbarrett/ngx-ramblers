@@ -101,6 +101,13 @@
   min-height: 44px
   z-index: 2
 
+.follow-build
+  color: var(--app-muted, #5b6560)
+  font-size: 0.75rem
+  font-weight: 700
+  letter-spacing: 0.02em
+  pointer-events: none
+
 .follow-top-actions
   display: flex
   align-items: center
@@ -482,11 +489,36 @@
   margin-left: 0 !important
   white-space: nowrap
 
-.follow-pointer-dot
-  display: inline-block
-  border-radius: 50%
-  background: currentColor
-  flex: 0 0 auto
+.follow-pointer-sizes
+  display: flex
+  align-items: flex-end
+  justify-content: flex-start
+  gap: 20px
+  margin: 0 0 8px
+
+.follow-pointer-size-btn
+  appearance: none
+  background: none
+  border: none
+  box-shadow: none
+  padding: 4px
+  min-height: 0
+  min-width: 0
+  display: flex
+  align-items: flex-end
+  justify-content: center
+  color: inherit
+  opacity: 0.4
+  &.is-selected
+    opacity: 1
+
+.follow-pointer-preview
+  display: flex
+  align-items: flex-end
+  justify-content: center
+  svg
+    display: block
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45))
 
 @media (min-width: 768px)
   .follow-progress-paint
@@ -588,7 +620,7 @@
   background: var(--follow-panel)
   color: var(--follow-ink)
   border-radius: 22px 22px 0 0
-  padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))
   box-shadow: 0 -12px 32px rgba(16, 32, 24, 0.12)
   overflow: hidden
   display: flex
@@ -597,7 +629,7 @@
   flex: 0 0 auto
 
 .follow-sheet.is-minimised
-  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px))
+  padding-bottom: max(12px, calc(4px + env(safe-area-inset-bottom, 0px)))
 
 @media (max-width: 899px)
   .follow-sheet.is-minimised
@@ -643,6 +675,12 @@
   .follow-sheet.is-minimised .follow-peek-stat strong
     font-size: 1.1rem
 
+  .follow-sheet.is-minimised .follow-peek-stat-wide
+    grid-column: 1 / -1
+
+  .follow-sheet.is-minimised.is-editing
+    min-height: 7.25rem
+
 .follow-sheet-heading
   display: none
   margin: 0 0 12px
@@ -686,9 +724,9 @@
 
 .follow-peek-actions
   display: grid
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr))
+  grid-template-columns: repeat(2, minmax(0, 1fr))
   gap: 8px
-  padding: 0 12px 8px
+  padding: 0 12px
   width: 100%
   box-sizing: border-box
 

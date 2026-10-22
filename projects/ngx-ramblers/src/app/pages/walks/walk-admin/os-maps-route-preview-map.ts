@@ -20,7 +20,6 @@ import { VisibilityObserverDirective } from "../../../notifications/common/visib
 import { routeSegments } from "../../../functions/route-geometry";
 
 const previewLineByUrl = new Map<string, Promise<RouteFollowPoint[]>>();
-const PREVIEW_VIEW_MARGIN = "240px 0px";
 
 @Component({
   selector: "app-os-maps-route-preview-map",
@@ -32,7 +31,7 @@ const PREVIEW_VIEW_MARGIN = "240px 0px";
     <div class="os-maps-route-preview" [class.os-maps-route-preview-compact]="compact" [style.background-color]="'#eef1ea'">
       <div class="os-maps-route-preview-map" #mapContainer
            [app-visibility-observer]="route?.id || cacheKey || 'route-preview'"
-           [observeOnce]="false" [rootMargin]="previewViewMargin"
+           [observeOnce]="false"
            (visibilityChange)="onVisibilityChange($event)"></div>
       @if (!hasLine) {
         <div class="os-maps-route-preview-fallback">
@@ -103,7 +102,6 @@ export class OsMapsRoutePreviewMapComponent implements OnChanges, OnDestroy {
   private mapZoom = inject(MapZoomService);
   private zone = inject(NgZone);
   private followCache = inject(RouteFollowCacheService);
-  protected readonly previewViewMargin = PREVIEW_VIEW_MARGIN;
   @ViewChild("mapContainer", {static: true}) mapContainerRef!: ElementRef<HTMLDivElement>;
   @Input() route: OsMapsListedRoute | null = null;
   @Input() points: RouteFollowPoint[] = [];
@@ -118,6 +116,8 @@ export class OsMapsRoutePreviewMapComponent implements OnChanges, OnDestroy {
   faMap = faMap;
   hasLine = false;
   private mapRef: L.Map | null = null;
+  private renderedPoints: RouteFollowPoint[] | null = null;
+  private renderedStyle: string | null = null;
   private latLngs: L.LatLngExpression[] = [];
   private previewPoints: RouteFollowPoint[] = [];
   private loadedSource: string | null = null;
@@ -237,6 +237,8 @@ export class OsMapsRoutePreviewMapComponent implements OnChanges, OnDestroy {
     this.resizeObserver = null;
     this.mapRef?.remove();
     this.mapRef = null;
+    this.renderedPoints = null;
+    this.renderedStyle = null;
   }
 
   private async loadRoute(): Promise<void> {
@@ -286,12 +288,18 @@ export class OsMapsRoutePreviewMapComponent implements OnChanges, OnDestroy {
       const map = this.mapRef;
       const provider = this.mapProvider();
       const style = provider === MapProvider.OS ? this.osStyle : "";
-      map.eachLayer(layer => map.removeLayer(layer));
-      map.addLayer(this.mapTiles.createBaseLayer(provider, style));
-      const lines = routeSegments(this.previewPoints).map(segment => segment.map(point => L.latLng(point.latitude, point.longitude)));
-      const polyline = L.polyline(lines, {color: this.route?.routeColor || "#2f6f4f", weight: 3, smoothFactor: 0.5});
-      polyline.addTo(map);
-      this.refitRoute();
+      const colour = this.route?.routeColor || "#2f6f4f";
+      const renderedStyle = [provider, style, colour].join(":");
+      if (this.renderedPoints !== this.previewPoints || this.renderedStyle !== renderedStyle) {
+        this.renderedPoints = this.previewPoints;
+        this.renderedStyle = renderedStyle;
+        map.eachLayer(layer => map.removeLayer(layer));
+        map.addLayer(this.mapTiles.createBaseLayer(provider, style));
+        const lines = routeSegments(this.previewPoints).map(segment => segment.map(point => L.latLng(point.latitude, point.longitude)));
+        const polyline = L.polyline(lines, {color: colour, weight: 3, smoothFactor: 0.5});
+        polyline.addTo(map);
+        this.refitRoute();
+      }
     }
   }
 

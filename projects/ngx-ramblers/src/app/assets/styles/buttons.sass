@@ -1,7 +1,12 @@
 @use "sass:color"
 
 .btn
-  display: inline-block
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  flex-wrap: nowrap
+  gap: 0.35rem
+  white-space: nowrap
   font-family: "rucksack"
   color: $ramblers-colour-granite
   text-align: center
@@ -16,10 +21,17 @@
   border-radius: .25rem
   transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out
 
+.btn fa-icon,
+.btn .fa,
+.btn svg
+  flex: 0 0 auto
+
 a.btn
   display: inline-flex
   align-items: center
   justify-content: center
+  flex-wrap: nowrap
+  white-space: nowrap
 
 .btn.btn-icon
   display: inline-flex

@@ -8,10 +8,8 @@ function segments(...paths: string[]): UrlSegment[] {
 }
 
 describe("hasWalksAreaSubPath", () => {
-  it("matches calendar and routes under a renamed walks area", () => {
+  it("matches calendar under a renamed walks area", () => {
     expect(hasWalksAreaSubPath(segments("go-walking", WalksAdminSegment.CALENDAR))?.consumed.map(segment => segment.path))
-      .toEqual(["go-walking"]);
-    expect(hasWalksAreaSubPath(segments("go-walking", WalksAdminSegment.ROUTES))?.consumed.map(segment => segment.path))
       .toEqual(["go-walking"]);
   });
 

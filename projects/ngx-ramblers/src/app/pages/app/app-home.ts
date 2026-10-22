@@ -1,3 +1,4 @@
+import { CompassCalibrationHelpComponent } from "../../shared/components/compass-calibration-help";
 import { LegacyWalkingRecoveryState } from "../../models/legacy-walking-recovery.model";
 import { LegacyWalkingRecoveryService } from "../../services/maps/legacy-walking-recovery.service";
 import { RouteNearbyService } from "../../services/maps/route-nearby.service";
@@ -15,7 +16,7 @@ import { NgSelectModule } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription, take } from "rxjs";
-import { faArrowLeft, faCalendarDay, faCheck, faRoute, faCircleCheck, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faShareNodes, faSliders, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faPeopleGroup, faCompass, faCalendarDay, faCheck, faRoute, faCircleCheck, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faShareNodes, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { PageContentType } from "../../models/content-text.model";
@@ -78,12 +79,14 @@ import { MemberLoginService } from "../../services/member/member-login.service";
 import { BsModalService, ModalOptions } from "ngx-bootstrap/modal";
 import { LoginModalComponent } from "../login/login-modal/login-modal.component";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
-import { nativeApiUrl, reloadNativeShell } from "../../functions/native-walking";
+import { nativeApiUrl, nativeBuildLabel, reloadNativeShell } from "../../functions/native-walking";
 import { NativeSiteService } from "../../services/maps/native-site.service";
+import { NativeCompassService } from "../../services/maps/native-compass.service";
 import { AuthService } from "../../auth/auth.service";
 import { VisibilityObserverDirective } from "../../notifications/common/visibility-observer.directive";
 import { PullToRefreshComponent } from "../../modules/common/pull-to-refresh/pull-to-refresh";
 import { StringUtilsService } from "../../services/string-utils.service";
+import { ScrollPositionService } from "../../services/scroll-position.service";
 
 const MAP_LIST_BATCH_SIZE = 20;
 
@@ -92,6 +95,8 @@ const MAP_LIST_BATCH_SIZE = 20;
   template: `
     <div #homeScroll class="app-home container" [class.app-home-choosing-site]="choosingSite"
          [class.is-keyboard]="siteKeyboardOpen">
+      <app-compass-calibration-help [open]="compassHelpOpen" backLabel="Back to settings"
+                                    (closed)="compassHelpOpen = false"/>
       @if (choosingSite) {
         <section class="app-home-site" aria-label="Choose your area or group">
           <div
@@ -142,14 +147,8 @@ const MAP_LIST_BATCH_SIZE = 20;
       } @else {
         <div class="app-home-chrome">
           <app-pull-to-refresh #listRefresh [refreshAction]="refreshRoutes" [allowLinkPull]="true" [inline]="true"/>
-          <div class="app-home-header">
-            <a class="app-home-brand" routerLink="/" aria-label="Website home" tooltip="Website home"
-               [isDisabled]="!tooltipsEnabled">
-              @if (logoUrl) {
-                <img class="app-home-logo" [src]="logoUrl" [alt]="groupName">
-              }
-              <h1 [class.visually-hidden]="!!logoUrl">{{ groupName }}</h1>
-            </a>
+          <h1 class="visually-hidden">{{ groupName }}</h1>
+          <div class="app-home-map-search mb-2">
             @if (!customising) {
               <div class="app-home-search">
                 <fa-icon class="app-home-search-icon" [icon]="faMagnifyingGlass"/>
@@ -165,7 +164,19 @@ const MAP_LIST_BATCH_SIZE = 20;
                   </button>
                 }
               </div>
+              @if (view === AppHomeView.MAPS && layout.savedRoutes) {
+                <label class="visually-hidden" for="app-home-creator">Creator</label>
+                <ng-select labelForId="app-home-creator" class="app-home-creator" [ngModel]="creator"
+                           (ngModelChange)="chooseCreator($event)" [clearable]="false" [searchable]="false">
+                  <ng-option value="">All creators</ng-option>
+                  @for (contributor of creatorOptions(); track contributor.memberId) {
+                    <ng-option [value]="contributor.memberId">{{ contributor.name }}</ng-option>
+                  }
+                </ng-select>
+              }
             }
+          </div>
+          <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
             @if (!customising && ((view === AppHomeView.MAPS && layout.savedRoutes) || (view === AppHomeView.UPCOMING && layout.upcomingWalks))) {
               <span class="app-home-match-count app-home-header-match-count" role="status"
                     aria-live="polite">{{ matchCountLabel() }}</span>
@@ -175,14 +186,6 @@ const MAP_LIST_BATCH_SIZE = 20;
                       (click)="listRefresh.refresh()" [disabled]="listRefresh.refreshing"
                       aria-label="Refresh walks and maps" tooltip="Refresh walks and maps">
                 <fa-icon [icon]="faArrowsRotate"/>
-              </button>
-              <button class="btn btn-icon" type="button" (click)="customiseTooltip.hide(); toggleCustomising()"
-                      [class.btn-primary]="customising" [class.btn-quiet]="!customising"
-                      [attr.aria-expanded]="customising" aria-controls="app-home-customise"
-                      [attr.aria-label]="customising ? 'Back' : 'Customise'"
-                      [tooltip]="customising ? 'Back' : 'Customise'" [isDisabled]="!tooltipsEnabled"
-                      #customiseTooltip="bs-tooltip">
-                <fa-icon [icon]="customising ? faArrowLeft : faSliders"/>
               </button>
             </div>
           </div>
@@ -223,20 +226,10 @@ const MAP_LIST_BATCH_SIZE = 20;
                       [disabled]="memberLogin.memberLoggedIn() && !mobileAccess.allowed(MobileAppAction.RECORD)"
                       (click)="recordStandaloneRoute()">
                 <fa-icon [icon]="faLocationDot"/>
-                <span>Record route</span>
+                <span>Record</span>
               </button>
             </div>
             @if (view === AppHomeView.MAPS && layout.savedRoutes) {
-              <label class="visually-hidden" for="app-home-creator">Creator</label>
-              <div class="app-home-filter-summary">
-                <ng-select labelForId="app-home-creator" class="app-home-creator" [ngModel]="creator"
-                           (ngModelChange)="chooseCreator($event)" [clearable]="false" [searchable]="false">
-                  <ng-option value="">All creators</ng-option>
-                  @for (contributor of creatorOptions(); track contributor.memberId) {
-                    <ng-option [value]="contributor.memberId">{{ contributor.name }}</ng-option>
-                  }
-                </ng-select>
-              </div>
               @if (nearbyOnly) {
                 <app-distance-range-slider class="app-home-nearby-slider"
                                            label="Within"
@@ -262,6 +255,12 @@ const MAP_LIST_BATCH_SIZE = 20;
         @if (customising) {
           <section id="app-home-customise" class="app-home-customise"
                    [attr.aria-label]="'Choose what appears in ' + groupName">
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+              <h2 class="mb-0">App settings</h2>
+              <button type="button" class="btn btn-quiet flex-shrink-0" (click)="toggleCustomising()">
+                <fa-icon [icon]="faArrowLeft" class="me-2"/> Back
+              </button>
+            </div>
             <div class="thumbnail-heading-frame">
               <div class="thumbnail-heading">Views</div>
               <label class="app-home-customise-item">
@@ -286,22 +285,32 @@ const MAP_LIST_BATCH_SIZE = 20;
             </div>
             <div class="thumbnail-heading-frame">
               <div class="thumbnail-heading">App</div>
-              <div class="d-flex gap-2">
+              <div class="d-flex flex-wrap gap-2">
                 <button class="btn btn-quiet" type="button" (click)="versionCheck.reloadNow()"
                         [disabled]="!navigatorOnline() || !!activeSession">
-                  Update app
+                  <fa-icon [icon]="faArrowsRotate" class="me-2"/>Update app
                 </button>
                 @if (nativeSite.origin()) {
                   <button class="btn btn-quiet" type="button" (click)="changeGroupSite()" [disabled]="!!activeSession">
-                    Change group
+                    <fa-icon [icon]="faPeopleGroup" class="me-2"/>Change group
                   </button>
                 }
               </div>
+              @if (nativeBuildLabel) {
+                <p class="app-home-build mt-2 mb-0">{{ nativeBuildLabel }}</p>
+              }
               <p class="mt-2">Update after finishing your walk.</p>
               @if (nativeSite.origin()) {
                 <p class="mb-0">{{ nativeSite.origin() }} · Changing group signs you out.</p>
               }
             </div>
+            @if (nativeCompass.supported()) {
+              <div class="thumbnail-heading-frame">
+                <div class="thumbnail-heading">Compass</div>
+                <p>See how to calibrate your phone if the direction pointer points the wrong way or springs back as you turn.</p>
+                <button class="btn btn-primary" type="button" (click)="compassHelpOpen = true"><fa-icon [icon]="faCompass" class="me-2"/>Calibrate compass</button>
+              </div>
+            }
             @if (legacyRecovery.routes.length || legacyRecovery.session || legacyMessage || legacyError) {
               <div class="thumbnail-heading-frame">
                 <div class="thumbnail-heading">Recover saved data</div>
@@ -435,7 +444,7 @@ const MAP_LIST_BATCH_SIZE = 20;
             @for (route of displayedRoutes(); track routeKey(route)) {
               <div class="app-home-card app-home-route-card">
                 <a class="app-home-route-main" [routerLink]="routeLink(route)"
-                   [queryParams]="routeQuery(route)">
+                   [queryParams]="routeQuery(route)" (click)="retainMapsScroll()">
                   <app-os-maps-route-preview-map class="flush" fill [route]="listedOsMapsRoute(route)"
                                                  [gpxFile]="route.gpxFile || null" [cacheKey]="routeKey(route)"
                                                  [points]="previewPoints[routeKey(route) || ''] || []"/>
@@ -502,7 +511,7 @@ const MAP_LIST_BATCH_SIZE = 20;
 
         @if (!customising && view === AppHomeView.UPCOMING && !layout.upcomingWalks) {
           <div class="app-home-empty">
-            <p>Upcoming walks are turned off in Customise. The group's programme is on the website; show it here to
+            <p>Upcoming walks are turned off in App settings. The group's programme is on the website; show it here to
               follow those walks.</p>
             <button class="btn btn-primary" type="button" (click)="enableSection('upcomingWalks')">Show the programme
             </button>
@@ -511,7 +520,7 @@ const MAP_LIST_BATCH_SIZE = 20;
 
         @if (!customising && view === AppHomeView.MAPS && !layout.savedRoutes) {
           <div class="app-home-empty">
-            <p>Maps are turned off in Customise.</p>
+            <p>Maps are turned off in App settings.</p>
             <button class="btn btn-primary" type="button" (click)="enableSection('savedRoutes')">Show maps</button>
           </div>
         }
@@ -526,12 +535,12 @@ const MAP_LIST_BATCH_SIZE = 20;
             }
             @for (walk of visibleWalks(); track walk.id) {
               <article class="app-home-card app-home-route-card">
-                <a class="app-home-route-main" [routerLink]="walkDetailsLink(walk)">
+                <a class="app-home-route-main" [routerLink]="walkDetailsLink(walk)" (click)="retainMapsScroll()">
                   @if (walkPhoto(walk)) {
                     <img class="app-home-walk-photo" [src]="walkPhoto(walk)"
                          [alt]="walk.groupEvent?.title || 'Walk photo'">
                   } @else if (display.displayMapAsImageFallback(walk)) {
-                    <div class="app-home-walk-map"
+                    <div class="app-home-walk-map os-maps-route-preview"
                          [app-visibility-observer]="walk.id"
                          [observeOnce]="false"
                          rootMargin="160px 0px"
@@ -623,7 +632,7 @@ const MAP_LIST_BATCH_SIZE = 20;
     </ng-template>
   `,
   styleUrls: ["./app-home.sass"],
-  imports: [AreaSelector, GroupSelector, NgSelectModule, PullToRefreshComponent, VisibilityObserverDirective, RouterLink, FormsModule, FontAwesomeModule, RouteAuditComponent, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, CardImageOrMap, TooltipModule, DistanceRangeSlider, NgTemplateOutlet, FileUploadModule, RouteMapActionsComponent]
+  imports: [CompassCalibrationHelpComponent, AreaSelector, GroupSelector, NgSelectModule, PullToRefreshComponent, VisibilityObserverDirective, RouterLink, FormsModule, FontAwesomeModule, RouteAuditComponent, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, CardImageOrMap, TooltipModule, DistanceRangeSlider, NgTemplateOutlet, FileUploadModule, RouteMapActionsComponent]
 })
 export class AppHomeComponent implements OnInit, OnDestroy {
   protected readonly refreshRoutes = async (): Promise<void> => {
@@ -650,6 +659,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   private activatedRoute = inject(ActivatedRoute);
   private uiActions = inject(UiActionsService);
   protected nativeSite = inject(NativeSiteService);
+  protected nativeCompass = inject(NativeCompassService);
   private legacyRecoveryService = inject(LegacyWalkingRecoveryService);
   protected legacyRecovery: LegacyWalkingRecoveryState = {routes: [], session: null};
   protected legacySelectedKeys: string[] = [];
@@ -679,6 +689,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   @ViewChild("gpxInput") private gpxInput!: ElementRef<HTMLInputElement>;
   @ViewChild("homeScroll") private homeScroll: ElementRef<HTMLDivElement> | null = null;
   private browseScrollTop = 0;
+  private scrollPosition = inject(ScrollPositionService);
   private loginModalConfig: ModalOptions = {animated: false, initialState: {}};
   protected importingGpx = false;
   protected importError: string | null = null;
@@ -712,6 +723,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected importedOsMapsByKey: Record<string, OsMapsListedRoute> = {};
   protected previewPoints: Record<string, RouteFollowPoint[]> = {};
   protected customising = false;
+  protected compassHelpOpen = false;
   protected readonly tooltipsEnabled = this.appShell.tooltipsEnabled();
 
   protected walks: ExtendedGroupEvent[] = [];
@@ -724,6 +736,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected offlineByKey: Record<string, RouteFollowOfflineStatus> = {};
   protected activeSession: RouteFollowSession | null = null;
   protected readonly faArrowLeft = faArrowLeft;
+  protected readonly faPeopleGroup = faPeopleGroup;
   protected readonly faCalendarDay = faCalendarDay;
   protected readonly faCheck = faCheck;
   protected readonly faRoute = faRoute;
@@ -739,7 +752,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected readonly faMoon = faMoon;
   protected readonly faPersonWalking = faPersonWalking;
   protected readonly faShareNodes = faShareNodes;
-  protected readonly faSliders = faSliders;
+  protected readonly faCompass = faCompass;
   protected readonly faArrowsRotate = faArrowsRotate;
   protected readonly faStar = faStar;
   protected readonly faSun = faSun;
@@ -750,6 +763,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected readonly AppAppearance = AppAppearance;
   protected appearance: AppAppearance = AppAppearance.SYSTEM;
   protected readonly versionCheck = inject(VersionCheckService);
+  protected readonly nativeBuildLabel = nativeBuildLabel();
   protected readonly mobileAccess = inject(MobileAppAccessService);
   protected readonly MobileAppAction = MobileAppAction;
   private subscriptions: Subscription[] = [];
@@ -764,6 +778,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
       this.customising = false;
       requestAnimationFrame(() => scroller?.scrollTo({top: this.browseScrollTop, behavior: "auto"}));
     }
+    void this.uiActions.updateQueryParameter(StoredValue.APP_SETTINGS, this.customising ? true : null);
   }
 
   siteAreaChanged(area: AvailableArea | null): void {
@@ -879,6 +894,9 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     } else {
     void this.listPreferences.refresh();
     this.layout = {...this.layout, ...this.uiActions.initialObjectValueFor<Partial<AppHomeLayout>>(StoredValue.APP_HOME_LAYOUT, {})};
+    this.subscriptions.push(this.activatedRoute.queryParamMap.subscribe(params => {
+      this.customising = params.get(StoredValue.APP_SETTINGS) === "true";
+    }));
     this.view = this.activatedRoute.snapshot.queryParamMap.get(StoredValue.TAB) === AppHomeView.UPCOMING ? AppHomeView.UPCOMING : AppHomeView.MAPS;
     this.creator = this.activatedRoute.snapshot.queryParamMap.get(StoredValue.CREATOR) || "";
     this.favouritesOnly = this.activatedRoute.snapshot.queryParamMap.get(StoredValue.FAVOURITES) === "true";
@@ -1540,8 +1558,29 @@ export class AppHomeComponent implements OnInit, OnDestroy {
     }
     this.loading = false;
     this.persistListSnapshot();
+    this.restoreMapsScroll();
     if (this.nearbyOnly) {
       await this.refreshLocation();
+    }
+  }
+
+  retainMapsScroll(): void {
+    const scroller = this.homeScroll?.nativeElement;
+    if (scroller) {
+      const filterKey = this.routeFilterKey();
+      const limit = this.routeWindow.filterKey === filterKey ? this.routeWindow.limit : MAP_LIST_BATCH_SIZE;
+      this.scrollPosition.retainFrom(scroller, {filterKey, limit});
+    }
+  }
+
+  private restoreMapsScroll(): void {
+    const saved = this.scrollPosition.takeElement();
+    const scroller = this.homeScroll?.nativeElement;
+    if (saved?.mapsWindow) {
+      this.routeWindow = saved.mapsWindow;
+    }
+    if (saved && scroller) {
+      setTimeout(() => scroller.scrollTo({top: saved.y}));
     }
   }
 }

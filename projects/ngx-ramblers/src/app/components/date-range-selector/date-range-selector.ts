@@ -160,6 +160,8 @@ export class DateRangeSelector {
 
   applyPreset(preset: AdvancedSearchPreset) {
     this.selectedPresetLabel = preset.label;
+    this.presetBounds = null;
+    this.updateScaledBounds();
     const clamped = this.clampRange(preset.range());
     this.presetBounds = clamped;
     this.updateScaledBounds();
@@ -214,6 +216,7 @@ export class DateRangeSelector {
   private refreshPresets(directionChanged: boolean) {
     if (directionChanged) {
       this.applyFullSpanWhenBoundsReady = true;
+      this.presetBounds = null;
     }
     this.updateScaledBounds();
     if (!this.scaledMinDate || !this.scaledMaxDate) {

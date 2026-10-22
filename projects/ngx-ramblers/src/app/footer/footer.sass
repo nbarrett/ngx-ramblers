@@ -43,9 +43,46 @@
   width: 100%!important
   max-width: 200px
 
+.footer-logo
+  width: 100%
+  max-width: 220px
+  margin-inline: auto
 
 .list-unstyled li
   margin-bottom: 9px
+
+@media (max-width: 767.98px)
+  :host
+    margin-top: 8px
+
+  .footer-logo
+    max-width: 132px
+
+  .list-unstyled li
+    margin-bottom: 4px
+
+  .small-nav-text a[ramblers-header-footer]
+    font-size: 1rem
+
+  .h5
+    font-size: 1rem
+
+  .app-download-image
+    max-width: 148px
+
+  .footer-downloads
+    display: flex
+    flex-wrap: wrap
+    justify-content: center
+    align-items: center
+    gap: 0.5rem
+
+  .footer-downloads .h5
+    flex: 1 0 100%
+    margin-bottom: 0.35rem
+
+  .footer-downloads li
+    margin-bottom: 0
 
 a
   font-weight: 400

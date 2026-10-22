@@ -6,7 +6,12 @@ import { VisibilityObserverDirective } from "./visibility-observer.directive";
 describe("shared map visibility", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it.each([true, false])("preserves one-time walk loading and supports continuous visibility with observeOnce=%s", observeOnce => {
+  it.each([
+    {observeOnce: true, rootMargin: null},
+    {observeOnce: false, rootMargin: null},
+    {observeOnce: true, rootMargin: "240px 0px"},
+    {observeOnce: false, rootMargin: "240px 0px"}
+  ])("observes visibility with observeOnce=$observeOnce and rootMargin=$rootMargin", ({observeOnce, rootMargin}) => {
     const observer = {observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn()};
     const state = {callback: null as IntersectionObserverCallback | null};
     const constructor = vi.fn(function(callback: IntersectionObserverCallback) {
@@ -19,13 +24,15 @@ describe("shared map visibility", () => {
     ]});
     const directive = TestBed.runInInjectionContext(() => new VisibilityObserverDirective());
     directive.observeOnce = observeOnce;
-    directive.rootMargin = "240px 0px";
+    if (rootMargin !== null) {
+      directive.rootMargin = rootMargin;
+    }
     const visible = vi.fn();
     const changes = vi.fn();
     directive.visible.subscribe(visible);
     directive.visibilityChange.subscribe(changes);
     directive.ngAfterViewInit();
-    expect(constructor).toHaveBeenCalledWith(expect.any(Function), {rootMargin: "240px 0px"});
+    expect(constructor).toHaveBeenCalledWith(expect.any(Function), {rootMargin: rootMargin ?? "0px"});
     state.callback?.([{isIntersecting: true} as IntersectionObserverEntry], observer as unknown as IntersectionObserver);
     expect(visible).toHaveBeenCalledOnce();
     expect(changes).toHaveBeenCalledWith(true);
