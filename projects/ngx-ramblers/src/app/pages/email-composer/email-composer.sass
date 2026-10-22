@@ -253,7 +253,7 @@
 .composer-workspace-actions
   display: grid
   grid-auto-flow: column
-  grid-auto-columns: minmax(0, 1fr)
+  grid-auto-columns: minmax(min-content, 1fr)
   align-items: stretch
   gap: 0.5rem
   width: 100%
@@ -267,6 +267,9 @@
   width: auto
   height: var(--btn-min-height)
   margin: 0
+
+.composer-workspace-actions > .composer-send-action
+  min-width: min-content
 
 .composer-workspace-actions > .composer-workspace-action-wide
   grid-column: 1 / -1
