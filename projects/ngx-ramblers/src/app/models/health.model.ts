@@ -1,3 +1,4 @@
+import {HostnameCandidate} from "./environment-setup.model";
 import { MigrationFile } from "./mongo-migration-model";
 
 export interface HealthMigrations {
@@ -79,17 +80,22 @@ export interface EnvironmentHealthCheck {
   healthResponse?: Partial<HealthResponse>;
   error?: string;
   findings?: EnvironmentHealthFinding[];
+  hostnames?: HostnameCandidate[];
   responseTimeMs: number;
 }
 
 export enum HealthSortColumn {
-  STATUS = "checkStatus",
+  STATUS = "statusRank",
   ENVIRONMENT = "environment",
   GROUP = "healthResponse.group.shortName",
   APPLIED = "healthResponse.migrations.applied",
   PENDING = "healthResponse.migrations.pending",
   FAILED = "healthResponse.migrations.failed",
   RESPONSE = "responseTimeMs"
+}
+
+export interface EnvironmentHealthRow extends EnvironmentHealthCheck {
+  statusRank: number;
 }
 
 export interface CrossEnvironmentHealthSummary {
@@ -104,6 +110,36 @@ export interface CrossEnvironmentHealthResponse {
   timestamp: string;
   environments: EnvironmentHealthCheck[];
   summary: CrossEnvironmentHealthSummary;
+}
+
+export enum EnvironmentHealthEventType {
+  START = "start",
+  RESULT = "result",
+  COMPLETE = "complete",
+  ERROR = "error"
+}
+
+export interface EnvironmentHealthEvent {
+  type: EnvironmentHealthEventType;
+  total?: number;
+  timestamp?: string;
+  environment?: EnvironmentHealthCheck;
+  error?: string;
+}
+
+export interface EnvironmentHealthProgress {
+  response: CrossEnvironmentHealthResponse;
+  complete: boolean;
+}
+
+export enum HttpProbeMethod {
+  HEAD = "HEAD",
+  GET = "GET"
+}
+
+export interface PublicHttpProbeResult {
+  httpStatus: number;
+  httpRedirectLocation: string;
 }
 
 export interface ProcessMemoryMb {

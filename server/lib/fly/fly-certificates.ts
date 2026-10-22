@@ -42,14 +42,15 @@ interface GraphQLIpAddressesResponse {
   app: { sharedIpAddress: string | null; ipAddresses: { nodes: GraphQLIpAddressNode[] } };
 }
 
-async function graphqlRequest<T>(apiToken: string, query: string, variables: Record<string, unknown>): Promise<T> {
+async function graphqlRequest<T>(apiToken: string, query: string, variables: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
   const response = await fetch("https://api.fly.io/graphql", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiToken}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ query, variables })
+    body: JSON.stringify({ query, variables }),
+    signal
   });
 
   const data = await response.json();
@@ -187,7 +188,7 @@ export async function addCertificate(config: FlyConfig, hostname: string): Promi
   }
 }
 
-export async function queryCertificates(config: FlyConfig): Promise<CertificateInfo[]> {
+export async function queryCertificates(config: FlyConfig, signal?: AbortSignal): Promise<CertificateInfo[]> {
   debugLog("Getting certificates for app %s", config.appName);
 
   const query = `
@@ -218,7 +219,8 @@ export async function queryCertificates(config: FlyConfig): Promise<CertificateI
   const data = await graphqlRequest<GraphQLCertsResponse>(
     config.apiToken,
     query,
-    { appName: config.appName }
+    { appName: config.appName },
+    signal ? AbortSignal.any([signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000)
   );
 
   return data.app.certificates.nodes.map(cert => ({

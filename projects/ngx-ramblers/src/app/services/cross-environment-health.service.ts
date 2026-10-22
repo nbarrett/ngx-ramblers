@@ -1,9 +1,12 @@
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpEventType } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "./logger-factory.service";
-import { CrossEnvironmentHealthResponse, EnvironmentHealthCheck, HealthWebAnalytics } from "../models/health.model";
+import { CrossEnvironmentHealthResponse, EnvironmentHealthCheck, EnvironmentHealthEvent, EnvironmentHealthEventType, EnvironmentHealthProgress, HealthWebAnalytics } from "../models/health.model";
 import { CrossEnvironmentHostnameHealth } from "../models/environment-setup.model";
+
+import {Observable} from "rxjs";
+import {environmentHealthSummary} from "../functions/environment-health";
 
 @Injectable({
   providedIn: "root"
@@ -23,6 +26,59 @@ export class CrossEnvironmentHealthService {
       this.logger.error("Failed to get cross-environment health:", error);
       throw error;
     }
+  }
+
+  progressiveHealthCheck(): Observable<EnvironmentHealthProgress> {
+    return new Observable(observer => {
+      const state = {offset: 0, buffer: "", response: null as CrossEnvironmentHealthResponse | null, complete: false};
+      const accept = (event: EnvironmentHealthEvent): void => {
+        if (event.type === EnvironmentHealthEventType.ERROR) {
+          throw new Error(event.error || "Environment health check failed");
+        } else if (event.type === EnvironmentHealthEventType.START) {
+          state.response = {timestamp: event.timestamp, environments: [], summary: environmentHealthSummary([], event.total)};
+          observer.next({response: state.response, complete: false});
+        } else if (state.response && event.type === EnvironmentHealthEventType.RESULT && event.environment) {
+          const environments = [...state.response.environments, event.environment];
+          state.response = {timestamp: event.timestamp, environments, summary: environmentHealthSummary(environments, state.response.summary.total)};
+          observer.next({response: state.response, complete: false});
+        } else if (state.response && event.type === EnvironmentHealthEventType.COMPLETE) {
+          if (state.response.environments.length !== state.response.summary.total) {
+            throw new Error("Environment health checks ended before all results arrived. Refresh to try again.");
+          }
+          state.complete = true;
+          state.response = {...state.response, timestamp: event.timestamp};
+          this.cachedResponse = state.response;
+          observer.next({response: state.response, complete: true});
+        }
+      };
+      const receive = (text: string): void => {
+        state.buffer += text.slice(state.offset);
+        state.offset = text.length;
+        const lines = state.buffer.split("\n");
+        state.buffer = lines.pop() || "";
+        lines.filter(line => line.trim()).forEach(line => accept(JSON.parse(line)));
+      };
+      const subscription = this.http.get("/api/health/environments/stream", {observe: "events", responseType: "text", reportProgress: true}).subscribe({
+        next: event => {
+          try {
+            if (event.type === HttpEventType.DownloadProgress && event.partialText) {
+              receive(event.partialText);
+            } else if (event.type === HttpEventType.Response) {
+              receive(event.body || "");
+              if (state.complete) {
+                observer.complete();
+              } else {
+                observer.error(new Error("Environment health checks ended before all results arrived. Refresh to try again."));
+              }
+            }
+          } catch (error) {
+            observer.error(error);
+          }
+        },
+        error: error => observer.error(error)
+      });
+      return () => subscription.unsubscribe();
+    });
   }
 
   async hostnameHealth(forceRefresh?: boolean): Promise<CrossEnvironmentHostnameHealth> {

@@ -17,6 +17,7 @@ import {
   HostnameEmailRoutingHealth,
   HostnameEmailRoutingStatus,
   HostnameHealthReport,
+  HostnameCandidate,
   HostnameOrigin,
   HostnameStatus
 } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
@@ -31,11 +32,6 @@ import { probeHttp } from "../health/public-http-probe";
 
 const debugLog = debug(envConfig.logNamespace("hostname-health"));
 
-interface HostnameCandidate {
-  hostname: string;
-  origin: HostnameOrigin;
-}
-
 function hostnameFromUrl(url: string): string {
   const hostname = hostFromUrl(url);
   if (!hostname) {
@@ -49,7 +45,7 @@ function addCandidate(candidates: HostnameCandidate[], hostname: string, origin:
   return alreadyPresent || !hostname ? candidates : [...candidates, { hostname, origin }];
 }
 
-function primaryCandidates(siteHostname: string, customDomains: CustomDomainEntry[], environmentSubdomain: string): HostnameCandidate[] {
+export function primaryCandidates(siteHostname: string, customDomains: CustomDomainEntry[], environmentSubdomain: string): HostnameCandidate[] {
   const fromSite = addCandidate([], siteHostname, HostnameOrigin.SITE_URL);
   const withCustomDomains = customDomains.reduce(
     (accumulator, entry) => addCandidate(accumulator, entry.hostname, HostnameOrigin.CUSTOM_DOMAIN),

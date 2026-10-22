@@ -1089,6 +1089,11 @@ export interface HostnameStatus {
   message: string;
 }
 
+export interface HostnameCandidate {
+  hostname: string;
+  origin: HostnameOrigin;
+}
+
 export interface HostnameHealthReport {
   environmentName: string;
   siteUrl: string;
