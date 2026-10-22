@@ -2,8 +2,38 @@ import expect from "expect";
 import { describe, it } from "mocha";
 import AdmZip from "adm-zip";
 import sinon from "sinon";
+import { htmlToMarkdown } from "../migration/turndown-service-factory";
 import { PDFParse } from "pdf-parse";
-import { convertBufferToMarkdown, convertHtmlToMarkdown, convertWordClipboardHtml, replacePdfImagePlaceholders } from "./document-conversion";
+import { convertBufferToMarkdown, convertHtmlToMarkdown, convertWordClipboardHtml, normaliseTables, replacePdfImagePlaceholders } from "./document-conversion";
+
+describe("website table conversion", () => {
+  it("preserves every data row in side-by-side headerless tables without converting their layout wrappers", async () => {
+    const html = `<table><tr><td><h1>Path checking</h1><p>Introduction.</p>
+      <table><tr><td><table><tr><td>Hillside</td><td>Alex Reed</td></tr><tr><td>Woodland</td><td>Vacant</td></tr></table></td>
+      <td></td><td><table><tr><td>Riverbank</td><td>Sam Green</td></tr><tr><td>Meadow</td><td>Vacant</td></tr></table></td></tr></table>
+      <p>More information.</p></td></tr></table>`;
+    const normalised = await normaliseTables(html, true);
+    const markdown = htmlToMarkdown(normalised, "https://group.example.org.uk/paths", true);
+    expect(markdown).toContain("# Path checking");
+    expect(markdown).toContain("Introduction.");
+    expect(markdown).toContain("| Hillside | Alex Reed |");
+    expect(markdown).toContain("| Woodland | Vacant |");
+    expect(markdown).toContain("| Riverbank | Sam Green |");
+    expect(markdown).toContain("| Meadow | Vacant |");
+    expect(markdown).toContain("More information.");
+    expect(markdown.match(/\| --- \| --- \|/g)?.length).toBe(2);
+    expect(await normaliseTables(normalised, true)).toBe(normalised);
+  });
+
+  it("retains existing table headings, inline links and surrounding images", async () => {
+    const html = `<p><img src="/map.jpg"></p><table><tr><th>Parish</th><th>Contact</th></tr>
+      <tr><td>Hillside</td><td><a href="/contact">Contact us</a></td></tr></table>`;
+    const markdown = htmlToMarkdown(await normaliseTables(html, true), "https://group.example.org.uk/paths", true);
+    expect(markdown).toContain("| Parish | Contact |");
+    expect(markdown).toContain("[Contact us](https://group.example.org.uk/contact)");
+    expect(markdown).toContain("![](https://group.example.org.uk/map.jpg)");
+  });
+});
 
 describe("PDF conversion without an image destination", () => {
   it("keeps table text without waiting for image extraction or rendering", async () => {

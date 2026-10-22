@@ -1177,6 +1177,44 @@ describe("page-transformation-engine.location extraction", () => {
 
 describe("page-transformation-engine.one-per-item rows without columns", () => {
 
+  it("populates four photos into empty image-list columns and removes unrelated sample images on repeated runs", async () => {
+    const engine = new PageTransformationEngine();
+    const images = [1, 2, 3, 4].map(index => ({src: `https://group.example.org.uk/gallery/photos/park-${index}.jpg`, alt: "Photo"}));
+    const page: ScrapedPage = {
+      path: "https://group.example.org.uk/gallery/mobile.php?20260618%20Hillside%20Park~June%202026__",
+      title: "Hillside Park June 2026",
+      segments: [{text: "# Photo Gallery"}, ...images.map(image => ({text: "", image}))]
+    };
+    const template: PageContent = {
+      path: "fragments/templates/gallery",
+      rows: [
+        {type: PageContentType.TEXT, maxColumns: 1, showSwiper: true, columns: [{columns: 12, rows: [
+          {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12}]}
+        ]}]},
+        {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [
+          {columns: 12, imageSource: "https://group.example.org.uk/gallery/another-album/thumb.jpg"}
+        ]}
+      ],
+      migrationTemplate: {templateType: ContentTemplateType.MIGRATION_TEMPLATE, mappings: [
+        {targetRowIndex: 0, sourceType: MigrationTemplateSourceType.EXTRACT, columnMappings: [
+          {columnIndex: 0, sourceType: MigrationTemplateSourceType.EXTRACT, nestedRowMapping: {
+            contentSource: NestedRowContentSource.REMAINING_IMAGES, packingBehavior: NestedRowPackingBehavior.ONE_PER_ITEM
+          }}
+        ]},
+        {targetRowIndex: 1, sourceType: MigrationTemplateSourceType.EXTRACT, columnMappings: [
+          {columnIndex: 0, sourceType: MigrationTemplateSourceType.EXTRACT}
+        ]}
+      ]}
+    };
+    const originalTemplate = JSON.stringify(template);
+    const first = await engine.transformWithTemplate(page, template, async image => image.src);
+    const second = await engine.transformWithTemplate(page, template, async image => image.src);
+    expect(first.rows[0].columns[0].rows.map(row => row.columns[0].imageSource)).toEqual(images.map(image => image.src));
+    expect(JSON.stringify(first.rows)).not.toContain("another-album");
+    expect(second.rows).toEqual(first.rows);
+    expect(JSON.stringify(template)).toEqual(originalTemplate);
+  });
+
   it("creates an image column for each image when the repeating template row has no columns", async () => {
     const engine = new PageTransformationEngine();
     const page: ScrapedPage = {

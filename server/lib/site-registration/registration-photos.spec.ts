@@ -4,7 +4,7 @@ import { AlbumView, IndexContentType, IndexRenderMode, PageContent, PageContentT
 import { MigratedAlbum } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { RegistrationPage, RegistrationPageType, RegistrationWalkCandidate } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { albumsLinkedToWalks, galleryDescription, homeContentRows, matchingWalk, photosByYear, registrationKeyAreas, shortDescription } from "./registration-photos";
+import { albumsLinkedToWalks, galleryDescription, homeContentRows, matchingWalk, photosByYear, registrationKeyAreas, shortDescription, withoutGalleryListing } from "./registration-photos";
 import { albumFrom, repeatsAnAlbum } from "../migration/migrate-static-site-engine";
 import { migrationNoteRow } from "../migration/page-transformation-engine";
 import { galleryDateFrom } from "../../../projects/ngx-ramblers/src/app/functions/gallery-date";
@@ -120,6 +120,45 @@ describe("registration-photos", () => {
       {type: PageContentType.ALBUM_INDEX, maxColumns: 3, showSwiper: false, columns: [], marginBottom: 3, albumIndex: {contentPaths: [{contentPath: "photos/2000", stringMatch: StringMatch.STARTS_WITH, maxPathSegments: 1}], contentTypes: [IndexContentType.ALBUMS], renderModes: [IndexRenderMode.MAP, IndexRenderMode.ACTION_BUTTONS], mapConfig: {mapHeight: 513, osStyle: "Outdoor_27700"}} as any}
     ]};
     const templates = {index: indexTemplate, year: yearTemplate};
+
+    it("omits static hero photos from map and action-button indexes on new and repeated imports", () => {
+      const hero = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, imageSource: "https://group.example.org.uk/park.jpg"}]};
+      const heading = {...hero, columns: [{...hero.columns[0], contentText: "# Walk photos"}]};
+      const index = yearTemplate.rows[1];
+      const note = migrationNoteRow("Migrated from", "https://group.example.org.uk/gallery");
+      const original = {path: "photos/2026", rows: [heading, hero, index, note]};
+      const cleaned = withoutGalleryListing(original);
+      expect(cleaned.rows.map(row => row.type)).toEqual([PageContentType.TEXT, PageContentType.ALBUM_INDEX, PageContentType.MIGRATION_NOTE]);
+      expect(cleaned.rows[0].columns[0].imageSource).toBeNull();
+      expect(cleaned.rows[0].columns[0].contentText).toBe("# Walk photos");
+      expect(cleaned.rows[1]).toEqual(index);
+      expect(cleaned.rows[2]).toEqual(note);
+      expect(withoutGalleryListing(cleaned)).toEqual(cleaned);
+      expect(photosByYear([original], [], templates, null)).toEqual([cleaned]);
+      const cardIndex = {...original, rows: [hero, indexTemplate.rows[0]]};
+      expect(withoutGalleryListing(cardIndex)).toEqual(cardIndex);
+      const gallery = album("gallery/park", "Park June 2026", "photos/park").pageContent;
+      const leaf = {...gallery, path: "photos/park", rows: gallery.rows.map(row => ({...row, columns: hero.columns}))};
+      const generated = photosByYear([{path: "photos", rows: []}, leaf], [page("photos/park", "Park June 2026", "https://group.example.org.uk/gallery/park")], templates, null);
+      expect(generated.find(page => page.path === "photos/2026").rows.flatMap(row => row.columns || []).some(column => !!column.imageSource)).toBe(false);
+    });
+
+    it("removes the source link list when an index already exists even if no dated albums were produced", () => {
+      const heading = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "# Photos"}]};
+      const introduction = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "Photos taken on our walks."}]};
+      const list = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12,
+        contentText: "[Canal\nJune 2026](/photos/canal)\n\n[Hillside Park\nMay 2026](/photos/hillside-park)\n\n[Woodland\nApril 2026](/photos/woodland)"}]};
+      const note = migrationNoteRow("Migrated from", "https://group.example.org.uk/gallery");
+      const index = indexTemplate.rows[0];
+      const placeholder = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: true, migrationPlaceholder: true, columns: [
+        {columns: 12, imageSource: "https://group.example.org.uk/gallery/park/thumb.jpg"}
+      ]};
+      const pages: PageContent[] = [{path: "photos", rows: [heading, introduction, placeholder, list, note, index]}];
+      const cleaned = photosByYear(pages, [], templates, null);
+      expect(cleaned[0].rows).toEqual([heading, introduction, note, index]);
+      expect(photosByYear(cleaned, [], templates, null)).toEqual(cleaned);
+      expect(pages[0].rows).toContain(list);
+    });
 
     it("moves galleries under a page per year, indexes the years on the photos page and drops the old link list", () => {
       const albumRow = (eventDate: number) => ({type: PageContentType.ALBUM, maxColumns: 1, showSwiper: false, columns: [], carousel: {name: "x", eventDate} as any});
