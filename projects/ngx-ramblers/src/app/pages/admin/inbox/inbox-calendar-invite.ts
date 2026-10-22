@@ -41,10 +41,16 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
       margin-bottom: 1rem
     .inbox-calendar-when
       font-weight: 700
-    .inbox-calendar-rsvp-buttons
+    .inbox-calendar-actions
       display: flex
       flex-wrap: wrap
       gap: 0.5rem
+      @media (max-width: 767.98px)
+        flex-direction: column
+        align-items: stretch
+        .btn
+          width: 100%
+          justify-content: center
   `],
   template: `
     @if (inviteEvent) {
@@ -88,7 +94,7 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
               </div>
             </div>
           }
-          <div class="inbox-calendar-rsvp-buttons mb-3">
+          <div class="inbox-calendar-actions mb-3">
             <button type="button" class="btn btn-success" [disabled]="busy" (click)="reply(CalendarRsvpStatus.ACCEPTED)">
               <fa-icon [icon]="faCheck" class="me-2"/>Accept
             </button>
@@ -100,7 +106,7 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
             </button>
           </div>
           @if (currentRsvp === CalendarRsvpStatus.ACCEPTED || currentRsvp === CalendarRsvpStatus.TENTATIVE) {
-            <div class="d-flex flex-wrap gap-2">
+            <div class="inbox-calendar-actions">
               @for (app of calendarApps; track app) {
                 @if (calendarHref(app); as href) {
                   <a class="btn" [class.btn-primary]="calendarIsPrimary(app)" [class.btn-quiet]="!calendarIsPrimary(app)"
@@ -116,7 +122,7 @@ import { ThumbnailHeadingFrameComponent } from "../../../modules/common/thumbnai
           }
         </app-thumbnail-heading-frame>
       } @else {
-        <div class="d-flex flex-wrap gap-2">
+        <div class="inbox-calendar-actions">
           @for (app of calendarApps; track app) {
             @if (calendarHref(app); as href) {
               <a class="btn" [class.btn-primary]="calendarIsPrimary(app)" [class.btn-quiet]="!calendarIsPrimary(app)"

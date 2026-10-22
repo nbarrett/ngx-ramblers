@@ -233,21 +233,38 @@ describe("standalone recording restoration", () => {
 });
 
 describe("finishing a recording", () => {
-  it("starts only on request and keeps the naming form hidden with the tray collapsed", () => {
+  const recordedTitle = "Recorded walk, Thursday, 8 October 2026, 9:00 am";
+
+  function recordingView(title: string): RouteFollowComponent {
     const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
     Object.defineProperty(view, "mobileAccess", {value: {allowed: () => true}});
-    view["payload"] = {source: RouteFollowSource.RECORDING, title: ""} as RouteFollowPayload;
+    view["dateUtils"] = {
+      dateTimeNow: () => ({}),
+      displayDateAbbreviatedTime: () => "Thursday, 8 October 2026, 9:00 am"
+    } as unknown as typeof view["dateUtils"];
+    view["payload"] = {source: RouteFollowSource.RECORDING, title} as RouteFollowPayload;
     view["followService"] = {trackPoints: () => [], startRecording: vi.fn()} as unknown as typeof view["followService"];
     view["clearEditHandles"] = vi.fn();
     view["refreshArrows"] = vi.fn();
     view["redraw"] = vi.fn();
     view["requestWakeLock"] = vi.fn().mockResolvedValue(null);
     view.minimiseSheet = vi.fn();
+    return view;
+  }
+
+  it("starts only on request and keeps the naming form hidden with the tray collapsed", () => {
+    const view = recordingView("");
     view.recordRoute();
     expect(view["followService"].startRecording).toHaveBeenCalledWith(true);
     expect(view["recordingDetailsOpen"]).toBe(false);
     expect(view.minimiseSheet).toHaveBeenCalledOnce();
-    expect(view["payload"].title).toBe("");
+    expect(view["payload"].title).toBe(recordedTitle);
+  });
+
+  it("keeps a title the walker already typed", () => {
+    const view = recordingView("Hillside Park loop");
+    view.recordRoute();
+    expect(view["payload"].title).toBe("Hillside Park loop");
   });
 
   it("reads background points before pausing and opening the naming fields", async () => {

@@ -19,6 +19,15 @@ export function parseHttpsOrigin(value: string): string | null {
   return origin;
 }
 
+export function nativeBuildLabel(): string | null {
+  const build = (window as NativeWalkingWindow).ngxNativeBuildNumber?.trim();
+  if (build) {
+    return `Build ${build}`;
+  } else {
+    return null;
+  }
+}
+
 export function nativeWalkingSite(): string | null {
   const baked = parseHttpsOrigin((window as NativeWalkingWindow).ngxNativeSiteUrl || "");
   let origin: string | null = null;

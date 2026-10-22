@@ -78,19 +78,14 @@ import { SystemHealthyGuard } from "../../guards/system-healthy-guard";
       canActivate: [WalksAuthGuard]
     },
     {
-      path: "routes",
+      path: "admin/routes",
       loadComponent: () => import("../../pages/walks/walk-admin/os-maps-export")
         .then(m => m.OsMapsExportPage),
       canActivate: [WalkLeaderAuthGuard]
     },
     {
-      path: "admin/routes",
-      redirectTo: "routes",
-      pathMatch: "full"
-    },
-    {
       path: "admin/os-maps-export",
-      redirectTo: "routes",
+      redirectTo: "admin/routes",
       pathMatch: "full"
     },
     {

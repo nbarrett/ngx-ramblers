@@ -58,28 +58,11 @@ const COMBINED_MAP_BOUNDS_PADDING = 0.25;
       :host
         display: block
         position: relative
+      :host.preview
+        height: 100%
       .map-edit-surface
         width: 100%
         height: 100%
-      :host.preview ::ng-deep .leaflet-control-attribution
-        font-size: 6px
-        line-height: 1
-        padding: 0 3px
-        max-width: 100%
-        white-space: normal
-        background: rgba(255, 255, 255, 0.65)
-      :host.preview ::ng-deep .os-api-branding
-        gap: 2px
-        padding: 1px 2px
-        font: 6px / 7px Arial, Helvetica, sans-serif
-      :host.preview ::ng-deep .os-api-branding-logo
-        width: 18px
-        height: 6px
-      :host.preview ::ng-deep .os-api-branding-text
-        display: block
-        white-space: normal
-        overflow: visible
-      :host.preview ::ng-deep .os-api-branding-links,
       :host.preview ::ng-deep .leaflet-control-zoom
         display: none
     `],
@@ -540,7 +523,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
       setTimeout(() => {
         if (this.destroyed || this.map !== map) {
         } else {
-          map.invalidateSize();
+          this.invalidateMapIfSized(map);
           if (this.preview) {
             map.attributionControl?.setPrefix("");
           } else if (this.fitBounds) {
@@ -785,7 +768,7 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   invalidateSize() {
-    if (this.map && !this.destroyed) {
+    if (this.map && !this.destroyed && this.mapHasPixelSize(this.map)) {
       this.logger.info("Invalidating map size and reapplying bounds");
       this.mapZoom.invalidateAndApplyBounds(this.map, this.fitBounds, { maxZoom: 15 });
     }
@@ -799,20 +782,30 @@ export class MapEditComponent implements OnInit, OnDestroy, OnChanges {
     this.resizeObserver.observe(map.getContainer());
   }
 
-  private refitToRouteOnResize() {
-    if (this.destroyed || !this.map) {
-      return;
+  private mapHasPixelSize(map: L.Map): boolean {
+    const container = map.getContainer();
+    return !!container && container.offsetWidth > 0 && container.offsetHeight > 0;
+  }
+
+  private invalidateMapIfSized(map: L.Map): void {
+    if (this.mapHasPixelSize(map)) {
+      map.invalidateSize();
     }
-    this.map.invalidateSize();
-    if (this.fitBounds && this.map.getSize().x > 0) {
-      if (this.resizeFitTimer) {
-        clearTimeout(this.resizeFitTimer);
-      }
-      this.resizeFitTimer = setTimeout(() => {
-        if (!this.destroyed && this.map && this.fitBounds && this.map.getSize().x > 0) {
-          this.mapZoom.applyBoundsToMap(this.map, this.fitBounds, { maxZoom: 15 });
+  }
+
+  private refitToRouteOnResize() {
+    if (!this.destroyed && this.map && this.mapHasPixelSize(this.map)) {
+      this.invalidateMapIfSized(this.map);
+      if (this.fitBounds && this.map.getSize().x > 0) {
+        if (this.resizeFitTimer) {
+          clearTimeout(this.resizeFitTimer);
         }
-      }, 150);
+        this.resizeFitTimer = setTimeout(() => {
+          if (!this.destroyed && this.map && this.fitBounds && this.map.getSize().x > 0) {
+            this.mapZoom.applyBoundsToMap(this.map, this.fitBounds, { maxZoom: 15 });
+          }
+        }, 150);
+      }
     }
   }
 }

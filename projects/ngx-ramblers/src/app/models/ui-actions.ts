@@ -45,6 +45,7 @@ export enum StoredValue {
   APP_LEGACY_RECOVERY = "app-legacy-recovery",
   APP_MOBILE_CONFIG = "app-mobile-config",
   APP_ROUTE_PREFERENCES = "app-route-preferences",
+  APP_SETTINGS = "app-settings",
   APP_SITE_ORIGIN = "app-site-origin",
   AREA = "area",
   AREA_MAP_CENTER = "area-map-center",

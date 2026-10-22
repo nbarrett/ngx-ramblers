@@ -41,14 +41,15 @@ import { contactUsDeliveryProblem, effectiveContactUsTarget, withContactUsRecipi
         </div>
         <div class="modal-body">
           @if (committeeMember) {
-            <form #contactForm="ngForm" (ngSubmit)="sendEmail()" class="p-2" novalidate>
+            <form #contactForm="ngForm" (ngSubmit)="sendEmail()" class="p-2" novalidate autocomplete="off">
               <h6 class="my-3">Please complete the following details and we'll send your message to
                 {{ contactIntro() }}.</h6>
               <div class="form-group">
                 <label for="contact-name">Your Name</label>
-                <input #contactNameInput [(ngModel)]="contactFormDetails.name" name="name" type="text" id="contact-name"
-                       class="form-control" required>
-                @if (contactForm.submitted && !contactForm.controls.name?.valid) {
+                <input #contactNameInput [(ngModel)]="contactFormDetails.name" name="contactPersonName" type="text" id="contact-name"
+                       class="form-control" required autocomplete="one-time-code" autocapitalize="none"
+                       autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
+                @if (contactForm.submitted && !contactForm.controls.contactPersonName?.valid) {
                   <div class="text-danger">
                     Name is required.
                   </div>
@@ -66,9 +67,11 @@ import { contactUsDeliveryProblem, effectiveContactUsTarget, withContactUsRecipi
               @if (!contactFormDetails.anonymous) {
                 <div class="form-group">
                   <label for="contact-email">Your Email Address</label>
-                  <input [(ngModel)]="contactFormDetails.email" name="email" type="email" id="contact-email"
-                         class="form-control" [required]="!contactFormDetails.anonymous">
-                  @if (contactForm.submitted && !contactForm.controls.email?.valid && !contactFormDetails.anonymous) {
+                  <input [(ngModel)]="contactFormDetails.email" name="contactPersonEmail" type="email" id="contact-email"
+                         class="form-control" [required]="!contactFormDetails.anonymous"
+                         autocomplete="one-time-code" autocapitalize="none" autocorrect="off" spellcheck="false"
+                         data-lpignore="true" data-1p-ignore data-form-type="other">
+                  @if (contactForm.submitted && !contactForm.controls.contactPersonEmail?.valid && !contactFormDetails.anonymous) {
                     <div class="text-danger">
                       Valid email is required.
                     </div>
@@ -77,9 +80,10 @@ import { contactUsDeliveryProblem, effectiveContactUsTarget, withContactUsRecipi
               }
               <div class="form-group">
                 <label for="contact-subject">Subject</label>
-                <input [(ngModel)]="contactFormDetails.subject" name="subject" type="text" id="contact-subject"
-                       class="form-control" required>
-                @if (contactForm.submitted && !contactForm.controls.subject?.valid) {
+                <input [(ngModel)]="contactFormDetails.subject" name="contactSubject" type="text" id="contact-subject"
+                       class="form-control" required autocomplete="one-time-code" autocapitalize="none"
+                       autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
+                @if (contactForm.submitted && !contactForm.controls.contactSubject?.valid) {
                   <div class="text-danger">
                     Subject is required.
                   </div>
@@ -87,10 +91,12 @@ import { contactUsDeliveryProblem, effectiveContactUsTarget, withContactUsRecipi
               </div>
               <div class="form-group">
                 <label for="contact-message">Your Message</label>
-                <textarea [(ngModel)]="contactFormDetails.message" name="message" id="contact-message"
+                <textarea [(ngModel)]="contactFormDetails.message" name="contactMessage" id="contact-message"
                           class="form-control"
-                          rows="8" required></textarea>
-                @if (contactForm.submitted && !contactForm.controls.message?.valid) {
+                          rows="8" required autocomplete="one-time-code" autocapitalize="none"
+                          autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore
+                          data-form-type="other"></textarea>
+                @if (contactForm.submitted && !contactForm.controls.contactMessage?.valid) {
                   <div class="text-danger">
                     Message is required.
                   </div>

@@ -13,33 +13,33 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
     selector: "app-footer",
     template: `
     @if (footer) {
-      <div class="footer bg-dark text-white py-5 container-fluid">
+      <div class="footer bg-dark text-white py-3 py-lg-5 container-fluid">
         <div class="row">
           <div class="col">
             <div class="container">
               <div class="row align-items-start">
-                <div xs="12" class="position-relative py-0 mx-auto col-lg-3">
+                <div class="position-relative py-0 mx-auto col-12 col-lg-3">
                   <div class="text-center"><a [href]="national?.mainSite?.href"
                     aria-current="page"
                     class="d-inline-block image-link-focus py-0 active">
                     <img src="/assets/images/local/dark-bg-logo.svg" alt="Home"
-                    class="d-block w-100 logo"></a></div>
+                    class="d-block logo footer-logo"></a></div>
                     <div class="text-center">
                       <app-social-media-links/>
                     </div>
                   </div>
-                  <div [class]="extraColumnClasses">
-                    <ul class="custom-nav list-unstyled text-center text-nowrap mb-5">
-                      <p class="h5 mb-3 mb-lg-5 text-green">Quick links</p>
+                  <div [class]="linkColumnClasses">
+                    <ul class="custom-nav list-unstyled text-center mb-3 mb-lg-5">
+                      <p class="h5 mb-2 mb-lg-5 text-green">Quick links</p>
                       @for (link of footer?.quickLinks; track link) {
                         <li placement="left"
                           [tooltip]="'View ' + link.title +' (opens a new browser tab)'"><a [href]="link.href">{{link.title}}</a></li>
                         }
                       </ul>
                     </div>
-                    <div [class]="extraColumnClasses">
-                      <ul class="custom-nav list-unstyled text-center text-nowrap mb-5">
-                        <p class="h5 mb-3 mb-lg-5 text-green">Legals</p>
+                    <div [class]="linkColumnClasses">
+                      <ul class="custom-nav list-unstyled text-center mb-3 mb-lg-5">
+                        <p class="h5 mb-2 mb-lg-5 text-green">Legals</p>
                         @for (link of footer?.legals; track link) {
                           <li placement="left"
                             [tooltip]="'View ' + link.title +' (opens a new browser tab)'"><a
@@ -48,9 +48,9 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                       </ul>
                     </div>
                     @if (appDownloadColumnVisible) {
-                      <div [class]="extraColumnClasses">
-                        <ul class="custom-nav list-unstyled text-center text-nowrap mb-5">
-                          <p class="h5 mb-3 mb-lg-5 text-green">Download the app</p>
+                      <div [class]="downloadColumnClasses">
+                        <ul class="custom-nav footer-downloads list-unstyled text-center mb-3 mb-lg-5">
+                          <p class="h5 mb-2 mb-lg-5 text-green">Download the app</p>
                           @if (appleVisible) {
                             <li placement="left"
                               tooltip="Download the Ramblers app on the Apple App Store (opens a new browser tab)">
@@ -134,12 +134,7 @@ export class FooterComponent implements OnInit, OnDestroy {
     return this.appleVisible || this.googleVisible;
   }
 
-  get extraColumnClasses(): string {
-    const extras = 2 + (this.appDownloadColumnVisible ? 1 : 0);
-    if (extras === 3) {
-      return "col-sm-4 col-lg-3 col-12";
-    }
-    return "col-sm-6 col-lg col-12";
-  }
+  readonly linkColumnClasses = "col-6 col-lg-3";
+  readonly downloadColumnClasses = "col-12 col-lg-3";
 
 }

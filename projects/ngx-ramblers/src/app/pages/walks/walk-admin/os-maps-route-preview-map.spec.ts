@@ -1,3 +1,4 @@
+import * as L from "leaflet";
 import { TestBed } from "@angular/core/testing";
 import { provideHttpClient } from "@angular/common/http";
 import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
@@ -22,7 +23,7 @@ describe("lazy route thumbnail detail", () => {
         {provide: GpxParserService, useValue: {parseGpxFile: () => ({tracks: [{points}]})}},
         {provide: RouteFollowPayloadService, useValue: {gpxDownloadUrl: () => "/api/routes/fictional-preview.gpx"}},
         {provide: RouteFollowCacheService, useValue: cache},
-        {provide: MapTilesService, useValue: {}},
+        {provide: MapTilesService, useValue: {hasOsApiKey: () => false, createBaseLayer: vi.fn().mockReturnValue({})}},
         {provide: MapZoomService, useValue: {}}]
     });
     cache.payload.mockClear();
@@ -55,6 +56,27 @@ describe("lazy route thumbnail detail", () => {
     http.expectNone("/api/routes/fictional-preview.gpx");
     expect(preview["latLngs"]).toHaveLength(200);
     preview.ngOnDestroy();
+  });
+
+  it("keeps thumbnail tiles and geometry until the points or appearance change", () => {
+    const preview = TestBed.runInInjectionContext(() => new OsMapsRoutePreviewMapComponent());
+    const map = {eachLayer: vi.fn(), addLayer: vi.fn(), remove: vi.fn()};
+    const refit = vi.spyOn(preview as unknown as {refitRoute: () => void}, "refitRoute").mockImplementation(() => null);
+    preview["mapRef"] = map as unknown as L.Map;
+    preview["applyPoints"](points);
+    preview["drawIfReady"]();
+    preview["drawIfReady"]();
+    expect(map.eachLayer).toHaveBeenCalledTimes(1);
+    expect(map.addLayer).toHaveBeenCalledTimes(2);
+    expect(refit).toHaveBeenCalledTimes(1);
+    preview.route = {id: "fictional-preview", routeColor: "#123456"} as OsMapsListedRoute;
+    preview["drawIfReady"]();
+    expect(map.eachLayer).toHaveBeenCalledTimes(2);
+    preview["applyPoints"]([...points]);
+    preview["drawIfReady"]();
+    expect(map.eachLayer).toHaveBeenCalledTimes(3);
+    preview.ngOnDestroy();
+    expect(preview["renderedPoints"]).toBeNull();
   });
 
   it("reads full cached geometry only when a locally saved thumbnail becomes visible", async () => {

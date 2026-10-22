@@ -247,6 +247,8 @@ export const FOLLOW_POINTER_SIZES: {size: FollowPointerSize; label: string}[] = 
   {size: FollowPointerSize.LARGE, label: "Large"}
 ];
 
+export const FOLLOW_LOCATION_POINTER_PATH = "M13 2.2 L23.8 24.6 L13 18.8 L2.2 24.6 Z";
+
 export enum CompassCardinal {
   N = "N",
   NE = "NE",

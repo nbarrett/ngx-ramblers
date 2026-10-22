@@ -1,3 +1,4 @@
+import { NativeCompassService } from "./native-compass.service";
 import { DistanceUnit, KM_PER_MILE } from "../../models/walk.model";
 import { TestBed } from "@angular/core/testing";
 import { LoggerTestingModule } from "ngx-logger/testing";
@@ -349,6 +350,33 @@ describe("RouteFollowService", () => {
     expect(service.progress().heading).toBeCloseTo(90, 6);
     window.dispatchEvent(Object.assign(new Event("deviceorientationabsolute"), {alpha: 0, beta: 0, gamma: 90, absolute: true}));
     expect(service.progress().heading).toBeCloseTo(90, 6);
+  });
+
+  it("smooths native Android compass samples instead of bypassing the filter", () => {
+    const compass = TestBed.inject(NativeCompassService);
+    vi.spyOn(compass, "supported").mockReturnValue(true);
+    vi.spyOn(compass, "stop").mockImplementation(vi.fn());
+    vi.spyOn(compass, "start").mockImplementation(receive => {
+      receive(0);
+      receive(20);
+    });
+    service.listenForCompass();
+    expect(service.progress().heading).toBeGreaterThan(2);
+    expect(service.progress().heading).toBeLessThan(8);
+  });
+
+  it("smooths native Android readings across north without reversing the turn", () => {
+    const compass = TestBed.inject(NativeCompassService);
+    vi.spyOn(compass, "supported").mockReturnValue(true);
+    vi.spyOn(compass, "stop").mockImplementation(vi.fn());
+    vi.spyOn(compass, "start").mockImplementation(receive => {
+      receive(356);
+      receive(4);
+      receive(4);
+    });
+    service.listenForCompass();
+    expect(service.progress().heading).toBeGreaterThan(356);
+    expect(service.progress().heading).toBeLessThan(360);
   });
 
   it("damps noisy compass updates instead of snapping to each sample", () => {

@@ -40,6 +40,7 @@ export interface NativeRouteRecorderPlugin {
 export interface NativeWalkingWindow extends Window {
   ngxNativeSiteUrl?: string;
   ngxNativeDirectoryUrl?: string;
+  ngxNativeBuildNumber?: string;
 }
 
 export interface NativeWalkingSite {

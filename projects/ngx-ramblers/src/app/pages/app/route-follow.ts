@@ -1,3 +1,5 @@
+import { CompassCalibrationHelpComponent } from "../../shared/components/compass-calibration-help";
+import { NativeCompassService } from "../../services/maps/native-compass.service";
 import { SwipeAxis } from "../../models/swipe.model";
 import { SwipeableDirective } from "../../modules/common/swipe/swipeable.directive";
 import { SectionToggle } from "../../shared/components/section-toggle";
@@ -17,9 +19,10 @@ import { WalkGradingComponent } from "../walks/walk-view/walk-grading";
 import { Difficulty } from "../../models/ramblers-walks-manager";
 import { RouteVisibility, routeAuditCreatedLabel } from "../../models/os-maps-export.model";
 import { downloadBlob } from "../../functions/file-download";
+import { nativeBuildLabel } from "../../functions/native-walking";
 import { FormsModule } from "@angular/forms";
 import { CdkTextareaAutosize } from "@angular/cdk/text-field";
-import { afterNextRender, ChangeDetectorRef, Component, ElementRef, HostListener, inject, Injector, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
+import { afterNextRender, ChangeDetectorRef, Component, ElementRef, HostListener, effect, inject, Injector, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { turnRotationDegrees } from "../../functions/route-turns";
 import { nearestPointIndex, cumulativeDistances, snapToRoute } from "../../functions/route-geometry";
 import { ActivatedRoute, Router } from "@angular/router";
@@ -30,6 +33,7 @@ import {
   faDownload,
   faCircle,
   faCircleExclamation,
+  faCompass,
   faCircleHalfStroke,
   faCompress,
   faEraser,
@@ -52,7 +56,7 @@ import {
   faStop,
   faSun,
   faUpLong,
-  faXmark, faTrash, faChevronDown, faCodeFork, faSignsPost } from "@fortawesome/free-solid-svg-icons";
+  faXmark, faTrash, faChevronDown, faCodeFork, faHouse, faSignsPost } from "@fortawesome/free-solid-svg-icons";
 import * as L from "leaflet";
 import { isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -92,6 +96,7 @@ import {
   compassTapeMarks,
   routeAlignedMapHeading,
   FollowPointerSize,
+  FOLLOW_LOCATION_POINTER_PATH,
   FOLLOW_POINTER_SIZES,
   followPointerPixels,
   followPointerSizeFrom,
@@ -147,6 +152,7 @@ import { EPSG_27700_PROJ4, MapProjectionCode } from "../../common/maps/map-proje
 import proj4 from "proj4";
 import { MapLoadingOverlay } from "../../shared/components/map-loading-overlay";
 import { RouterHistoryService } from "../../services/router-history.service";
+import { DateUtilsService } from "../../services/date-utils.service";
 
 @Component({
   selector: "app-route-follow",
@@ -166,6 +172,9 @@ import { RouterHistoryService } from "../../services/router-history.service";
             <div>
               <strong>{{ payload?.source === RouteFollowSource.RECORDING ? "Recording location unavailable" : "Could not load route" }}</strong>
               <p class="mb-0">{{ error }}</p>
+              @if (nativeBuildLabel) {
+                <p class="mb-0 mt-2">{{ nativeBuildLabel }}</p>
+              }
             </div>
           </div>
         </div>
@@ -187,8 +196,10 @@ import { RouterHistoryService } from "../../services/router-history.service";
                (leafletMapReady)="onMapReady($event)">
           </div>
         }
+        <app-compass-calibration-help [open]="compassHelpOpen" [backLabel]="compassHelpBackLabel"
+                                      (closed)="compassHelpOpen = false"/>
         <h1 class="visually-hidden">{{ payload?.title || "Record a route" }}</h1>
-        <div class="follow-top" [class.has-banner]="showOffRoute || !!locationMessage || !!forkAhead">
+        <div class="follow-top" [class.has-banner]="showOffRoute || !!locationMessage || !!forkAhead || nativeCompass.calibrationRecommended()">
           <div class="follow-top-bar">
             <div class="follow-top-actions">
               <button class="follow-icon-btn" type="button" (click)="closeFollow()" [disabled]="savingRoute"
@@ -196,6 +207,9 @@ import { RouterHistoryService } from "../../services/router-history.service";
                       aria-label="Exit map">
                 <fa-icon [icon]="faXmark"/>
               </button>
+              @if (nativeBuildLabel) {
+                <span class="follow-build">{{ nativeBuildLabel }}</span>
+              }
             </div>
             <div class="follow-top-banner">
               @if (forkAhead) {
@@ -214,6 +228,15 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 <div class="follow-off-route follow-location-error">
                   <fa-icon [icon]="faCircleExclamation"/>
                   {{ locationMessage }}
+                </div>
+              } @else if (nativeCompass.calibrationRecommended()) {
+                <div class="alert alert-warning d-flex align-items-start gap-2 mb-0 w-100 pe-auto" role="status">
+                  <fa-icon [icon]="faCircleExclamation"/>
+                  <div class="flex-grow-1">
+                    <strong class="d-block">Compass needs calibration</strong>
+                    The direction pointer may be inaccurate.
+                    <button type="button" class="btn btn-primary mt-2" (click)="openCompassHelpFromMap()"><fa-icon [icon]="faCompass" class="me-2"/>Show me how</button>
+                  </div>
                 </div>
               }
             </div>
@@ -386,16 +409,21 @@ import { RouterHistoryService } from "../../services/router-history.service";
             }
             <p class="follow-style-heading">While following</p>
             <p class="follow-option-label">Location pointer</p>
-            <div class="follow-progress-paint follow-pointer-sizes" role="group" aria-label="Location pointer size">
+            <div class="follow-pointer-sizes" role="group" aria-label="Location pointer size">
               @for (choice of pointerSizeChoices; track choice.size) {
-                <button type="button" class="btn btn-sm follow-progress-paint-btn"
-                        [class.btn-primary]="pointerSize === choice.size"
-                        [class.btn-quiet]="pointerSize !== choice.size"
+                <button type="button" class="follow-pointer-size-btn"
+                        [class.is-selected]="pointerSize === choice.size"
+                        [attr.aria-label]="choice.label"
+                        [attr.aria-pressed]="pointerSize === choice.size"
                         (click)="setPointerSize(choice.size)">
-                  <span class="follow-pointer-dot"
-                        [style.width.px]="pointerPixels(choice.size).width / 2"
-                        [style.height.px]="pointerPixels(choice.size).width / 2"></span>
-                  {{ choice.label }}
+                  <span class="follow-pointer-preview" aria-hidden="true">
+                    <svg [attr.width]="pointerPixels(choice.size).width"
+                         [attr.height]="pointerPixels(choice.size).height"
+                         viewBox="0 0 26 28">
+                      <path [attr.d]="pointerPath" fill="#d81b60" stroke="#ffffff" stroke-width="2.3"
+                            stroke-linejoin="round" stroke-linecap="round"/>
+                    </svg>
+                  </span>
                 </button>
               }
             </div>
@@ -519,7 +547,8 @@ import { RouterHistoryService } from "../../services/router-history.service";
             </div>
           </div>
           </div>
-          <section #followSheet class="follow-sheet" [class.is-minimised]="sheetMinimised">
+          <section #followSheet class="follow-sheet" [class.is-minimised]="sheetMinimised"
+                   [class.is-editing]="progress?.mode === RouteFollowMode.EDITING">
           <button class="follow-sheet-handle" type="button"
                   (pointerdown)="onSheetHandlePointerDown($event)"
                   (pointermove)="onSheetPointerMove($event)"
@@ -545,11 +574,11 @@ import { RouterHistoryService } from "../../services/router-history.service";
                     [attr.aria-expanded]="!sheetMinimised" aria-label="Recording controls">
               <fa-icon [icon]="faCircle" class="follow-recording-indicator"
                        [class.is-recording]="progress?.mode === RouteFollowMode.RECORDING"/>
-              <span aria-live="polite">{{ progress?.mode === RouteFollowMode.RECORDING ? "Recording" : "Recording paused" }}</span>
+              <span aria-live="polite">{{ progress?.mode === RouteFollowMode.RECORDING ? "Recording. Walk as usual" : "Recording paused" }}</span>
               <span>{{ remainingDistance }}</span>
             </button>
           }
-          @if (!creatingLine && sheetMinimised && progress?.mode !== RouteFollowMode.EDITING && (hasLine || recordingSession)) {
+          @if (!creatingLine && sheetMinimised && (hasLine || recordingSession || progress?.mode === RouteFollowMode.EDITING)) {
           <div class="follow-sheet-peek"
                (pointerdown)="onSheetHandlePointerDown($event)"
                (pointermove)="onSheetPointerMove($event)"
@@ -557,33 +586,65 @@ import { RouterHistoryService } from "../../services/router-history.service";
                (pointercancel)="onSheetPointerUp($event)"
                (click)="onSheetHandleClick()">
             <div class="follow-peek-stats">
-              <div class="follow-peek-stat">
-                <span>{{ recordingSession ? "Elevation" : "Remaining" }}</span>
-                <strong>{{ recordingSession ? currentElevation : remainingDistance }}</strong>
-              </div>
-              <div class="follow-peek-stat">
-                <span>{{ recordingSession ? "Duration" : "Time left" }}</span>
-                <strong aria-live="polite">{{ remainingTime }}</strong>
-              </div>
+              @if (progress?.mode === RouteFollowMode.EDITING) {
+                <div class="follow-peek-stat follow-peek-stat-wide">
+                  <span>Edit route</span>
+                  <strong>Drag a point to move it</strong>
+                </div>
+              } @else {
+                <div class="follow-peek-stat">
+                  <span>{{ recordingSession ? "Elevation" : "Remaining" }}</span>
+                  <strong>{{ recordingSession ? currentElevation : remainingDistance }}</strong>
+                </div>
+                <div class="follow-peek-stat">
+                  <span>{{ recordingSession ? "Duration" : "Time left" }}</span>
+                  <strong aria-live="polite">{{ remainingTime }}</strong>
+                </div>
+              }
             </div>
           </div>
           }
-          @if (sheetMinimised && !followPanelWide && hasLine && payload?.source !== RouteFollowSource.RECORDING && !recordingSession && progress?.mode !== RouteFollowMode.EDITING) {
+          @if (sheetMinimised && !followPanelWide && hasLine && payload?.source !== RouteFollowSource.RECORDING && !recordingSession) {
             <div class="follow-recording-tray follow-peek-actions">
-              <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)" [disabled]="savingRoute || startingFollow">
-                <fa-icon [icon]="startControlIcon()"/>
-                {{ startControlLabel() }}
-              </button>
-              @if (canEditRoute) {
-                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="onPeekEdit($event)">
-                  <fa-icon [icon]="faPencil"/>
-                  Edit
+              @if (progress?.mode === RouteFollowMode.EDITING) {
+                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="onPeekCancelEdit($event)" [disabled]="savingRoute">
+                  <fa-icon [icon]="faXmark"/>
+                  Cancel
                 </button>
-              }
-              @if (canDeleteSavedRoute()) {
-                <button class="btn btn-grey-danger follow-secondary-btn" type="button" (click)="onPeekDelete($event)" [disabled]="savingRoute">
-                  <fa-icon [icon]="faTrash"/>
-                  Delete
+                <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekSaveEdit($event)" [disabled]="savingRoute || !hasLine">
+                  <fa-icon [icon]="faFloppyDisk"/>
+                  {{ savingRoute ? "Saving" : "Save" }}
+                </button>
+                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="onPeekClose($event)" [disabled]="savingRoute">
+                  <fa-icon [icon]="faHouse"/>
+                  Back
+                </button>
+              } @else {
+                <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)" [disabled]="savingRoute || startingFollow">
+                  <fa-icon [icon]="startControlIcon()"/>
+                  {{ startControlLabel() }}
+                </button>
+                @if (progress?.mode === RouteFollowMode.FOLLOWING || progress?.mode === RouteFollowMode.PAUSED || progress?.mode === RouteFollowMode.PREVIEW) {
+                  <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="onPeekStop($event)">
+                    <fa-icon [icon]="faStop"/>
+                    Stop
+                  </button>
+                }
+                @if (canEditRoute) {
+                  <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="onPeekEdit($event)">
+                    <fa-icon [icon]="faPencil"/>
+                    Edit
+                  </button>
+                }
+                @if (canDeleteSavedRoute()) {
+                  <button class="btn btn-grey-danger follow-secondary-btn" type="button" (click)="onPeekDelete($event)" [disabled]="savingRoute">
+                    <fa-icon [icon]="faTrash"/>
+                    Delete
+                  </button>
+                }
+                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="onPeekClose($event)" [disabled]="savingRoute">
+                  <fa-icon [icon]="faHouse"/>
+                  Back
                 </button>
               }
             </div>
@@ -622,6 +683,9 @@ import { RouterHistoryService } from "../../services/router-history.service";
           }
           @if (persistMessage) {
             <p class="follow-offline-status">{{ persistMessage }}</p>
+          }
+          @if (nativeCompass.supported()) {
+            <button type="button" class="btn btn-quiet mb-2" (click)="openCompassHelpFromSettings()"><fa-icon [icon]="faCompass" class="me-2"/>Compass calibration help</button>
           }
           @if (sessionStorageError) {
             <div class="alert alert-warning d-flex align-items-start gap-2">
@@ -707,8 +771,12 @@ import { RouterHistoryService } from "../../services/router-history.service";
                   <label class="form-label" for="recording-name">Name</label>
                   <textarea #recordingName id="recording-name" class="form-control follow-name-input" rows="1"
                             cdkTextareaAutosize [cdkAutosizeMinRows]="1" maxlength="200"
+                            [placeholder]="defaultRecordingTitle()"
                             [(ngModel)]="payload.title" (ngModelChange)="recordingDetailsChanged()"
                             (keydown.enter)="$event.preventDefault()" [disabled]="savingRoute"></textarea>
+                  @if (payload.source === RouteFollowSource.RECORDING) {
+                    <p class="follow-library-note">Change this if you like. You can save with this name.</p>
+                  }
                   <label class="form-label" for="recording-description">Description</label>
                   <textarea id="recording-description" class="form-control" maxlength="10000" rows="3" [(ngModel)]="payload.description" (ngModelChange)="recordingDetailsChanged()" [disabled]="savingRoute"></textarea>
                   @if (payload.source === RouteFollowSource.RECORDING) {
@@ -894,9 +962,9 @@ import { RouterHistoryService } from "../../services/router-history.service";
                 </button>
               }
             }
-            <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="followPanelWide ? closeFollow() : minimiseSheet()" [disabled]="savingRoute">
-              <fa-icon [icon]="followPanelWide ? faXmark : faChevronDown"/>
-              {{ followPanelWide ? "Exit map" : "Close drawer" }}
+            <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="closeFollow()" [disabled]="savingRoute">
+              <fa-icon [icon]="faHouse"/>
+              Back
             </button>
             }
           </div>
@@ -907,13 +975,14 @@ import { RouterHistoryService } from "../../services/router-history.service";
     </div>
   `,
   styleUrls: ["./route-follow.sass"],
-  imports: [SectionToggle, SwipeableDirective, CdkTextareaAutosize, MapLoadingOverlay, RouteAuditComponent, RouteElevationComponent, RouteDirectionsEditor, WalkGradeSelect, WalkGradingComponent, FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
+  imports: [CompassCalibrationHelpComponent, SectionToggle, SwipeableDirective, CdkTextareaAutosize, MapLoadingOverlay, RouteAuditComponent, RouteElevationComponent, RouteDirectionsEditor, WalkGradeSelect, WalkGradingComponent, FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
 })
 export class RouteFollowComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowComponent", NgxLoggerLevel.ERROR);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private routerHistory = inject(RouterHistoryService);
+  private dateUtils = inject(DateUtilsService);
   private pageContentService = inject(PageContentService);
   private walksAndEventsService = inject(WalksAndEventsService);
   private payloadService = inject(RouteFollowPayloadService);
@@ -952,6 +1021,16 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private ramblersLibrary = inject(RamblersLibraryRouteService);
   private followCache = inject(RouteFollowCacheService);
   protected followService = inject(RouteFollowService);
+  protected nativeCompass = inject(NativeCompassService);
+  protected compassHelpOpen = false;
+  protected compassHelpBackLabel = "Back to map";
+  private compassHelpShown = false;
+  private compassHelpEffect = effect(() => {
+    if (this.nativeCompass.calibrationRecommended() && !this.compassHelpShown) {
+      this.compassHelpShown = true;
+      this.openCompassHelpFromMap();
+    }
+  });
   private currentLocation = inject(CurrentLocationService);
   private walkDisplay = inject(WalkDisplayService);
   protected readonly RouteVisibility = RouteVisibility;
@@ -1037,6 +1116,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected editTool = RouteFollowEditTool.PENCIL;
   protected readonly faCircle = faCircle;
   protected readonly faCircleExclamation = faCircleExclamation;
+  protected readonly faCompass = faCompass;
   protected readonly faCircleHalfStroke = faCircleHalfStroke;
   protected readonly faLocationArrow = faLocationArrow;
   protected readonly faMoon = faMoon;
@@ -1077,6 +1157,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected stepPinsOnMap = true;
   protected pointerSize = FollowPointerSize.MEDIUM;
   protected readonly pointerSizeChoices = FOLLOW_POINTER_SIZES;
+  protected readonly pointerPath = FOLLOW_LOCATION_POINTER_PATH;
 
   pointerPixels(size: FollowPointerSize): {width: number; height: number} {
     return followPointerPixels(size);
@@ -1102,10 +1183,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected browsedWaypoint: RouteFollowWaypoint | null = null;
   protected readonly faXmark = faXmark;
   protected readonly faTrash = faTrash;
+  protected readonly faHouse = faHouse;
   protected readonly faChevronDown = faChevronDown;
   protected mapScale: FollowMapScaleBar = {label: "", midLabel: "", widthPx: 0};
   protected gridReference = "";
   protected compassHeadingText = "";
+  protected readonly nativeBuildLabel = nativeBuildLabel();
   protected tapeMarks: CompassTapeMark[] = [];
   private skipNextFit = false;
   private lastRecordedPointCount = -1;
@@ -1147,10 +1230,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       const previous = this.progress;
       this.progress = progress;
       this.nudgeBeforeTurn(progress);
-      this.refreshHud();
       if (this.headingOnlyUpdate(previous, progress)) {
         this.refreshHeadingVisuals();
       } else {
+        this.refreshHud();
         this.persistFollowSession();
         if (this.draggingVertexIndex === null) {
           this.redraw();
@@ -1827,6 +1910,46 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.requestRouteDelete();
   }
 
+  onPeekClose(event: Event): void {
+    event.stopPropagation();
+    this.closeFollow();
+  }
+
+  onPeekStop(event: Event): void {
+    event.stopPropagation();
+    this.stop();
+  }
+
+  openCompassHelpFromMap(): void {
+    this.compassHelpBackLabel = "Back to map";
+    this.compassHelpOpen = true;
+  }
+
+  openCompassHelpFromSettings(): void {
+    this.compassHelpBackLabel = "Back to settings";
+    this.compassHelpOpen = true;
+  }
+
+  onPeekCancelEdit(event: Event): void {
+    event.stopPropagation();
+    this.cancelEdit();
+  }
+
+  onPeekSaveEdit(event: Event): void {
+    event.stopPropagation();
+    void this.saveRoute();
+  }
+
+  defaultRecordingTitle(): string {
+    return "Recorded walk, " + this.dateUtils.displayDateAbbreviatedTime(this.dateUtils.dateTimeNow());
+  }
+
+  private ensureRecordingTitle(): void {
+    if (this.payload && !this.payload.title?.trim()) {
+      this.payload = {...this.payload, title: this.defaultRecordingTitle()};
+    }
+  }
+
   canDeleteSavedRoute(): boolean {
     return !!this.canEditRoute && !!this.payload?.osMapsRouteId && !this.recordingSession
       && this.progress?.mode === RouteFollowMode.IDLE
@@ -2197,7 +2320,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       void this.router.navigate(["/app/route"], {queryParams: {[StoredValue.RECORD_ROUTE]: generateUid()}});
     } else {
       this.persistError = null;
-      this.persistMessage = "";
+      this.persistMessage = "Walk as usual. Press Stop when you have finished.";
+      this.ensureRecordingTitle();
       this.lastRecordedPointCount = -1;
       this.draftPoints = this.followService.trackPoints().map(point => ({...point}));
       this.followUser = true;
@@ -2368,10 +2492,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   editingRouteDetails(): boolean {
-    if (this.progress?.mode === RouteFollowMode.EDITING) {
+    if (this.payload?.source === RouteFollowSource.RECORDING && this.recordingDetailsOpen) {
       return true;
+    } else if (this.progress?.mode === RouteFollowMode.EDITING) {
+      return this.followExtraSettings;
     } else {
-      return !!(this.payload?.source === RouteFollowSource.RECORDING && this.recordingDetailsOpen);
+      return false;
     }
   }
 
@@ -2450,6 +2576,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     const recovered = await this.followService.flushRecording();
     if (recovered) {
       this.pause();
+      this.ensureRecordingTitle();
       this.recordingDetailsOpen = true;
       this.expandSheet();
       this.persistFollowSession(true);
@@ -2468,11 +2595,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       this.offerThinning(recorded, "");
     } else if (!this.payload || this.savingRoute) {
       return;
-    } else if (!this.payload.title.trim()) {
-      this.persistError = "Give your route a name before saving.";
     } else if (recorded.length < 2) {
       this.persistError = "Walk or draw at least two points first.";
     } else {
+      this.ensureRecordingTitle();
       this.savingRoute = true;
       this.persistError = null;
       this.persistMessage = "Saving the route…";
@@ -2564,7 +2690,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   private beginEditFromPoints(source: {latitude: number; longitude: number}[], message: string, thin: boolean): void {
     this.thinningPrompt = false;
-    this.expandSheet();
+    this.followExtraSettings = false;
+    this.minimiseSheet();
     this.pendingEditSource = [];
     this.persistError = null;
     this.persistMessage = message;
@@ -2642,7 +2769,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   };
 
   private handleEditPointerDown(event: PointerEvent): void {
-    if (this.progress?.mode === RouteFollowMode.EDITING && this.editTool === RouteFollowEditTool.PENCIL && this.draggingVertexIndex === null && event.isPrimary) {
+    const onHandle = event.target instanceof Element && !!event.target.closest(".follow-edit-handle-hit");
+    if (this.progress?.mode === RouteFollowMode.EDITING && this.editTool === RouteFollowEditTool.PENCIL && this.draggingVertexIndex === null && event.isPrimary && !onHandle) {
       this.editTap = {active: true, pointerId: event.pointerId, x: event.clientX, y: event.clientY};
     }
   }
@@ -2880,8 +3008,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
           html: pencil
             ? "<div class=\"follow-edit-handle-hit\"><div class=\"follow-edit-handle\"></div></div>"
             : "<div class=\"follow-edit-handle-hit\"><div class=\"follow-edit-handle follow-edit-handle-erase\"></div></div>",
-          iconSize: [32, 32],
-          iconAnchor: [16, 16]
+          iconSize: [44, 44],
+          iconAnchor: [22, 22]
         })
       });
       marker.on("dragstart", event => this.zone.run(() => this.onVertexDragStart(index, event.target as L.Marker)));

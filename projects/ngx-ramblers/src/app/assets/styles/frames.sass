@@ -210,8 +210,8 @@ iframe
 
 .sticky-toolbar
   position: sticky
-  top: 0
-  z-index: 1030
+  top: calc(var(--site-navbar-height, 0px) + var(--page-heading-height, 0px))
+  z-index: 1021
   isolation: isolate
   background: var(--rsm-panel-bg, rgb(255, 255, 255))
   padding-top: var(--space-2)

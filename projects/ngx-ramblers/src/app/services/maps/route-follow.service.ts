@@ -33,6 +33,7 @@ import { GeoDistanceService } from "./geo-distance.service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { returnDirectionFrom } from "./map-gestures";
 import { cumulativeDistances, projectOnSegment, simplifiedRoutePoints, snapToRoute, thinnedRoutePoints } from "../../functions/route-geometry";
+import { NativeCompassService } from "./native-compass.service";
 import { NativeRouteRecorderService } from "./native-route-recorder.service";
 import { NativeRouteError, NativeRouteFailure, NativeRoutePosition } from "../../models/native-route.model";
 import { generateUid } from "../../functions/numbers";
@@ -46,6 +47,7 @@ import { compassHeading, compassScreenAngle, smoothedCompassHeading } from "../.
 export class RouteFollowService {
   private geoDistance = inject(GeoDistanceService);
   private nativeRecorder = inject(NativeRouteRecorderService);
+  private nativeCompass = inject(NativeCompassService);
   private stringUtils = inject(StringUtilsService);
   private zone = inject(NgZone);
   private sessionId: string | null = null;
@@ -791,15 +793,20 @@ export class RouteFollowService {
   private async startCompass(): Promise<void> {
     this.stopCompass();
     this.absoluteOrientationObserved = false;
-    const handler = (event: DeviceOrientationEvent) => this.onOrientation(event);
-    this.orientationHandler = handler;
-    this.zone.runOutsideAngular(() => {
-      window.addEventListener("deviceorientationabsolute", handler, true);
-      window.addEventListener("deviceorientation", handler, true);
-    });
+    if (this.nativeCompass.supported()) {
+      this.nativeCompass.start(heading => this.setCompassHeading(heading));
+    } else {
+      const handler = (event: DeviceOrientationEvent) => this.onOrientation(event);
+      this.orientationHandler = handler;
+      this.zone.runOutsideAngular(() => {
+        window.addEventListener("deviceorientationabsolute", handler, true);
+        window.addEventListener("deviceorientation", handler, true);
+      });
+    }
   }
 
   private stopCompass(): void {
+    this.nativeCompass.stop();
     if (this.orientationHandler) {
       window.removeEventListener("deviceorientation", this.orientationHandler, true);
       window.removeEventListener("deviceorientationabsolute", this.orientationHandler, true);
@@ -838,9 +845,7 @@ export class RouteFollowService {
   }
 
   private publishHeading(): void {
-    if (this.state.mode !== RouteFollowMode.EDITING && this.state.position) {
-      this.applyPosition(this.state.position, this.state.travelHeading ?? null, this.state.accuracyMetres);
-    } else if (this.state.mode !== RouteFollowMode.EDITING) {
+    if (this.state.mode !== RouteFollowMode.EDITING) {
       this.state = {...this.state, heading: this.compassHeading};
       this.progressSubject.next(this.state);
     }

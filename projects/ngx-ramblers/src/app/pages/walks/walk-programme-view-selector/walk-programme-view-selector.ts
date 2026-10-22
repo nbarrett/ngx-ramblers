@@ -102,7 +102,7 @@ export class WalkProgrammeViewSelector {
   openView(segment: string): Promise<boolean> {
     this.display.rememberReturnUrl();
     const area = this.display.walksArea();
-    if (segment === WalksAdminSegment.ROUTES || segment === WalksAdminSegment.CALENDAR) {
+    if (segment === WalksAdminSegment.CALENDAR) {
       return this.router.navigate(["/" + walksFeaturePath(area, segment)], {queryParamsHandling: "preserve"});
     } else if (segment === WALKS_LEADER_SEGMENT) {
       return this.router.navigate(["/" + walksLeaderPath(area)], {queryParamsHandling: "preserve"});

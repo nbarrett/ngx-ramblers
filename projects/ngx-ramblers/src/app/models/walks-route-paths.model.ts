@@ -21,7 +21,6 @@ export const WALKS_AREA_FEATURE_SEGMENTS: string[] = [
   WALKS_ADD_WALK_SEGMENT,
   WALKS_ADD_SEGMENT,
   WalksAdminSegment.CALENDAR,
-  WalksAdminSegment.ROUTES,
 ];
 export const WALKS_HOW_TO_DOCUMENTATION_URL = "https://www.ngx-ramblers.org.uk/how-to/committee/walks";
 export const ROUTES_HOW_TO_IMPORT_URL = "https://www.ngx-ramblers.org.uk/how-to/committee/routes/import-from-os-maps";

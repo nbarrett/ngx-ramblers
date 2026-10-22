@@ -3,6 +3,19 @@
     <a (click)="unToggleMenu()" [ngClass]="{'active' : isOnPage(page)} "
        [routerLink]="'/' + page.href"
        [queryParams]="{}"
-       [textContent]="page.title" title="{{page.title}}"></a>
+       title="{{page.title}}"><span class="navigation-label" [textContent]="page.title"></span></a>
+  </li>
+}
+
+@if (mobileAppAccess.allowed(MobileAppAction.ACCESS)) {
+  <li class="navigation d-lg-none">
+    <a (click)="unToggleMenu()" [routerLink]="['/', AppPath.ROOT]" [queryParams]="{}">
+      <fa-icon [icon]="faPersonHiking" class="me-2"/> Walking app
+    </a>
+  </li>
+  <li class="navigation d-lg-none">
+    <a (click)="unToggleMenu()" [routerLink]="['/', AppPath.ROOT]" [queryParams]="appSettingsQuery">
+      <fa-icon [icon]="faSliders" class="me-2"/> App settings
+    </a>
   </li>
 }

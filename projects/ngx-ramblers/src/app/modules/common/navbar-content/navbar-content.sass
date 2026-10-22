@@ -35,7 +35,7 @@
 
 .navbar-collapse li.navigation a
   @media (max-width: 991px)
-    font-size: 1.5rem !important
+    font-size: 1rem !important
 
 @media (max-width: 991.98px)
   :host,
@@ -45,11 +45,24 @@
     width: 100%
     max-width: 100%
     min-width: 0
+    box-sizing: border-box
+  .navbar-content-shell
+    overflow-x: hidden
   .mobile-header-actions
     overflow-x: hidden
-  .navbar-toggler, .navbar-collapse
-    padding-left: 0.5rem
-    padding-right: 0.5rem
-  .navbar-collapse
-    overflow-y: auto
-    max-height: 80vh
+    font-size: 1rem
+    line-height: 1.4
+    border-radius: var(--radius-3)
+
+@media (max-width: 991px)
+  .navbar-content-shell > div:not(.mobile-header-actions)
+    width: 100%
+    max-width: 100%
+    min-width: 0
+  .navbar-content-shell ul
+    display: block
+    width: 100%
+    max-width: 100%
+    min-width: 0
+    margin: var(--space-2) 0
+    padding: 0

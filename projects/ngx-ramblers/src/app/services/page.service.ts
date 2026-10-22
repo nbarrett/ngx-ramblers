@@ -1,4 +1,4 @@
-import { inject, Injectable } from "@angular/core";
+import { inject, Injectable, signal } from "@angular/core";
 import { Title } from "@angular/platform-browser";
 import { last } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -24,6 +24,7 @@ export class PageService {
   private urlService = inject(UrlService);
   public group: Organisation;
   private previouslySetTitles: string[] = [];
+  private contentHeading = signal<string | null>(null);
 
   constructor() {
     this.logger.info("subscribing to systemConfigService events");
@@ -31,6 +32,14 @@ export class PageService {
       this.group = item.group;
       this.setTitle(...this.previouslySetTitles);
     });
+  }
+
+  contentPageTitle(): string | null {
+    return this.contentHeading();
+  }
+
+  setContentPageTitle(title: string | null): void {
+    this.contentHeading.set(title);
   }
 
   areaTitle(): string {

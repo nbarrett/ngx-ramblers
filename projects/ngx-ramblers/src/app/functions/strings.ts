@@ -2,6 +2,19 @@ import { DOCUMENTATION_SITE_PLACEHOLDER } from "../models/documentation-links.mo
 import { escape } from "es-toolkit";
 import { isBoolean, isString, kebabCase } from "es-toolkit/compat";
 
+export function leadingMarkdownHeading(text: string): { heading: string; rest: string } | null {
+  if (!isString(text)) {
+    return null;
+  } else {
+    const match = text.match(/^#\s+([^\n]+)\s*(?:\n+|$)/);
+    if (!match) {
+      return null;
+    } else {
+      return { heading: match[1].trim(), rest: text.slice(match[0].length) };
+    }
+  }
+}
+
 export function transliterated(value: any): any {
   return isString(value) ? value.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : value;
 }

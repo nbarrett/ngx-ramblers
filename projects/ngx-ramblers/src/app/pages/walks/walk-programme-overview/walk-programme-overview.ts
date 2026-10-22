@@ -266,6 +266,10 @@ export class WalkProgrammeOverviewComponent implements OnInit, OnDestroy {
 
   onDirectionChange(direction: DateRangeDirection) {
     this.dateRangeDirection = direction;
+    this.uiActions.updateQueryParameters({
+      [StoredValue.DATE_RANGE_DIRECTION]: direction,
+      [StoredValue.PAGE]: null
+    });
   }
 
   onRangeChange(range: DateRange) {

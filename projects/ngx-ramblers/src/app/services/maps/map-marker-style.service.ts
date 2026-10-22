@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
 import * as L from "leaflet";
 import { MapProvider } from "../../models/map.model";
-import { FollowPointerSize, followPointerPixels, HEADING_RING_CLASS, RouteWaypointKind } from "../../models/route-follow.model";
+import { FOLLOW_LOCATION_POINTER_PATH, FollowPointerSize, followPointerPixels, HEADING_RING_CLASS, RouteWaypointKind } from "../../models/route-follow.model";
 import { WalkStatus } from "../../models/ramblers-walks-manager";
 import { escapeHtml } from "../../functions/strings";
 
@@ -73,7 +73,7 @@ export class MapMarkerStyleService {
     const pixels = followPointerPixels(size);
     const html = `<div class="follow-location-chevron" style="--pointer-heading:${rotation}deg;transform:rotate(${rotation}deg)">
       <svg width="${pixels.width}" height="${pixels.height}" viewBox="0 0 26 28" aria-hidden="true">
-        <path d="M13 2.2 L23.8 24.6 L13 18.8 L2.2 24.6 Z" fill="#d81b60" stroke="#ffffff" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+        <path d="${FOLLOW_LOCATION_POINTER_PATH}" fill="#d81b60" stroke="#ffffff" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
       </svg>
     </div>`;
     return L.divIcon({

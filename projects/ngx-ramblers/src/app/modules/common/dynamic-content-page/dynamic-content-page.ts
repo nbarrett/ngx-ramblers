@@ -8,7 +8,7 @@ import { NgxLoggerLevel } from "ngx-logger";
     selector: "app-dynamic-content-page",
   template: `
     <app-page>
-      <app-dynamic-content/>
+      <app-dynamic-content liftPageTitle/>
     </app-page>
   `,
     styleUrls: ["./dynamic-content-page.sass"],
