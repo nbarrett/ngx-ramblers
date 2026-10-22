@@ -2,6 +2,130 @@ import expect from "expect";
 import { describe, it } from "mocha";
 import { discoverPhotoClusters, flickrAlbumLinks, flickrGroupLinks, pageImageRuns, skippedPageReason, weakHomeCarouselImage, withHomeCarouselFromGalleries, withoutRepeatedBlocks } from "./migrate-static-site-engine";
 import { HttpError } from "../shared/http-error";
+import sinon from "sinon";
+import * as mongooseClient from "../mongo/mongoose-client";
+import { migrateStaticSite } from "./migrate-static-site-engine";
+import { ParentPageMode, SiteMigrationConfig } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
+import { createAllImagesLayoutTransformationConfig } from "../../../projects/ngx-ramblers/src/app/models/page-transformation.model";
+import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { PageContent, PageContentType } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
+import { JSDOM } from "jsdom";
+import { transformSync } from "esbuild";
+import { runInNewContext } from "vm";
+
+describe("migration reruns", () => {
+  it("ignores layout backgrounds and imports the full-size gallery photo once", async () => {
+    const sourceUrl = "https://group.example.org.uk/gallery/park";
+    const html = `<table background="/images/texture.jpg"><tr><td background="/images/texture.jpg">
+      <img src="/gallery/thumbs/park.jpg" data-large="/gallery/photos/park.jpg" alt="Park">
+      <img src="/gallery/photos/park.jpg" alt="Park"></td></tr></table>`;
+    const document = new JSDOM(html, {url: sourceUrl, runScripts: "outside-only"});
+    const browser = {
+      newPage: async () => ({on: () => null, goto: async () => ({ok: () => true}), content: async () => html,
+        evaluate: async (callback, options) => {
+          const compiled = transformSync(`const evaluateCallback = ${callback.toString()}; evaluateCallback;`, {loader: "js", keepNames: true}).code;
+          const compiledCallback = runInNewContext(compiled);
+          return (document.window as any).eval(`(${compiledCallback.toString()})`)(options);
+        }, close: async () => null}),
+      close: async () => null
+    } as any;
+    const config: SiteMigrationConfig = {
+      name: "Example", siteIdentifier: "example", baseUrl: "https://group.example.org.uk", expanded: false,
+      menuSelector: "a", contentSelector: "body", persistData: false, excludeSelectors: [], galleryPathPrefixes: ["photos/"],
+      specificAlbums: [{path: sourceUrl, title: "Park June 2026"}],
+      parentPages: [{url: sourceUrl, pathPrefix: "photos/park", parentPageMode: ParentPageMode.AS_IS, migrateChildren: false}]
+    };
+    try {
+      const result = await migrateStaticSite(config, browser);
+      expect(JSON.stringify(result.pageContents)).not.toContain("texture.jpg");
+      expect(JSON.stringify(result.pageContents)).not.toContain("/thumbs/");
+      expect(result.albums).toHaveLength(1);
+      expect(result.albums[0].album.files.map(file => file.image)).toEqual(["https://group.example.org.uk/gallery/photos/park.jpg"]);
+    } finally {
+      document.window.close();
+    }
+  });
+
+  it("persists the gallery index without the source link dump and keeps the same result on rerun", async () => {
+    const list = "[Canal](/photos/canal)\n\n[Hillside Park](/photos/hillside-park)\n\n[Woodland](/photos/woodland)";
+    const template: PageContent = {path: "fragments/templates/gallery-index", rows: [
+      {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "# Photos"}]},
+      {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: list}]},
+      {type: PageContentType.ALBUM_INDEX, maxColumns: 3, showSwiper: false, columns: []}
+    ]};
+    const browser = {
+      newPage: async () => ({on: () => null, goto: async () => ({ok: () => true}),
+        evaluate: async (callback, options) => options.excludeSelectors ? {html: "<h1>Photos</h1>", images: []} : [], close: async () => null}),
+      close: async () => null
+    } as any;
+    const config: SiteMigrationConfig = {
+      name: "Example", siteIdentifier: "example", baseUrl: "https://group.example.org.uk", expanded: false,
+      menuSelector: "a", contentSelector: "body", persistData: true, excludeSelectors: [], galleryPathPrefixes: ["photos/"],
+      templatePages: [template], templateFragmentId: template.path,
+      parentPages: [{url: "https://group.example.org.uk/gallery", pathPrefix: "photos", parentPageMode: ParentPageMode.AS_IS, migrateChildren: false}]
+    };
+    const records = new Map<string, unknown>();
+    const save = sinon.stub(mongooseClient, "upsert").callsFake(async (model, filter, data) => {
+      records.set(`${model.modelName}:${JSON.stringify(filter)}`, JSON.parse(JSON.stringify(data)));
+      return data;
+    });
+    try {
+      const first = await migrateStaticSite(config, browser);
+      const stored = [...records.entries()];
+      const second = await migrateStaticSite(config, browser);
+      expect(first.pageContents[0].rows.map(row => row.type)).toEqual([PageContentType.TEXT, PageContentType.ALBUM_INDEX]);
+      expect(second).toEqual(first);
+      expect([...records.entries()]).toEqual(stored);
+      expect(records.size).toEqual(1);
+      expect(JSON.stringify(stored)).not.toContain("/photos/canal");
+    } finally {
+      save.restore();
+    }
+  });
+
+  it("replaces the same stored page and album on a second run without adding icons or repeated photos", async () => {
+    const sourceUrl = "https://group.example.org.uk/gallery/mobile.php?20251221%20Canal~December%202025__";
+    const path = `photos/2025/${toKebabCase("Canal~December 2025__")}`;
+    const images = [
+      {src: "https://group.example.org.uk/images/arrow_left.gif", alt: "Home"},
+      ...[1, 2, 3, 1].map(index => ({src: `https://group.example.org.uk/photos/canal-${index}.jpg`, alt: "Photo"}))
+    ];
+    const html = `<h1>Canal</h1>${images.map(image => `<img src="${image.src}" alt="${image.alt}">`).join("")}`;
+    const browser = {
+      newPage: async () => ({on: () => null, goto: async () => ({ok: () => true}),
+        content: async () => html,
+        evaluate: async (callback, options) => options === "body" ? images : options.excludeSelectors ? {html, images} : [], close: async () => null}),
+      close: async () => null
+    } as any;
+    const config: SiteMigrationConfig = {
+      name: "Example", siteIdentifier: "example", baseUrl: "https://group.example.org.uk", expanded: false,
+      menuSelector: "a", contentSelector: "body", persistData: true, excludeSelectors: [], galleryPathPrefixes: ["photos/"],
+      specificAlbums: [{path: sourceUrl, title: "Canal~December 2025__"}],
+      parentPages: [{url: sourceUrl, pathPrefix: path, parentPageMode: ParentPageMode.AS_IS,
+        migrateChildren: false, pageTransformation: createAllImagesLayoutTransformationConfig()}]
+    };
+    const records = new Map<string, unknown>();
+    const save = sinon.stub(mongooseClient, "upsert").callsFake(async (model, filter, data) => {
+      records.set(`${model.modelName}:${JSON.stringify(filter)}`, JSON.parse(JSON.stringify(data)));
+      return data;
+    });
+    try {
+      const first = await migrateStaticSite(config, browser);
+      const firstRecords = [...records.entries()];
+      const firstSaveCount = save.callCount;
+      const second = await migrateStaticSite(config, browser);
+      expect(second).toEqual(first);
+      expect([...records.entries()]).toEqual(firstRecords);
+      expect(save.callCount).toEqual(firstSaveCount * 2);
+      expect(first.pageContents.map(page => page.path)).toEqual([path]);
+      expect(first.albums).toHaveLength(1);
+      expect(first.albums[0].album.files.map(file => file.image)).toEqual(images.slice(1, 4).map(image => image.src));
+      expect(JSON.stringify([...records.values()])).not.toContain("arrow_left");
+    } finally {
+      save.restore();
+    }
+  });
+});
 
 function pageClosedBeforeReadFinishes() {
   const state = {closed: false, rejectRead: null as (error: Error) => void, resolveRead: null as (value: unknown) => void};
@@ -178,6 +302,28 @@ describe("skippedPageReason", () => {
 });
 
 describe("home carousel photos", () => {
+  it("deduplicates home photos even when no replacement gallery covers are available", () => {
+    const photo = {image: "https://group.example.org.uk/photos/park.jpg"};
+    const home = {sourcePagePath: "home", album: {name: "gallery/home-photos", files: [photo, {...photo}]}} as any;
+    const first = withHomeCarouselFromGalleries([home]);
+    expect(first[0].album.files).toEqual([photo]);
+    expect(first[0].album.coverImage).toEqual(photo.image);
+    expect(withHomeCarouselFromGalleries(first)).toEqual(first);
+  });
+
+  it("skips thumbnails and deduplicates gallery covers using the same identity as the album editor", () => {
+    const thumbnail = {image: "https://group.example.org.uk/gallery/thumb.jpg"};
+    const photo = {image: "https://group.example.org.uk/gallery/photos/park.jpg", sourceChecksum: "photo-one"};
+    const second = {image: "https://group.example.org.uk/gallery/photos/canal.jpg", sourceChecksum: "photo-two"};
+    const home = {sourcePagePath: "home", album: {name: "gallery/home-photos", files: [thumbnail]}} as any;
+    const gallery = (name: string, files: unknown[]) => ({sourcePagePath: `photos/${name}`, album: {name, files}} as any);
+    const albums = [home, gallery("park", [thumbnail, photo]), gallery("park-copy", [{...photo, image: "https://group.example.org.uk/images/park-copy.jpg"}]), gallery("canal", [second])];
+    const result = withHomeCarouselFromGalleries(albums);
+    expect(result[0].album.files).toEqual([photo, second]);
+    expect(result[0].album.coverImage).toEqual(photo.image);
+    expect(withHomeCarouselFromGalleries(result)).toEqual(result);
+  });
+
   it("replaces logo-only home photos with walk gallery covers", () => {
     expect(weakHomeCarouselImage("https://group.example.org.uk/images/group/Ramblers_Group_Logo.png")).toBe(true);
     const home = {

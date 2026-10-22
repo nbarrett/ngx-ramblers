@@ -1,4 +1,5 @@
 import {
+  IndexRenderMode,
   PageContent,
   PageContentColumn,
   PageContentRow,
@@ -16,7 +17,7 @@ import {
   RegistrationWalkCandidate
 } from "../../../projects/ngx-ramblers/src/app/models/site-registration.model";
 import { galleryDateFrom, MONTH_NAME_PATTERN } from "../../../projects/ngx-ramblers/src/app/functions/gallery-date";
-import { albumPhotoPaths } from "./registration-content";
+import { albumPhotoPaths, withoutEmptyRows } from "./registration-content";
 import { dateTimeFromIso, dateTimeFromMillis, dateTimeFromObject } from "../shared/dates";
 
 const IGNORED_WORDS = new Set(["and", "the", "of", "a", "an", "to", "from", "at", "in", "on", "via", "with", "walk", "walks", "circular", "short", "long", "photos", "photo", "gallery", "stage", "part", "group", "ramblers", "day", "days", "spring", "summer", "autumn", "winter", "holiday", "holidays", "coach", "ramble", "rambles", "afternoon", "morning", "evening", "celebration", "celebrations", "anniversary"]);
@@ -154,9 +155,20 @@ function listingPhotoDump(row: PageContentRow): boolean {
 }
 
 function withoutLinkLists(rows: PageContentRow[]): PageContentRow[] {
-  return rows.filter(row => row.type !== PageContentType.ALBUM_INDEX)
-    .filter(row => !listingPhotoDump(row))
+  return rows.filter(row => !row.migrationPlaceholder && !listingPhotoDump(row))
     .filter(row => !(row.type === PageContentType.TEXT && (row.columns || []).length > 0 && (row.columns || []).every(column => linkListText(column.contentText) && !column.imageSource)));
+}
+
+export function withoutGalleryListing(page: PageContent): PageContent {
+  const rows = page.rows || [];
+  const indexes = rows.filter(row => row.type === PageContentType.ALBUM_INDEX);
+  const hasMapAndButtons = indexes.some(row => row.albumIndex?.renderModes?.includes(IndexRenderMode.MAP)
+    && row.albumIndex.renderModes.includes(IndexRenderMode.ACTION_BUTTONS));
+  const withoutHero = hasMapAndButtons ? withoutEmptyRows(rows.map(row => row.type === PageContentType.TEXT ? {
+    ...row,
+    columns: (row.columns || []).map(column => ({...column, imageSource: null}))
+  } : row)) : rows;
+  return indexes.length ? {...page, rows: withoutLinkLists(withoutHero)} : page;
 }
 
 function withMigrationNoteLast(rows: PageContentRow[]): PageContentRow[] {
@@ -181,7 +193,7 @@ export function photosByYear(pages: PageContent[], registrationPages: Registrati
   const years = new Map(galleries.map(page => [page.path, galleryYear(page, registrationPages)]));
   const datedYears = [...new Set([...years.values()].filter(year => !!year))].sort((left, right) => right - left);
   if (!pages.some(page => page.path === root) || datedYears.length === 0) {
-    return pages;
+    return pages.map(page => page.path === root || page.path.startsWith(`${root}/`) ? withoutGalleryListing(page) : page);
   } else {
     const moved = pages.map(page => {
       const year = years.get(page.path);
@@ -202,8 +214,8 @@ export function photosByYear(pages: PageContent[], registrationPages: Registrati
       });
     return [...moved.map(page => page.path === root ? {
       ...page,
-      rows: withMigrationNoteLast([...withoutLinkLists(page.rows || []), ...templateRows(templates.index, root, "", mapCenter)])
-    } : page), ...yearPages];
+      rows: withMigrationNoteLast([...withoutLinkLists(page.rows || []).filter(row => row.type !== PageContentType.ALBUM_INDEX), ...templateRows(templates.index, root, "", mapCenter)])
+    } : page), ...yearPages].map(page => page.path === root || page.path.startsWith(`${root}/`) ? withoutGalleryListing(page) : page);
   }
 }
 

@@ -2425,10 +2425,10 @@ export class PageTransformationEngine {
     uploadImageFn: (img: ScrapedImage) => Promise<string>
   ): Promise<boolean> {
     const extracted = await this.extractColumnContent(mapping, ctx, uploadImageFn);
-    if (!extracted) {
-      return false;
-    }
-    return this.applyExtractedContent([column], extracted, mapping);
+    column.contentText = null;
+    column.imageSource = null;
+    column.alt = null;
+    return extracted ? this.applyExtractedContent([column], extracted, {...mapping, contentType: mapping.contentType || ColumnContentType.TEXT}) : false;
   }
 
   private async extractColumnContent(
@@ -2763,7 +2763,7 @@ export class PageTransformationEngine {
     if (hasImage) {
       return ColumnContentType.IMAGE;
     }
-    return ColumnContentType.TEXT;
+    return hasText ? ColumnContentType.TEXT : ColumnContentType.MIXED;
   }
 
   private toExtracted(kind: ExtractedContentKind, column: Partial<PageContentColumn> | null): ExtractedContent | null {

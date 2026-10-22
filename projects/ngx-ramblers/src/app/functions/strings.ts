@@ -10,7 +10,7 @@ export function toKebabCase(...strings: any[]) {
   return strings
     .flat()
     .filter(item => item)
-    .map(item => kebabCase(transliterated(item)))
+    .map(item => kebabCase(isString(item) ? transliterated(item).replace(/~/g, " ") : item))
     .join("-");
 }
 

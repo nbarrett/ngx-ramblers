@@ -225,6 +225,7 @@ export function isCrawlableRegistrationPageUrl(url: URL): boolean {
 
 export function discoverRegistrationPages(html: string, website: string): {pages: RegistrationPage[]; flavour: RegistrationSiteFlavour} {
   const document = new JSDOM(html, {url: website}).window.document;
+  document.querySelectorAll("br").forEach(lineBreak => lineBreak.replaceWith(" "));
   const base = publicSiteUrl(website);
   const flavour = document.querySelector(".BMenu") ? RegistrationSiteFlavour.RAMBLERSWEBS
     : document.querySelector("main .type-group-hub, main .type-content") && ramblersHostedGroupPath(base) ? RegistrationSiteFlavour.RAMBLERS_HOSTED
@@ -517,7 +518,8 @@ export function withIntroductionPhotos(pages: PageContent[], albums: MigratedAlb
     .flatMap(parent => pages.filter(child => child.path.startsWith(`${parent.path}/`) && child.path.split("/").length === parent.path.split("/").length + 1))
     .map(child => child.path));
   return photos.length === 0 ? pages : pages.reduce((placed, page) => {
-    if (indexedChildPaths.has(page.path) && !rowsHaveImage(page.rows || [])) {
+    const galleryLeaf = page.path.startsWith(`${RegistrationNavbarPath.PHOTOS}/`) && !(page.rows || []).some(row => row.type === PageContentType.ALBUM_INDEX);
+    if (indexedChildPaths.has(page.path) && !galleryLeaf && !rowsHaveImage(page.rows || [])) {
       return {pages: [...placed.pages, withPhotoUnderHeading(page, photos[placed.used % photos.length])], used: placed.used + 1};
     } else {
       return {pages: [...placed.pages, page], used: placed.used};
@@ -566,8 +568,16 @@ export function withoutButtonsTo(rows: PageContentRow[], removedPaths: string[])
   });
 }
 
-export function withoutDuplicateHeadingImages(rows: PageContentRow[]): PageContentRow[] {
-  return (rows || []).map((row, index, all) => {
+export function withoutDuplicateHeadingImages(rows: PageContentRow[], albumImageSources: string[] = []): PageContentRow[] {
+  const withoutAlbumImages = (rows || []).map(row => row.type === PageContentType.TEXT ? {
+    ...row,
+    columns: (row.columns || []).map(column => ({
+      ...column,
+      ...(albumImageSources.includes(column.imageSource) ? {imageSource: null} : {}),
+      ...(column.rows ? {rows: withoutDuplicateHeadingImages(column.rows, albumImageSources)} : {})
+    }))
+  } : row);
+  return withoutEmptyRows(withoutAlbumImages.map((row, index, all) => {
     const heading = row.columns?.[0];
     const following = all[index + 1]?.columns?.[0];
     const headingImage = heading?.imageSource;
@@ -579,7 +589,7 @@ export function withoutDuplicateHeadingImages(rows: PageContentRow[]): PageConte
     } else {
       return row;
     }
-  });
+  }));
 }
 
 export function withoutEmptyRows(rows: PageContentRow[]): PageContentRow[] {
@@ -617,16 +627,21 @@ export function earlierImportFilters(pagePaths: string[], albumNames: string[]) 
 export function withSourcePageAlbums(pages: PageContent[], albums: MigratedAlbum[]): PageContent[] {
   const leaf = (path: string) => (path || "").split("/").pop();
   return pages.map(page => {
-    const listing = page.path === RegistrationNavbarPath.PHOTOS || page.path.startsWith(`${RegistrationNavbarPath.PHOTOS}/`);
+    const listing = page.path === RegistrationNavbarPath.PHOTOS || (page.rows || []).some(row => row.type === PageContentType.ALBUM_INDEX);
+    const existingAlbums = new Set((page.rows || []).map(row => row.carousel?.name).filter(Boolean));
     const albumRows = listing ? [] : albums
       .filter(album => album.sourcePagePath && (
         page.path === album.sourcePagePath
         || page.path.endsWith(`/${album.sourcePagePath}`)
         || (leaf(page.path) === leaf(album.sourcePagePath) && page.path.split("/")[0] === album.sourcePagePath.split("/")[0])
       ))
+      .filter(album => !existingAlbums.has(album.album.name))
       .map(album => album.pageContent?.rows?.[0])
       .filter(Boolean);
-    return albumRows.length ? withRowsUnderHeading(page, albumRows) : page;
+    const withAlbums = albumRows.length ? withRowsUnderHeading(page, albumRows) : page;
+    const attachedAlbumNames = new Set((withAlbums.rows || []).filter(row => row.type === PageContentType.ALBUM).map(row => row.carousel?.name));
+    const albumImageSources = albums.filter(album => attachedAlbumNames.has(album.album.name)).flatMap(album => (album.album.files || []).map(file => file.image)).filter(Boolean);
+    return albumImageSources.length ? {...withAlbums, rows: withoutDuplicateHeadingImages(withAlbums.rows, albumImageSources)} : withAlbums;
   });
 }
 
@@ -690,7 +705,7 @@ export function registrationMigrationConfig(registration: StoredSiteRegistration
     excludeSelectors: [...COMMON_EXCLUDE_SELECTORS, ...(flavourExcludeSelectors[registration.flavour] || [])],
     excludeImageUrls: repeatedLayoutImagePaths(registration.pages),
     galleryPathPrefixes: [RegistrationNavbarPath.PHOTOS, `${RegistrationNavbarPath.PHOTOS}/`],
-    enabled: true, uploadTos3: false, persistData: false, publicHtmlOnly: true, requireSourceFidelity,
+    enabled: true, uploadTos3: false, persistData: false, deferredPersistence: true, publicHtmlOnly: true, requireSourceFidelity,
     defaultPageTransformation: registrationTransformation(),
     parentPages: selected.filter(page => page.url && !isDocumentUrl(page.url) && !isRegistrationFeaturePath(page.path) && !isRamblersWalksListing(page.path, page.title) && !isGalleryPaginationPath(page.path, page.url)).map(page => ({
       url: registrationSourceUrl(page.url), pathPrefix: page.path, parentPageMode: page.proposed ? ParentPageMode.INDEX : ParentPageMode.AS_IS,

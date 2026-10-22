@@ -365,7 +365,7 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     const pageWithNavigation = childCount > 0 ? withChildNavigation(titledPage, childCount) : titledPage;
     const hasAlbum = result.albums.some(album => album.sourcePagePath === page.path);
     const flattenedPage = {...pageWithNavigation, rows: pairedImageRows(cleanPageRows(pageWithNavigation.rows, targetPath))};
-    const landingPage = !hasAlbum && assembled.some(item => !item.parentPath && item.path === targetPath) ? withLandingVisual(flattenedPage) : flattenedPage;
+    const landingPage = !hasAlbum && targetPath !== RegistrationNavbarPath.PHOTOS && assembled.some(item => !item.parentPath && item.path === targetPath) ? withLandingVisual(flattenedPage) : flattenedPage;
     return {...landingPage, rows: await tidyPageRows(landingPage.rows)};
   }));
   const uploadBucket = context.envConfigData.aws?.bucket;
@@ -383,7 +383,8 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "## Information"}]}]
   }, assembled.filter(page => page.parentPath === RegistrationNavbarPath.INFORMATION).length)] : [];
   const sourcePages = withSourcePageAlbums(migrated.pages.map(page => ({...page, rows: withoutEmptyRows(page.rows)})), migrated.albums).filter(page => !informationPages.some(information => information.path === page.path));
-  const albumPages = migrated.albums.map(album => album.pageContent).filter(page => page?.path && !sourcePages.some(source => source.path === page.path));
+  const albumPages = migrated.albums.filter(album => album.pageContent?.path && !sourcePages.some(source => source.path === album.pageContent.path
+    || (source.rows || []).some(row => row.carousel?.name === album.album.name))).map(album => album.pageContent);
   const groupCentre: [number, number] | null = registration.group.latitude && registration.group.longitude ? [registration.group.latitude, registration.group.longitude] : null;
   const migratedPages = photosByYear(withIntroductionPhotos([...sourcePages, ...albumPages, ...informationPages], migrated.albums), registration.pages || [], photoTemplates, groupCentre)
     .map(page => ({...page, rows: withoutDuplicateHeadingImages(page.rows || [])}));
@@ -401,6 +402,7 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
         await connection.db.collection("pageContent").updateOne({path: album.pageContent.path}, {$set: album.pageContent}, {upsert: true});
       }
     }));
+    importProgress(`Saved ${pluraliseWithCount(migratedPages.length, "page")} and ${pluraliseWithCount(migrated.albums.length, "photo album")} to the review site`);
     await importRegistrationCommittee(connection.db, migratedPages, registration, aiConfigFromEnvironment());
     const migratedPaths = new Set(migratedPages.map(page => page.path));
     const eventsSelected = registration.proposedNavigation.some(page => page.path === RegistrationNavbarPath.EVENTS);

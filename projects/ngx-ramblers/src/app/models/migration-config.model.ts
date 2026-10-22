@@ -45,6 +45,7 @@ export interface SiteMigrationConfig extends Identifiable {
   templatePages?: PageContent[];
   useNestedRows?: boolean;
   persistData?: boolean;
+  deferredPersistence?: boolean;
   uploadTos3?: boolean;
   uploadBucket?: string;
   enabled?: boolean;

@@ -663,6 +663,63 @@ describe("site registration page addresses and layout images", () => {
     expect(placed[1]).toEqual(pages[1]);
   });
 
+  it("attaches a scraped gallery album to its photo page once while leaving gallery indexes alone", () => {
+    const text = (contentText: string) => ({type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText}]});
+    const albumRow = {type: PageContentType.ALBUM, maxColumns: 1, showSwiper: false, columns: [], carousel: {name: "gallery/park"} as any};
+    const pages = [
+      {path: "photos", rows: [text("# Photos")]},
+      {path: "photos/2025", rows: [{type: PageContentType.ALBUM_INDEX, maxColumns: 3, showSwiper: false, columns: []}]},
+      {path: "photos/park-june-2025", rows: [text("# Park"), text("June 2025")]}
+    ];
+    const albums = ["photos", "photos/2025", "photos/park-june-2025"].map(sourcePagePath => ({
+      album: {name: "gallery/park"} as any, pageContent: {path: "gallery/park", rows: [albumRow]}, sourcePagePath
+    }));
+    const first = withSourcePageAlbums(pages, albums);
+    expect(first[0]).toEqual(pages[0]);
+    expect(first[1]).toEqual(pages[1]);
+    expect(first[2].rows.map(row => row.type)).toEqual([PageContentType.TEXT, PageContentType.ALBUM, PageContentType.TEXT]);
+    expect(withSourcePageAlbums(first, albums)).toEqual(first);
+  });
+
+  it("removes standalone copies of album photos while preserving text and unrelated images on repeated imports", () => {
+    const image = "https://group.example.org.uk/images/hillside.jpg";
+    const otherImage = "https://group.example.org.uk/images/route.jpg";
+    const text = (contentText: string, imageSource: string = null) => ({type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText, imageSource}]});
+    const albumRow = {type: PageContentType.ALBUM, maxColumns: 1, showSwiper: false, columns: [{columns: 12, imageSource: image}], carousel: {name: "gallery/new-walkers"} as any};
+    const albums = [{album: {name: "gallery/new-walkers", files: [{image}]} as any, pageContent: {path: "gallery/new-walkers", rows: [albumRow]}, sourcePagePath: "information/new-walkers"}];
+    const pages = [{path: "information/new-walkers", rows: [text("# New Walkers", image), text(null, image), text("Walking advice", image), text(null, otherImage), {
+      type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, rows: [text(null, image), text("More advice")]}]
+    }]}];
+    const first = withSourcePageAlbums(pages, albums);
+    expect(first[0].rows.length).toBe(5);
+    expect(first[0].rows[0].columns[0].imageSource).toBeNull();
+    expect(first[0].rows[1]).toEqual(albumRow);
+    expect(first[0].rows[2].columns[0].contentText).toBe("Walking advice");
+    expect(first[0].rows[2].columns[0].imageSource).toBeNull();
+    expect(first[0].rows[3].columns[0].imageSource).toBe(otherImage);
+    expect(first[0].rows[4].columns[0].rows).toEqual([text("More advice")]);
+    expect(withSourcePageAlbums(first, albums)).toEqual(first);
+    expect(withSourcePageAlbums([{path: "information/advice", rows: [text("Advice", image)]}], albums)[0].rows[0].columns[0].imageSource).toBe(image);
+  });
+
+  it("does not disguise a missing gallery album by borrowing an unrelated thumbnail", () => {
+    const pages = [
+      {path: "photos", rows: [{type: PageContentType.ALBUM_INDEX, maxColumns: 3, showSwiper: false, columns: []}]},
+      {path: "photos/park", rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "# Park"}]}]}
+    ];
+    const albums = [{album: {name: "gallery/another-walk", files: [{image: "https://group.example.org.uk/another-walk/thumb.jpg"}]} as any, pageContent: null}];
+    expect(withIntroductionPhotos(pages, albums)).toEqual(pages);
+  });
+
+  it("preserves the separator between a gallery name and its month when the source uses a line break", () => {
+    const url = "https://group.example.org.uk/flashgallery/mobile.php?20250621%20Hillside%20Park~June%202025__";
+    const result = discoverRegistrationPages(`<a href="${url}">Hillside Park<br>June 2025</a>`, "https://group.example.org.uk/gallery/");
+    const gallery = result.pages.find(page => page.url === url);
+    expect(gallery.title).toEqual("Hillside Park June 2025");
+    expect(gallery.path).toEqual("hillside-park-june-2025");
+    expect(gallery.url).toEqual(url);
+  });
+
   it("gives a page with no main heading one from its title, and drops rows left empty once images were left out", () => {
     const text = (contentText: string) => ({type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText}]});
     const emptyImages = {type: PageContentType.TEXT, maxColumns: 1, showSwiper: true, columns: [{columns: 12, rows: [{type: PageContentType.TEXT, maxColumns: 2, showSwiper: false, columns: [{columns: 6, imageSource: null as string, alt: "Image"}]}]}]};

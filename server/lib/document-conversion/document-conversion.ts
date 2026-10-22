@@ -29,14 +29,17 @@ function fileExtension(fileName: string): string {
   return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
 }
 
-export async function normaliseTables(html: string): Promise<string> {
+export async function normaliseTables(html: string, preserveWebsiteLayout = false): Promise<string> {
   const { JSDOM } = await import("jsdom");
   const dom = new JSDOM(html);
   const ownerDocument = dom.window.document;
-  const tables = Array.from(ownerDocument.querySelectorAll("table"));
+  const sourceTables = Array.from(ownerDocument.querySelectorAll("table"));
+  const tables = sourceTables.filter(table => !preserveWebsiteLayout
+    || (!table.querySelector("table, img, h1, h2, h3, h4, h5, h6") && table.rows.length > 1
+      && Array.from(table.rows).every(row => row.cells.length > 1)));
   tables.forEach(table => {
     Array.from(table.querySelectorAll("tr"))
-      .filter(row => (row.textContent || "").trim().length === 0)
+      .filter(row => (row.textContent || "").trim().length === 0 && !row.querySelector("th"))
       .forEach(row => row.remove());
     Array.from(table.querySelectorAll("td, th")).forEach(cell => {
       cell.innerHTML = cell.innerHTML.replace(/<br\s*\/?>/gi, " ");
@@ -141,8 +144,11 @@ export async function normaliseTables(html: string): Promise<string> {
       });
     });
     if (!table.querySelector("th")) {
-      const firstRow = table.querySelector("tr");
+      const firstRow = preserveWebsiteLayout ? ownerDocument.createElement("tr") : table.querySelector("tr");
       if (firstRow) {
+        if (preserveWebsiteLayout) {
+          Array.from({length: rows[0]?.children.length || 0}).forEach(() => firstRow.appendChild(ownerDocument.createElement("td")));
+        }
         Array.from(firstRow.querySelectorAll("td")).forEach(cell => {
           const heading = ownerDocument.createElement("th");
           heading.innerHTML = cell.innerHTML;
@@ -154,6 +160,11 @@ export async function normaliseTables(html: string): Promise<string> {
       }
     }
   });
+  if (preserveWebsiteLayout) {
+    sourceTables.filter(table => !tables.includes(table)).forEach(table => {
+      table.replaceWith(...Array.from(table.rows).flatMap(row => Array.from(row.cells).flatMap(cell => Array.from(cell.childNodes))));
+    });
+  }
   return ownerDocument.body.innerHTML;
 }
 
