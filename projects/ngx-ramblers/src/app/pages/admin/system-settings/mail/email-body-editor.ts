@@ -328,7 +328,7 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
         await this.loadBody(this.notificationConfig.templateOverrides);
       }
     } else {
-      this.isAutomaticallyGenerated = false;
+      this.isAutomaticallyGenerated = this.isBuiltInProcess && this.isPlaceholderOrEmpty(this.notificationConfig.body);
       if (this.notificationConfig.body == null) {
         this.notificationConfig.body = "";
       }

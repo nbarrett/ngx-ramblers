@@ -908,7 +908,9 @@ export class MailNotificationTemplateEditor implements OnInit, OnDestroy {
     const body = (target.body || "").trim();
     const writtenInComposer = body === EMAIL_COMPOSER_BODY_PLACEHOLDER;
     const writtenHere = body.length > 0 && !writtenInComposer;
-    if (!target.templateName && !writtenInComposer && !writtenHere) {
+    const processSuppliesContent = !!target.id && !!this.mailMessagingConfig?.mailConfig
+      && this.mailMessagingService.workflowIdsFor(this.mailMessagingConfig.mailConfig).includes(target.id);
+    if (!processSuppliesContent && !target.templateName && !writtenInComposer && !writtenHere) {
       issues.push(MISSING_EMAIL_CONTENT_ISSUE);
     }
     if (!target.bannerId) {
