@@ -30,6 +30,13 @@ import { StringUtilsService } from "../../../services/string-utils.service";
         </div>
       }
     </div>`,
+  styles: [`
+    .row
+      max-width: 100%
+    .row > [class*="col-"]
+      min-width: 0
+      max-width: 100%
+  `],
   imports: [GroupEventCard, WalkCardViewComponent, NgClass]
 })
 export class EventCardsList {

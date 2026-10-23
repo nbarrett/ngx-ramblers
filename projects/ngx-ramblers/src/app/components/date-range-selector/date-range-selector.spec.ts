@@ -44,4 +44,11 @@ describe("DateRangeSelector", () => {
     expect(selector.range.from).toBe(minDate.toMillis());
     expect(selector.range.to).toBe(today.toMillis());
   });
+
+  it("returns to a shorter future preset after a wider one", () => {
+    selector.selectPresetTab(DateRangePresetLabel.NEXT_30_DAYS);
+    selector.selectPresetTab(DateRangePresetLabel.NEXT_7_DAYS);
+    expect(selector.selectedPresetTab()).toBe(DateRangePresetLabel.NEXT_7_DAYS);
+    expect(Math.round((selector.range.to - selector.range.from) / (24 * 60 * 60 * 1000))).toBe(7);
+  });
 });

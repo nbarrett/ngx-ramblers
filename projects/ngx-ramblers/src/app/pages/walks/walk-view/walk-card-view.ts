@@ -150,7 +150,21 @@ import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
   styles: [`
     .card-body
       position: relative
+      min-width: 0
       padding-bottom: 50px
+      overflow-wrap: break-word
+    .card-title
+      min-width: 0
+      overflow-wrap: break-word
+    .card-body dl.d-flex
+      flex-wrap: wrap
+      min-width: 0
+      column-gap: 0.5rem
+    .card-body dl.d-flex > *
+      min-width: 0
+    .event-badge
+      max-width: 100%
+      white-space: normal
   `],
   imports: [WalkGradingComponent, TooltipDirective, RelatedLinkComponent, FontAwesomeModule, CopyIconComponent, DisplayDatePipe, DisplayTimePipe, CardImageOrMap, RouterLink, EventLeaderContactLinkComponent, EventLeaderPhoneLinkComponent, EventGroupComponent, JointLeaderNamesPipe]
 })

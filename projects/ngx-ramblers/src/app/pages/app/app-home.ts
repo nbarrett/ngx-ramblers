@@ -16,7 +16,7 @@ import { NgSelectModule } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription, take } from "rxjs";
-import { faArrowLeft, faPeopleGroup, faCompass, faCalendarDay, faCheck, faRoute, faCircleCheck, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faShareNodes, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faPeopleGroup, faCompass, faCalendarDay, faCheck, faRoute, faCircleCheck, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faSliders, faShareNodes, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { PageContentType } from "../../models/content-text.model";
@@ -186,6 +186,12 @@ const MAP_LIST_BATCH_SIZE = 20;
                       (click)="listRefresh.refresh()" [disabled]="listRefresh.refreshing"
                       aria-label="Refresh walks and maps" tooltip="Refresh walks and maps">
                 <fa-icon [icon]="faArrowsRotate"/>
+              </button>
+              <button class="btn btn-quiet btn-icon d-none d-lg-inline-flex" type="button"
+                      (click)="toggleCustomising()" [attr.aria-expanded]="customising"
+                      aria-controls="app-home-customise" aria-label="App settings" tooltip="App settings"
+                      [isDisabled]="!tooltipsEnabled">
+                <fa-icon [icon]="faSliders"/>
               </button>
             </div>
           </div>
@@ -754,6 +760,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   protected readonly faShareNodes = faShareNodes;
   protected readonly faCompass = faCompass;
   protected readonly faArrowsRotate = faArrowsRotate;
+  protected readonly faSliders = faSliders;
   protected readonly faStar = faStar;
   protected readonly faSun = faSun;
   protected readonly faTrash = faTrash;

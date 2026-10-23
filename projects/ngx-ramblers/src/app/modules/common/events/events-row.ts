@@ -18,6 +18,17 @@ import { Events } from "./events";
         <app-events [eventsData]="row.events" [queryIndex]="queryIndex"/>
       </div>
     </div>`,
+    styles: [`
+      :host
+        display: block
+        min-width: 0
+        max-width: 100%
+      .row
+        max-width: 100%
+      .col-sm-12
+        min-width: 0
+        max-width: 100%
+    `],
     imports: [Events]
 })
 export class EventsRow implements OnInit {
