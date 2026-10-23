@@ -63,11 +63,8 @@ export class NativeCompassService {
       if (this.currentSession(session)) {
         this.listener = listener;
         await this.compass.start();
-        if (!this.currentSession(session)) {
-          const stale = this.listener;
-          this.listener = null;
-          void stale?.remove();
-          void this.compass.stop().catch(error => this.logger.error("Native compass stop failed", error));
+        if (!this.currentSession(session) && !this.active) {
+          await this.compass.stop();
         }
       } else {
         await this.abandonListener(listener);

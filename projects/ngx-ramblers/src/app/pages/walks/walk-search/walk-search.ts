@@ -152,13 +152,13 @@ import { AdvancedToggle } from "../../../shared/components/advanced-toggle";
           top: calc(var(--site-navbar-height, 0px) + var(--page-heading-height, 0px))
           z-index: 1021
           isolation: isolate
-          width: calc(100% + var(--bs-gutter-x, 1.5rem))
-          margin-right: calc(var(--bs-gutter-x, 1.5rem) * -0.5)
-          margin-left: calc(var(--bs-gutter-x, 1.5rem) * -0.5)
+          width: 100%
+          max-width: 100%
+          box-sizing: border-box
+          margin-right: 0
+          margin-left: 0
           padding-top: var(--space-2, 8px)
-          padding-right: calc(var(--bs-gutter-x, 1.5rem) * 0.5)
           padding-bottom: var(--space-2, 8px)
-          padding-left: calc(var(--bs-gutter-x, 1.5rem) * 0.5)
           background: var(--rsm-panel-bg, rgb(255, 255, 255))
 
       @media (max-width: 575.98px)

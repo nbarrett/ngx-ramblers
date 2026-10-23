@@ -260,6 +260,7 @@ export class AlbumBackgroundsComponent implements OnInit, OnChanges, OnDestroy {
   private systemConfigService = inject(SystemConfigService);
   private pageService = inject(PageService);
   private pageShell = inject(PageComponent, {optional: true});
+  private publishedPageTitle: string | null = null;
   private document = inject(DOCUMENT);
   protected urlService = inject(UrlService);
   private subscriptions: Subscription[] = [];
@@ -289,16 +290,26 @@ export class AlbumBackgroundsComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   pageTitleOwned(): boolean {
-    return !!this.pageShell;
+    return !!this.publishedPageTitle && this.pageService.contentPageTitle() === this.publishedPageTitle;
   }
 
   private publishMobilePageTitle(): void {
     const mobile = !!this.document.defaultView?.matchMedia("(max-width: 767.98px)").matches;
-    if (this.pageTitleOwned() && mobile && this.album?.showTitle && this.album?.title) {
-      this.pageService.setContentPageTitle(this.album.title);
-    } else if (this.pageTitleOwned()) {
+    const shellCanDisplayTitle = this.pageShell?.showTitle && !this.pageShell.pageTitle;
+    const titleAvailable = !this.pageService.contentPageTitle() || this.pageTitleOwned();
+    if (shellCanDisplayTitle && titleAvailable && mobile && this.album?.showTitle && this.album?.title) {
+      this.publishedPageTitle = this.album.title;
+      this.pageService.setContentPageTitle(this.publishedPageTitle);
+    } else {
+      this.releaseMobilePageTitle();
+    }
+  }
+
+  private releaseMobilePageTitle(): void {
+    if (this.pageTitleOwned()) {
       this.pageService.setContentPageTitle(null);
     }
+    this.publishedPageTitle = null;
   }
 
   introductoryTextClasses(withOverlayColour = true): string[] {
@@ -353,7 +364,7 @@ export class AlbumBackgroundsComponent implements OnInit, OnChanges, OnDestroy {
     if (this.intervalId) {
       clearInterval(this.intervalId);
     }
-    this.pageService.setContentPageTitle(null);
+    this.releaseMobilePageTitle();
   }
 
   onHeightChange(height: number) {

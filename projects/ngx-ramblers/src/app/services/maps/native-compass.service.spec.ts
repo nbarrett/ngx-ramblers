@@ -95,6 +95,51 @@ describe("NativeCompassService", () => {
     expect(secondRemove).not.toHaveBeenCalled();
   });
 
+  it.each([true, false])("preserves the restarted compass when the earlier start finishes first=%s", async earlierFinishesFirst => {
+    const first = {resolve: null as (() => void) | null};
+    const second = {resolve: null as (() => void) | null};
+    const firstRemove = vi.fn();
+    const secondRemove = vi.fn();
+    native.addListener.mockImplementation(async (_event: NativeCompassEvent, listener: (payload: NativeCompassHeading) => void) => {
+      native.listener = listener;
+      return {remove: native.addListener.mock.calls.length === 1 ? firstRemove : secondRemove};
+    });
+    native.start
+      .mockImplementationOnce(() => new Promise<void>(resolve => first.resolve = resolve))
+      .mockImplementationOnce(() => new Promise<void>(resolve => second.resolve = resolve));
+    const service = TestBed.inject(NativeCompassService);
+    service.start(vi.fn());
+    await Promise.resolve();
+    service.stop();
+    const receive = vi.fn();
+    service.start(receive);
+    await Promise.resolve();
+    const completions = earlierFinishesFirst ? [first, second] : [second, first];
+    for (const completion of completions) {
+      completion.resolve();
+      await Promise.resolve();
+    }
+    native.listener?.({heading: 90});
+    expect(receive).toHaveBeenCalledWith(90);
+    expect(firstRemove).toHaveBeenCalledTimes(1);
+    expect(secondRemove).not.toHaveBeenCalled();
+    expect(native.stop).toHaveBeenCalledTimes(1);
+    service.stop();
+    expect(secondRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops a native start that completes after the session was stopped", async () => {
+    const pending = {resolve: null as (() => void) | null};
+    native.start.mockImplementationOnce(() => new Promise<void>(resolve => pending.resolve = resolve));
+    const service = TestBed.inject(NativeCompassService);
+    service.start(vi.fn());
+    await Promise.resolve();
+    service.stop();
+    pending.resolve();
+    await Promise.resolve();
+    expect(native.stop).toHaveBeenCalledTimes(2);
+  });
+
   it("forwards native headings and ignores values after stop", async () => {
     const service = TestBed.inject(NativeCompassService);
     const receive = vi.fn();
