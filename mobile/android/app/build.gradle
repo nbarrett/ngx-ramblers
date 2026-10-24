@@ -3,6 +3,9 @@ apply plugin: "com.android.application"
 android {
     namespace = "org.ngxramblers.walking"
     compileSdk = rootProject.ext.compileSdkVersion
+    buildFeatures {
+        buildConfig true
+    }
     defaultConfig {
         applicationId "org.ngxramblers.walking"
         minSdkVersion rootProject.ext.minSdkVersion

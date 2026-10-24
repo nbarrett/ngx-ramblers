@@ -37,13 +37,14 @@ public class NativeSiteNavigationPlugin: CAPPlugin, CAPBridgedPlugin {
         let origin = UserDefaults.standard.string(forKey: "native-site-origin") ?? ""
         let encoded: String
         do {
-            let data = try JSONSerialization.data(withJSONObject: origin, options: .fragmentsAllowed)
+            let buildNumber = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+            let data = try JSONSerialization.data(withJSONObject: ["origin": origin, "buildNumber": buildNumber])
             encoded = String(decoding: data, as: UTF8.self)
         } catch {
             NSLog("Could not initialise native site navigation: %@", error.localizedDescription)
             return
         }
-        let source = "window.ngxNativeNavigationBoot=true;if(!localStorage.getItem(\"app-appearance\")){localStorage.setItem(\"app-appearance\",\"light\");}var selected=" + encoded + ";if(location.protocol===\"capacitor:\"){localStorage.setItem(\"app-site-origin\",selected);}else if(location.origin===selected){window.ngxNativeSiteUrl=selected;localStorage.setItem(\"app-site-origin\",selected);}"
+        let source = "window.ngxNativeNavigationBoot=true;if(!localStorage.getItem(\"app-appearance\")){localStorage.setItem(\"app-appearance\",\"light\");}var app=" + encoded + ";window.ngxNativeBuildNumber=app.buildNumber;var selected=app.origin;if(location.protocol===\"capacitor:\"){localStorage.setItem(\"app-site-origin\",selected);}else if(location.origin===selected){window.ngxNativeSiteUrl=selected;localStorage.setItem(\"app-site-origin\",selected);}"
         if let controller = webView?.configuration.userContentController {
             let scripts = controller.userScripts.filter { !$0.source.hasPrefix("window.ngxNativeNavigationBoot=true;") }
             controller.removeAllUserScripts()

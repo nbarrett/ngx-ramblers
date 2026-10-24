@@ -28,7 +28,7 @@ Walkers do not need Xcode, Android Studio or a development computer. They instal
 
 `build-and-release-mobile.yml` runs automatically after the main website workflow succeeds for a push to `main`. It checks out that workflow's exact source revision, prepares the generic mobile bundle once, and builds iOS and Android in parallel. No developer workstation is used. A manual dispatch is available for retrying a release from `main`.
 
-The workflow tests the native journals and retains an iOS simulator archive and an unsigned Android bundle. Pilot uploads are disabled by default while account and signing setup is incomplete; the workflow summary explicitly reports that only the build ran. Enable each platform's upload independently after its credentials are configured. Enabled uploads check all required credentials and fail on missing configuration or a genuine upload error. The iPhone job signs and uploads to App Store Connect, waits for Apple to validate it, and assigns that exact build to the configured pilot group through the API. The Android job signs and uploads to Google Play's closed Alpha testing track, which supplies the existing mobile trial install link. Public store review and release are separate from these pilot uploads.
+The workflow tests the native journals and retains an iOS simulator archive and an unsigned Android bundle. Pilot uploads are disabled by default while account and signing setup is incomplete; the workflow summary explicitly reports that only the build ran. Enable each platform's upload independently after its credentials are configured. Enabled uploads check all required credentials and fail on missing configuration or a genuine upload error. The iPhone job signs and uploads to App Store Connect, waits for Apple to validate it, keeps Apple tester emails off, assigns that exact build to the existing external pilot group and submits it for TestFlight review through the API. Approved updates become available in TestFlight for existing testers without resending invitations or mailing them. A successful upload is not proof of external availability: Apple review can still be pending. The Android job signs and uploads to Google Play's closed Alpha testing track, which supplies the existing mobile trial install link. Public store review and release are separate from these pilot uploads.
 
 The Google service account must also have app-scoped Play Console access to view app information and release apps to testing tracks. A valid service-account key in repository secrets does not itself grant Play Console access. Store processing and review can delay availability after a successful upload; check the target track or TestFlight group before telling testers that an update is available.
 
@@ -39,7 +39,7 @@ One-time repository variables:
 - `MOBILE_DIRECTORY_URL`: public HTTPS origin providing the initial area/group lookup, not a selected group website.
 - `APPLE_TEAM_ID`: Apple Developer team identifier.
 - `APP_STORE_CONNECT_APP_ID`: application record identifier in App Store Connect.
-- `TESTFLIGHT_GROUP_ID`: existing pilot group identifier. This workflow does not create testers or broaden their account roles.
+- `TESTFLIGHT_GROUP_ID`: existing **external** TestFlight trial group identifier. The workflow assigns each validated iPhone build to that group and leaves Apple tester emails off. It does not create testers or broaden their account roles.
 
 One-time repository secrets:
 

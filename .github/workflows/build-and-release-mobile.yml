@@ -46,6 +46,7 @@ jobs:
         run: npx ts-node --project tsconfig.tools.json tools/mobile-testflight.test.ts
       - name: Prepare generic mobile bundle
         env:
+          MOBILE_BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
           MOBILE_PLATFORM: android
         run: npm run mobile:prepare
       - uses: actions/upload-artifact@v7
@@ -132,12 +133,12 @@ jobs:
           xcodebuild -project mobile/ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CURRENT_PROJECT_VERSION="$MOBILE_BUILD_NUMBER" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER="$APPLE_PROFILE_UUID" archive
           node -e 'const fs = require("node:fs"); fs.writeFileSync(process.env.RUNNER_TEMP + "/export.plist", `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>method</key><string>app-store-connect</string><key>destination</key><string>upload</string><key>teamID</key><string>${process.env.APPLE_TEAM_ID}</string><key>signingStyle</key><string>manual</string><key>provisioningProfiles</key><dict><key>org.ngxramblers.walking</key><string>${process.env.APPLE_PROFILE_UUID}</string></dict><key>manageAppVersionAndBuildNumber</key><false/></dict></plist>`);'
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportPath "$RUNNER_TEMP/ios-export" -exportOptionsPlist "$RUNNER_TEMP/export.plist" -authenticationKeyPath "$RUNNER_TEMP/apple-keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8" -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
-      - name: Wait for Apple validation and assign build to pilot group
+      - name: Wait for Apple validation and submit external trial build
         if: env.PUBLISH_ENABLED == 'true'
         run: npx ts-node --project tsconfig.tools.json tools/mobile-testflight.ts
       - name: Record pilot release result
         if: env.PUBLISH_ENABLED == 'true'
-        run: echo "Uploaded native build $MOBILE_BUILD_NUMBER from $SOURCE_SHA and assigned it to the configured TestFlight pilot group." >> "$GITHUB_STEP_SUMMARY"
+        run: echo "Uploaded native build $MOBILE_BUILD_NUMBER from $SOURCE_SHA to the configured TestFlight pilot group. Apple tester emails stay off. External availability depends on Apple review." >> "$GITHUB_STEP_SUMMARY"
       - name: Explain disabled pilot upload
         if: env.PUBLISH_ENABLED != 'true'
         run: echo "Native build passed. Pilot upload is disabled until signing and store setup are complete. See mobile/README.md." >> "$GITHUB_STEP_SUMMARY"
