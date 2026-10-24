@@ -223,8 +223,9 @@ export class InboxLayoutService implements OnDestroy {
         const rightBox = right?.getBoundingClientRect();
         const pairWidth = Math.max((rightBox ? rightBox.right : leftBox.right) - leftBox.left, 1);
         const startShare = { ...this.columnShare };
+        const minPx = Math.min(48, Math.max(16, pairWidth / 6));
         const move = (pointer: PointerEvent) => {
-            const leftPx = Math.min(Math.max(pointer.clientX - leftBox.left, 48), pairWidth - 48);
+            const leftPx = Math.min(Math.max(pointer.clientX - leftBox.left, minPx), pairWidth - minPx);
             const rightPx = pairWidth - leftPx;
             const next = { ...startShare };
             if (edge === InboxColumnResizeEdge.FROM) {
