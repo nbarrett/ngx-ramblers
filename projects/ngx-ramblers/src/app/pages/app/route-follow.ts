@@ -1151,7 +1151,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private recordingNameAutosize: CdkTextareaAutosize | null = null;
   protected mapBearing = 0;
   protected headingUp = false;
-  protected appearance: AppAppearance = AppAppearance.SYSTEM;
+  protected appearance: AppAppearance = AppAppearance.LIGHT;
   protected previewSpeed = ROUTE_FOLLOW_PREVIEW_SPEED_DEFAULT;
   protected readonly previewSpeedMin = ROUTE_FOLLOW_PREVIEW_SPEED_MIN;
   protected readonly previewSpeedMax = ROUTE_FOLLOW_PREVIEW_SPEED_MAX;

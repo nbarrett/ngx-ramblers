@@ -100,6 +100,12 @@ body.app-shell-active
   -webkit-text-size-adjust: 100%
   text-size-adjust: 100%
 
+body.app-shell-active .btn:not(.btn-icon)
+  border-radius: 999px
+
+body.app-shell-active .btn-icon
+  border-radius: 50%
+
 body:not(.app-shell-active)
   padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
   padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px))

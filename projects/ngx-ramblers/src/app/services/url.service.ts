@@ -1,3 +1,4 @@
+import { awsImageResourcePath } from "../functions/aws-image-paths";
 import { DOCUMENT, Location } from "@angular/common";
 import { inject, Injectable, Injector } from "@angular/core";
 import { ActivatedRoute, NavigationExtras, Params, QueryParamsHandling, Router } from "@angular/router";
@@ -8,8 +9,7 @@ import { PathSegment } from "../models/content-text.model";
 import {
   ContentMetadata,
   ContentMetadataItem,
-  HasEventId,
-  S3_BASE_URL
+  HasEventId
 } from "../models/content-metadata.model";
 import { AWSLinkConfig, LinkConfig, LinkTextConfig } from "../models/link.model";
 import { SiteEditService } from "../site-edit/site-edit.service";
@@ -498,7 +498,7 @@ export class UrlService {
   }
 
   resourceRelativePathForAWSFileName(fileName: string): string {
-    return fileName ? nativeApiUrl(fileName.includes(S3_BASE_URL) ? fileName : `${S3_BASE_URL}/${fileName}`) : null;
+    return fileName ? nativeApiUrl(awsImageResourcePath(fileName, true)) : null;
   }
 
   hasRouteParameter(parameter: string): boolean {

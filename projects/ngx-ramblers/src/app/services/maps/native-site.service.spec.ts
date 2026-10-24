@@ -1,79 +1,125 @@
-import { provideHttpClient } from "@angular/common/http";
-import { HttpTestingController, provideHttpClientTesting } from "@angular/common/http/testing";
 import { TestBed } from "@angular/core/testing";
 import { Capacitor } from "@capacitor/core";
 import { HealthStatus } from "../../models/health.model";
 import { StoredValue } from "../../models/ui-actions";
-import { NATIVE_HTTP, NativeSiteService } from "./native-site.service";
+import { NATIVE_HTTP, NATIVE_SITE_NAVIGATION, NativeSiteService } from "./native-site.service";
+
+function nativeStatus(url: string, status: number, data: unknown) {
+  return {status, url, headers: {}, data};
+}
 
 describe("NativeSiteService", () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), NativeSiteService, {provide: NATIVE_HTTP, useValue: {request: vi.fn()}}]
+      providers: [{provide: NATIVE_SITE_NAVIGATION, useValue: {selectSite: vi.fn().mockResolvedValue(null)}}, NativeSiteService, {provide: NATIVE_HTTP, useValue: {request: vi.fn()}}]
     });
     window.localStorage.removeItem(StoredValue.APP_SITE_ORIGIN);
   });
 
   it("keeps the selected staging origin when the site advertises its public URL", async () => {
     vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
-    const http = TestBed.inject(HttpTestingController);
+    vi.mocked(TestBed.inject(NATIVE_HTTP).request).mockResolvedValue(nativeStatus(
+      "https://staging.group.example.org.uk/api/system-status",
+      200,
+      {status: HealthStatus.OK, group: {shortName: "Hillside", href: "https://www.group.example.org.uk"}}
+    ));
     const service = TestBed.inject(NativeSiteService);
-    const pending = service.connect("staging.group.example.org.uk");
-    http.expectOne("https://staging.group.example.org.uk/api/system-status").flush({
-      status: HealthStatus.OK,
-      group: {shortName: "Hillside", href: "https://www.group.example.org.uk"}
+    await expect(service.connect("staging.group.example.org.uk")).resolves.toEqual({
+      origin: "https://staging.group.example.org.uk",
+      name: "Hillside"
     });
-    await expect(pending).resolves.toEqual({origin: "https://staging.group.example.org.uk", name: "Hillside"});
     expect(window.localStorage.getItem(StoredValue.APP_SITE_ORIGIN)).toBe("https://staging.group.example.org.uk");
-    http.verify();
+  });
+
+  it("selects the final canonical origin before opening a redirected group website", async () => {
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    vi.mocked(TestBed.inject(NATIVE_HTTP).request).mockResolvedValue(nativeStatus(
+      "https://www.group.example.org.uk/api/system-status",
+      200,
+      {status: HealthStatus.OK, group: {shortName: "Hillside", groupCode: "AB01"}}
+    ));
+    await expect(TestBed.inject(NativeSiteService).connect("https://group.example.org.uk", "AB01"))
+      .resolves.toEqual({origin: "https://www.group.example.org.uk", name: "Hillside"});
+    expect(TestBed.inject(NATIVE_SITE_NAVIGATION).selectSite).toHaveBeenCalledWith({origin: "https://www.group.example.org.uk"});
+    expect(window.localStorage.getItem(StoredValue.APP_SITE_ORIGIN)).toBe("https://www.group.example.org.uk");
+  });
+
+  it("rejects a group check redirected to an unrelated website before granting native access", async () => {
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    vi.mocked(TestBed.inject(NATIVE_HTTP).request).mockResolvedValue(nativeStatus(
+      "https://other.example.org.uk/api/system-status",
+      200,
+      {status: HealthStatus.OK, group: {shortName: "Hillside", groupCode: "AB01"}}
+    ));
+    await expect(TestBed.inject(NativeSiteService).connect("https://group.example.org.uk", "AB01")).rejects.toThrow("unexpected address");
+    expect(TestBed.inject(NATIVE_SITE_NAVIGATION).selectSite).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(StoredValue.APP_SITE_ORIGIN)).toBeNull();
   });
 
   it("rejects a site with no group name", async () => {
-    const http = TestBed.inject(HttpTestingController);
-    const service = TestBed.inject(NativeSiteService);
-    const pending = service.connect("https://example.com");
-    http.expectOne("https://example.com/api/system-status").flush({status: HealthStatus.OK, group: {}});
-    await expect(pending).rejects.toThrow("does not support NGX Ramblers");
-    http.verify();
+    vi.mocked(TestBed.inject(NATIVE_HTTP).request).mockResolvedValue(nativeStatus(
+      "https://example.com/api/system-status",
+      200,
+      {status: HealthStatus.OK, group: {}}
+    ));
+    await expect(TestBed.inject(NativeSiteService).connect("https://example.com")).rejects.toThrow("does not support NGX Ramblers");
   });
+
   it("checks group compatibility without selecting the site", async () => {
-    const http = TestBed.inject(HttpTestingController);
+    vi.mocked(TestBed.inject(NATIVE_HTTP).request).mockResolvedValue(nativeStatus(
+      "https://group.example.org.uk/api/system-status",
+      200,
+      {status: HealthStatus.OK, group: {shortName: "Hillside", groupCode: "AB01"}}
+    ));
     const service = TestBed.inject(NativeSiteService);
-    const pending = service.check("group.example.org.uk", "AB01");
-    http.expectOne("https://group.example.org.uk/api/system-status").flush({status: HealthStatus.OK, group: {shortName: "Hillside", groupCode: "AB01"}});
-    await expect(pending).resolves.toEqual({origin: "https://group.example.org.uk", name: "Hillside"});
+    await expect(service.check("group.example.org.uk", "AB01")).resolves.toEqual({origin: "https://group.example.org.uk", name: "Hillside"});
     expect(window.localStorage.getItem(StoredValue.APP_SITE_ORIGIN)).toBeNull();
-    http.verify();
   });
 
   it("rejects a website for another group", async () => {
-    const http = TestBed.inject(HttpTestingController);
+    vi.mocked(TestBed.inject(NATIVE_HTTP).request).mockResolvedValue(nativeStatus(
+      "https://group.example.org.uk/api/system-status",
+      200,
+      {status: HealthStatus.OK, group: {shortName: "Hillside", groupCode: "AB02"}}
+    ));
     const service = TestBed.inject(NativeSiteService);
-    const pending = service.connect("group.example.org.uk", "AB01");
-    http.expectOne("https://group.example.org.uk/api/system-status").flush({status: HealthStatus.OK, group: {shortName: "Hillside", groupCode: "AB02"}});
-    await expect(pending).rejects.toThrow("different group");
+    await expect(service.connect("group.example.org.uk", "AB01")).rejects.toThrow("different group");
     expect(window.localStorage.getItem(StoredValue.APP_SITE_ORIGIN)).toBeNull();
-    http.verify();
   });
 
   it("rejects a degraded NGX website", async () => {
-    const http = TestBed.inject(HttpTestingController);
+    vi.mocked(TestBed.inject(NATIVE_HTTP).request).mockResolvedValue(nativeStatus(
+      "https://group.example.org.uk/api/system-status",
+      503,
+      {status: HealthStatus.DEGRADED, group: {shortName: "Hillside"}}
+    ));
     const service = TestBed.inject(NativeSiteService);
-    const pending = service.connect("group.example.org.uk");
-    http.expectOne("https://group.example.org.uk/api/system-status").flush({status: HealthStatus.DEGRADED, group: {shortName: "Hillside"}}, {status: 503, statusText: "Unavailable"});
-    await expect(pending).rejects.toThrow("temporarily unavailable");
+    await expect(service.connect("group.example.org.uk")).rejects.toThrow("temporarily unavailable");
     expect(window.localStorage.getItem(StoredValue.APP_SITE_ORIGIN)).toBeNull();
-    http.verify();
   });
 
-  it("forgets the group website, sign-in and saved follow screen so Change group can open the chooser", () => {
+  it("opens the saved group website from the local shell", () => {
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    window.localStorage.setItem(StoredValue.APP_SITE_ORIGIN, "https://group.example.org.uk");
+    const assign = vi.fn();
+    vi.spyOn(window, "location", "get").mockReturnValue({
+      hostname: "localhost",
+      protocol: "https:",
+      origin: "https://localhost",
+      assign
+    } as unknown as Location);
+    expect(TestBed.inject(NativeSiteService).openSelectedGroup()).toBe(true);
+    expect(assign).toHaveBeenCalledWith("https://group.example.org.uk/app");
+  });
+
+  it("forgets the group website, sign-in and saved follow screen so Change group can open the chooser", async () => {
     vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
     (window as {ngxNativeSiteUrl?: string}).ngxNativeSiteUrl = "https://baked.example.org.uk";
     window.localStorage.setItem(StoredValue.APP_SITE_ORIGIN, "https://group.example.org.uk");
     window.localStorage.setItem(StoredValue.AUTH_TOKEN, "fictional-token");
     window.localStorage.setItem(StoredValue.APP_LAST_URL, "/app/route?walk-id=fictional");
     window.localStorage.setItem(StoredValue.FOLLOW_SESSION, JSON.stringify({walkId: "fictional"}));
-    TestBed.inject(NativeSiteService).clear();
+    await TestBed.inject(NativeSiteService).clear();
     expect(window.localStorage.getItem(StoredValue.APP_SITE_ORIGIN)).toBe("");
     expect(window.localStorage.getItem(StoredValue.AUTH_TOKEN)).toBeNull();
     expect(window.localStorage.getItem(StoredValue.APP_LAST_URL)).toBeNull();
@@ -93,7 +139,7 @@ describe("NativeSiteService", () => {
     await expect(first).resolves.toBe("https://group.example.org.uk");
     await expect(service.canonicalOrigin("https://www.group.example.org.uk")).resolves.toBe("https://group.example.org.uk");
     expect(nativeRequest).toHaveBeenCalledExactlyOnceWith({
-      url: "https://www.group.example.org.uk/api/health", method: "HEAD", connectTimeout: 10000, readTimeout: 10000
+      url: "https://www.group.example.org.uk/api/health", method: "GET", connectTimeout: 10000, readTimeout: 10000
     });
   });
 

@@ -41,7 +41,7 @@
   --app-input-bg: #1b2d24
 
 @media (prefers-color-scheme: dark)
-  :host-context(body:not(.app-appearance-light)) .app-home
+  :host-context(body.app-appearance-system) .app-home
     @include app-home-dark-tokens
 
 :host-context(body.app-appearance-dark) .app-home

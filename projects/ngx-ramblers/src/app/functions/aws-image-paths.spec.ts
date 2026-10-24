@@ -18,6 +18,12 @@ describe("managed image storage and rendering paths", () => {
     expect(storedAwsImageUrls(rendered)).toBe(stored);
   });
 
+  it("uses the same resource mapping for explicit managed file references", () => {
+    ["documents/guide.pdf", "/documents/guide.pdf", "api/aws/s3/documents/guide.pdf", "/api/aws/s3/documents/guide.pdf"]
+      .forEach(path => expect(awsImageResourcePath(path, true)).toBe("/api/aws/s3/documents/guide.pdf"));
+    expect(awsImageResourcePath("https://images.example.com/photo.png", true)).toBe("https://images.example.com/photo.png");
+  });
+
   it("does not reinterpret external, embedded or unrelated image addresses", () => {
     ["https://images.example.com/photo.png", "https://other.example.com/api/aws/s3/site-content/photo.png", "data:image/png;base64,aGVsbG8=", "cid:photo", "assets/photo.png"]
       .forEach(path => expect(awsImageResourcePath(path)).toBe(path));

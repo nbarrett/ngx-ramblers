@@ -17,6 +17,7 @@ import { SelectablePreset } from "../../../models/search.model";
       [searchable]="searchable"
       [placeholder]="placeholder"
       [dropdownPosition]="dropdownPosition"
+      appendTo="body"
       (change)="change.emit($event)"
       class="rounded w-100">
       <ng-template ng-label-tmp let-item="item">

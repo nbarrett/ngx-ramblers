@@ -14,7 +14,10 @@ if (!directoryUrl || new URL(directoryUrl).protocol !== "https:" || new URL(dire
 }
 if (requestedSite) {
   const site = new URL(requestedSite);
-  if (site.protocol !== "https:" || site.username || site.password || site.pathname !== "/" || site.search || site.hash) {
+  const localHost = site.hostname === "localhost" || site.hostname === "127.0.0.1" || site.hostname === "10.0.2.2";
+  const httpsSite = site.protocol === "https:" && !site.username && !site.password && site.pathname === "/" && !site.search && !site.hash;
+  const localHttpSite = site.protocol === "http:" && localHost && !site.username && !site.password && site.pathname === "/" && !site.search && !site.hash;
+  if (!httpsSite && !localHttpSite) {
     throw new Error("MOBILE_SITE_URL must be an HTTPS site origin without credentials, a path or query parameters.");
   }
 }

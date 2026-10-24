@@ -8,7 +8,10 @@ export class AvailableAreasService {
   private http = inject(HttpClient);
   private cached: Promise<AvailableAreaWithLabel[]> | null = null;
 
-  areas(): Promise<AvailableAreaWithLabel[]> {
+  areas(refresh = false): Promise<AvailableAreaWithLabel[]> {
+    if (refresh) {
+      this.cached = null;
+    }
     if (!this.cached) {
       this.cached = firstValueFrom(this.http.get<{areas: AvailableArea[]}>("api/areas/available-areas"))
         .then(response => (response?.areas || []).map(area => ({...area, ngSelectLabel: `${area.areaName} (${area.areaCode})`})))

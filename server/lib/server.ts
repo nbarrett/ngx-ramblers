@@ -197,6 +197,7 @@ app.get("/ramblers-favicon.svg", ramblersFavicon);
 app.get("/manifest.webmanifest", serveWebManifest);
 app.get("/api/files/download", download);
 app.get("/api/health", health);
+app.head("/api/health", health);
 app.get("/api/version", buildVersion);
 app.get("/api/version/details", deploymentInfo);
 app.get("/api/version/releases", versionReleases);

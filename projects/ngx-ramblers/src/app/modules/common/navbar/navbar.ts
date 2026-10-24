@@ -36,7 +36,7 @@ import { SocialMediaLinksComponent } from "../../../footer/icons/footer-icons";
                  [class.ps-0]="inlineNavBarVisible()"
                  [href]="urlService.baseUrl()" aria-current="page" target="_self">
                 @if (logo?.awsFileName) {
-                  <img [src]="urlService.resourceRelativePathForAWSFileName(logo?.awsFileName)"
+                  <img [src]="urlService.imageSource(logo?.awsFileName, true)"
                        [alt]="systemConfig?.group?.shortName" [width]="logo?.width"
                        (load)="publishNavbarHeight()">
                 }</a>

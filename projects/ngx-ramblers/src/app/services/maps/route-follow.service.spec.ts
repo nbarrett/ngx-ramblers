@@ -8,11 +8,12 @@ import { RouteFollowService } from "./route-follow.service";
 import { NativeRouteError, NativeRoutePosition } from "../../models/native-route.model";
 
 describe("appAppearanceFromStored", () => {
-  it("reads a stored appearance and falls back to match phone", () => {
+  it("reads a stored appearance and defaults a new installation to light", () => {
     expect(appAppearanceFromStored("light")).toBe(AppAppearance.LIGHT);
     expect(appAppearanceFromStored("dark")).toBe(AppAppearance.DARK);
     expect(appAppearanceFromStored("system")).toBe(AppAppearance.SYSTEM);
-    expect(appAppearanceFromStored(null)).toBe(AppAppearance.SYSTEM);
+    expect(appAppearanceFromStored(null)).toBe(AppAppearance.LIGHT);
+    expect(appAppearanceFromStored("invalid")).toBe(AppAppearance.LIGHT);
   });
 });
 
