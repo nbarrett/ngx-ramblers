@@ -380,6 +380,8 @@
 .inbox-thread-list
   flex: 1 1 auto
   min-height: 0
+  min-width: 0
+  overflow-x: hidden
   overflow-y: auto
   container-type: inline-size
 
@@ -687,17 +689,20 @@
 .inbox-list-compact .inbox-thread-row,
 .inbox-column-head
   display: grid
-  grid-template-columns: 1.25rem minmax(16rem, var(--inbox-from, 1.6fr)) minmax(16rem, var(--inbox-to, 1.6fr)) minmax(18rem, var(--inbox-subject, 1.8fr)) minmax(11rem, var(--inbox-date, 1.1fr))
+  grid-template-columns: 1.25rem minmax(3rem, var(--inbox-from, 1.6fr)) minmax(3rem, var(--inbox-to, 1.6fr)) minmax(3rem, var(--inbox-subject, 1.8fr)) minmax(3rem, var(--inbox-date, 1.1fr))
   align-items: center
   column-gap: 0.5rem
   padding: 0.15rem 0.75rem
+  width: 100%
+  box-sizing: border-box
 
 .inbox-list-compact.inbox-list-has-location .inbox-thread-row,
 .inbox-list-compact.inbox-list-has-location .inbox-column-head
-  grid-template-columns: 1.25rem minmax(16rem, var(--inbox-from, 1.6fr)) minmax(16rem, var(--inbox-to, 1.6fr)) minmax(12rem, var(--inbox-location, 1.2fr)) minmax(18rem, var(--inbox-subject, 1.8fr)) minmax(11rem, var(--inbox-date, 1.1fr))
+  grid-template-columns: 1.25rem minmax(3rem, var(--inbox-from, 1.6fr)) minmax(3rem, var(--inbox-to, 1.6fr)) minmax(3rem, var(--inbox-location, 1.2fr)) minmax(3rem, var(--inbox-subject, 1.8fr)) minmax(3rem, var(--inbox-date, 1.1fr))
 
 .inbox-column-tracks
   min-width: 0
+  width: 100%
 
 .inbox-column-head > *,
 .inbox-list-compact .inbox-thread-row > *
