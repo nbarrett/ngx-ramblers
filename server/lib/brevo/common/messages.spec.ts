@@ -449,6 +449,13 @@ describe("brevo messages", () => {
       expect(result).toContain("border:1px solid #ced4da");
     });
 
+    it("puts markdown images on a white cell so transparent PNGs stay white in mail clients", () => {
+      const result = renderTemplateMarkdownToHtml("![Phones](https://example.com/phones.png)");
+      expect(result).toContain("bgcolor=\"#ffffff\"");
+      expect(result).toContain("background-color:#ffffff");
+      expect(result).toContain("https://example.com/phones.png");
+    });
+
     it("leaves body content merge fields unwrapped so supplied html is not nested inside a paragraph", () => {
       const result = renderTemplateMarkdownToHtml("{{params.messageMergeFields.BODY_CONTENT_TOP}}\n\nSome wording.\n\n{{params.messageMergeFields.BODY_CONTENT_BOTTOM}}");
       expect(result).toContain("{{params.messageMergeFields.BODY_CONTENT_TOP}}");

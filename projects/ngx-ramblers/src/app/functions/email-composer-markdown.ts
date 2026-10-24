@@ -70,9 +70,16 @@ function constrainInlineImages(html: string): string {
 }
 
 function constrainImages(html: string, style: string): string {
-  return html.replace(/<img\b([^>]*)>/gi, (match, attrs) => /style\s*=/i.test(attrs)
-    ? match.replace(/style\s*=\s*"([^"]*)"/i, (_styleMatch, existing) => styleAttribute(existing as string, style))
-    : `<img${attrs} style="${style}">`);
+  return html.replace(/<img\b([^>]*)>/gi, (match, attrs) => {
+    const styled = /style\s*=/i.test(attrs)
+      ? match.replace(/style\s*=\s*"([^"]*)"/i, (_styleMatch, existing) => styleAttribute(existing as string, `${style};background-color:#ffffff`))
+      : `<img${attrs} style="${style};background-color:#ffffff">`;
+    return wrapEmailImageOnWhite(styled);
+  });
+}
+
+export function wrapEmailImageOnWhite(imgTag: string): string {
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background-color:#ffffff;"><tr><td bgcolor="#ffffff" align="center" style="background-color:#ffffff;">${imgTag}</td></tr></table>`;
 }
 
 function styleAttribute(existing: string, style: string): string {

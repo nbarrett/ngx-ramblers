@@ -28,4 +28,12 @@ describe("renderEmailComposerMarkdown", () => {
     expect(html).toContain("max-width:100%;height:auto;");
     expect(html).not.toContain("max-width:300px");
   });
+
+  it("puts body images on a white cell so transparent PNGs stay white in mail clients", () => {
+    const html = renderEmailComposerMarkdown("![Phones](https://example.com/phones.png)");
+
+    expect(html).toContain("bgcolor=\"#ffffff\"");
+    expect(html).toContain("background-color:#ffffff");
+    expect(html).toContain("<img");
+  });
 });

@@ -41,7 +41,7 @@ export class EmailComposerRenderingService {
     const widthAttr = image.width ? ` width="${image.width}"` : ` width="100%"`;
     const cleanedSrc = this.urlService.isRemoteUrl(image.src) ? image.src : image.src.replace(/^\/+/, "");
     const resolvedSrc = this.urlService.imageSource(cleanedSrc, true) ?? cleanedSrc;
-    const imgTag = `<img src="${escapeHtml(resolvedSrc)}" alt="${altAttr}"${widthAttr} style="max-width:100%;height:auto;border:0;display:block;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;vertical-align:bottom"/>`;
+    const imgTag = `<img src="${escapeHtml(resolvedSrc)}" alt="${altAttr}"${widthAttr} style="max-width:100%;height:auto;border:0;display:block;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;vertical-align:bottom;background-color:#ffffff"/>`;
     if (image.alignment === ArticleBlockImageAlignment.LEFT) {
       return this.tableSectionWithSideImage(imgTag, contentHtml, SideImagePlacement.Left);
     }
@@ -65,7 +65,7 @@ export class EmailComposerRenderingService {
   }
 
   private tableSectionWithBannerImage(imgTag: string, contentHtml: string): string {
-    return `<table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;" width="100%"><tbody><tr><td align="center" valign="top">${imgTag}</td></tr><tr><td valign="top" style="font-family:Helvetica,Arial,sans-serif;font-size:16px;line-height:150%;color:#222222;word-break:break-word;padding-top:12px;">${contentHtml}</td></tr></tbody></table>`;
+    return `<table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;background-color:#ffffff;" width="100%" bgcolor="#ffffff"><tbody><tr><td align="center" valign="top" bgcolor="#ffffff" style="background-color:#ffffff;">${imgTag}</td></tr><tr><td valign="top" bgcolor="#ffffff" style="font-family:Helvetica,Arial,sans-serif;font-size:16px;line-height:150%;color:#222222;word-break:break-word;padding-top:12px;background-color:#ffffff;">${contentHtml}</td></tr></tbody></table>`;
   }
 
   private tableSectionWithSideImage(imgTag: string, contentHtml: string, side: SideImagePlacement): string {
