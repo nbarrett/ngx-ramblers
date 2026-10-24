@@ -22,12 +22,8 @@ import { Events } from "./events";
       :host
         display: block
         min-width: 0
-        max-width: 100%
-      .row
-        max-width: 100%
       .col-sm-12
         min-width: 0
-        max-width: 100%
     `],
     imports: [Events]
 })

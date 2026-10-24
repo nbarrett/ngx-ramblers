@@ -1,4 +1,6 @@
+import { NgTemplateOutlet } from "@angular/common";
 import { Component, inject, Input, OnInit } from "@angular/core";
+import { PageComponent } from "../../../page/page.component";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContent, PageContentColumn, PageContentRow } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
@@ -28,13 +30,25 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
     styles: [`
       :host
         display: block
+
+      .heading-action-column
+        app-content-text-editor,
+        ::ng-deep markdown,
+        ::ng-deep markdown > div
+          display: contents
+
+        ::ng-deep h1
+          margin-top: 0
     `],
     template: `
       @if (actions.isTextRow(row)) {
         <div [class]="actions.rowClasses(row, { omitMargins: isNestedRow() })">
           @for (column of row?.columns; track column; let columnIndex = $index) {
             <div
-              [class]="'col-sm-' + (column.columns||12)">
+              [class]="'col-sm-' + (column.columns||12) + (columnIndex === 0 && showHeadingActions() ? ' heading-action-column' : '')">
+              @if (columnIndex === 0 && showHeadingActions()) {
+                <ng-container [ngTemplateOutlet]="page.headingActions()"/>
+              }
               @for (nestedRow of column.rows; track nestedRow; let innerRowIndex = $index) {
                 @if (false) {
                   <div>{{ actions.nestedInnerRowHeading(rowIndex, innerRowIndex, nestedRow.type) }}</div>
@@ -175,7 +189,7 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
         </div>
       }`,
     styleUrls: ["./dynamic-content.sass"],
-    imports: [ContentTextEditor, CardImageComponent, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, ActionButtons, AreaMap, DynamicContentViewMap, DynamicContentViewRoute, YoutubeEmbed]
+    imports: [NgTemplateOutlet, ContentTextEditor, CardImageComponent, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, ActionButtons, AreaMap, DynamicContentViewMap, DynamicContentViewRoute, YoutubeEmbed]
 })
 export class DynamicContentViewTextRow implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewTextRow", NgxLoggerLevel.ERROR);
@@ -183,6 +197,7 @@ export class DynamicContentViewTextRow implements OnInit {
   actions = inject(PageContentActionsService);
   stringUtils = inject(StringUtilsService);
   fragmentService = inject(FragmentService);
+  protected page = inject(PageComponent, {optional: true});
 
   @Input() public row: PageContentRow;
   @Input() public rowIndex: number;
@@ -194,6 +209,10 @@ export class DynamicContentViewTextRow implements OnInit {
 
   isNestedRow(): boolean {
     return this.parentRowIndex != null;
+  }
+
+  showHeadingActions(): boolean {
+    return !this.isNestedRow() && this.rowIndex === 0 && !!this.page?.headingActions() && !this.siteEditService.active();
   }
 
   hostClasses(): string {

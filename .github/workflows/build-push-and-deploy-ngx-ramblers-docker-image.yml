@@ -119,12 +119,15 @@ jobs:
       - name: Verify Serenity scenario discovery (worker load path)
         run: npm run test:serenity-discovery --prefix server
 
-  deploy:
+  build-images:
+    name: Build and publish images
     needs: [resolve, test]
     runs-on: ubuntu-24.04
     concurrency:
-      group: deploy-group
+      group: build-images-group
       cancel-in-progress: false
+    outputs:
+      worker_changed: ${{ steps.worker-changes.outputs.worker }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -165,9 +168,6 @@ jobs:
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
           GITHUB_SHA: ${{ github.sha }}
         run: ./server/node_modules/.bin/tsx server/deploy/detect-worker-changes.ts
-
-      - name: Install ts-node
-        run: npm install -g ts-node
 
       - name: Log in to Docker Hub
         env:
@@ -221,6 +221,56 @@ jobs:
         if: github.event_name == 'push' && steps.worker-changes.outputs.worker == 'true'
         run: docker push ${{ secrets.DOCKER_USERNAME }}/ngx-ramblers:integration-worker-${{ github.run_number }}
 
+  deploy:
+    name: Deploy published images
+    needs: [resolve, test, build-images]
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: deploy-group
+      cancel-in-progress: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache root node_modules
+        id: cache-root-nm
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: root-nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install root dependencies
+        if: steps.cache-root-nm.outputs.cache-hit != 'true'
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+
+      - name: Cache server node_modules
+        id: cache-server-nm
+        uses: actions/cache@v5
+        with:
+          path: server/node_modules
+          key: server-nm-${{ runner.os }}-${{ hashFiles('server/package-lock.json') }}
+
+      - name: Install server dependencies
+        if: steps.cache-server-nm.outputs.cache-hit != 'true'
+        run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        working-directory: ./server
+
+      - name: Install ts-node
+        run: npm install -g ts-node
+
+      - name: Log in to Docker Hub
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
+
       - name: Install Flyctl
         run: |
           curl -fsSL https://fly.io/install.sh | FLYCTL_INSTALL="$HOME/.fly" sh
@@ -238,7 +288,7 @@ jobs:
           ts-node server/deploy/deploy-to-environments.ts --environment "${{ needs.resolve.outputs.auto_deploy_target }}" --image-tag "${{ github.run_number }}"
 
       - name: Deploy Ramblers upload worker
-        if: github.event_name == 'push' && steps.worker-changes.outputs.worker == 'true'
+        if: github.event_name == 'push' && needs.build-images.outputs.worker_changed == 'true'
         timeout-minutes: 15
         env:
           ADMIN_MONGODB_URI: ${{ secrets.ADMIN_MONGODB_URI }}
@@ -248,7 +298,7 @@ jobs:
           ts-node server/deploy/deploy-integration-worker.ts --image-tag "integration-worker-${{ github.run_number }}"
 
       - name: Advance worker-deployed ref after successful deploy
-        if: github.event_name == 'push' && steps.worker-changes.outputs.worker == 'true'
+        if: github.event_name == 'push' && needs.build-images.outputs.worker_changed == 'true'
         continue-on-error: true
         run: |
           for attempt in 1 2 3 4 5; do

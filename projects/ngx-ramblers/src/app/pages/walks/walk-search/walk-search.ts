@@ -8,6 +8,7 @@ import {
   OnDestroy,
   OnInit,
   Output,
+  TemplateRef,
   ViewChild
 } from "@angular/core";
 import { ActivatedRoute, ParamMap, RouterLink } from "@angular/router";
@@ -60,6 +61,7 @@ import { DateUtilsService } from "../../../services/date-utils.service";
 import { WalksAndEventsService } from "../../../services/walks-and-events/walks-and-events.service";
 import { PresetSelect } from "../../../modules/common/preset-select/preset-select";
 import { AdvancedToggle } from "../../../shared/components/advanced-toggle";
+import { PageComponent } from "../../../page/page.component";
 
 @Component({
     selector: "app-walks-search",
@@ -76,16 +78,15 @@ import { AdvancedToggle } from "../../../shared/components/advanced-toggle";
           opacity: 1
 
       .my-walks-action
-        position: absolute
-        top: 8px
-        right: 0
+        float: right
+        position: relative
         z-index: 6
         display: inline-flex
         align-items: center
         justify-content: center
         width: max-content
         max-width: none
-        flex-shrink: 0
+        margin: 0 0 0 var(--space-3, 12px)
         white-space: nowrap
 
       .my-walks-label
@@ -203,12 +204,17 @@ import { AdvancedToggle } from "../../../shared/components/advanced-toggle";
 
     `],
     template: `
-    @if (!currentWalkId) {
-      @if (showMyWalks()) {
+    <ng-template #myWalksAction>
+      @if (!currentWalkId && showMyWalks()) {
         <a class="btn pager-btn-primary rounded my-walks-action" [routerLink]="myWalksLink()"
            aria-label="My Walks" title="My Walks">
           <fa-icon [icon]="faPersonHiking" class="me-2 my-walks-icon"/><span class="my-walks-label">My Walks</span>
         </a>
+      }
+    </ng-template>
+    @if (!currentWalkId) {
+      @if (!page) {
+        <ng-container *ngTemplateOutlet="myWalksAction"/>
       }
       <div class="sticky-toolbar walk-search-toolbar">
       <div class="d-lg-flex pb-0 pb-lg-2 align-items-lg-center gap-lg-3">
@@ -300,6 +306,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
 
   protected readonly faPersonHiking = faPersonHiking;
   private logger: Logger = inject(LoggerFactory).createLogger("WalkSearch", NgxLoggerLevel.ERROR);
+  protected page = inject(PageComponent, {optional: true});
   private route = inject(ActivatedRoute);
   private walksReferenceService = inject(WalksReferenceService);
   private displayService = inject(WalkDisplayService);
@@ -316,6 +323,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   private stringUtils = inject(StringUtilsService);
   private shouldFocusSearch = false;
   @ViewChild("quickSearch") quickSearchInput: ElementRef;
+  @ViewChild("myWalksAction", {static: true}) myWalksAction: TemplateRef<unknown>;
   @Input()
   notifyTarget: AlertTarget;
   @Input()
@@ -352,6 +360,7 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngOnInit(): void {
+    this.page?.headingActions.set(this.myWalksAction);
     void this.loadDateRange();
     const initialCriteria = advancedSearchCriteriaFromParams(this.route.snapshot.queryParamMap, this.stringUtils);
     this.logger.info("ngOnInit: initialCriteria:", initialCriteria, "queryParamsActive:", this.queryParamsActive);
@@ -397,6 +406,9 @@ export class WalkSearch implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngOnDestroy(): void {
+    if (this.page?.headingActions() === this.myWalksAction) {
+      this.page.headingActions.set(null);
+    }
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 

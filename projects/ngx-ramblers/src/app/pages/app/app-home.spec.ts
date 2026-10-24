@@ -67,6 +67,24 @@ describe("standalone recording launch", () => {
     expect(component["router"].navigate).toHaveBeenCalledWith(["/app/route"], {queryParams: {[StoredValue.RECORD_ROUTE]: "fictional-id"}});
   });
 
+  it("keeps a paused recording available without opening it automatically on launch", () => {
+    const component = view();
+    component["activeSession"] = {recordingId: "fictional-id", mode: RouteFollowMode.PAUSED} as RouteFollowSession;
+    expect(component["resumeActiveFollowSession"]()).toBe(false);
+    expect(component["router"].navigate).not.toHaveBeenCalled();
+    expect(component["activeSession"].recordingId).toBe("fictional-id");
+  });
+
+  it("reopens an active recording on launch", () => {
+    const component = view();
+    component["activeSession"] = {recordingId: "fictional-id", mode: RouteFollowMode.RECORDING} as RouteFollowSession;
+    expect(component["resumeActiveFollowSession"]()).toBe(true);
+    expect(component["router"].navigate).toHaveBeenCalledWith(["/", "app", "route"], {
+      queryParams: {[StoredValue.RECORD_ROUTE]: "fictional-id"},
+      replaceUrl: true
+    });
+  });
+
   it("waits for sign-in before launching a recording", () => {
     const component = view();
     component["afterSignIn"] = vi.fn();

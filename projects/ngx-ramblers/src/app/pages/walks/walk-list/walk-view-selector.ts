@@ -24,7 +24,6 @@ import { StoredValue } from "../../../models/ui-actions";
 
 @Component({
   selector: "app-walks-selector",
-  styleUrls: ["./walk-view-selector.sass"],
     imports: [
     DynamicContentPageComponent,
     WalkViewComponent,
@@ -45,7 +44,7 @@ import { StoredValue } from "../../../models/ui-actions";
         <app-walk-view ownsPageUrl [displayedWalk]="displayedWalk"/>
       }
     } @else if (eventView?.eventView === EventViewDispatch.LIST) {
-      <app-dynamic-content-page/>
+      <app-dynamic-content-page [liftPageTitle]="false"/>
     } @else if (eventView?.eventView === EventViewDispatch.PENDING) {
       <div class="event-thumbnail card shadow tabset-container">
         <div class="row">

@@ -211,16 +211,22 @@ jobs:
           path: mobile/android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 14
-      - name: Upload to Google Play internal testing
+      - name: Upload to Google Play closed testing
         if: env.PUBLISH_ENABLED == 'true'
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: org.ngxramblers.walking
           releaseFiles: mobile/android/app/build/outputs/bundle/release/*.aab
-          track: internal
+          tracks: alpha
           status: completed
           releaseName: ${{ env.MOBILE_BUILD_NUMBER }}-${{ env.SOURCE_SHA }}
+      - name: Record pilot release result
+        if: env.PUBLISH_ENABLED == 'true'
+        run: echo "Uploaded native build $MOBILE_BUILD_NUMBER from $SOURCE_SHA to the Google Play closed Alpha track." >> "$GITHUB_STEP_SUMMARY"
+      - name: Explain disabled pilot upload
+        if: env.PUBLISH_ENABLED != 'true'
+        run: echo "Native build passed. Google Play upload is disabled until signing and store setup are complete. See mobile/README.md." >> "$GITHUB_STEP_SUMMARY"
       - name: Remove temporary signing material
         if: always()
         run: rm -f "$RUNNER_TEMP/mobile-upload.jks"
