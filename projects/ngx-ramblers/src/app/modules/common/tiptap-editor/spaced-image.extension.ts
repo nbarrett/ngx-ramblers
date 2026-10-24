@@ -1,6 +1,8 @@
 import Image from "@tiptap/extension-image";
 import { mergeAttributes } from "@tiptap/core";
 import { isString } from "es-toolkit/compat";
+import { awsImageResourcePath, storedAwsImagePath } from "../../../functions/aws-image-paths";
+import { nativeApiUrl } from "../../../functions/native-walking";
 
 export enum ImageSpacing {
   None = "none",
@@ -121,8 +123,8 @@ export const SpacedImage = Image.extend({
     const style = imageStyle(node.attrs["spacing"], node.attrs["width"], node.attrs["align"]);
     const attributes = mergeAttributes(this.options["HTMLAttributes"], HTMLAttributes);
     const src = attributes["src"];
-    if (isString(src) && src.startsWith("api/aws/s3/")) {
-      attributes["src"] = `/${src}`;
+    if (isString(src)) {
+      attributes["src"] = nativeApiUrl(awsImageResourcePath(src));
     }
     if (style) {
       attributes["style"] = style;
@@ -133,7 +135,7 @@ export const SpacedImage = Image.extend({
     return ["img", attributes];
   },
   renderMarkdown(node: { attrs?: Record<string, string | number> }) {
-    const src = node.attrs?.["src"] ?? "";
+    const src = storedAwsImagePath(`${node.attrs?.["src"] ?? ""}`);
     const alt = node.attrs?.["alt"] ?? "";
     const style = imageStyle(node.attrs?.["spacing"] as ImageSpacing, (node.attrs?.["width"] as number) ?? null, node.attrs?.["align"] as ImageAlign);
     if (!style) {

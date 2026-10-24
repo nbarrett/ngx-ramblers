@@ -32,7 +32,8 @@ import { TypeaheadModule } from "ngx-bootstrap/typeahead";
 import { ImageCropperModule } from "ngx-image-cropper";
 import { LeafletModule } from "@bluehalo/ngx-leaflet";
 import { CustomNGXLoggerService, LoggerModule, NgxLoggerLevel } from "ngx-logger";
-import { MarkdownModule, MERMAID_OPTIONS } from "ngx-markdown";
+import { MARKED_OPTIONS, MarkdownModule, MERMAID_OPTIONS } from "ngx-markdown";
+import { markdownOptions } from "./markdown-options";
 import { TagifyModule } from "ngx-tagify";
 import { UiSwitchModule } from "ngx-ui-switch";
 import { AuthInterceptor } from "../../auth/auth.interceptor";
@@ -115,6 +116,7 @@ import { ViewAsService } from "../../services/member/view-as.service";
     LeafletModule,
     LoggerModule.forRoot({serverLoggingUrl: "api/logs", level: NgxLoggerLevel.OFF, serverLogLevel: NgxLoggerLevel.OFF}),
     MarkdownModule.forRoot({
+      markedOptions: {provide: MARKED_OPTIONS, useFactory: markdownOptions},
       mermaidOptions: {
         provide: MERMAID_OPTIONS,
         useValue: {

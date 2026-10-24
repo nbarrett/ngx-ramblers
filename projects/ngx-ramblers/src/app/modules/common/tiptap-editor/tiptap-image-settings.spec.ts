@@ -1,8 +1,10 @@
 import {afterEach, describe, expect, it, vi} from "vitest";
 import {Editor} from "@tiptap/core";
+import {Markdown} from "@tiptap/markdown";
 import StarterKit from "@tiptap/starter-kit";
 import {SpacedImage} from "./spaced-image.extension";
 import {TiptapMarkdownEditor} from "./tiptap-markdown-editor";
+import {storedAwsImageUrls} from "../../../functions/aws-image-paths";
 
 describe("image settings trigger", () => {
   const editors: Editor[] = [];
@@ -54,5 +56,25 @@ describe("image settings trigger", () => {
     instance.editor.commands.setTextSelection(2);
     expect(instance.imageSettingsOpen).toBe(false);
     expect(instance.imageSettingsTarget).toBe(null);
+  });
+
+  it("does not emit a save merely because an existing image URL is normalised for editing", () => {
+    const editor = new Editor({extensions: [StarterKit, SpacedImage, Markdown], content: "Initial", contentType: "markdown"});
+    editors.push(editor);
+    editor.commands.setNodeSelection(0);
+    const instance = Object.create(TiptapMarkdownEditor.prototype);
+    const emit = vi.fn();
+    Object.assign(instance, {
+      editor,
+      documentConversionService: {relativeImageUrls: storedAwsImageUrls},
+      stripOrphanInlineMarks: markdown => markdown,
+      clearEditorHistory: vi.fn(),
+      queueMermaidPreviewRefresh: vi.fn(),
+      valueChange: {emit},
+      zone: {run: action => action()}
+    });
+    instance.syncValue("![App](api/aws/s3/site-content/app.png)");
+    expect(editor.getMarkdown().trimEnd()).toBe("![App](site-content/app.png)");
+    expect(emit).not.toHaveBeenCalled();
   });
 });

@@ -31,6 +31,7 @@ import { SendRefusedError } from "../send-permission";
 import { HttpError } from "../../shared/http-error";
 import { toPairs, isObject, isString, keys } from "es-toolkit/compat";
 import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
+import { awsImageResourcePath } from "../../../../projects/ngx-ramblers/src/app/functions/aws-image-paths";
 
 function valueAtPath(source: Record<string, any>, path: string): any {
   return path.split(".").reduce((value, key) => value?.[key], source);
@@ -223,23 +224,26 @@ export function normaliseEmailContentUrls(html: string, baseHref: string): strin
   } else {
     const base = stripTrailingSlash(baseHref);
     const withoutDevelopmentOrigins = html.replace(DEV_CONTENT_ORIGIN, base);
-    return withoutDevelopmentOrigins.replace(/(\s(?:href|src)=)(["'])(\/(?!\/)[^"']*)\2/gi,
-      (_match, attribute, quote, path) => `${attribute}${quote}${base}${path}${quote}`);
+    return withoutDevelopmentOrigins.replace(/(\s(?:href|src)\s*=\s*)(["'])([^"']+)\2/gi,
+      (match, attribute, quote, path) => (path.startsWith("#") || /^\{\{\s*[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*\s*}}/.test(path))
+        ? match
+        : `${attribute}${quote}${normaliseOverrideImageHost(path, base)}${quote}`);
   }
 }
 
 export function normaliseOverrideImageHost(imageUrl: string | undefined, baseHref: string): string | undefined {
   if (!imageUrl || !baseHref) {
     return imageUrl;
+  } else {
+    const base = stripTrailingSlash(baseHref);
+    if (DEV_IMAGE_ORIGIN.test(imageUrl)) {
+      return imageUrl.replace(DEV_IMAGE_ORIGIN, base);
+    } else if (/^[a-z][a-z0-9+.-]*:/i.test(imageUrl) || imageUrl.startsWith("//") || imageUrl.startsWith("{{")) {
+      return imageUrl;
+    } else {
+      return `${base}/${awsImageResourcePath(imageUrl).replace(/^\/+/, "")}`;
+    }
   }
-  const base = stripTrailingSlash(baseHref);
-  if (DEV_IMAGE_ORIGIN.test(imageUrl)) {
-    return imageUrl.replace(DEV_IMAGE_ORIGIN, base);
-  }
-  if (/^[a-z][a-z0-9+.-]*:/i.test(imageUrl) || imageUrl.startsWith("//")) {
-    return imageUrl;
-  }
-  return `${base}/${imageUrl.replace(/^\/+/, "")}`;
 }
 
 export function withNormalisedOverrideImageHosts(overrides: TemplateOverrides | undefined, baseHref: string): TemplateOverrides | undefined {
@@ -311,7 +315,10 @@ export function renderBrandedTemplate(rawHtml: string,
   const wrappedHtml = ramblersEmailLayout(overriddenHtml);
   const personalisedHtml = campaign ? toCampaignContactTokens(wrappedHtml) : wrappedHtml;
   const substitutedHtmlContent = substituteTemplateParameters(personalisedHtml, params);
-  return escapeUnknownTemplateExpressions(inlineDefaultLinkStyles(removeEmptyParagraphs(applyBrevoConditionals(substitutedHtmlContent, params))));
+  return normaliseEmailContentUrls(
+    escapeUnknownTemplateExpressions(inlineDefaultLinkStyles(removeEmptyParagraphs(applyBrevoConditionals(substitutedHtmlContent, params)))),
+    params?.systemMergeFields?.APP_URL
+  );
 }
 
 function substituteTemplateParameters(html: string, params: any): string {
@@ -377,9 +384,15 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
         escapeUnknownTemplateExpressions(sendSmtpEmail.htmlContent),
         emailRequest.params?.systemMergeFields?.APP_URL
       );
+      const relativeImages = Array.from(sendSmtpEmail.htmlContent.matchAll(/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi))
+        .filter(match => !/^[a-z][a-z0-9+.-]*:|^\/\//i.test(match[1]));
+      if (relativeImages.length > 0) {
+        throw new Error("Email images require a public website URL before this email can be rendered or sent");
+      }
     }
   } catch (error) {
     debugLog(`Error occurred`, error);
+    throw error;
   } finally {
     debugLog.enabled = priorDebugValue;
   }

@@ -1,5 +1,6 @@
 import { Marked } from "marked";
 import { escapeHtml } from "./strings";
+import { resourceAwsImageUrls } from "./aws-image-paths";
 
 const emailComposerMarked = new Marked({
   extensions: [
@@ -20,7 +21,7 @@ export function renderEmailComposerMarkdown(markdown: string): string {
   }
   try {
     const rendered = emailComposerMarked.parse(markdown, {async: false}) as string;
-    return styleMarkdownElements(constrainQuotedImages(constrainInlineImages(rendered)));
+    return resourceAwsImageUrls(styleMarkdownElements(constrainQuotedImages(constrainInlineImages(rendered))));
   } catch {
     return `<pre>${escapeHtml(markdown)}</pre>`;
   }

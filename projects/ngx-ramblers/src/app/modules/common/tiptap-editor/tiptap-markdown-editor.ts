@@ -83,6 +83,8 @@ import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
 import { AwsFileData, AwsFileUploadResponse } from "../../../models/aws-object.model";
 import { RootFolder } from "../../../models/system.model";
 import { S3_BASE_URL } from "../../../models/content-metadata.model";
+import { awsImageResourcePath } from "../../../functions/aws-image-paths";
+import { nativeApiUrl } from "../../../functions/native-walking";
 import { UrlService } from "../../../services/url.service";
 import { FileUtilsService } from "../../../file-utils.service";
 import { hasSoftWrappedParagraph, normaliseWordPasteMarkdown, unwrapSoftLineBreaks } from "../../../functions/unwrap-line-breaks";
@@ -554,7 +556,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         }
         this.clearEditorHistory();
         this.queueMermaidPreviewRefresh();
-        if (canonical !== incoming && !this.editor.isFocused) {
+        if (canonical.trimEnd() !== this.documentConversionService.relativeImageUrls(incoming).trimEnd() && !this.editor.isFocused) {
           this.emitMarkdown(canonical);
         }
       }
@@ -1969,11 +1971,12 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   }
 
   private emitMarkdown(markdown: string): void {
-    this.appliedMarkdown = markdown;
-    this.lastBoundValue = markdown;
-    if (markdown !== this.lastEmittedMarkdown) {
-      this.lastEmittedMarkdown = markdown;
-      this.zone.run(() => this.valueChange.emit(markdown));
+    const storedMarkdown = this.documentConversionService.relativeImageUrls(markdown);
+    this.appliedMarkdown = storedMarkdown;
+    this.lastBoundValue = storedMarkdown;
+    if (storedMarkdown !== this.lastEmittedMarkdown) {
+      this.lastEmittedMarkdown = storedMarkdown;
+      this.zone.run(() => this.valueChange.emit(storedMarkdown));
     }
   }
 
@@ -2100,7 +2103,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       if (relativeSrc && relativeSrc !== storedSrc) {
         this.editor.chain().focus().updateAttributes("image", {src: relativeSrc}).run();
       }
-      this.cropperPreloadSrc = relativeSrc || null;
+      this.cropperPreloadSrc = relativeSrc ? nativeApiUrl(awsImageResourcePath(relativeSrc)) : null;
       this.replaceSelectedImageOnSave = true;
     } else {
       this.cropperPreloadSrc = null;
@@ -2280,7 +2283,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       const dataImages = {index: 0};
       for (const image of images) {
         const src = image.getAttribute("src") || "";
-        const usable = /^https?:\/\//i.test(src) || src.startsWith("api/aws/s3/") || src.startsWith("/api/aws/s3/");
+        const usable = /^https?:\/\//i.test(src) || awsImageResourcePath(src).startsWith(`/${S3_BASE_URL}/`);
         if (src.startsWith("data:image/")) {
           image.setAttribute("src", await this.uploadedPastedImageUrl(this.fileUtilsService.base64ToFileWithName(src, "")));
         } else if (!usable && embedded.index < wordImages.length) {
@@ -2353,8 +2356,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     const response = await firstValueFrom(this.http.post<AwsFileUploadResponse>(`${S3_BASE_URL}/file-upload?root-folder=${this.rootFolder}`, formData));
     const fileNameData = response?.responses?.[0]?.fileNameData;
     if (fileNameData) {
-      const relative = this.urlService.resourceRelativePathForAWSFileName(`${fileNameData.rootFolder}/${fileNameData.awsFileName}`);
-      return this.documentConversionService.relativeAwsImagePath(relative);
+      return `${fileNameData.rootFolder}/${fileNameData.awsFileName}`;
     } else {
       throw new Error("Pasted image upload returned no file data");
     }
@@ -2376,7 +2378,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   onImageCropperSave(awsFileData: AwsFileData): void {
     if (!this.editor) return;
-    const src = this.documentConversionService.relativeAwsImagePath(this.urlService.resourceRelativePathForAWSFileName(awsFileData.awsFileName));
+    const src = this.documentConversionService.relativeAwsImagePath(awsFileData.awsFileName);
     if (this.replaceSelectedImageOnSave && this.imageSelected) {
       this.editor.chain().focus().updateAttributes("image", { src }).run();
     } else {

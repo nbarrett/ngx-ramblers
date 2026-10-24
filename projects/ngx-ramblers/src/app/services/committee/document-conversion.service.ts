@@ -6,6 +6,7 @@ import { DocumentConversionApiResponse, DocumentConversionResponse } from "../..
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { separateEditingBlocks as splitEditingBlocks, withImagesOnTheirOwnLines as splitImagesOntoOwnLines } from "../../functions/markdown-editing-blocks";
+import { storedAwsImagePath, storedAwsImageUrls } from "../../functions/aws-image-paths";
 @Injectable({
   providedIn: "root"
 })
@@ -34,14 +35,11 @@ export class DocumentConversionService {
   }
 
   relativeAwsImagePath(path: string): string {
-    const stored = (path || "").match(/^(?:https?:\/\/[^/]+)?\/?(api\/aws\/s3\/\S+)$/i);
-    return stored ? stored[1] : path;
+    return storedAwsImagePath(path);
   }
 
   relativeImageUrls(markdown: string): string {
-    return (markdown || "")
-      .replace(/(!\[[^\]]*\]\()([^)]+)(\))/g, (_match, before, path, after) => `${before}${this.relativeAwsImagePath(path)}${after}`)
-      .replace(/(<img\b[^>]*\bsrc=["'])([^"']+)(["'])/gi, (_match, before, path, after) => `${before}${this.relativeAwsImagePath(path)}${after}`);
+    return storedAwsImageUrls(markdown);
   }
 
   separateEditingBlocks(markdown: string): string {
