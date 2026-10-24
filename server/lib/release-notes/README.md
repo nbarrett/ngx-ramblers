@@ -12,6 +12,14 @@ This automation:
 - Creates/updates release note pages via the CMS API
 - Updates the main release notes index page with links to new entries
 
+## Writing release-note headings
+
+The commit subject supplies the release-note headline, so describe the change in words a member can understand. Lead with what now works or what the reader can do; keep implementation names and detailed technical explanations in the commit body's Technical changes section.
+
+The published heading includes the date, the headline and a Markdown link to the note's primary ticket. Trailing ticket lists such as `(ref #123, #456)` are removed from the headline and index label. Secondary references remain in the original commit metadata. The build and commit links appear directly beneath the heading, followed by a horizontal rule and the member-facing content. The shared page heading renderer preserves Markdown links and formatting.
+
+For example, `fix(walks): Walk filters update when you change the date range (ref #123, #456)` becomes a heading about walk date filters ending in a linked `#123`.
+
 ## Features
 
 - **CLI Mode**: Run with command-line options for automation

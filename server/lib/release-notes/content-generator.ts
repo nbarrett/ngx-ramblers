@@ -120,21 +120,21 @@ export function generateTitle(commits: ConventionalCommit[]): string {
   if (commits.length === 0) {
     return "Release notes";
   } else if (commits.length === 1) {
-    return truncateAtWordBoundary(commits[0].subject, TITLE_MAX_LENGTH);
+    return truncateAtWordBoundary(stripRedundantIssueRefs(commits[0].subject), TITLE_MAX_LENGTH);
   } else {
     const scopes = commits.map(c => c.scope).filter((s): s is string => Boolean(s));
     const uniqueScopes = Array.from(new Set(scopes));
     const scopeSummary = summariseScopes(commits);
     const changeSummary = summariseChanges(commits);
-    if (uniqueScopes.length === 1 && scopes.length === commits.length) {
-      const withoutTrailingDetail = textBeforeSeparators(commits[0].subject, [" - ", " — ", " (", " ["]);
-      return `${uniqueScopes[0]}: ${textBeforeSeparators(withoutTrailingDetail, ["(", "["])}`;
+    if (scopeSummary && uniqueScopes.length === 1 && scopes.length === commits.length) {
+      const withoutTrailingDetail = textBeforeSeparators(stripRedundantIssueRefs(commits[0].subject), [" - ", " — ", " (", " ["]);
+      return `${scopeSummary}: ${textBeforeSeparators(withoutTrailingDetail, ["(", "["])}`;
     } else if (scopeSummary) {
       return `${scopeSummary} updates`;
     } else if (changeSummary) {
       return changeSummary;
     } else {
-      return truncateAtWordBoundary(commits[0].subject, TITLE_MAX_LENGTH);
+      return truncateAtWordBoundary(stripRedundantIssueRefs(commits[0].subject), TITLE_MAX_LENGTH);
     }
   }
 }
@@ -192,18 +192,12 @@ function formatDisplayDateString(dateStr: string): string | null {
 
 export function generateMarkdown(data: ReleaseNotesData, githubRepo: string): string {
   const formattedDate = formatDate(data.date);
-  const allTitleReferences = data.allCommits.flatMap(commit => commit.issueReferences);
-  const titleReferences = Array.from(
-    new Map(allTitleReferences.map(ref => [ref.issue, ref])).values()
-  );
-  const linkedTitle = linkIssueReferencesInText(data.title, titleReferences, githubRepo);
+  const title = stripRedundantIssueRefs(data.title);
   const issueLink = data.issueNumber
-    ? linkedTitle.linkedIssues.has(data.issueNumber)
-      ? ""
-      : ` [#${data.issueNumber}](https://github.com/${githubRepo}/issues/${data.issueNumber})`
+    ? ` [#${data.issueNumber}](https://github.com/${githubRepo}/issues/${data.issueNumber})`
     : "";
 
-  const headerLines = [`# ${formattedDate} — ${linkedTitle.text}${issueLink}`];
+  const headerLines = [`# ${formattedDate} — ${title}${issueLink}`];
   const buildLine = data.buildNumber
     ? data.buildUrl
       ? `## [build ${data.buildNumber}](${data.buildUrl}) — [commit ${data.commitHash.substring(0, 7)}](${data.commitUrl})`
@@ -441,15 +435,7 @@ const TRAILING_ISSUE_REFS = /\s*\((?:ref\.?\s*)?#\d+(?:\s*,\s*(?:ref\.?\s*)?#\d+
 
 export function stripRedundantIssueRefs(remainder: string): string {
   const text = (remainder || "").trim();
-  const trailing = text.match(TRAILING_ISSUE_REFS);
-  if (trailing) {
-    const withoutRefs = text.replace(TRAILING_ISSUE_REFS, "").trim();
-    const alreadyStated = new Set((withoutRefs.match(/#\d+/g) || []));
-    const remaining = (trailing[0].match(/#\d+/g) || []).filter(issue => !alreadyStated.has(issue));
-    return remaining.length > 0 ? `${withoutRefs} (ref ${remaining.join(", ")})` : withoutRefs;
-  } else {
-    return text;
-  }
+  return text.replace(TRAILING_ISSUE_REFS, "").trim();
 }
 
 function parseIndexLine(line: string): IndexEntry | null {

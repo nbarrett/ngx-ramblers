@@ -38,9 +38,9 @@ describe("content-generator stripRedundantIssueRefs", () => {
       .toEqual("#310 — separate inbox privacy from admin config");
   });
 
-  it("keeps refs that name issues not already stated in the line", () => {
+  it("removes secondary ticket metadata from the title", () => {
     expect(stripRedundantIssueRefs("#338 — contact-us button builder and TipTap editor improvements (ref #338, #303)"))
-      .toEqual("#338 — contact-us button builder and TipTap editor improvements (ref #303)");
+      .toEqual("#338 — contact-us button builder and TipTap editor improvements");
   });
 
   it("leaves a line alone when it has no trailing refs", () => {
@@ -55,6 +55,16 @@ describe("content-generator stripRedundantIssueRefs", () => {
 });
 
 describe("content-generator generateTitle", () => {
+  it("removes multiple trailing ticket references before shortening the headline", () => {
+    const commits = [{scope: "walks+mobile+cms", type: "fix", subject: "Walk filters work reliably (ref #345, #151, #205)"}] as ConventionalCommit[];
+    expect(generateTitle(commits)).toEqual("Walk filters work reliably");
+  });
+
+  it("preserves ordinary parentheses in the headline", () => {
+    const commits = [{scope: "walks", type: "fix", subject: "Walk filters (including past dates) update reliably (ref #345, #151)"}] as ConventionalCommit[];
+    expect(generateTitle(commits)).toEqual("Walk filters (including past dates) update reliably");
+  });
+
   it("turns compound technical scopes into a readable shared subject", () => {
     const commits = [
       {scope: "registration+albums+ci+stats", type: "fix", subject: "tidier imported pages"},
@@ -62,6 +72,22 @@ describe("content-generator generateTitle", () => {
     ] as ConventionalCommit[];
 
     expect(generateTitle(commits)).toEqual("Site registration updates");
+  });
+
+  it("uses readable scope names when several commits share compound scopes", () => {
+    const commits = [
+      {scope: "registration+albums", type: "fix", subject: "More complete imported pages (ref #123, #456)"},
+      {scope: "registration+albums", type: "fix", subject: "Keep photo captions (ref #123)"}
+    ] as ConventionalCommit[];
+    expect(generateTitle(commits)).toEqual("Site registration and Photo albums: More complete imported pages");
+  });
+
+  it("uses a change summary when the shared scope is internal", () => {
+    const commits = [
+      {scope: "ci", type: "ci", subject: "Retry deployment (ref #123)"},
+      {scope: "ci", type: "ci", subject: "Reuse published images (ref #123)"}
+    ] as ConventionalCommit[];
+    expect(generateTitle(commits)).toEqual("2 CI updates");
   });
 
   it("creates readable release-note path suffixes from the title", () => {
@@ -309,6 +335,28 @@ describe("content-generator generateMarkdown commit body paragraphs", () => {
     };
   }
 
+  it("links the primary ticket in the heading and places build details before the article", () => {
+    const commit = {...makeCommit("## What's new\n\n- Choose a date range on the Walks Programme."), subject: "Walk filters work reliably (ref #345, #151, #205)", issueReferences: [
+      {issue: "345", action: null, raw: "ref #345"},
+      {issue: "151", action: null, raw: "#151"},
+      {issue: "205", action: null, raw: "#205"}
+    ]};
+    const data = createReleaseNotesData([commit], "1013", "owner/repo");
+    data.title = commit.subject;
+    data.buildUrl = "https://github.com/owner/repo/actions/runs/123";
+    const markdown = generateMarkdown(data, "owner/repo");
+    const heading = markdown.split("\n")[0];
+    expect(heading).toEqual("# 05-Apr-2026 — Walk filters work reliably [#345](https://github.com/owner/repo/issues/345)");
+    expect(heading).not.toContain("#151");
+    expect(heading).not.toContain("#205");
+    expect(markdown.indexOf("## [build 1013]")).toBeLessThan(markdown.indexOf("_____"));
+    expect(markdown.indexOf("_____")).toBeLessThan(markdown.indexOf("## What's new"));
+    expect(markdown).toContain(data.buildUrl);
+    expect(markdown).toContain(data.commitUrl);
+    expect(markdown).toContain("[#345](https://github.com/owner/repo/issues/345)");
+    expect(data.allCommits[0].issueReferences.map(reference => reference.issue)).toEqual(["345", "151", "205"]);
+  });
+
   it("links future release-note instructions to the reader's chosen website", () => {
     const data = createReleaseNotesData([makeCommit("## What's new\n\nOpen **Admin → Members → Member Bulk Load** or [Inbox](/admin/inbox).")], null, "owner/repo");
     const markdown = generateMarkdown(data, "owner/repo");
@@ -399,7 +447,7 @@ describe("content-generator generateMarkdown commit body paragraphs", () => {
     const markdown = generateMarkdown(data, "owner/repo");
 
     expect(markdown).toContain("- Walks whose images already match are left alone - the image step is skipped entirely.");
-    expect(markdown).not.toContain("- the image step is skipped entirely.\n");
+    expect(markdown.split("\n")).not.toContain("- the image step is skipped entirely.");
   });
 
   it("omits the Technical changes section from the committee-facing note and keeps What's new", () => {
