@@ -130,6 +130,12 @@ export function decodeBraceTokens(html: string): string {
 
 const EMAIL_BODY_CONTENT_WIDTH = RAMBLERS_EMAIL_TOKENS.maxWidth - 60;
 
+function wrapBodyImageOnWhite(imgTag: string, existingStyle: string): string {
+  return existingStyle.includes("background-color:#ffffff")
+    ? imgTag
+    : `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background-color:#ffffff;"><tr><td bgcolor="#ffffff" align="center" style="background-color:#ffffff;">${imgTag}</td></tr></table>`;
+}
+
 export function constrainBodyImages(html: string): string {
   return html.replace(/<img\b([^>]*?)\s*\/?>/gi, (_match, rawAttrs: string) => {
     const styleMatch = rawAttrs.match(/style="([^"]*)"/i);
@@ -138,13 +144,14 @@ export function constrainBodyImages(html: string): string {
     const attrsWithoutWidth = rawAttrs.replace(/\swidth="[^"]*"/gi, "");
     if (sizedMatch) {
       const px = Math.min(parseInt(sizedMatch[1], 10), EMAIL_BODY_CONTENT_WIDTH);
-      const style = `${existingStyle.replace(/width:\s*\d+px/i, `width:${px}px`)};max-width:100%;height:auto`;
+      const style = `${existingStyle.replace(/width:\s*\d+px/i, `width:${px}px`)};max-width:100%;height:auto;background-color:#ffffff`;
       const withStyle = styleMatch ? attrsWithoutWidth.replace(/style="[^"]*"/i, `style="${style}"`) : `${attrsWithoutWidth} style="${style}"`;
-      return `<img${withStyle} width="${px}">`;
+      return wrapBodyImageOnWhite(`<img${withStyle} width="${px}">`, existingStyle);
+    } else {
+      const style = `${existingStyle ? `${existingStyle};` : ""}width:100%;max-width:${EMAIL_BODY_CONTENT_WIDTH}px;height:auto;background-color:#ffffff`;
+      const withStyle = styleMatch ? attrsWithoutWidth.replace(/style="[^"]*"/i, `style="${style}"`) : `${attrsWithoutWidth} style="${style}"`;
+      return wrapBodyImageOnWhite(`<img${withStyle} width="${EMAIL_BODY_CONTENT_WIDTH}">`, existingStyle);
     }
-    const style = `${existingStyle ? `${existingStyle};` : ""}width:100%;max-width:${EMAIL_BODY_CONTENT_WIDTH}px;height:auto`;
-    const withStyle = styleMatch ? attrsWithoutWidth.replace(/style="[^"]*"/i, `style="${style}"`) : `${attrsWithoutWidth} style="${style}"`;
-    return `<img${withStyle} width="${EMAIL_BODY_CONTENT_WIDTH}">`;
   });
 }
 
