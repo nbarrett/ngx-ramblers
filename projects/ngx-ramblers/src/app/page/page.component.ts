@@ -5,6 +5,7 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
 import { PageService } from "../services/page.service";
 import { isEmpty } from "es-toolkit/compat";
 import { RouterLink } from "@angular/router";
+import { MarkdownComponent } from "ngx-markdown";
 
 @Component({
     selector: "app-page",
@@ -27,7 +28,11 @@ import { RouterLink } from "@angular/router";
         }
         @if (displayedTitle() && showTitle) {
           <div class="page-heading" #pageHeading>
-            <h1>{{ displayedTitle() }}</h1>
+            @if (pageTitle) {
+              <h1>{{ pageTitle }}</h1>
+            } @else {
+              <h1 markdown [data]="pageService.contentPageTitle()" [inline]="true"></h1>
+            }
           </div>
         }
         <div class="page-content">
@@ -37,7 +42,7 @@ import { RouterLink } from "@angular/router";
     </main>
   `,
     styleUrls: ["./page.component.sass"],
-    imports: [RouterLink, NgTemplateOutlet]
+    imports: [RouterLink, NgTemplateOutlet, MarkdownComponent]
 })
 export class PageComponent implements OnInit, AfterViewInit, OnDestroy {
 

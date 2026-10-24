@@ -15,12 +15,12 @@ describe("dynamic content title lifting", () => {
     return component;
   }
 
-  it("keeps the lite homepage heading in the content when lifting is off", () => {
+  it("keeps the lite homepage heading in the content and clears a previously lifted title", () => {
     const component = view(false);
     const pageContent = liteHomePageContent("Hillside Park");
     component["filterAndSet"](pageContent);
     expect(component.viewablePageContent.rows[0].columns[0].contentText).toBe("# Welcome to Hillside Park");
-    expect(component["pageService"].setContentPageTitle).not.toHaveBeenCalled();
+    expect(component["pageService"].setContentPageTitle).toHaveBeenCalledWith(null);
   });
 
   it("lifts a CMS page heading into the page shell and removes the duplicate row", () => {
