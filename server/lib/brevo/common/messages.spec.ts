@@ -1,5 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
+import debug from "debug";
+import { Brevo } from "@getbrevo/brevo";
 import {
   applyContentBlocks,
   applyTemplateOverrides,
@@ -10,6 +12,7 @@ import {
   extractContentBlockKeys,
   httpStatusForBrevoError,
   normaliseEmailContentUrls,
+  performTemplateSubstitution,
   renderBrandedTemplate,
   renderLocalBrandedTemplate,
   renderTemplateMarkdownToHtml,
@@ -19,6 +22,7 @@ import {
 } from "./messages";
 import { localTemplateNames } from "../templates/local-template-reader";
 import {
+  BrandingMode,
   EmailTemplateName,
   TemplateOverride,
   TemplateOverrides,
@@ -45,20 +49,42 @@ describe("brevo messages", () => {
 
     it("replaces local development origins throughout outgoing email content", () => {
       const html = `<a href="http://localhost:4200/walks/autumn-walk">Walk</a><img src="http://127.0.0.1:4200/api/aws/s3/site-content/walk.jpg"><div style="background-image:url(http://localhost:4200/assets/arrow.png)"></div>`;
-      const output = normaliseEmailContentUrls(html, "https://canterburyramblers.org.uk");
-      expect(output).toContain(`href="https://canterburyramblers.org.uk/walks/autumn-walk"`);
-      expect(output).toContain(`src="https://canterburyramblers.org.uk/api/aws/s3/site-content/walk.jpg"`);
-      expect(output).toContain(`url(https://canterburyramblers.org.uk/assets/arrow.png)`);
+      const output = normaliseEmailContentUrls(html, "https://group.example.org.uk");
+      expect(output).toContain(`href="https://group.example.org.uk/walks/autumn-walk"`);
+      expect(output).toContain(`src="https://group.example.org.uk/api/aws/s3/site-content/walk.jpg"`);
+      expect(output).toContain(`url(https://group.example.org.uk/assets/arrow.png)`);
       expect(output).not.toContain("localhost");
       expect(output).not.toContain("127.0.0.1");
     });
 
     it("makes root-relative links and images public without changing external URLs", () => {
-      const html = `<a href="/events/autumn-events">Events</a><img src='/api/aws/s3/site-content/events.jpg'><a href="https://www.ramblers.org.uk">Ramblers</a>`;
-      const output = normaliseEmailContentUrls(html, "https://canterburyramblers.org.uk/");
-      expect(output).toContain(`href="https://canterburyramblers.org.uk/events/autumn-events"`);
-      expect(output).toContain(`src='https://canterburyramblers.org.uk/api/aws/s3/site-content/events.jpg'`);
-      expect(output).toContain(`href="https://www.ramblers.org.uk"`);
+      const html = `<a href="/events/autumn-events">Events</a><img src='/api/aws/s3/site-content/events.jpg'><a href="https://external.example.com">External site</a>`;
+      const output = normaliseEmailContentUrls(html, "https://group.example.org.uk/");
+      expect(output).toContain(`href="https://group.example.org.uk/events/autumn-events"`);
+      expect(output).toContain(`src='https://group.example.org.uk/api/aws/s3/site-content/events.jpg'`);
+      expect(output).toContain(`href="https://external.example.com"`);
+    });
+
+    it("makes pasted image paths and links public when they have no leading slash", () => {
+      const html = `<img src="api/aws/s3/site-content/app-preview.png"><a href='how-to/walking-app'>Instructions</a>`;
+      const output = normaliseEmailContentUrls(html, "https://group.example.org.uk/");
+      expect(output).toContain(`src="https://group.example.org.uk/api/aws/s3/site-content/app-preview.png"`);
+      expect(output).toContain(`href='https://group.example.org.uk/how-to/walking-app'`);
+    });
+
+    it("preserves provider-resolved URL placeholders while normalising ordinary paths", () => {
+      const html = `<a href="{{ mirror }}">Browser copy</a><a href="{{ unsubscribe }}">Unsubscribe</a><a href="{{contact.WEBSITE}}/profile">Profile</a><img src="site-content/app.png">`;
+      const output = normaliseEmailContentUrls(html, "https://group.example.org.uk");
+      expect(output).toContain(`href="{{ mirror }}"`);
+      expect(output).toContain(`href="{{ unsubscribe }}"`);
+      expect(output).toContain(`href="{{contact.WEBSITE}}/profile"`);
+      expect(output).toContain(`src="https://group.example.org.uk/api/aws/s3/site-content/app.png"`);
+      expect(normaliseEmailContentUrls(output, "https://group.example.org.uk")).toEqual(output);
+    });
+
+    it("preserves embedded images, external resources, contact links and document anchors", () => {
+      const html = `<img src="cid:app-preview"><img src="data:image/png;base64,aGVsbG8="><img src="//images.example.com/app.png"><a href="mailto:alex.reed@example.com">Email</a><a href="tel:+441234567890">Call</a><a href="#instructions">Instructions</a><a href="">Empty link</a>`;
+      expect(normaliseEmailContentUrls(html, "https://group.example.org.uk")).toEqual(html);
     });
   });
 
@@ -292,6 +318,7 @@ describe("brevo messages", () => {
       const result = renderBrandedTemplate(template, paramsFor(passwordResetLink));
       expect(result).toContain(`href="${passwordResetLink}"`);
       expect(result).not.toContain("{{params.systemMergeFields.PW_RESET_LINK}}");
+      expect(result).toContain(`href="{{ mirror }}"`);
     });
 
     it("substitutes the merge field even when surrounding the Froala-wrapped variant from the Brevo editor", () => {
@@ -316,6 +343,52 @@ describe("brevo messages", () => {
         HOME_PAGE_IMAGE: imageOverride("https://cdn.example.com/home.png")
       });
       expect(result).toContain(`src="https://cdn.example.com/home.png"`);
+    });
+
+    it("renders saved object keys and legacy pasted image URLs as public URLs", () => {
+      const body = composeShellAndBody(`![New image](site-content/new.png)\n\n![Legacy image](api/aws/s3/site-content/legacy.png)`);
+      const html = renderBrandedTemplate(body, paramsFor(""));
+      expect(html).toContain(`src="https://example.org.uk/api/aws/s3/site-content/new.png"`);
+      expect(html).toContain(`src="https://example.org.uk/api/aws/s3/site-content/legacy.png"`);
+      expect(html).not.toMatch(/src="\/?(?:api\/aws\/s3\/)?site-content\//);
+    });
+
+    [false, true].forEach(campaign => {
+      it(`normalises pasted Markdown images in the ${campaign ? "campaign" : "transactional"} outgoing payload`, async () => {
+        const payload: Brevo.SendTransacEmailRequest = {};
+        await performTemplateSubstitution({
+          body: `![Preview](site-content/app.png)\n\n![Legacy](api/aws/s3/site-content/legacy.png)`,
+          params: paramsFor("")
+        }, payload, debug("test:email-images"), campaign);
+        expect(payload.htmlContent).toContain(`src="https://example.org.uk/api/aws/s3/site-content/app.png"`);
+        expect(payload.htmlContent).toContain(`src="https://example.org.uk/api/aws/s3/site-content/legacy.png"`);
+      });
+    });
+
+    [BrandingMode.BRANDED, BrandingMode.UNBRANDED].forEach(brandingMode => {
+      it(`normalises raw HTML image paths for ${brandingMode} outgoing emails`, async () => {
+        const payload: Brevo.SendTransacEmailRequest = {};
+        await performTemplateSubstitution({
+          brandingMode,
+          htmlContent: `<img src = "site-content/app.png"><img src="api/aws/s3/site-content/legacy.png">`,
+          params: paramsFor("")
+        }, payload, debug("test:email-images"));
+        expect(payload.htmlContent).toContain(`src = "https://example.org.uk/api/aws/s3/site-content/app.png"`);
+        expect(payload.htmlContent).toContain(`src="https://example.org.uk/api/aws/s3/site-content/legacy.png"`);
+      });
+    });
+
+    it("refuses to send a relative image when the public website URL is missing", async () => {
+      const params = paramsFor("");
+      params.systemMergeFields.APP_URL = "";
+      const logger = debug("test:email-images");
+      logger.enabled = true;
+      const rendered = performTemplateSubstitution({
+        body: "![Preview](site-content/app.png)",
+        params
+      }, {}, logger);
+      await expect(rendered).rejects.toThrow("Email images require a public website URL");
+      expect(logger.enabled).toBe(true);
     });
   });
 

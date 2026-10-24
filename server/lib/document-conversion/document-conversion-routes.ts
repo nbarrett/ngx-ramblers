@@ -48,7 +48,7 @@ async function uploadConvertedImage(image: ExtractedPdfImage): Promise<string | 
     debugLog("image upload failed:", result.error);
     return null;
   } else {
-    return `api/aws/s3/${CONVERTED_IMAGES_FOLDER}/${fileName}`;
+    return `${CONVERTED_IMAGES_FOLDER}/${fileName}`;
   }
 }
 
