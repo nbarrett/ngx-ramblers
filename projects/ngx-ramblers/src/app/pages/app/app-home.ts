@@ -282,7 +282,7 @@ const MAP_LIST_BATCH_SIZE = 20;
         @if (customising) {
           <section id="app-home-customise" class="app-home-customise"
                    aria-label="App settings">
-            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+            <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center justify-content-between gap-2 mb-3">
               <h2 class="mb-0">App settings</h2>
               <button type="button" class="btn btn-quiet flex-shrink-0" (click)="toggleCustomising()">
                 <fa-icon [icon]="faArrowLeft" class="me-2"/> Back

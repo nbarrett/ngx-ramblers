@@ -1,4 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { nativeBuildLabel } from "../../functions/native-walking";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faArrowUpRightFromSquare, faCircleExclamation, faCodeBranch, faRotateRight } from "@fortawesome/free-solid-svg-icons";
 import { faGithub } from "@fortawesome/free-brands-svg-icons";
@@ -22,6 +23,9 @@ const RELEASE_FEED_LIMIT = 20;
   template: `
     <div class="version-page py-3">
       <h1 class="mb-1">About this version</h1>
+      @if (nativeBuildLabel) {
+        <p class="mb-2">Installed app: {{ nativeBuildLabel }}</p>
+      }
       <p class="text-muted mb-4">What {{ group?.shortName || "this site" }} is running right now, when it was built and started, and what changed.</p>
       @if (error) {
         <div class="alert alert-warning d-flex align-items-start">
@@ -160,12 +164,12 @@ const RELEASE_FEED_LIMIT = 20;
               <p class="text-muted mb-2">Looking up the release notes…</p>
             }
             @if (feed?.indexPath) {
-              <p class="mb-0">
-                <a class="btn btn-primary me-2" [href]="feed.indexUrl">All release notes</a>
+              <div class="d-grid d-sm-flex gap-2">
+                <a class="btn btn-primary rounded-pill" [href]="feed.indexUrl"><fa-icon [icon]="faCodeBranch" class="me-2"/>All release notes</a>
                 @if (feed.humansIndexPath) {
-                  <a class="btn btn-quiet" [href]="feed.humansIndexUrl">Release notes for members</a>
+                  <a class="btn btn-quiet rounded-pill" [href]="feed.humansIndexUrl"><fa-icon [icon]="faArrowUpRightFromSquare" class="me-2"/>Release notes for members</a>
                 }
-              </p>
+              </div>
             }
           </div>
         </div>
@@ -191,6 +195,7 @@ export class VersionPageComponent implements OnInit, OnDestroy {
   private dateUtils = inject(DateUtilsService);
   private pageService = inject(PageService);
   private subscriptions: Subscription[] = [];
+  protected readonly nativeBuildLabel = nativeBuildLabel();
   protected info: DeploymentInfo | null = null;
   protected feed: ReleaseFeed | null = null;
   protected feedLoaded = false;

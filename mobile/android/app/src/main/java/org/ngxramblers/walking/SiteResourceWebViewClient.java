@@ -85,16 +85,17 @@ public class SiteResourceWebViewClient extends BridgeWebViewClient {
     }
 
     static String nativeBootJavaScript(String origin) {
-        return lightAppearanceJavaScript() + "window.ngxNativeSiteUrl=" + org.json.JSONObject.quote(origin) + ";"
+        return nativeAppJavaScript() + "window.ngxNativeSiteUrl=" + org.json.JSONObject.quote(origin) + ";"
             + "localStorage.setItem(\"app-site-origin\"," + org.json.JSONObject.quote(origin) + ");";
     }
 
     static String shellBootJavaScript(String origin) {
-        return lightAppearanceJavaScript() + "localStorage.setItem(\"app-site-origin\"," + org.json.JSONObject.quote(origin) + ");";
+        return nativeAppJavaScript() + "localStorage.setItem(\"app-site-origin\"," + org.json.JSONObject.quote(origin) + ");";
     }
 
-    private static String lightAppearanceJavaScript() {
-        return "if(!localStorage.getItem(\"app-appearance\")){localStorage.setItem(\"app-appearance\",\"light\");}";
+    private static String nativeAppJavaScript() {
+        return "window.ngxNativeBuildNumber=" + org.json.JSONObject.quote(Integer.toString(BuildConfig.VERSION_CODE)) + ";"
+            + "if(!localStorage.getItem(\"app-appearance\")){localStorage.setItem(\"app-appearance\",\"light\");}";
     }
 
     private static String origin(Uri uri) {
