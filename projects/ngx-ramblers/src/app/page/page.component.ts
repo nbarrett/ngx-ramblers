@@ -46,6 +46,7 @@ export class PageComponent implements OnInit, AfterViewInit, OnDestroy {
   private document = inject(DOCUMENT);
   private host = inject(ElementRef<HTMLElement>);
   readonly breadcrumbActions = signal<TemplateRef<unknown> | null>(null);
+  readonly headingActions = signal<TemplateRef<unknown> | null>(null);
   @ViewChild("pageHeading") private pageHeading: ElementRef<HTMLElement> | null = null;
   private headingObserver: ResizeObserver | null = null;
   private titleHeightEffect = effect(() => {

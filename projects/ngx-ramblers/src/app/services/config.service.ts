@@ -1,4 +1,6 @@
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
+import { Capacitor } from "@capacitor/core";
+import { nativeWalkingSite } from "../functions/native-walking";
 import { inject, Injectable } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { ApiResponse } from "../models/api-response.model";
@@ -28,24 +30,28 @@ export class ConfigService {
   }
 
   queryConfig<T>(key: ConfigKey, defaultOnEmpty?: T): Promise<T> {
-    return this.queryApiForKey<T>(key)
-      .then((configDocument) => {
-        if (configDocument) {
-          this.logger.info("getConfig:", key, "existing configDocument", configDocument);
-          return configDocument;
-        } else {
-          const result = defaultOnEmpty;
-          this.logger.info("getConfig:", key, "defaultOnEmpty:", defaultOnEmpty, "new configDocument", result);
-          return result;
-        }
-      }).catch(error => {
-        if (error instanceof HttpErrorResponse && error.status === 403) {
-          this.logger.debug(`Query of ${key} config returned 403 - user not authenticated, returning default`);
-          return defaultOnEmpty;
-        }
-        this.logger.error(`Query of ${key} config failed:`, error);
-        return Promise.reject(`Query of ${key} config failed: ${extractErrorMessage(error)}`);
-      });
+    if (Capacitor.isNativePlatform() && !nativeWalkingSite()) {
+      return Promise.resolve(defaultOnEmpty);
+    } else {
+      return this.queryApiForKey<T>(key)
+        .then((configDocument) => {
+          if (configDocument) {
+            this.logger.info("getConfig:", key, "existing configDocument", configDocument);
+            return configDocument;
+          } else {
+            const result = defaultOnEmpty;
+            this.logger.info("getConfig:", key, "defaultOnEmpty:", defaultOnEmpty, "new configDocument", result);
+            return result;
+          }
+        }).catch(error => {
+          if (error instanceof HttpErrorResponse && error.status === 403) {
+            this.logger.debug(`Query of ${key} config returned 403 - user not authenticated, returning default`);
+            return defaultOnEmpty;
+          }
+          this.logger.error(`Query of ${key} config failed:`, error);
+          return Promise.reject(`Query of ${key} config failed: ${extractErrorMessage(error)}`);
+        });
+    }
   }
 
   async saveConfig<T>(key: ConfigKey, value: T): Promise<T> {

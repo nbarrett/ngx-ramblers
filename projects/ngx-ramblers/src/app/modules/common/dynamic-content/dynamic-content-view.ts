@@ -175,9 +175,7 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
 
   private withLiftedPageTitle(pageContent: PageContent): PageContent {
     if (!this.liftPageTitle || !pageContent?.rows?.length) {
-      if (this.liftPageTitle) {
-        this.pageService.setContentPageTitle(null);
-      }
+      this.pageService.setContentPageTitle(null);
       return pageContent;
     } else {
       const firstRow = pageContent.rows[0];

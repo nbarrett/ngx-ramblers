@@ -199,7 +199,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
         <app-compass-calibration-help [open]="compassHelpOpen" [backLabel]="compassHelpBackLabel"
                                       (closed)="compassHelpOpen = false"/>
         <h1 class="visually-hidden">{{ payload?.title || "Record a route" }}</h1>
-        <div class="follow-top" [class.has-banner]="showOffRoute || !!locationMessage || !!forkAhead || nativeCompass.calibrationRecommended()">
+        <div class="follow-top" [class.has-banner]="showOffRoute || !!locationMessage || !!forkAhead || showCompassCalibrationWarning">
           <div class="follow-top-bar">
             <div class="follow-top-actions">
               <button class="follow-icon-btn" type="button" (click)="closeFollow()" [disabled]="savingRoute"
@@ -229,13 +229,16 @@ import { DateUtilsService } from "../../services/date-utils.service";
                   <fa-icon [icon]="faCircleExclamation"/>
                   {{ locationMessage }}
                 </div>
-              } @else if (nativeCompass.calibrationRecommended()) {
+              } @else if (showCompassCalibrationWarning) {
                 <div class="alert alert-warning d-flex align-items-start gap-2 mb-0 w-100 pe-auto" role="status">
                   <fa-icon [icon]="faCircleExclamation"/>
                   <div class="flex-grow-1">
                     <strong class="d-block">Compass needs calibration</strong>
                     The direction pointer may be inaccurate.
-                    <button type="button" class="btn btn-primary mt-2" (click)="openCompassHelpFromMap()"><fa-icon [icon]="faCompass" class="me-2"/>Show me how</button>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                      <button type="button" class="btn btn-sm btn-primary px-2" (click)="openCompassHelpFromMap()"><fa-icon [icon]="faCompass"/>Show me how</button>
+                      <button type="button" class="btn btn-sm btn-quiet px-2" (click)="compassCalibrationDismissed = true"><fa-icon [icon]="faXmark"/>Ignore for now</button>
+                    </div>
                   </div>
                 </div>
               }
@@ -685,7 +688,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
             <p class="follow-offline-status">{{ persistMessage }}</p>
           }
           @if (nativeCompass.supported()) {
-            <button type="button" class="btn btn-quiet mb-2" (click)="openCompassHelpFromSettings()"><fa-icon [icon]="faCompass" class="me-2"/>Compass calibration help</button>
+            <button type="button" class="btn btn-quiet follow-secondary-btn mb-2" (click)="openCompassHelpFromSettings()"><fa-icon [icon]="faCompass"/>Compass calibration help</button>
           }
           @if (sessionStorageError) {
             <div class="alert alert-warning d-flex align-items-start gap-2">
@@ -1024,9 +1027,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected nativeCompass = inject(NativeCompassService);
   protected compassHelpOpen = false;
   protected compassHelpBackLabel = "Back to map";
+  protected compassCalibrationDismissed = false;
   private compassHelpShown = false;
   private compassHelpEffect = effect(() => {
-    if (this.nativeCompass.calibrationRecommended() && !this.compassHelpShown) {
+    if (this.showCompassCalibrationWarning && !this.compassHelpShown) {
       this.compassHelpShown = true;
       this.openCompassHelpFromMap();
     }
@@ -1918,6 +1922,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   onPeekStop(event: Event): void {
     event.stopPropagation();
     this.stop();
+  }
+
+  get showCompassCalibrationWarning(): boolean {
+    return this.nativeCompass.calibrationRecommended() && !this.compassCalibrationDismissed;
   }
 
   openCompassHelpFromMap(): void {

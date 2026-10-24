@@ -85,8 +85,8 @@ import { environment } from "../../../../environments/environment";
   selector: "app-events-full",
   styleUrls: ["../../../pages/walks/walk-list/walk-list.sass"],
   template: `
-    <div class="row mb-n3">
-      <div class="mb-3 col-sm-12">
+    <div class="mb-n3">
+      <div class="mb-3">
         <app-walks-search [filterParameters]="filterParameters" [notifyTarget]="notifyTarget"
                           [showAdvancedSearch]="advancedSearchAllowed()"
                           [advancedCriteria]="advancedSearchCriteria"

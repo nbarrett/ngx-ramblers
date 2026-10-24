@@ -54,6 +54,22 @@ no `configs.json` file; the workflow reads the database directly at run time.
 
 ---
 
+## Retrying the main build and staging deployment
+
+The main workflow, `build-push-and-deploy-ngx-ramblers-docker-image.yml`, separates building images from deploying them:
+
+1. `resolve` and `test` check configuration and run the test suites.
+2. `build-images` builds and publishes the website image with the workflow run number as its tag. When worker changes are detected, it also publishes `integration-worker-<run-number>` and passes that decision to the deployment job.
+3. `deploy` uses those published tags to deploy the website and any changed worker, then publishes outstanding release notes and records the publication checkpoint.
+
+If Fly.io deployment fails after the images have been published, choose **Re-run failed jobs** in GitHub Actions, or run `gh run rerun <run-id> --failed`. The successful image job is retained; the deployment job starts again using the same image tags. Choosing **Re-run all jobs** rebuilds the images.
+
+A failure while building or publishing images still requires retrying the image job. Changes to the workflow only apply to new runs; retrying an older run uses the workflow from its original commit.
+
+The separate **Deploy to Selected Environments** workflow also reuses a published image without building it. Its numbered-image validation requires the main workflow to have completed successfully, so it is used for the all-environments rollout after staging succeeds.
+
+---
+
 ## What the Deploy Script Does
 
 `server/deploy/deploy-to-environments.ts` reads the selected environment and the global

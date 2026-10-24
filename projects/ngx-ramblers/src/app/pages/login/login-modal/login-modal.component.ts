@@ -65,22 +65,22 @@ import { faKey, faSignInAlt, faTimes } from "@fortawesome/free-solid-svg-icons";
           </div>
         </form>
       </div>
-      <div class="modal-footer flex-wrap justify-content-start gap-2">
+      <div class="modal-footer flex-nowrap gap-2">
           <button type="button" #loginButton [disabled]="notifyTarget.busy"
             (click)="login()"
             title="Login"
-            class="btn btn-primary m-0">
+            class="btn btn-primary flex-fill m-0">
             <fa-icon [icon]="faSignInAlt"/> Login
           </button>
           <button type="button" (click)="close()" title="Cancel and don't login"
             [disabled]="notifyTarget.busy"
-            class="btn btn-quiet m-0">
+            class="btn btn-quiet flex-fill m-0">
             <fa-icon [icon]="faTimes"/> Cancel
           </button>
           <button type="button" (click)="forgotPassword()"
             title="I've forgotten my password"
             [disabled]="notifyTarget.busy"
-            class="btn btn-quiet m-0">
+            class="btn btn-quiet flex-fill m-0">
             <fa-icon [icon]="faKey"/> Forgot Password
           </button>
       </div>

@@ -35,6 +35,7 @@ import {
   followCacheKey,
   followRouteCommands,
   isLiveFollowMode,
+  RouteFollowMode,
   RouteFollowOfflineStatus,
   RouteFollowSession,
   RouteFollowPoint,
@@ -1416,7 +1417,7 @@ export class AppHomeComponent implements OnInit, OnDestroy {
   }
 
   private resumeActiveFollowSession(): boolean {
-    if (this.activeSession) {
+    if (this.activeSession && this.activeSession.mode !== RouteFollowMode.PAUSED) {
       void this.router.navigate(this.routeLink(this.activeSession), {
         queryParams: this.routeQuery(this.activeSession),
         replaceUrl: true
