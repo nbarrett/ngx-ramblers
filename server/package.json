@@ -122,7 +122,7 @@
     "mongoose-unique-validator": "5.0.1",
     "morgan": "1.11.0",
     "multer": "2.2.0",
-    "node-cron": "4.2.1",
+    "node-cron": "4.3.0",
     "nodemailer": "9.0.3",
     "npm-failsafe": "1.4.0",
     "passport": "0.7.0",

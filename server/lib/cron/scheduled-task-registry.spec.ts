@@ -1,6 +1,8 @@
 import expect from "expect";
-import { describe, it } from "mocha";
+import { afterEach, describe, it } from "mocha";
 import * as cron from "node-cron";
+import sinon from "sinon";
+import { DateTime } from "luxon";
 import { ScheduledTasksConfiguration } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
 import { carryForwardConfiguration, cronScheduleDescription } from "./scheduled-task-registry";
 
@@ -40,6 +42,9 @@ describe("cronScheduleDescription", () => {
 });
 
 describe("scheduled task timezone", () => {
+  const sandbox = sinon.createSandbox();
+  afterEach(() => sandbox.restore());
+
   it("resolves '0 3 * * *' to the next 03:00 in Europe/London regardless of the host timezone", () => {
     const task = cron.createTask("0 3 * * *", async () => {}, {timezone: "Europe/London"});
     task.start();
@@ -48,6 +53,23 @@ describe("scheduled task timezone", () => {
     expect(next).toBeTruthy();
     expect(partInZone(next!, "hour")).toEqual("03");
     expect(partInZone(next!, "minute")).toEqual("00");
+  });
+
+  ["2026-03-28T12:00:00Z", "2026-10-24T12:00:00Z"].forEach(now => {
+    it(`keeps the next daily 03:00 run at London wall-clock time across the clock change after ${now}`, () => {
+      sandbox.useFakeTimers({now: DateTime.fromISO(now).toMillis()});
+      const task = cron.createTask("0 3 * * *", async () => null, {timezone: "Europe/London"});
+      try {
+        task.start();
+        const next = task.getNextRun();
+        expect(next).toBeTruthy();
+        expect(partInZone(next!, "hour")).toEqual("03");
+        expect(partInZone(next!, "minute")).toEqual("00");
+        expect(DateTime.fromJSDate(next!).setZone("Europe/London").day).toEqual(now.includes("03-28") ? 29 : 25);
+      } finally {
+        task.destroy();
+      }
+    });
   });
 });
 
