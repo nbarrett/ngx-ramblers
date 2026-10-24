@@ -47,3 +47,7 @@ export interface NativeWalkingSite {
   origin: string;
   name: string;
 }
+
+export interface NativeSiteNavigationPlugin {
+  selectSite(options: {origin: string}): Promise<void>;
+}

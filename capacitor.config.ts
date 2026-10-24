@@ -12,7 +12,7 @@ const config: CapacitorConfig = {
     path: "mobile/ios"
   },
   plugins: {
-    CapacitorHttp: {enabled: true}
+    CapacitorHttp: {enabled: false}
   }
 };
 

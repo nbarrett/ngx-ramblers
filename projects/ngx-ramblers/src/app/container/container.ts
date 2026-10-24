@@ -19,7 +19,7 @@ import { PullToRefreshComponent } from "../modules/common/pull-to-refresh/pull-t
 import { RouterHistoryService } from "../services/router-history.service";
 import { Router } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faArrowLeft, faCheck, faCircleExclamation, faShareNodes } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faCheck, faShareNodes } from "@fortawesome/free-solid-svg-icons";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { nativeShareSupported } from "../functions/native-share";
 import { StoredValue } from "../models/ui-actions";
@@ -60,7 +60,7 @@ import { Logger, LoggerFactory } from "../services/logger-factory.service";
         <button class="btn btn-primary btn-icon app-floating-navigation app-floating-share" type="button" (click)="shareTooltip.hide(); shareCurrentPage()"
                 [attr.aria-label]="shareFeedback || 'Share or copy link'" [tooltip]="shareFeedback || 'Share or copy link'"
                 [isDisabled]="!appShell.tooltipsEnabled()" #shareTooltip="bs-tooltip">
-          <fa-icon [icon]="shareFeedback === 'Link copied' ? faCheck : shareFeedback ? faCircleExclamation : faShareNodes"/>
+          <fa-icon [icon]="shareFeedback === 'Link copied' || shareFeedback === 'Shared' ? faCheck : faShareNodes"/>
         </button>
         <span class="visually-hidden" role="status">{{ shareFeedback }}</span>
       }
@@ -79,9 +79,9 @@ export class ContainerComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("ContainerComponent", NgxLoggerLevel.ERROR);
   protected readonly faArrowLeft = faArrowLeft;
   protected readonly faCheck = faCheck;
-  protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faShareNodes = faShareNodes;
   protected shareFeedback: string | null = null;
+  private readonly shareClear = {id: 0};
   public systemConfigService: SystemConfigService = inject(SystemConfigService);
   private dataPopulationService = inject(DataPopulationService);
   private versionCheckService = inject(VersionCheckService);
@@ -134,6 +134,8 @@ export class ContainerComponent implements OnInit, OnDestroy {
     if (nativeShareSupported()) {
       try {
         await navigator.share({title: document.title, url});
+        this.shareFeedback = "Shared";
+        this.queueShareClear();
       } catch (error) {
         if ((error as DOMException)?.name !== "AbortError") {
           this.logger.warn("shareCurrentPage failed", error);
@@ -153,6 +155,14 @@ export class ContainerComponent implements OnInit, OnDestroy {
       this.logger.error("copyCurrentPageUrl failed", error);
       this.shareFeedback = "Unable to copy link";
     }
+    this.queueShareClear();
+  }
+
+  private queueShareClear(): void {
+    window.clearTimeout(this.shareClear.id);
+    this.shareClear.id = window.setTimeout(() => {
+      this.shareFeedback = null;
+    }, 4000);
   }
 
   ngOnInit() {
@@ -171,6 +181,7 @@ export class ContainerComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    window.clearTimeout(this.shareClear.id);
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 

@@ -39,7 +39,15 @@ describe("parseHttpsOrigin", () => {
   it("rejects a path, query or non-https url", () => {
     expect(parseHttpsOrigin("https://www.group.example.org.uk/app")).toBeNull();
     expect(parseHttpsOrigin("http://www.group.example.org.uk")).toBeNull();
+    expect(parseHttpsOrigin("https://localhost")).toBeNull();
+    expect(parseHttpsOrigin("https://127.0.0.1")).toBeNull();
     expect(parseHttpsOrigin("")).toBeNull();
+  });
+
+  it("accepts a local http origin for on-machine testing", () => {
+    expect(parseHttpsOrigin("http://127.0.0.1:4200")).toBe("http://127.0.0.1:4200");
+    expect(parseHttpsOrigin("http://localhost:4200")).toBe("http://localhost:4200");
+    expect(parseHttpsOrigin("http://10.0.2.2:4200")).toBe("http://10.0.2.2:4200");
   });
 });
 
@@ -56,6 +64,18 @@ describe("nativeWalkingSite", () => {
     expect(nativeWalkingSite()).toBeNull();
     platform.mockRestore();
     delete (window as {ngxNativeSiteUrl?: string}).ngxNativeSiteUrl;
+  });
+
+  it("uses the live website origin when the shell has already opened the group", () => {
+    const platform = vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    const location = vi.spyOn(window, "location", "get").mockReturnValue({
+      hostname: "group.example.org.uk",
+      protocol: "https:",
+      origin: "https://group.example.org.uk"
+    } as Location);
+    expect(nativeWalkingSite()).toBe("https://group.example.org.uk");
+    location.mockRestore();
+    platform.mockRestore();
   });
 });
 

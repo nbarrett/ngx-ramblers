@@ -289,6 +289,8 @@ describe("UrlService", () => {
                 expect(service.resourceRelativePathForAWSFileName("logos/group.png")).toBe("https://group.example.org.uk/api/aws/s3/logos/group.png");
                 expect(service.imageSource("walks/photo.jpg")).toBe("https://group.example.org.uk/api/aws/s3/walks/photo.jpg");
                 expect(service.imageSource("logos/group.png", true)).toBe("https://group.example.org.uk/api/aws/s3/logos/group.png");
+                expect(service.imageSource("https://localhost/api/aws/s3/walks/photo.jpg")).toBe("https://group.example.org.uk/api/aws/s3/walks/photo.jpg");
+                expect(service.imageSource("https://group.example.org.uk/api/aws/s3/walks/photo.jpg")).toBe("https://group.example.org.uk/api/aws/s3/walks/photo.jpg");
             } finally {
                 nativeWindow.ngxNativeSiteUrl = previousSite;
                 platform.mockRestore();

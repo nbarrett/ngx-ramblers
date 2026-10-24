@@ -10,6 +10,7 @@ import org.ngxramblers.walking.recording.NativeRouteRecorderPlugin;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(NativeSiteNavigationPlugin.class);
         registerPlugin(NativeRouteRecorderPlugin.class);
         registerPlugin(NativeCompassPlugin.class);
         super.onCreate(savedInstanceState);

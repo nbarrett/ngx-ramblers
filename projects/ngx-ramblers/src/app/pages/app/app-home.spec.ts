@@ -152,7 +152,10 @@ describe("mobile area and website selection", () => {
   function chooser() {
     const view = Object.create(AppHomeComponent.prototype) as AppHomeComponent;
     view["siteUrlEntry"] = false;
-    view["nativeSite"] = {check: vi.fn().mockResolvedValue({}), connect: vi.fn().mockRejectedValue(new Error("Test connection"))} as unknown as typeof view["nativeSite"];
+    view["nativeSite"] = {
+      check: vi.fn().mockResolvedValue({}),
+      connect: vi.fn(async (url: string) => ({origin: url, name: "Hillside"}))
+    } as unknown as typeof view["nativeSite"];
     view.siteAreaChanged({areaCode: "HS", areaName: "Hillside Area"});
     return view;
   }
@@ -163,8 +166,11 @@ describe("mobile area and website selection", () => {
     expect(view["nativeSite"].check).toHaveBeenCalledWith(area.external_url, "HS");
     expect(view["siteGroupCode"]).toBe("");
     expect(view["siteChecked"]).toBe(true);
+    const assign = vi.fn();
+    vi.spyOn(window, "location", "get").mockReturnValue({assign} as unknown as Location);
     await view.connectGroupSite();
     expect(view["nativeSite"].connect).toHaveBeenCalledWith(area.external_url, "HS");
+    expect(assign).toHaveBeenCalledWith("https://area.example.org.uk/app");
   });
 
   it("uses the group website when selected and returns to the area when cleared", async () => {
@@ -194,5 +200,11 @@ describe("mobile area and website selection", () => {
     await view.siteDirectoryAreaChanged(area);
     expect(view["nativeSite"].check).not.toHaveBeenCalled();
     expect(view["siteUrlDraft"]).toBe("");
+  });
+
+  it("shows a failed area list on the chooser", () => {
+    const view = chooser();
+    view.siteDirectoryLoadFailed("The area list did not load. Check your connection and try again.");
+    expect(view["siteError"]).toBe("The area list did not load. Check your connection and try again.");
   });
 });

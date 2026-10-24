@@ -325,11 +325,6 @@ export enum AppAppearance {
   DARK = "dark"
 }
 
-export interface AppHomeLayout {
-  savedRoutes: boolean;
-  upcomingWalks: boolean;
-}
-
 export enum AppHomeView {
   MAPS = "maps",
   UPCOMING = "upcoming"
@@ -340,8 +335,10 @@ export function appAppearanceFromStored(value: string | null): AppAppearance {
     return AppAppearance.LIGHT;
   } else if (value === AppAppearance.DARK) {
     return AppAppearance.DARK;
-  } else {
+  } else if (value === AppAppearance.SYSTEM) {
     return AppAppearance.SYSTEM;
+  } else {
+    return AppAppearance.LIGHT;
   }
 }
 

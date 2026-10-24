@@ -32,6 +32,15 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
         display: block
 
       .heading-action-column
+        .heading-action-slot
+          float: right
+          position: relative
+          z-index: 6
+          margin: 0 0 var(--space-2, 8px) var(--space-3, 12px)
+
+        .heading-action-body
+          display: contents
+
         app-content-text-editor,
         ::ng-deep markdown,
         ::ng-deep markdown > div
@@ -46,9 +55,13 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
           @for (column of row?.columns; track column; let columnIndex = $index) {
             <div
               [class]="'col-sm-' + (column.columns||12) + (columnIndex === 0 && showHeadingActions() ? ' heading-action-column' : '')">
+              <div class="heading-action-layout">
               @if (columnIndex === 0 && showHeadingActions()) {
-                <ng-container [ngTemplateOutlet]="page.headingActions()"/>
+                <div class="heading-action-slot">
+                  <ng-container [ngTemplateOutlet]="page.headingActions()"/>
+                </div>
               }
+              <div class="heading-action-body">
               @for (nestedRow of column.rows; track nestedRow; let innerRowIndex = $index) {
                 @if (false) {
                   <div>{{ actions.nestedInnerRowHeading(rowIndex, innerRowIndex, nestedRow.type) }}</div>
@@ -184,6 +197,8 @@ import { firstLinkHref, firstLinkText } from "../../../functions/strings";
                   </app-card-image>
                 }
               }
+              </div>
+              </div>
             </div>
           }
         </div>

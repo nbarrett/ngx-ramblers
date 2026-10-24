@@ -78,7 +78,6 @@ import { PageComponent } from "../../../page/page.component";
           opacity: 1
 
       .my-walks-action
-        float: right
         position: relative
         z-index: 6
         display: inline-flex
@@ -86,7 +85,7 @@ import { PageComponent } from "../../../page/page.component";
         justify-content: center
         width: max-content
         max-width: none
-        margin: 0 0 0 var(--space-3, 12px)
+        margin: 0
         white-space: nowrap
 
       .my-walks-label
@@ -162,9 +161,11 @@ import { PageComponent } from "../../../page/page.component";
           padding-bottom: var(--space-2, 8px)
           background: var(--rsm-panel-bg, rgb(255, 255, 255))
 
-      @media (max-width: 575.98px)
+      @media (max-width: 991.98px)
         .my-walks-action
           width: 44px
+          min-width: 44px
+          height: 44px
           padding-right: 0
           padding-left: 0
 
@@ -241,6 +242,7 @@ import { PageComponent } from "../../../page/page.component";
             [clearable]="false"
             [searchable]="false"
             dropdownPosition="bottom"
+            appendTo="body"
             (ngModelChange)="refreshWalks('change filterParameters.ascending')"
             class="rounded w-100">
           </ng-select>

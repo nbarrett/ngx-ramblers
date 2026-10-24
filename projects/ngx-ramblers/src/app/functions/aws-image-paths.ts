@@ -9,11 +9,11 @@ export function storedAwsImagePath(path: string): string {
   return match ? match[1] : path;
 }
 
-export function awsImageResourcePath(path: string): string {
+export function awsImageResourcePath(path: string, managed = false): string {
   const key = storedAwsImagePath(path);
-  const storedImage = values(RootFolder).some(folder => key?.startsWith(`${folder}/`));
+  const storedImage = managed || values(RootFolder).some(folder => key?.startsWith(`${folder}/`));
   const remote = /^[a-z][a-z0-9+.-]*:|^\/\//i.test(path || "");
-  return storedImage && !remote ? `/${S3_BASE_URL}/${key}` : path;
+  return storedImage && !remote ? `/${S3_BASE_URL}/${key.replace(/^\/+/, "")}` : path;
 }
 
 function mapImagePaths(content: string, imagePath: (path: string) => string): string {

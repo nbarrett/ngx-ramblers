@@ -60,21 +60,39 @@ export class AreaSelector implements OnInit {
   @Input() dropdownPosition: DropdownPosition = "bottom";
   @Input() appendTo: string | null = null;
   @Output() areaChanged: EventEmitter<AvailableAreaWithLabel | null> = new EventEmitter();
+  @Output() loadingChange: EventEmitter<boolean> = new EventEmitter();
+  @Output() loadFailed: EventEmitter<string> = new EventEmitter();
   areas: AvailableAreaWithLabel[] = [];
-  loading = false;
-  status: Status = Status.INFO;
+  loading = true;
+  status: Status = Status.ACTIVE;
 
   async ngOnInit(): Promise<void> {
+    await this.loadAreas(false);
+  }
+
+  async reload(): Promise<void> {
+    await this.loadAreas(true);
+  }
+
+  private async loadAreas(refresh: boolean): Promise<void> {
     this.loading = true;
     this.status = Status.ACTIVE;
+    this.loadingChange.emit(true);
     try {
-      this.areas = await this.availableAreasService.areas();
-      this.status = this.areas.length > 0 ? Status.COMPLETE : Status.ERROR;
+      this.areas = await this.availableAreasService.areas(refresh);
+      if (this.areas.length > 0) {
+        this.status = Status.COMPLETE;
+      } else {
+        this.status = Status.ERROR;
+        this.loadFailed.emit("The area list did not load. Check your connection and try again.");
+      }
     } catch (error) {
       this.logger.error("Failed to load available areas:", error);
       this.status = Status.ERROR;
+      this.loadFailed.emit("The area list did not load. Check your connection and try again.");
     } finally {
       this.loading = false;
+      this.loadingChange.emit(false);
     }
   }
 

@@ -52,7 +52,7 @@
   --follow-instruction: rgba(28, 28, 30, 0.94)
 
 @media (prefers-color-scheme: dark)
-  :host-context(body:not(.app-appearance-light)) .follow-app
+  :host-context(body.app-appearance-system) .follow-app
     @include follow-dark-tokens
 
 :host-context(body.app-appearance-dark) .follow-app
@@ -136,6 +136,7 @@
 
   .alert .btn-sm
     font-size: .875rem
+    border-radius: 999px
 
 .follow-top.has-banner .follow-instruction
   grid-column: 1 / -1

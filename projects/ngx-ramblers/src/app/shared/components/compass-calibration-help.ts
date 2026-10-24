@@ -46,6 +46,8 @@ import { NativeCompassService } from "../../services/maps/native-compass.service
       padding: 0.75rem 0 1.25rem
       display: flex
       justify-content: flex-end
+    .compass-help-footer .btn
+      border-radius: 999px
     .compass-static-phone
       display: none
     @media (prefers-reduced-motion: reduce)
@@ -108,7 +110,7 @@ import { NativeCompassService } from "../../services/maps/native-compass.service
         </div>
         <div class="compass-help-footer">
           <button type="button" class="btn btn-primary" (click)="closed.emit()">
-            <fa-icon [icon]="faArrowLeft"/>
+            <fa-icon [icon]="faArrowLeft" class="me-2"/>
             {{ backLabel }}
           </button>
         </div>

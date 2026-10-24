@@ -57,6 +57,7 @@ export class GroupSelector implements OnInit, OnChanges {
   @Input() placeholder = "Select a group";
   @Output() groupChanged: EventEmitter<RamblersGroupsApiResponse | null> = new EventEmitter();
   @Output() areaChanged: EventEmitter<RamblersGroupsApiResponse> = new EventEmitter();
+  @Output() loadingChange: EventEmitter<boolean> = new EventEmitter();
   @Input() disabled!: boolean;
   @Input() appendTo: string | null = "body";
   @Input() dropdownPosition: DropdownPosition = "bottom";
@@ -72,6 +73,10 @@ export class GroupSelector implements OnInit, OnChanges {
     } else if (changes.groupCode && !changes.groupCode.firstChange && changes.groupCode.currentValue !== changes.groupCode.previousValue) {
       this.updateSelectedGroupCodes();
     }
+  }
+
+  async reload(): Promise<void> {
+    await this.loadGroupsIfPossible();
   }
 
   private async loadGroupsIfPossible() {
@@ -96,6 +101,7 @@ export class GroupSelector implements OnInit, OnChanges {
     if (group) {
       try {
         this.loadingGroups = true;
+        this.loadingChange.emit(true);
         this.groups = await this.ramblersWalksAndEventsService.listRamblersGroups([group]);
         this.availableGroups = this.groups.filter(group => group.scope === "G").map(group => ({
           ...group, ngSelectAttributes: {label: `${group.name} (${group.group_code})`}
@@ -110,6 +116,7 @@ export class GroupSelector implements OnInit, OnChanges {
         this.logger.error("Error querying groups:", error);
       } finally {
         this.loadingGroups = false;
+        this.loadingChange.emit(false);
       }
     } else {
       this.logger.info("no group found in config group:", group, "found:", this.groups, "areaGroup:", this.areaGroup);
