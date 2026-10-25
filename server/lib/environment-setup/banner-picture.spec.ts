@@ -11,7 +11,7 @@ describe("renderLogoBannerPicture", () => {
       .toBuffer();
     const picture = await renderLogoBannerPicture(logo);
     const {data, info} = await sharp(picture).raw().toBuffer({resolveWithObject: true});
-    const pixel = (x: number, y: number) => Array.from(data.subarray((y * info.width + x) * info.channels, (y * info.width + x) * info.channels + 3));
+    const pixel = (x: number, y: number): number[] => Array.from(data.subarray((y * info.width + x) * info.channels, (y * info.width + x) * info.channels + 3), value => Number(value));
     const near = (actual: number[], expected: number[]) => actual.every((value, index) => Math.abs(value - expected[index]) <= 12);
     expect([info.width, info.height]).toEqual([LOGO_BANNER_PICTURE_LAYOUT.width, LOGO_BANNER_PICTURE_LAYOUT.height]);
     expect(near(pixel(5, 279), [64, 65, 65])).toBe(true);
