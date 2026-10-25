@@ -138,7 +138,7 @@ jobs:
         run: npx ts-node --project tsconfig.tools.json tools/mobile-testflight.ts
       - name: Record pilot release result
         if: env.PUBLISH_ENABLED == 'true'
-        run: echo "Uploaded native build $MOBILE_BUILD_NUMBER from $SOURCE_SHA to the configured TestFlight pilot group. Apple tester emails stay off. External availability depends on Apple review." >> "$GITHUB_STEP_SUMMARY"
+        run: echo "Uploaded native build $MOBILE_BUILD_NUMBER from $SOURCE_SHA to the configured external TestFlight trial group with automatic availability and Apple notifications enabled. External availability depends on Apple review. The workflow does not recreate testers or send NGX introductory emails." >> "$GITHUB_STEP_SUMMARY"
       - name: Explain disabled pilot upload
         if: env.PUBLISH_ENABLED != 'true'
         run: echo "Native build passed. Pilot upload is disabled until signing and store setup are complete. See mobile/README.md." >> "$GITHUB_STEP_SUMMARY"

@@ -15,17 +15,48 @@ function token(configuration: ApplePilotReleaseConfiguration): string {
   return `${payload}.${signature}`;
 }
 
-async function request(configuration: ApplePilotReleaseConfiguration, path: string, body: unknown = null, method = body ? ApplePilotRequestMethod.POST : ApplePilotRequestMethod.GET): Promise<Response> {
+async function request(configuration: ApplePilotReleaseConfiguration, path: string, body: unknown = null, method = body ? ApplePilotRequestMethod.POST : ApplePilotRequestMethod.GET, acceptedStatuses: number[] = []): Promise<Response> {
   const response = await fetch(`https://api.appstoreconnect.apple.com/v1/${path}`, {
     method,
     headers: {Authorization: `Bearer ${token(configuration)}`, "Content-Type": "application/json"},
     body: body ? JSON.stringify(body) : null,
     signal: AbortSignal.timeout(30000)
   });
-  if (!response.ok) {
+  if (!response.ok && !acceptedStatuses.includes(response.status)) {
     throw new Error(`App Store Connect request failed (${response.status}): ${await response.text()}`);
   }
   return response;
+}
+
+function awaitingExternalDistribution(state: AppleExternalBuildState): boolean {
+  return state === AppleExternalBuildState.BETA_APPROVED || state === AppleExternalBuildState.READY_FOR_BETA_TESTING;
+}
+
+async function buildBetaDetail(configuration: ApplePilotReleaseConfiguration, buildId: string): Promise<AppleBuildBetaDetailResponse> {
+  const response = await request(configuration, `builds/${buildId}/buildBetaDetail`);
+  return response.json();
+}
+
+async function confirmExternalAvailability(configuration: ApplePilotReleaseConfiguration, buildId: string, notificationStatus: number): Promise<void> {
+  const deadline = dateTimeNow().plus({seconds: 15}).toMillis();
+  const initial = await buildBetaDetail(configuration, buildId);
+  const availability = {state: initial.data.attributes.externalBuildState};
+  if (awaitingExternalDistribution(availability.state) && dateTimeNow().toMillis() < deadline) {
+    for await (const tick of setInterval(1000)) {
+      if (dateTimeNow().toMillis() >= deadline) {
+        break;
+      } else {
+        const current = await buildBetaDetail(configuration, buildId);
+        availability.state = current.data.attributes.externalBuildState;
+        if (!awaitingExternalDistribution(availability.state)) {
+          break;
+        }
+      }
+    }
+  }
+  if (availability.state !== AppleExternalBuildState.IN_BETA_TESTING) {
+    throw new Error(`Apple has not confirmed external availability for build ${configuration.buildNumber}: ${availability.state} (notification status ${notificationStatus})`);
+  }
 }
 
 async function distributeExternalBuild(configuration: ApplePilotReleaseConfiguration, build: AppleReleaseBuild): Promise<void> {
@@ -35,15 +66,14 @@ async function distributeExternalBuild(configuration: ApplePilotReleaseConfigura
     throw new Error("The configured TestFlight trial group must be external and belong to this app.");
   }
   const buildId = build.id;
-  const detailResponse = await request(configuration, `builds/${buildId}/buildBetaDetail`);
-  const detail: AppleBuildBetaDetailResponse = await detailResponse.json();
+  const detail = await buildBetaDetail(configuration, buildId);
   const state = detail.data.attributes.externalBuildState;
   if (state === AppleExternalBuildState.BETA_REJECTED || state === AppleExternalBuildState.EXPIRED) {
     throw new Error(`Apple external testing is blocked for build ${configuration.buildNumber}: ${state}`);
   } else {
-    if (detail.data.attributes.autoNotifyEnabled) {
+    if (!detail.data.attributes.autoNotifyEnabled) {
       await request(configuration, `buildBetaDetails/${detail.data.id}`, {
-        data: {type: "buildBetaDetails", id: detail.data.id, attributes: {autoNotifyEnabled: false}}
+        data: {type: "buildBetaDetails", id: detail.data.id, attributes: {autoNotifyEnabled: true}}
       }, ApplePilotRequestMethod.PATCH);
     }
     const alreadyAssigned = build.relationships?.betaGroups?.data?.some(group => group.id === configuration.groupId);
@@ -54,9 +84,20 @@ async function distributeExternalBuild(configuration: ApplePilotReleaseConfigura
       await request(configuration, "betaAppReviewSubmissions", {
         data: {type: "betaAppReviewSubmissions", relationships: {build: {data: {type: "builds", id: buildId}}}}
       });
-      logger("Submitted build %s for external TestFlight review without Apple tester emails", configuration.buildNumber);
+      logger("Submitted build %s for external TestFlight review with automatic availability and Apple update notifications", configuration.buildNumber);
+    } else if (awaitingExternalDistribution(state)) {
+      const current = await buildBetaDetail(configuration, buildId);
+      if (awaitingExternalDistribution(current.data.attributes.externalBuildState)) {
+        const notification = await request(configuration, "buildBetaNotifications", {
+          data: {type: "buildBetaNotifications", relationships: {build: {data: {type: "builds", id: buildId}}}}
+        }, ApplePilotRequestMethod.POST, [409]);
+        await confirmExternalAvailability(configuration, buildId, notification.status);
+      } else if (current.data.attributes.externalBuildState !== AppleExternalBuildState.IN_BETA_TESTING) {
+        throw new Error(`Apple external availability changed for build ${configuration.buildNumber}: ${current.data.attributes.externalBuildState}`);
+      }
+      logger("Released approved build %s to the existing trial group", configuration.buildNumber);
     } else {
-      logger("Assigned build %s to the existing trial group without Apple tester emails; external state: %s", configuration.buildNumber, state);
+      logger("Assigned build %s to the existing trial group with automatic availability and Apple update notifications; external state: %s", configuration.buildNumber, state);
     }
   }
 }
