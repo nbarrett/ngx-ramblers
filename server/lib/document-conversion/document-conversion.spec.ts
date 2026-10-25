@@ -1,6 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import AdmZip from "adm-zip";
+import sharp from "sharp";
 import sinon from "sinon";
 import { htmlToMarkdown } from "../migration/turndown-service-factory";
 import { PDFParse } from "pdf-parse";
@@ -152,7 +153,7 @@ describe("convertBufferToMarkdown for Word documents", () => {
       <Relationship Id="rIdImage" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image.png"/>
     </Relationships>`;
     const zip = new AdmZip(minimalDocx(imageXml, imageRelationships));
-    zip.addFile("word/media/image.png", Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/kXcAAAAASUVORK5CYII=", "base64"));
+    zip.addFile("word/media/image.png", await sharp({create: {width: 1, height: 1, channels: 3, background: {r: 255, g: 0, b: 0}}}).png().toBuffer());
     const document = zip.toBuffer();
     const uploaded = await convertBufferToMarkdown(document, "images.docx", async image => {
       expect(image.buffer.subarray(0, 8).toString("hex")).toEqual("89504e470d0a1a0a");

@@ -258,7 +258,7 @@ describe("site registration content discovery", () => {
         <a href="/n3">Could this be you?</a>
       </nav></body></html>`, "https://group.example").pages;
     const pages = assembleRegistrationPages(discovered);
-    expect(discovered.map(page => page.path)).toEqual(expect.arrayContaining(["details-at-bottom-of-calendar-page", "our-2026-agm-is-on-november-21-st", "could-this-be-you"]));
+    expect(discovered.map(page => page.path)).toEqual(expect.arrayContaining(["details-at-bottom-of-calendar-page", "our-2026-agm-is-on-november-21st", "could-this-be-you"]));
     const extras = pages.filter(page => /calendar|AGM|Could this/i.test(page.title));
     expect(extras.length).toBeGreaterThan(0);
     expect(extras.every(page => page.parentPath === "information")).toBe(true);
