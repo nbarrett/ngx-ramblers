@@ -29,9 +29,10 @@ test("keeps an unprocessed build out of the pilot group", async () => {
   }
 });
 
-function processedBuildRequests(state: AppleExternalBuildState, autoNotifyEnabled = false, alreadyAssigned = false, internalGroup = false) {
+function processedBuildRequests(state: AppleExternalBuildState, autoNotifyEnabled = true, alreadyAssigned = false, internalGroup = false, activateOnEnable = false) {
   const originalFetch = global.fetch;
   const requests: Request[] = [];
+  const distribution = {state};
   global.fetch = async (input, options) => {
     const recorded = new Request(input, options);
     requests.push(recorded);
@@ -46,7 +47,10 @@ function processedBuildRequests(state: AppleExternalBuildState, autoNotifyEnable
     } else if (url.pathname === "/v1/betaGroups/example-pilot") {
       return Response.json({data: {attributes: {isInternalGroup: internalGroup}, relationships: {app: {data: {id: configuration.appId}}}}});
     } else if (url.pathname === "/v1/builds/example-build/buildBetaDetail") {
-      return Response.json({data: {id: "example-detail", attributes: {autoNotifyEnabled, externalBuildState: state}}});
+      return Response.json({data: {id: "example-detail", attributes: {autoNotifyEnabled, externalBuildState: distribution.state}}});
+    } else if (url.pathname === "/v1/buildBetaNotifications" || (url.pathname === "/v1/buildBetaDetails/example-detail" && activateOnEnable)) {
+      distribution.state = AppleExternalBuildState.IN_BETA_TESTING;
+      return new Response(null, {status: 204});
     } else {
       return new Response(null, {status: 204});
     }
@@ -54,7 +58,7 @@ function processedBuildRequests(state: AppleExternalBuildState, autoNotifyEnable
   return {requests, restore: () => global.fetch = originalFetch};
 }
 
-test("keeps Apple tester emails off and submits the exact validated build for external review without inviting testers again", async () => {
+test("submits the exact validated build for external review with automatic availability without inviting testers again", async () => {
   const mock = processedBuildRequests(AppleExternalBuildState.READY_FOR_BETA_SUBMISSION);
   try {
     assert.equal(await assignProcessedBuild(configuration), true);
@@ -72,8 +76,8 @@ test("keeps Apple tester emails off and submits the exact validated build for ex
   }
 });
 
-test("turns Apple tester emails off when a processed build still has them enabled", async () => {
-  const mock = processedBuildRequests(AppleExternalBuildState.READY_FOR_BETA_SUBMISSION, true);
+test("enables automatic availability when a processed build has notifications disabled", async () => {
+  const mock = processedBuildRequests(AppleExternalBuildState.READY_FOR_BETA_SUBMISSION, false);
   try {
     assert.equal(await assignProcessedBuild(configuration), true);
     assert.deepEqual(mock.requests.map(request => `${request.method} ${new URL(request.url).pathname}`), [
@@ -84,7 +88,7 @@ test("turns Apple tester emails off when a processed build still has them enable
       "POST /v1/betaGroups/example-pilot/relationships/builds",
       "POST /v1/betaAppReviewSubmissions"
     ]);
-    assert.deepEqual(await mock.requests[3].json(), {data: {type: "buildBetaDetails", id: "example-detail", attributes: {autoNotifyEnabled: false}}});
+    assert.deepEqual(await mock.requests[3].json(), {data: {type: "buildBetaDetails", id: "example-detail", attributes: {autoNotifyEnabled: true}}});
   } finally {
     mock.restore();
   }
@@ -135,10 +139,125 @@ test("rejects an internal group before changing distribution", async () => {
 });
 
 test("leaves an available build in its existing trial group without sending another invitation", async () => {
-  const mock = processedBuildRequests(AppleExternalBuildState.IN_BETA_TESTING, false, true);
+  const mock = processedBuildRequests(AppleExternalBuildState.IN_BETA_TESTING, true, true);
   try {
     assert.equal(await assignProcessedBuild(configuration), true);
     assert.deepEqual(mock.requests.map(request => request.method), ["GET", "GET", "GET"]);
+  } finally {
+    mock.restore();
+  }
+});
+
+for (const state of [AppleExternalBuildState.BETA_APPROVED, AppleExternalBuildState.READY_FOR_BETA_TESTING]) {
+  test(`releases an approved build still awaiting distribution in ${state}`, async () => {
+    const mock = processedBuildRequests(state, true, true);
+    try {
+      assert.equal(await assignProcessedBuild(configuration), true);
+      assert.deepEqual(mock.requests.map(request => `${request.method} ${new URL(request.url).pathname}`), [
+        "GET /v1/builds",
+        "GET /v1/betaGroups/example-pilot",
+        "GET /v1/builds/example-build/buildBetaDetail",
+        "GET /v1/builds/example-build/buildBetaDetail",
+        "POST /v1/buildBetaNotifications",
+        "GET /v1/builds/example-build/buildBetaDetail"
+      ]);
+      assert.deepEqual(await mock.requests[4].json(), {data: {type: "buildBetaNotifications", relationships: {build: {data: {type: "builds", id: "example-build"}}}}});
+    } finally {
+      mock.restore();
+    }
+  });
+}
+
+test("does not send a second notification when enabling automatic availability releases the approved build", async () => {
+  const mock = processedBuildRequests(AppleExternalBuildState.BETA_APPROVED, false, true, false, true);
+  try {
+    assert.equal(await assignProcessedBuild(configuration), true);
+    assert.deepEqual(mock.requests.map(request => `${request.method} ${new URL(request.url).pathname}`), [
+      "GET /v1/builds",
+      "GET /v1/betaGroups/example-pilot",
+      "GET /v1/builds/example-build/buildBetaDetail",
+      "PATCH /v1/buildBetaDetails/example-detail",
+      "GET /v1/builds/example-build/buildBetaDetail"
+    ]);
+  } finally {
+    mock.restore();
+  }
+});
+
+function notificationResponses(status: number, states: AppleExternalBuildState[], advanceTime: (() => void) | null = null) {
+  const mock = processedBuildRequests(AppleExternalBuildState.BETA_APPROVED, true, true);
+  const originalFetch = global.fetch;
+  const progress = {notified: false, reads: 0};
+  global.fetch = async (input, options) => {
+    const response = await originalFetch(input, options);
+    const path = new URL(input.toString()).pathname;
+    if (path === "/v1/buildBetaNotifications") {
+      progress.notified = true;
+      return new Response(null, {status});
+    } else if (progress.notified && path === "/v1/builds/example-build/buildBetaDetail") {
+      const state = states[Math.min(progress.reads, states.length - 1)];
+      progress.reads += 1;
+      advanceTime?.();
+      return Response.json({data: {id: "example-detail", attributes: {autoNotifyEnabled: true, externalBuildState: state}}});
+    } else {
+      return response;
+    }
+  };
+  return mock;
+}
+
+test("waits for Apple's delayed availability without notifying twice", async () => {
+  const mock = notificationResponses(204, [AppleExternalBuildState.BETA_APPROVED, AppleExternalBuildState.READY_FOR_BETA_TESTING, AppleExternalBuildState.IN_BETA_TESTING]);
+  try {
+    assert.equal(await assignProcessedBuild(configuration), true);
+    assert.equal(mock.requests.filter(request => request.method === "POST").length, 1);
+    assert.equal(mock.requests.filter(request => new URL(request.url).pathname.endsWith("/buildBetaDetail")).length, 5);
+  } finally {
+    mock.restore();
+  }
+});
+
+for (const states of [[AppleExternalBuildState.IN_BETA_TESTING], [AppleExternalBuildState.READY_FOR_BETA_TESTING, AppleExternalBuildState.IN_BETA_TESTING]]) {
+  test(`accepts a notification conflict only after confirming testing through ${states.join(", ")}`, async () => {
+    const mock = notificationResponses(409, states);
+    try {
+      assert.equal(await assignProcessedBuild(configuration), true);
+      assert.equal(mock.requests.filter(request => request.method === "POST").length, 1);
+    } finally {
+      mock.restore();
+    }
+  });
+}
+
+for (const status of [204, 409]) {
+  test(`fails after the confirmation deadline when notification status ${status} never results in testing`, async context => {
+    context.mock.timers.enable({apis: ["Date"]});
+    const mock = notificationResponses(status, [AppleExternalBuildState.READY_FOR_BETA_TESTING], () => context.mock.timers.tick(16000));
+    try {
+      await assert.rejects(assignProcessedBuild(configuration), new RegExp(`has not confirmed external availability.*notification status ${status}`));
+      assert.equal(mock.requests.filter(request => request.method === "POST").length, 1);
+    } finally {
+      mock.restore();
+      context.mock.timers.reset();
+    }
+  });
+}
+
+test("preserves notification errors other than conflicts", async () => {
+  const mock = notificationResponses(403, [AppleExternalBuildState.IN_BETA_TESTING]);
+  try {
+    await assert.rejects(assignProcessedBuild(configuration), /request failed \(403\)/);
+    assert.equal(mock.requests.length, 5);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("fails promptly if Apple rejects a build while availability is being confirmed", async () => {
+  const mock = notificationResponses(204, [AppleExternalBuildState.BETA_APPROVED, AppleExternalBuildState.BETA_REJECTED]);
+  try {
+    await assert.rejects(assignProcessedBuild(configuration), /has not confirmed external availability.*BETA_REJECTED/);
+    assert.equal(mock.requests.filter(request => request.method === "POST").length, 1);
   } finally {
     mock.restore();
   }
