@@ -40,7 +40,33 @@ function isReplyMessage(message: InboxMessage): boolean {
   return Boolean(message.inReplyTo) || (message.references?.length ?? 0) > 0 || /^\s*(re|fwd?|aw)\s*:/i.test(message.subject ?? "");
 }
 
-async function conversationKeyBySubject(tenantSlug: string, message: InboxMessage, seenAt: number): Promise<string | null> {
+export function conversationSubjectLinkQuery(
+  tenantSlug: string,
+  roleType: string,
+  normalisedSubject: string,
+  seenAt: number,
+  counterpartyEmail: string | null
+): Record<string, unknown> {
+  const query: Record<string, unknown> = {
+    tenantSlug,
+    roleType,
+    folder: {$ne: InboxThreadFolder.JUNK},
+    userFolderId: null,
+    normalisedSubject,
+    lastSeenAt: {$gte: seenAt - SUBJECT_LINK_WINDOW_MS}
+  };
+  if (counterpartyEmail) {
+    query["externalAddress.email"] = counterpartyEmail;
+  }
+  return query;
+}
+
+async function conversationKeyBySubject(
+  aliasConfig: InboxAliasConfig,
+  message: InboxMessage,
+  seenAt: number,
+  counterpartyEmail: string | null
+): Promise<string | null> {
   if (message.conversationKey) {
     return message.conversationKey;
   }
@@ -51,12 +77,9 @@ async function conversationKeyBySubject(tenantSlug: string, message: InboxMessag
   if (!normalisedSubject) {
     return null;
   }
-  const candidates = await inboxThreadModel.find({
-    tenantSlug,
-    folder: {$ne: InboxThreadFolder.JUNK},
-    normalisedSubject,
-    lastSeenAt: {$gte: seenAt - SUBJECT_LINK_WINDOW_MS}
-  }).lean() as unknown as InboxThread[];
+  const candidates = await inboxThreadModel.find(
+    conversationSubjectLinkQuery(aliasConfig.tenantSlug, aliasConfig.roleType, normalisedSubject, seenAt, counterpartyEmail)
+  ).lean() as unknown as InboxThread[];
   if (candidates.length === 0) {
     return null;
   }
@@ -375,13 +398,13 @@ async function storeReceivedInboundMessage(aliasConfig: InboxAliasConfig, messag
   const isJunk = folder === InboxThreadFolder.JUNK;
   const now = dateTimeNow().toMillis();
   const messageAt = message.receivedAt ?? message.sentAt ?? now;
+  const externalAddress = resolveThreadExternalAddress(message, undefined, internalEmails);
   if (!isJunk) {
-    const resolvedKey = await conversationKeyBySubject(aliasConfig.tenantSlug, message, messageAt);
+    const resolvedKey = await conversationKeyBySubject(aliasConfig, message, messageAt, externalAddress?.email ?? null);
     if (resolvedKey) {
       message.conversationKey = resolvedKey;
     }
   }
-  const externalAddress = resolveThreadExternalAddress(message, undefined, internalEmails);
   const existingThread = await findExistingThread(aliasConfig, message, folder, externalAddress);
   const thread = existingThread ?? await createThread(aliasConfig, message, messageAt, folder, externalAddress, InboxMessageDirection.INBOUND, internalEmails);
   const threadId = thread.id ?? thread["_id"]?.toString() ?? "";
@@ -556,7 +579,8 @@ async function findExistingThread(aliasConfig: InboxAliasConfig, message: InboxM
       tenantSlug: aliasConfig.tenantSlug,
       roleType: aliasConfig.roleType,
       ...folderFilter,
-      conversationKey: message.conversationKey
+      conversationKey: message.conversationKey,
+      ...(counterparty?.email ? {"externalAddress.email": counterparty.email} : {})
     });
     if (threadByKey) {
       debugLog(`findExistingThread: matched by conversationKey=${message.conversationKey} thread=${threadByKey._id} externalAddress=${JSON.stringify(threadByKey.externalAddress)}`);

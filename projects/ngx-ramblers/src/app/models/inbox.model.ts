@@ -85,6 +85,11 @@ export enum InboxViewScope {
   FOLDERS = "folders"
 }
 
+export enum InboxKeyboardRegion {
+  FOLDERS = "folders",
+  MESSAGES = "messages"
+}
+
 export enum InboxUserFolderQuery {
   ALL = "all"
 }
