@@ -127,7 +127,8 @@ export async function saveFileImportedGpx(gpxFile: FileNameData, recordingId: st
       gpxFile,
       color: existing?.color || PaletteColor.COBALT,
       weight: existing?.weight || 8,
-      opacity: existing?.opacity ?? 1
+      opacity: existing?.opacity ?? 1,
+      visibility: existing?.visibility || RouteVisibility.GROUP
     };
     return osMapsImportedRoute.findOneAndUpdate(
       {routeId},

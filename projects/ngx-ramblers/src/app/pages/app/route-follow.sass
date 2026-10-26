@@ -2,9 +2,12 @@
 
 :host
   display: block
+  position: relative
+  z-index: 2
   height: 100%
   min-height: 100%
   min-height: 100dvh
+  background: #f4f5f5
   overflow: hidden
 
 .follow-app
@@ -91,9 +94,7 @@
   box-sizing: border-box
 
 .follow-top-bar
-  display: grid
-  grid-template-columns: auto minmax(0, 1fr)
-  grid-template-rows: auto auto
+  display: flex
   align-items: center
   flex: 0 0 auto
   min-width: 0
@@ -114,13 +115,6 @@
   gap: 8px
   pointer-events: auto
   flex-shrink: 0
-  grid-column: 1
-  grid-row: 1
-
-  .follow-icon-btn
-    width: 44px
-    height: 44px
-    min-width: 44px
 
 .follow-top-banner
   display: flex
@@ -129,7 +123,7 @@
   gap: 8px
   overflow: hidden
   grid-column: 1 / -1
-  grid-row: 2
+  grid-row: 3
 
   &:empty
     display: none
@@ -831,7 +825,36 @@
   -webkit-overflow-scrolling: touch
 
 .follow-sheet:not(.is-minimised) .follow-sheet-body
-  padding-bottom: 8px
+  padding-bottom: var(--space-3)
+
+.follow-place-block
+  position: relative
+  z-index: 6
+  display: flex
+  flex-direction: column
+  gap: var(--space-2)
+  margin: 0 0 var(--space-4)
+
+.follow-place-block .form-label
+  margin: 0
+
+.follow-place-block .follow-library-note
+  margin: 0
+
+.follow-place-block app-venue-autocomplete
+  display: block
+  width: 100%
+
+.follow-metrics
+  display: flex
+  flex-direction: column
+  align-items: center
+  gap: var(--space-3)
+  margin: 0 0 var(--space-4)
+
+.follow-metrics .follow-stats
+  width: 100%
+  margin-bottom: 0
 
 
 .follow-route-details
@@ -844,8 +867,8 @@
   display: block
   width: 100%
   text-align: left
-  margin-top: 12px
-  margin-bottom: 4px
+  margin-top: var(--space-3)
+  margin-bottom: var(--space-1)
 
 .follow-route-details .form-label:first-of-type
   margin-top: 0
@@ -872,16 +895,21 @@
   color: var(--follow-muted)
   font-size: 0.875rem
 
-.follow-name-input
+.follow-name-input,
+.follow-description-input
   box-sizing: content-box
   display: block
   align-self: stretch
   width: auto
   min-width: 0
+  height: auto
   resize: none
   overflow: hidden
   line-height: 1.45
   min-height: 1.45em
+
+.follow-description-input
+  min-height: calc(1.45em * 3)
 
 .follow-library-note
   margin: 0 0 12px
@@ -946,6 +974,16 @@
 
 .follow-speed
   margin: 0 0 14px
+
+.follow-thin-slider
+  min-width: 0
+  padding: 4px 2px 2px
+
+.follow-thin-slider .follow-library-note
+  margin: 0 0 8px
+
+.follow-sheet-footer .follow-thin-slider .follow-library-note
+  margin: 0 0 8px
 
 .follow-actions
   display: grid
@@ -1092,6 +1130,9 @@
   color: var(--follow-ink)
 
 .follow-loading
+  position: absolute
+  inset: 0
+  z-index: 20
   --map-loading-background: var(--follow-bg)
   --map-loading-colour: var(--follow-ink)
   --map-loading-accent: #{$ramblers-colour-sunrise}

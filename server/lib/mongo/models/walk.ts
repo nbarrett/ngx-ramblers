@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { venueViewport } from "./venue";
 import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
 import { Walk } from "../../../../projects/ngx-ramblers/src/app/models/deprecated";
@@ -50,7 +51,8 @@ export const walkVenue = new mongoose.Schema({
   postcode: {type: String},
   lat: {type: Number},
   lon: {type: Number},
-  url: {type: String}
+  url: {type: String},
+  viewport: venueViewport
 }, {_id: false});
 
 const mediaStyle = new mongoose.Schema({

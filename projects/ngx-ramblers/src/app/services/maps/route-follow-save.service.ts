@@ -131,17 +131,31 @@ ${trackPoints}
       const file = this.gpxFile(payload, points);
       const uploaded = await firstValueFrom(this.walkGpx.uploadGpxFile(file, payload.title.trim()));
       const gpxFile = {...uploaded.gpxFile, title: payload.title.trim(), description: payload.description || ""};
+      const persistedFile = payload.source === RouteFollowSource.PAGE && payload.path
+        ? await this.savePageRoute(payload, file, gpxFile)
+        : gpxFile;
       if (payload.source === RouteFollowSource.WALK && payload.walkId) {
         await this.attachToWalk(payload.walkId, gpxFile, payload);
-      } else if (payload.source === RouteFollowSource.PAGE && payload.path) {
-        await this.attachToPage(payload.path, payload.routeId, payload.title, gpxFile, payload);
       } else if (payload.source === RouteFollowSource.OS_MAPS && payload.osMapsRouteId) {
         await this.attachToOsMapsRoute(payload.osMapsRouteId, gpxFile, payload, true);
-      } else {
+      } else if (payload.source !== RouteFollowSource.PAGE || !payload.path) {
         throw new Error("This route cannot be saved back to the site.");
       }
-      return this.preserveCreationAudit(payload, gpxFile);
+      return this.preserveCreationAudit(payload, persistedFile);
     }
+  }
+
+  private async savePageRoute(payload: RouteFollowPayload, file: File, gpxFile: FileNameData): Promise<FileNameData> {
+    const page = await this.pageContent.findByPath(payload.path);
+    const row = this.payloadService.followableRow(page, payload.routeId) || this.payloadService.firstMapRow(page);
+    const route = payload.routeId ? row?.map?.routes?.find(item => item.id === payload.routeId) : row?.map?.routes?.[0];
+    const existingId = payload.osMapsRouteId || route?.osMapsRouteId;
+    const imported = existingId ? null : await firstValueFrom(this.walkGpx.importGpxFile(file, payload.title.trim()));
+    const routeId = existingId || imported.routeId;
+    const libraryFile = imported?.gpxFile ? {...imported.gpxFile, title: payload.title.trim(), description: payload.description || ""} : gpxFile;
+    await this.attachToOsMapsRoute(routeId, libraryFile, payload, true);
+    await this.attachToPage(payload.path, payload.routeId, payload.title, libraryFile, {...payload, osMapsRouteId: routeId});
+    return libraryFile;
   }
 
   async saveStyle(payload: RouteFollowPayload): Promise<void> {
@@ -211,7 +225,8 @@ ${trackPoints}
             color: payload.color,
             weight: payload.weight,
             opacity: payload.opacity,
-            visible: route.visible !== false
+            visible: route.visible !== false,
+            osMapsRouteId: payload.osMapsRouteId || route.osMapsRouteId
           };
           return gpxFile ? {...next, name: title, gpxFile: this.preserveCreationAudit(route.gpxFile, gpxFile)} : next;
         } else {
@@ -222,6 +237,7 @@ ${trackPoints}
       return [...routes, {
         id: generateUid(),
         name: title || "Recorded route",
+        osMapsRouteId: payload.osMapsRouteId || null,
         visible: true,
         color: payload.color,
         weight: payload.weight,

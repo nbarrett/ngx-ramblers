@@ -3,6 +3,7 @@ import { envConfig } from "../env-config/env-config";
 import https from "https";
 import * as systemConfig from "../config/system-config";
 import { venueSearch as nominatimVenueSearch } from "./venue-search";
+import { PlaceViewport, VenueTypeValue } from "../../../projects/ngx-ramblers/src/app/models/event-venue.model";
 
 const debugLog: debug.Debugger = debug(envConfig.logNamespace("google-venue-search"));
 debugLog.enabled = false;
@@ -18,6 +19,10 @@ interface GooglePlaceNew {
   location?: {
     latitude: number;
     longitude: number;
+  };
+  viewport?: {
+    low?: {latitude?: number; longitude?: number};
+    high?: {latitude?: number; longitude?: number};
   };
   types?: string[];
   primaryType?: string;
@@ -49,6 +54,7 @@ export interface VenueSearchResult {
   source: "google";
   displayName: string;
   url: string | null;
+  viewport: PlaceViewport | null;
 }
 
 function inferVenueType(name: string, types: string[], primaryType?: string): string {
@@ -81,11 +87,18 @@ function inferVenueType(name: string, types: string[], primaryType?: string): st
   }
   if (typeSet.has("parking") || nameLower.includes("car park") || nameLower.includes("parking")) {
     return "car park";
-  }
-  if (typeSet.has("tourist_attraction") || typeSet.has("museum") || typeSet.has("point_of_interest")) {
+  } else if (typeSet.has("country") || primary === "country") {
+    return VenueTypeValue.COUNTRY;
+  } else if (typeSet.has("administrative_area_level_1") || typeSet.has("administrative_area_level_2")
+    || primary === "administrative_area_level_1" || primary === "administrative_area_level_2") {
+    return VenueTypeValue.COUNTY;
+  } else if (typeSet.has("locality") || typeSet.has("postal_town") || primary === "locality" || primary === "postal_town") {
+    return VenueTypeValue.TOWN;
+  } else if (typeSet.has("tourist_attraction") || typeSet.has("museum") || typeSet.has("point_of_interest")) {
     return "point of interest";
+  } else {
+    return "other";
   }
-  return "other";
 }
 
 function extractPostcode(addressComponents?: GooglePlaceNew["addressComponents"]): string | null {
@@ -143,8 +156,21 @@ function parseGoogleResult(place: GooglePlaceNew): VenueSearchResult | null {
     type: inferVenueType(name, place.types || [], place.primaryType),
     source: "google",
     displayName: place.formattedAddress || "",
-    url: place.websiteUri || null
+    url: place.websiteUri || null,
+    viewport: placeViewport(place.viewport)
   };
+}
+
+function placeViewport(viewport: GooglePlaceNew["viewport"]): PlaceViewport | null {
+  const south = viewport?.low?.latitude;
+  const west = viewport?.low?.longitude;
+  const north = viewport?.high?.latitude;
+  const east = viewport?.high?.longitude;
+  if (south === undefined || west === undefined || north === undefined || east === undefined) {
+    return null;
+  } else {
+    return {south, west, north, east};
+  }
 }
 
 async function callGooglePlacesApi(requestBody: object, apiKey: string): Promise<GooglePlacesNewResponse> {
@@ -159,7 +185,7 @@ async function callGooglePlacesApi(requestBody: object, apiKey: string): Promise
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.shortFormattedAddress,places.location,places.types,places.primaryType,places.addressComponents,places.websiteUri",
+        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.shortFormattedAddress,places.location,places.viewport,places.types,places.primaryType,places.addressComponents,places.websiteUri",
         "Content-Length": Buffer.byteLength(postData),
         "Referer": "http://localhost:5001/"
       }

@@ -3,6 +3,13 @@ import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
 import { StoredVenue } from "../../../../projects/ngx-ramblers/src/app/models/event-venue.model";
 
+export const venueViewport = new mongoose.Schema({
+  south: {type: Number},
+  west: {type: Number},
+  north: {type: Number},
+  east: {type: Number}
+}, {_id: false});
+
 const venueSchema = new mongoose.Schema({
   name: {type: String, required: true},
   address1: {type: String},
@@ -12,6 +19,7 @@ const venueSchema = new mongoose.Schema({
   url: {type: String},
   lat: {type: Number},
   lon: {type: Number},
+  viewport: venueViewport,
   usageCount: {type: Number, default: 0},
   lastUsed: {type: Number},
   createdAt: {type: Number},

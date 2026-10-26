@@ -1,4 +1,4 @@
-import { googleDrivingDirectionsUrl, googleMapsPlaceUrl, directionsLinks, formattedUkPostcode, locatePagePath, locateParentPath, locateSuggestionFor, osMapsUrl, wazeEmbedUrl, locationLabel, savedPointName, withoutTrailingPostcode } from "./locate";
+import { coordinateValue, googleDrivingDirectionsUrl, googleMapsPlaceUrl, directionsLinks, formattedUkPostcode, locatePagePath, locateParentPath, locateSuggestionFor, osMapsUrl, wazeEmbedUrl, locationLabel, savedPointName, withoutTrailingPostcode } from "./locate";
 import { DirectionsApp } from "../models/locate.model";
 import { AppInstallPlatform } from "../models/route-follow.model";
 
@@ -101,5 +101,13 @@ describe("formattedUkPostcode", () => {
   it("leaves a place name unchanged", () => {
     expect(formattedUkPostcode("shoebury")).toBeNull();
     expect(formattedUkPostcode("Hillside Park")).toBeNull();
+  });
+});
+
+describe("coordinate query values", () => {
+  it("rejects missing and non-finite coordinates while accepting zero", () => {
+    [null, undefined, "", "invalid", "Infinity", NaN].forEach(value => expect(coordinateValue(value)).toBeNull());
+    expect(coordinateValue("0")).toBe(0);
+    expect(coordinateValue("51.5")).toBe(51.5);
   });
 });

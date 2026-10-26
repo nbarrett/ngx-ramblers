@@ -256,6 +256,7 @@ export interface MapRoute {
   featureCount?: number;
   gpxFileSizeBytes?: number;
   spatialRouteId?: string;
+  osMapsRouteId?: string;
 }
 
 export interface MapMarker {

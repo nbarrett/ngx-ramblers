@@ -720,7 +720,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
     if (slug && this.canOpenFollowEditor) {
       this.display.rememberFollowReturnUrl();
       void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.ROUTE], {
-        queryParams: {[StoredValue.WALK_ID]: slug}
+        queryParams: {[StoredValue.WALK_ID]: slug, [StoredValue.EDIT_ROUTE]: "true"}
       });
     }
   }

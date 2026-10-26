@@ -30,6 +30,8 @@ describe("followCacheKey", () => {
 describe("followRouteCommands", () => {
   it("builds a path with an optional title slug", () => {
     expect(followRouteCommands(1, "Des Ryarsh 2")).toEqual(["/", "app", "route", "1", "des-ryarsh-2"]);
+    expect(followRouteCommands(670, "HillsideAlex'sWalkFromParkAndWoodland"))
+      .toEqual(["/", "app", "route", "670", "hillside-alexs-walk-from-park-and-woodland"]);
     expect(followRouteCommands(12, "")).toEqual(["/", "app", "route", "12"]);
   });
 });

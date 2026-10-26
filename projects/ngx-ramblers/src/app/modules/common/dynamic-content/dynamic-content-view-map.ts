@@ -67,6 +67,7 @@ import { AddressQueryService } from "../../../services/walks/address-query.servi
 import { NgOptionTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
 import { NumberUtilsService } from "../../../services/number-utils.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
+import { OsMapsExportService } from "../../../services/maps/os-maps-export.service";
 import { escapeHtml } from "../../../functions/strings";
 
 @Component({
@@ -630,6 +631,7 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
   private autosaveTimer: ReturnType<typeof setTimeout> | undefined;
   private memberLoginService = inject(MemberLoginService);
   private pageContentService = inject(PageContentService);
+  private osMapsExport = inject(OsMapsExportService);
   protected readonly minGuideWidth = ROUTE_GUIDE_MIN_WIDTH;
   protected get maxGuideWidth(): number {
     return Math.max(ROUTE_GUIDE_MIN_WIDTH, window.innerWidth - ROUTE_GUIDE_MAP_MIN_WIDTH);
@@ -934,7 +936,35 @@ export class DynamicContentViewMap implements OnInit, OnChanges, OnDestroy, DoCh
     this.routeCountText = this.stringUtils.pluraliseWithCount(this.visibleRoutes.length, "route");
   }
 
+  private async resolveLibraryGpx(): Promise<void> {
+    if (!this.row.map?.routes?.length) {
+      return;
+    } else {
+      try {
+        const listed = await this.osMapsExport.importedRoutes();
+        this.row.map.routes = this.row.map.routes.map(route => {
+          const match = listed.find(item => item.id === route.osMapsRouteId
+            || (!!route.gpxFile?.awsFileName && item.gpxFile?.awsFileName === route.gpxFile.awsFileName));
+          if (!match?.gpxFile) {
+            return route;
+          } else {
+            return {
+              ...route,
+              osMapsRouteId: match.id,
+              name: match.title || route.name,
+              gpxFile: match.gpxFile
+            };
+          }
+        });
+        this.refreshRouteCollections(false);
+      } catch (error) {
+        this.logger.error("resolveLibraryGpx failed", error);
+      }
+    }
+  }
+
   private async initialiseMap() {
+    await this.resolveLibraryGpx();
     if (!this.row.map) {
       this.logger.info("initialiseMap: No map data");
     } else if (!this.hasVisibleRoutes) {

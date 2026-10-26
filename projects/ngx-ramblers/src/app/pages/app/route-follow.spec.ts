@@ -2,7 +2,9 @@ import { ChangeDetectorRef, ElementRef } from "@angular/core";
 import { DistanceUnit } from "../../models/walk.model";
 import { StoredValue } from "../../models/ui-actions";
 import { AppInstallPlatform, RouteFollowLocationError, RouteFollowMode, RouteFollowPoint, RouteFollowPayload, RouteFollowSession, RouteFollowSheetState, RouteFollowSource } from "../../models/route-follow.model";
+import { DEFAULT_OS_STYLE, MapProvider } from "../../models/map.model";
 import { RouteFollowComponent } from "./route-follow";
+import * as L from "leaflet";
 
 describe("recording GPS messages", () => {
   it("keeps a waiting message until GPS is ready and does not claim a paused recording is active", () => {
@@ -369,12 +371,167 @@ describe("saved route delete", () => {
   });
 });
 
+describe("walk route edit access", () => {
+  it("lets a walk administrator edit a cached walk without the mobile Edit setting", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    Object.defineProperty(view, "mobileAccess", {value: {allowed: () => false}});
+    view["walkDisplay"] = {allowEdits: () => false, allowAdminEdits: () => true} as unknown as typeof view["walkDisplay"];
+    view["loadedWalk"] = null;
+    const payload = {source: RouteFollowSource.WALK, walkId: "fictional-walk"} as RouteFollowPayload;
+    expect(view["routeCanBeEdited"](payload)).toBe(true);
+  });
+
+  it("starts editing when the walk editor requested it", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["canEditRoute"] = true;
+    view["route"] = {snapshot: {queryParamMap: {get: (key: string) => key === StoredValue.EDIT_ROUTE ? "true" : null}}} as unknown as typeof view["route"];
+    view.editRoute = vi.fn();
+    view["openRequestedEdit"]();
+    expect(view.editRoute).toHaveBeenCalledOnce();
+  });
+
+  it("edits a walk route when canEditRoute is already true", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    Object.defineProperty(view, "mobileAccess", {value: {allowed: () => false}});
+    view["canEditRoute"] = true;
+    view["payload"] = {source: RouteFollowSource.WALK, points: [{latitude: 51, longitude: 0}, {latitude: 51.01, longitude: 0.01}]} as RouteFollowPayload;
+    view["followService"] = {trackPoints: () => []} as unknown as typeof view["followService"];
+    view["beginEditFromPoints"] = vi.fn();
+    view.editRoute();
+    expect(view["beginEditFromPoints"]).toHaveBeenCalledOnce();
+    expect(view["persistError"]).toBeFalsy();
+  });
+});
+
+describe("plotting clicks", () => {
+  it("appends a point while plotting even when the click is close on screen to an existing vertex", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["progress"] = {mode: RouteFollowMode.EDITING} as typeof view["progress"];
+    view["originalEditCount"] = 0;
+    view["editVertices"] = [{latitude: 52.9, longitude: -1.87}, {latitude: 52.89, longitude: -1.86}];
+    view["mapRef"] = {} as unknown as typeof view["mapRef"];
+    view["insertOffRouteVertex"] = vi.fn();
+    view["insertPointOnRoute"](L.latLng(52.88, -1.85), {distanceTo: () => 4} as unknown as L.Point);
+    expect(view["insertOffRouteVertex"]).toHaveBeenCalledWith({latitude: 52.88, longitude: -1.85});
+  });
+});
+
+describe("compass while browsing", () => {
+  it("hides the compass until the route is being followed", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["progress"] = {mode: RouteFollowMode.IDLE} as typeof view["progress"];
+    expect(view.followingRoute()).toBe(false);
+    view["progress"] = {mode: RouteFollowMode.FOLLOWING} as typeof view["progress"];
+    expect(view.followingRoute()).toBe(true);
+  });
+
+  it("treats Find or plot as plotting, not following", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["drawingFromBlank"] = true;
+    view["canEditRoute"] = true;
+    view["payload"] = {source: RouteFollowSource.RECORDING, points: []} as RouteFollowPayload;
+    view["followService"] = {trackPoints: () => []} as unknown as typeof view["followService"];
+    view["progress"] = {mode: RouteFollowMode.IDLE} as typeof view["progress"];
+    expect(view.plottingRoute()).toBe(true);
+    view["drawingFromBlank"] = false;
+    view["canEditRoute"] = false;
+    expect(view.plottingRoute()).toBe(false);
+  });
+
+  it("hides the compass and the step banner while plotting", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["drawingFromBlank"] = true;
+    view["directionsOnMap"] = true;
+    view["progress"] = {mode: RouteFollowMode.FOLLOWING} as typeof view["progress"];
+    expect(view.showCompassControl()).toBe(false);
+    expect(view.showStepBanner()).toBe(false);
+    view["drawingFromBlank"] = false;
+    expect(view.showCompassControl()).toBe(true);
+  });
+});
+
+describe("plot map basemap", () => {
+  it("opens plot on OS Explorer even when the saved payload or last map was OSM", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["drawingFromBlank"] = true;
+    view["mapTiles"] = {hasOsApiKey: () => true} as unknown as typeof view["mapTiles"];
+    const loaded = {provider: MapProvider.OSM, osStyle: "", title: "Plotted route"} as RouteFollowPayload;
+    view["applyPlotOrFollowBasemap"](loaded, {provider: MapProvider.OSM, osStyle: "Outdoor_27700"});
+    expect(view["mapProvider"]).toBe(MapProvider.OS);
+    expect(view["osStyle"]).toBe(DEFAULT_OS_STYLE);
+    expect(view["payload"]?.provider).toBe(MapProvider.OS);
+    expect(view["payload"]?.osStyle).toBe(DEFAULT_OS_STYLE);
+  });
+});
+
+describe("place search on the follow map", () => {
+  it("pans the map to a Google venue result and stops following the user", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["followUser"] = true;
+    view["mapRef"] = {getZoom: () => 10, setView: vi.fn(), fitBounds: vi.fn(), invalidateSize: vi.fn()} as unknown as typeof view["mapRef"];
+    view["mapTiles"] = {maxZoomForStyle: () => 11, minZoomForStyle: () => 7, matchingZoom: () => 8} as unknown as typeof view["mapTiles"];
+    view["mapProvider"] = MapProvider.OS;
+    view["osStyle"] = "Leisure_27700";
+    view["persistFollowSession"] = vi.fn();
+    view["followService"] = {trackPoints: () => []} as unknown as typeof view["followService"];
+    view["payload"] = {waypoints: [], points: []} as unknown as typeof view["payload"];
+    view["payloadService"] = {
+      planningWaypointsFromLocation: vi.fn().mockReturnValue([{id: "start", latitude: 50.57, longitude: -3.9, kind: "start"}])
+    } as unknown as typeof view["payloadService"];
+    view["refreshWaypointPins"] = vi.fn();
+    view["redraw"] = vi.fn();
+    view.onPlaceSearch({name: "Dartmoor", lat: 50.57, lon: -3.9, type: "county"} as never);
+    expect(view["followUser"]).toBe(false);
+    expect(view["mapRef"].setView).toHaveBeenCalledWith([50.57, -3.9], 8);
+    expect(view["nearbyPlaceName"]).toBe("Dartmoor");
+    expect(view["payloadService"].planningWaypointsFromLocation).toHaveBeenCalled();
+    expect(view["refreshWaypointPins"]).toHaveBeenCalled();
+  });
+
+  it("pans to a town that includes a Google viewport instead of fitting that viewport", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["followUser"] = true;
+    view["mapRef"] = {getZoom: () => 9, setView: vi.fn(), fitBounds: vi.fn(), invalidateSize: vi.fn()} as unknown as typeof view["mapRef"];
+    view["mapTiles"] = {maxZoomForStyle: () => 11, minZoomForStyle: () => 7, matchingZoom: () => 9} as unknown as typeof view["mapTiles"];
+    view["mapProvider"] = MapProvider.OS;
+    view["osStyle"] = DEFAULT_OS_STYLE;
+    view["persistFollowSession"] = vi.fn();
+    view["followService"] = {trackPoints: () => []} as unknown as typeof view["followService"];
+    view["payload"] = {waypoints: [], points: []} as unknown as typeof view["payload"];
+    view["payloadService"] = {
+      planningWaypointsFromLocation: vi.fn().mockReturnValue([{id: "start", latitude: 53.833, longitude: -2.337, kind: "start"}])
+    } as unknown as typeof view["payloadService"];
+    view["refreshWaypointPins"] = vi.fn();
+    view["redraw"] = vi.fn();
+    view.onPlaceSearch({
+      name: "Sabden",
+      lat: 53.833,
+      lon: -2.337,
+      type: "town",
+      viewport: {south: 53.82, west: -2.35, north: 53.84, east: -2.32}
+    } as never);
+    expect(view["mapRef"].fitBounds).not.toHaveBeenCalled();
+    expect(view["mapRef"].setView).toHaveBeenCalledWith([53.833, -2.337], 9);
+    expect(view["nearbyPlaceName"]).toBe("Sabden");
+  });
+});
+
 describe("desktop follow panel", () => {
   it("titles the panel Edit route while editing", () => {
     const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
     view["progress"] = {mode: RouteFollowMode.EDITING} as typeof view["progress"];
     view["payload"] = {title: "Hillside trail", source: RouteFollowSource.OS_MAPS} as RouteFollowPayload;
     expect(view.sheetHeading()).toBe("Edit route");
+  });
+
+  it("lets the name and description be edited on a wide screen", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["progress"] = {mode: RouteFollowMode.EDITING} as typeof view["progress"];
+    view["followPanelWide"] = true;
+    view["followExtraSettings"] = false;
+    view["payload"] = {title: "Hillside trail", source: RouteFollowSource.OS_MAPS} as RouteFollowPayload;
+    view["followService"] = {trackPoints: () => [{latitude: 51, longitude: 0}, {latitude: 51.01, longitude: 0.01}]} as unknown as typeof view["followService"];
+    expect(view.editingRouteDetails()).toBe(true);
   });
 
   it("uses the saved name when the route is not being edited", () => {
@@ -417,6 +574,16 @@ describe("recording map starting location", () => {
     expect(view["followService"].applyPosition).toHaveBeenCalledWith({latitude: 51.2, longitude: 0.3}, null, null);
     expect(view["restoredMapView"]?.center.lat).toBe(51.2);
     expect(view["restoredMapView"]?.center.lng).toBe(0.3);
+    expect(view["buildMapOptions"]).toHaveBeenCalledWith(payload, view["restoredMapView"]);
+  });
+
+  it("opens plotting without requiring a current GPS location", async () => {
+    const view = recordingView();
+    view["drawingFromBlank"] = true;
+    vi.mocked(view["currentLocation"].currentPosition).mockResolvedValue(null);
+    const payload = {source: RouteFollowSource.RECORDING} as RouteFollowPayload;
+    await view["prepareMapOptions"](payload);
+    expect(view["currentLocation"].currentPosition).not.toHaveBeenCalled();
     expect(view["buildMapOptions"]).toHaveBeenCalledWith(payload, view["restoredMapView"]);
   });
 

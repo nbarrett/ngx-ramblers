@@ -112,8 +112,9 @@ export interface ExportedGpxSummary {
 }
 
 export enum OsMapsExportTab {
-  ROUTES = "routes",
-  JOB_PROGRESS = "job-progress"
+  JOB_PROGRESS = "job-progress",
+  OS_MAPS = "os-maps",
+  ROUTES = "routes"
 }
 
 export enum OsMapsExportJobStatus {

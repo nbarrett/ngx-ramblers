@@ -212,6 +212,17 @@ export class MapTilesService {
     }
   }
 
+  minZoomForStyle(provider: MapProvider, style: string): number {
+    const styleInfo = osStyleForKey(style);
+    if (this.servesOsTiles(provider) && styleInfo?.is27700) {
+      return 0;
+    } else if (provider === MapProvider.OS) {
+      return 0;
+    } else {
+      return 1;
+    }
+  }
+
   maxZoomForStyle(provider: MapProvider, style: string): number {
     const styleInfo = osStyleForKey(style);
     if (this.servesOsTiles(provider) && styleInfo?.is27700) {
