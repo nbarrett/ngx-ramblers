@@ -434,6 +434,7 @@ export interface MailConfig extends BuiltInProcessMappings {
   smtpPort?: number;
   smtpUser?: string;
   smtpPassword?: string;
+  smtpPasswordSecondary?: string;
   smtpKeepaliveRecipient?: string;
   inboundWebhookSecret?: string;
   brevoEventsWebhookSecret?: string;
@@ -1911,4 +1912,9 @@ export enum CampaignRecipientType {
   UNSUBSCRIBED = "unsubscribed",
   HARD_BOUNCES = "hardBounces",
   SOFT_BOUNCES = "softBounces"
+}
+
+export interface SmtpAuthIdentity {
+  user: string;
+  pass: string;
 }

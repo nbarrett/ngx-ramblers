@@ -392,6 +392,24 @@ import { ramblersRegisteredOfficeAddress } from "../../../../models/ramblers-leg
                         </div>
                       </div>
                       <div class="form-group">
+                        <label for="smtp-password-secondary">Additional SMTP Key</label>
+                        <div class="d-flex gap-2 align-items-center">
+                          <app-secret-input
+                            class="flex-grow-1"
+                            [(ngModel)]="mailMessagingConfig.mailConfig.smtpPasswordSecondary"
+                            id="smtp-password-secondary"
+                            [size]="InputSize.SM"
+                            autocomplete="off"
+                            [ignorePasswordManagers]="true"
+                            placeholder="Second Brevo SMTP key to keep active (optional)"/>
+                          @if (mailLinkService.canNavigateToBrevo) {
+                            <app-brevo-button class="flex-shrink-0" button [disabled]="!mailMessagingConfig?.mailConfig.baseUrl"
+                              (click)="mailLinkService.openUrl(mailLinkService.smtpKeysView())"
+                            [title]="'View'"/>
+                          }
+                        </div>
+                      </div>
+                      <div class="form-group">
                         <label for="smtp-keepalive-recipient">SMTP Keepalive Recipient</label>
                         <input [(ngModel)]="mailMessagingConfig.mailConfig.smtpKeepaliveRecipient" type="email"
                           class="form-control input-sm" id="smtp-keepalive-recipient"

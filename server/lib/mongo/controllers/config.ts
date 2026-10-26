@@ -44,6 +44,7 @@ const sensitiveKeys = new Set([
   "uri",
   "secretKey",
   "smtpPassword",
+  "smtpPasswordSecondary",
   "pushVerificationToken",
   "vapidPrivateKey",
   "inboundWebhookSecret",
