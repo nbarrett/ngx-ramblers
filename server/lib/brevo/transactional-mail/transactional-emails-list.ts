@@ -12,6 +12,7 @@ import {
   BrevoTransactionalEmailSummary
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { enrichTransactionalEmailOrigins } from "./enrich-transactional-origins";
+import { normaliseEmail } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const messageType = "brevo:transactional-emails-list";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -45,7 +46,7 @@ function mapEventToSummary(event: Brevo.GetEmailEventReportResponse.Events.Item)
 
 export async function transactionalEmailsList(req: Request, res: Response): Promise<void> {
   try {
-    const email = isString(req.query.email) ? req.query.email.trim() : "";
+    const email = isString(req.query.email) ? (normaliseEmail(req.query.email) || req.query.email.trim()) : "";
     const limit = parsePositiveInt(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
     const offset = parsePositiveInt(req.query.offset, 0) || 0;
     const templateId = req.query.templateId ? parsePositiveInt(req.query.templateId, 0) : undefined;

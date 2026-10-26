@@ -1222,6 +1222,8 @@ export interface BrevoCampaignContent {
 
 export interface BrevoEmailEventReport {
   events: BrevoEmailEvent[];
+  nextOffset?: number;
+  hasMore?: boolean;
 }
 
 export interface CampaignRecipient {
