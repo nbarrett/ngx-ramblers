@@ -7,7 +7,7 @@ import {
   InboxReaderProvider,
   InboxThreadFolder
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { autoReplyFromHeaders, buildQuotedForwardHtml, buildQuotedReplyHtml, composeReplyAddress, folderAfterOwnSentReclassify, isOwnSentCopy, outboundCopyFromInbound, replyTargetExcludingViewer, resolveThreadExternalAddress, shouldRefreshUnreadForInbound, unreadAfterReclassify } from "./inbox-message-import";
+import { autoReplyFromHeaders, buildQuotedForwardHtml, buildQuotedReplyHtml, composeReplyAddress, conversationSubjectLinkQuery, folderAfterOwnSentReclassify, isOwnSentCopy, outboundCopyFromInbound, replyTargetExcludingViewer, resolveThreadExternalAddress, shouldRefreshUnreadForInbound, unreadAfterReclassify } from "./inbox-message-import";
 
 function address(email: string, name: string | null = null): InboxAddress {
   return {email, name};
@@ -403,5 +403,20 @@ describe("outboundCopyFromInbound", () => {
     expect(outbound.cc).toEqual([]);
     expect(outbound.sentAt).toEqual(1786269442000);
     expect(outbound.receivedAt).toBeNull();
+  });
+});
+
+describe("conversationSubjectLinkQuery", () => {
+  it("only links unfiled threads for the same role and sender", () => {
+    const query = conversationSubjectLinkQuery("group", "walks", "walking weekend 2027", 1_000, "lindsay@example.com");
+    expect(query).toEqual({
+      tenantSlug: "group",
+      roleType: "walks",
+      folder: {$ne: InboxThreadFolder.JUNK},
+      userFolderId: null,
+      normalisedSubject: "walking weekend 2027",
+      lastSeenAt: {$gte: 1_000 - 14 * 24 * 60 * 60 * 1000},
+      "externalAddress.email": "lindsay@example.com"
+    });
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { InboxComponent } from "./inbox.component";
 import { InboxConversationsService } from "../../../services/inbox/inbox-conversations.service";
-import { InboxGroupingMode, InboxThread } from "../../../models/inbox.model";
+import { InboxGroupingMode, InboxThread, InboxThreadFolder } from "../../../models/inbox.model";
 
 function inbox(groupingMode = InboxGroupingMode.CONVERSATIONS): any {
   const instance = Object.create(InboxComponent.prototype);
@@ -17,6 +17,65 @@ function inbox(groupingMode = InboxGroupingMode.CONVERSATIONS): any {
 }
 
 describe("inbox conversation actions", () => {
+  it("moves the keyboard selection with the opened message before filing", async () => {
+    const instance = inbox(InboxGroupingMode.MESSAGES);
+    const threads = instance.threads;
+    Object.defineProperty(instance, "filteredThreads", {get: () => threads});
+    Object.assign(instance, {
+      selectedThreadIds: new Set(["thread-1"]),
+      threadListElement: () => null,
+      currentConversationIndex: () => 0,
+      openThread: vi.fn().mockResolvedValue(null),
+      clearThreadSelection: vi.fn(),
+      refresh: vi.fn().mockResolvedValue(null),
+      userFolders: [{id: "folder-1", name: "Walking break"}],
+      inboxService: {moveThreadsToFolder: vi.fn().mockResolvedValue(null)},
+      stringUtils: {pluraliseWithCount: () => "1 conversation"},
+      notify: {success: vi.fn(), error: vi.fn()}
+    });
+    instance.onThreadListKeydown(new KeyboardEvent("keydown", {key: "ArrowDown"}));
+    expect(instance.openThread).toHaveBeenCalledWith(threads[1]);
+    expect([...instance.selectedThreadIds]).toEqual(["thread-2"]);
+    await instance.moveSelectedToUserFolder("folder-1");
+    expect(instance.inboxService.moveThreadsToFolder).toHaveBeenCalledWith(["thread-2"], "folder-1");
+  });
+
+  it("keeps shift-arrow range selection when extending the selection", () => {
+    const instance = inbox(InboxGroupingMode.MESSAGES);
+    const threads = instance.threads;
+    Object.defineProperty(instance, "filteredThreads", {get: () => threads});
+    Object.assign(instance, {
+      selectedThreadIds: new Set(["thread-1"]),
+      keyboardSelectionAnchorIndex: 0,
+      threadListElement: () => null,
+      currentConversationIndex: () => 0,
+      openThread: vi.fn().mockResolvedValue(null)
+    });
+    instance.onThreadListKeydown(new KeyboardEvent("keydown", {key: "ArrowDown", shiftKey: true}));
+    expect([...instance.selectedThreadIds]).toEqual(["thread-1", "thread-2"]);
+  });
+
+  it("does not file a cancelled drag even when it is over a folder", () => {
+    const instance = inbox(InboxGroupingMode.MESSAGES);
+    Object.assign(instance, {
+      selectedActionIds: () => ["thread-1"],
+      selectedThreadIds: new Set(["thread-1"]),
+      ngZone: {runOutsideAngular: (action: () => void) => action(), run: (action: () => void) => action()},
+      updateFileDropAtPoint: vi.fn(),
+      fileThreadsToFolder: vi.fn(),
+      moveDroppedThreadsToDeleted: vi.fn()
+    });
+    instance.beginRowGesture({pointerId: 1, clientX: 200, clientY: 200}, 0, instance.threads[0], true);
+    instance.fileDragActive = true;
+    instance.fileDropOverFolder = true;
+    instance.fileDropFolderId = "folder-1";
+    document.dispatchEvent(Object.assign(new Event("pointercancel"), {pointerId: 1}));
+    expect(instance.fileThreadsToFolder).not.toHaveBeenCalled();
+    expect(instance.moveDroppedThreadsToDeleted).not.toHaveBeenCalled();
+    expect(instance.fileDragActive).toBe(false);
+    expect(instance.rangeSelectCleanup).toBeNull();
+  });
+
   it("includes every sibling when acting on a grouped conversation", () => {
     const instance = inbox();
     expect(instance.expandThreadIdsForAction(["thread-1"])).toEqual(["thread-1", "thread-2"]);
@@ -105,4 +164,13 @@ describe("inbox conversation actions", () => {
     expect(instance.pendingDelete).toBeNull();
     expect(instance.notify.error).not.toHaveBeenCalled();
   });
+  it("allows folder arrows to leave Drafts while keeping message shortcuts disabled", () => {
+    const instance = inbox();
+    instance.busy = false;
+    instance.selectedMailboxView = InboxThreadFolder.DRAFTS;
+    const event = new KeyboardEvent("keydown", {key: "ArrowDown"});
+    expect(instance.canHandleMailboxShortcut(event, true)).toBe(true);
+    expect(instance.canHandleMailboxShortcut(event)).toBe(false);
+  });
+
 });

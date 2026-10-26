@@ -36,6 +36,7 @@ import {
   InboxThread,
   InboxThreadFolder,
   InboxViewScope,
+  InboxKeyboardRegion,
   InboxMailboxLabelMode,
   InboxGroupingMode,
   InboxReadFilter,
@@ -314,6 +315,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                   <button class="inbox-nav-node" type="button" [class.active]="inboxNodeActive"
                           [class.inbox-nav-drop-target]="dropTargetView === InboxViewScope.ALL_ACCESSIBLE"
                           data-drop-folder="inbox"
+                          [attr.data-mailbox-view]="InboxViewScope.ALL_ACCESSIBLE"
                           (click)="selectMailboxView(InboxViewScope.ALL_ACCESSIBLE)"
                           (dragover)="onFolderDragOver($event, InboxViewScope.ALL_ACCESSIBLE)"
                           (dragleave)="onFolderDragLeave($event, InboxViewScope.ALL_ACCESSIBLE)"
@@ -328,6 +330,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                   @if (aliases.length > 1) {
                     <button class="inbox-nav-node inbox-nav-child" type="button"
                             [class.active]="selectedMailboxView === InboxViewScope.ASSIGNED_ROLES"
+                            [attr.data-mailbox-view]="InboxViewScope.ASSIGNED_ROLES"
                             (click)="selectMailboxView(InboxViewScope.ASSIGNED_ROLES)">
                       <fa-icon [icon]="faUser" class="inbox-nav-node-icon"/>
                       <span class="inbox-nav-label">My mailboxes</span>
@@ -336,6 +339,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                   @for (alias of aliases; track alias.id || alias.roleEmail) {
                     <button class="inbox-nav-node inbox-nav-child" type="button"
                             [class.active]="selectedMailboxView === alias.roleType"
+                            [attr.data-mailbox-view]="alias.roleType"
                             [tooltip]="aliasLabel(alias)"
                             [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
                             (click)="selectMailboxView(alias.roleType)">
@@ -356,6 +360,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                   </button>
                   <button class="inbox-nav-node" type="button"
                           [class.active]="foldersNodeActive"
+                          [attr.data-mailbox-view]="InboxViewScope.FOLDERS"
                           (click)="selectAllFoldersView()"
                           (dragover)="onFoldersParentDragOver($event)">
                     <fa-icon [icon]="faFolder" class="me-2"/><span class="inbox-nav-label">Folders</span>
@@ -403,6 +408,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                       } @else {
                         <button class="inbox-nav-node inbox-nav-child" type="button"
                                 [class.active]="selectedMailboxView === inboxUserFolderView(folder)"
+                                [attr.data-mailbox-view]="inboxUserFolderView(folder)"
                                 [attr.data-drop-folder]="folder.id"
                                 [tooltip]="'Click and hold to rename'"
                                     [placement]="inboxNavTooltipPlacement" container="body" [adaptivePosition]="false"
@@ -452,10 +458,12 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
               </div>
               <div class="inbox-nav-roots">
                 <button class="inbox-nav-node" type="button" [class.active]="viewingSent"
+                        [attr.data-mailbox-view]="InboxThreadFolder.SENT"
                         (click)="selectMailboxView(InboxThreadFolder.SENT)">
                   <fa-icon [icon]="faPaperPlane" class="me-2"/><span class="inbox-nav-label">Sent</span>
                 </button>
                 <button class="inbox-nav-node" type="button" [class.active]="viewingDrafts"
+                        [attr.data-mailbox-view]="InboxThreadFolder.DRAFTS"
                         (click)="selectMailboxView(InboxThreadFolder.DRAFTS)">
                   <fa-icon [icon]="faFileLines" class="me-2"/><span class="inbox-nav-label">Drafts</span>
                   @if (drafts.length > 0) {
@@ -464,6 +472,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                 </button>
                 @if (canReadJunk) {
                   <button class="inbox-nav-node" type="button" [class.active]="viewingJunk"
+                          [attr.data-mailbox-view]="InboxThreadFolder.JUNK"
                           (click)="selectMailboxView(InboxThreadFolder.JUNK)">
                     <fa-icon [icon]="faBan" class="me-2"/><span class="inbox-nav-label">Junk</span>
                   </button>
@@ -471,6 +480,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                 <button class="inbox-nav-node" type="button" [class.active]="viewingDeleted"
                         [class.inbox-nav-drop-target]="dropTargetView === InboxThreadFolder.DELETED"
                         data-drop-folder="deleted"
+                        [attr.data-mailbox-view]="InboxThreadFolder.DELETED"
                         (click)="selectMailboxView(InboxThreadFolder.DELETED)"
                         (dragover)="onFolderDragOver($event, InboxThreadFolder.DELETED)"
                         (dragleave)="onFolderDragLeave($event, InboxThreadFolder.DELETED)"
@@ -1353,13 +1363,14 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectMailboxView(InboxViewScope.FOLDERS);
   }
 
-  selectMailboxView(view: string): void {
+  selectMailboxView(view: string, selectFirstThread = false): void {
     if (view !== this.selectedMailboxView) {
       this.clearThreadSelection();
       this.folderPendingDeleteId = null;
       this.cancelRenameFolder();
     }
     this.selectedMailboxView = view;
+    this.keyboardRegion = InboxKeyboardRegion.FOLDERS;
     if (this.viewingAllFolders || this.viewingUserFolder) {
       this.foldersNodeExpanded = true;
     }
@@ -1367,7 +1378,11 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.layout.mobile) {
       this.layout.mobileShowDetail = false;
     }
-    void this.roleMailboxChanged();
+    void this.roleMailboxChanged().then(() => {
+      if (selectFirstThread) {
+        this.openFirstThreadInList();
+      }
+    });
   }
 
   showMailboxAlert(): void {
@@ -1421,6 +1436,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   public selectedMessages: InboxMessage[] = [];
   public loadingThread = false;
   public selectedMailboxView: string = InboxViewScope.ALL_ACCESSIBLE;
+  private keyboardRegion: InboxKeyboardRegion = InboxKeyboardRegion.MESSAGES;
   public userFolders: InboxUserFolderView[] = [];
   public foldersNodeExpanded = true;
   public creatingFolder = false;
@@ -1527,8 +1543,14 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (event.key === "Escape" && this.selectedThreadIds.size > 0) {
       event.preventDefault();
       this.clearThreadSelection();
-    } else if ((event.key === "Delete" || event.key === "Backspace" || event.key === "ArrowDown" || event.key === "ArrowUp") && this.canHandleMailboxShortcut(event)) {
+    } else if ((event.key === "Delete" || event.key === "Backspace") && this.canHandleMailboxShortcut(event)) {
       this.onThreadListKeydown(event);
+    } else if ((event.key === "ArrowDown" || event.key === "ArrowUp") && this.canHandleMailboxShortcut(event, this.keyboardRegion === InboxKeyboardRegion.FOLDERS)) {
+      if (this.keyboardRegion === InboxKeyboardRegion.FOLDERS) {
+        this.onFolderNavKeydown(event);
+      } else {
+        this.onThreadListKeydown(event);
+      }
     }
   }
 
@@ -1618,6 +1640,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         this.selectedThreadIds.add(this.threadRowKey(thread));
         this.keyboardSelectionAnchorIndex = index >= 0 ? index : null;
       }
+      this.keyboardRegion = InboxKeyboardRegion.MESSAGES;
       void this.openThread(thread);
       this.focusThreadList();
     }
@@ -1752,13 +1775,18 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
           });
         }
       };
+      const cancel = (cancelEvent: PointerEvent) => {
+        if (cancelEvent.pointerId === this.rangeSelectPointerId) {
+          this.ngZone.run(() => this.stopRangeSelect(false));
+        }
+      };
       document.addEventListener("pointermove", move, true);
       document.addEventListener("pointerup", up, true);
-      document.addEventListener("pointercancel", up, true);
+      document.addEventListener("pointercancel", cancel, true);
       this.rangeSelectCleanup = () => {
         document.removeEventListener("pointermove", move, true);
         document.removeEventListener("pointerup", up, true);
-        document.removeEventListener("pointercancel", up, true);
+        document.removeEventListener("pointercancel", cancel, true);
       };
     });
   }
@@ -2262,31 +2290,43 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${this.threadIdOf(thread)}${thread.sentMessageId ?? ""}`;
   }
 
+  private withSentFocus(thread: InboxThread): InboxThread {
+    if (this.viewingSent && this.sentFocusMessageId) {
+      return {...thread, sentMessageId: this.sentFocusMessageId};
+    } else {
+      return thread;
+    }
+  }
+
   unreadForRole(roleType: string): number {
     return this.unreadByRole.get(roleType) ?? 0;
   }
 
   threadRowActive(thread: InboxThread): boolean {
-    if (this.selectedThread) {
-      return this.threadRowKey(thread) === this.threadRowKey(this.selectedThread);
+    const selectedId = this.selectedThread ? this.threadIdOf(this.selectedThread) : this.selectedThreadId;
+    if (!selectedId) {
+      return false;
+    } else if (this.viewingSent) {
+      return this.threadIdOf(thread) === selectedId
+        && (thread.sentMessageId ?? null) === this.sentFocusMessageId;
+    } else if (this.threadIdOf(thread) === selectedId) {
+      return true;
+    } else if (this.layout.groupingMode === InboxGroupingMode.CONVERSATIONS) {
+      return this.siblingConversationThreads(thread).some(sibling => this.threadIdOf(sibling) === selectedId);
     } else {
-      return this.threadIdOf(thread) === this.selectedThreadId
-        && (!this.viewingSent || (thread.sentMessageId ?? null) === this.sentFocusMessageId);
+      return false;
     }
   }
 
   siblingConversationThreads(thread: InboxThread): InboxThread[] {
-    return this.conversations.siblingConversationThreads(thread);
+    const groupSentCopies = this.viewingSent && this.layout.groupingMode === InboxGroupingMode.CONVERSATIONS;
+    return this.conversations.siblingConversationThreads(thread, groupSentCopies);
   }
 
 
 
   private invalidateFilteredThreads(): void {
     this.filteredThreadsDirty = true;
-  }
-
-  private representativeThread(threads: InboxThread[]): InboxThread {
-    return this.conversations.representativeThread(threads);
   }
 
   private conversationRepresentatives(threads: InboxThread[]): InboxThread[] {
@@ -2750,6 +2790,11 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
           this.selectThreadRange(anchor, nextIndex);
         } else {
           this.keyboardSelectionAnchorIndex = nextIndex;
+          if (nextThread) {
+            this.selectedThreadIds.clear();
+            this.allAvailableSelected = false;
+            this.selectedThreadIds.add(this.threadRowKey(nextThread));
+          }
         }
         if (nextThread && (currentIndex === -1 || this.threadRowKey(nextThread) !== this.threadRowKey(list[currentIndex]))) {
           void this.openThread(nextThread).then(() => {
@@ -2762,8 +2807,67 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private canHandleMailboxShortcut(event: KeyboardEvent): boolean {
-    if (this.busy || this.viewingDrafts || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
+  private folderNavViews(): string[] {
+    const views: string[] = [InboxViewScope.ALL_ACCESSIBLE];
+    if (this.inboxNodeExpanded) {
+      if (this.aliases.length > 1) {
+        views.push(InboxViewScope.ASSIGNED_ROLES);
+      }
+      this.aliases.forEach(alias => views.push(alias.roleType));
+    }
+    views.push(InboxViewScope.FOLDERS);
+    if (this.foldersNodeExpanded) {
+      this.userFolders.forEach(folder => views.push(inboxUserFolderView(folder)));
+    }
+    views.push(InboxThreadFolder.SENT, InboxThreadFolder.DRAFTS);
+    if (this.canReadJunk) {
+      views.push(InboxThreadFolder.JUNK);
+    }
+    views.push(InboxThreadFolder.DELETED);
+    return views;
+  }
+
+  private onFolderNavKeydown(event: KeyboardEvent): void {
+    const views = this.folderNavViews();
+    if (views.length === 0) {
+      return;
+    } else {
+      event.preventDefault();
+      const currentIndex = views.indexOf(this.selectedMailboxView);
+      const nextIndex = currentIndex === -1
+        ? (event.key === "ArrowDown" ? 0 : views.length - 1)
+        : Math.min(views.length - 1, Math.max(0, currentIndex + (event.key === "ArrowDown" ? 1 : -1)));
+      const nextView = views[nextIndex];
+      if (nextView && nextView !== this.selectedMailboxView) {
+        this.selectMailboxView(nextView, true);
+        this.focusFolderNavButton(nextView);
+      }
+    }
+  }
+
+  private focusFolderNavButton(view: string): void {
+    if (!isUndefined(window)) {
+      window.requestAnimationFrame(() => {
+        const button = window.document.querySelector<HTMLButtonElement>(`.inbox-nav-tree [data-mailbox-view="${CSS.escape(view)}"]`);
+        button?.focus({preventScroll: true});
+        button?.scrollIntoView({block: "nearest"});
+      });
+    }
+  }
+
+  private openFirstThreadInList(): void {
+    const first = this.filteredThreads[0] ?? null;
+    if (first) {
+      this.selectedThreadIds.clear();
+      this.allAvailableSelected = false;
+      this.selectedThreadIds.add(this.threadRowKey(first));
+      this.keyboardSelectionAnchorIndex = 0;
+      void this.openThread(first);
+    }
+  }
+
+  private canHandleMailboxShortcut(event: KeyboardEvent, navigatingFolders = false): boolean {
+    if (this.busy || (this.viewingDrafts && !navigatingFolders) || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
       return false;
     } else {
       const target = event.target;
@@ -2850,13 +2954,12 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   async openThread(thread: InboxThread, markRead = true): Promise<void> {
     this.sentFocusMessageId = this.viewingSent ? thread.sentMessageId ?? null : null;
     const siblings = uniqBy(this.siblingConversationThreads(thread), sibling => this.threadIdOf(sibling));
-    const keepOpenedRow = this.viewingSent || this.layout.groupingMode === InboxGroupingMode.MESSAGES;
-    const representative = keepOpenedRow ? thread : this.representativeThread(siblings);
+    const representative = thread;
     const threadId = this.threadIdOf(representative);
     const requestId = this.openThreadRequestId + 1;
     this.openThreadRequestId = requestId;
     this.selectedThreadId = threadId;
-    this.selectedThread = representative;
+    this.selectedThread = this.withSentFocus(representative);
     if (this.layout.mobile && (markRead || this.readingOnMobile)) {
       this.layout.mobileShowDetail = true;
       this.layout.mobileFiltersOpen = false;
@@ -2875,14 +2978,19 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
       const representativeResponse = responses.find(response => this.threadIdOf(response.thread) === threadId) ?? responses[0];
-      this.selectedThread = representativeResponse.thread;
+      this.selectedThread = this.withSentFocus(representativeResponse.thread);
       responses.forEach(response => {
         const listed = siblings.find(sibling => this.threadIdOf(sibling) === this.threadIdOf(response.thread));
         if (listed) {
           listed.externalAddress = response.thread.externalAddress;
         }
       });
-      this.selectedMessages = collapseInboxSends(responses.flatMap(response => response.messages));
+      const loadedMessages = collapseInboxSends(responses.flatMap(response => response.messages));
+      this.selectedMessages = this.viewingSent
+        && this.layout.groupingMode === InboxGroupingMode.MESSAGES
+        && this.sentFocusMessageId
+        ? loadedMessages.filter(message => message.messageId === this.sentFocusMessageId)
+        : loadedMessages;
       this.rebuildDisplayMessages();
       this.alignOutboundThreadCounterparty();
       const newestMessage = this.selectedMessages.length

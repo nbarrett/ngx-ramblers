@@ -30,5 +30,19 @@ describe("inbox conversation grouping", () => {
     service.index(threads);
     expect(service.conversationRepresentatives(threads, InboxGroupingMode.CONVERSATIONS, true)).toEqual([threads[0]]);
     expect(service.conversationRepresentatives(threads, InboxGroupingMode.CONVERSATIONS, false)).toEqual(threads);
+    expect(service.siblingConversationThreads(threads[0], true)).toEqual(threads);
+    expect(service.siblingConversationThreads(threads[0], false)).toEqual([threads[0]]);
+  });
+
+  it("does not mix other sent copies into a Messages-mode row", () => {
+    const service = new InboxConversationsService();
+    const threads = [
+      {...first, id: "sent-1", conversationKey: null, normalisedSubject: "mobile trial"},
+      {...latest, id: "sent-2", conversationKey: null, normalisedSubject: "mobile trial"}
+    ];
+    service.index(threads);
+    expect(service.conversationRepresentatives(threads, InboxGroupingMode.MESSAGES, true)).toEqual(threads);
+    expect(service.siblingConversationThreads(threads[0], false)).toEqual([threads[0]]);
+    expect(service.siblingConversationThreads(threads[0], true)).toEqual(threads);
   });
 });
