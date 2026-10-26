@@ -19,7 +19,7 @@ import { ListSubscriberCountComponent } from "../mail/list-subscriber-count";
 import { interpretRecipientDraft, isValidEmailAddress } from "../../../functions/email-addresses";
 import { committeeAudienceChipQualifier, combinedMemberChipQualifier } from "../../../functions/member-chip-qualifier";
 import { MemberBulkLoadDateMap } from "../../../models/member.model";
-import { composerMemberIdentityRecipients, composerRecipientFromMember, composerRecipientFromSuggestion, composerRecipientIsExpandableSet, composerRecipientIsSamePerson, composerRecipientLacksMarketingConsent, composerRecipientMatchesQuery, composerSuggestionShowsEmail } from "../../../functions/email-composer";
+import { composerMemberIdentityRecipients, composerRecipientFromMember, composerRecipientFromSuggestion, composerRecipientIsExpandableSet, composerRecipientIsSamePerson, composerRecipientLacksMarketingConsent, composerRecipientMatchesQuery, composerShouldKeepRecipientQuery, composerSuggestionShowsEmail } from "../../../functions/email-composer";
 
 @Component({
   selector: "app-recipient-field",
@@ -891,7 +891,9 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
       if (!this.valueFor(field).some(item => composerRecipientIsSamePerson(item, entry))) {
         this.emit(field, [...this.valueFor(field), entry]);
       }
-      this.draft[field] = "";
+      if (!this.shouldKeepQueryAfterChoice(field, entry)) {
+        this.draft[field] = "";
+      }
       this.error[field] = null;
       this.activeField = field;
       this.suggestionsSuppressed = false;
@@ -917,6 +919,17 @@ export class RecipientFieldComponent implements OnChanges, OnDestroy {
     return source
       .filter(item => !chosen.some(existing => composerRecipientIsSamePerson(existing, item)))
       .filter(item => composerRecipientMatchesQuery(item, query));
+  }
+
+  private shouldKeepQueryAfterChoice(field: RecipientField, chosenEntry: ComposerExternalRecipient): boolean {
+    const query = this.draft[field] || "";
+    const chosen = [...this.to, ...this.cc, ...this.bcc, chosenEntry];
+    const remaining = [
+      ...this.cachedMemberEntries,
+      ...this.savedRecipients
+    ].filter(item => !chosen.some(existing => composerRecipientIsSamePerson(existing, item)))
+      .filter(item => composerRecipientMatchesQuery(item, query)).length;
+    return composerShouldKeepRecipientQuery(query, remaining);
   }
 
   private refreshVisibleSuggestions(): void {

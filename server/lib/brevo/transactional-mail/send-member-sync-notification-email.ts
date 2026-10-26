@@ -24,6 +24,7 @@ import { configuredBrevo } from "../brevo-config";
 import { notificationConfig } from "../../mongo/models/notification-config";
 import { AdminProfilePath } from "../../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
 import { appliedFromHeadOfficeHelpHtml } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-account.model";
+import { joinNotificationSubject } from "../../../../projects/ngx-ramblers/src/app/functions/notification-subject";
 
 const messageType = "brevo:send-member-sync-notification-email";
 const debugLog: debug.Debugger = debug(envConfig.logNamespace(messageType));
@@ -59,7 +60,7 @@ function buildSubject(notifConfig: NotificationConfig, params: any): string {
     parameter ? parameter.split(".").reduce((value: any, key: string) => value?.[key], params) : null;
   const prefix = resolveParameter(notifConfig.subject?.prefixParameter);
   const suffix = resolveParameter(notifConfig.subject?.suffixParameter);
-  return [prefix, notifConfig.subject?.text, suffix].filter(item => item).join(" - ");
+  return joinNotificationSubject([prefix, notifConfig.subject?.text, suffix]);
 }
 
 function buildBodyHtml(notifications: MemberSyncNotification[], contactDetailsUrl: string): string {

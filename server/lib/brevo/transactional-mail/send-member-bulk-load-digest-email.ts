@@ -11,6 +11,7 @@ import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/b
 import { banner } from "../../mongo/models/banner";
 import { MemberBulkLoadDigest, MemberBulkLoadDigestEmail, MemberBulkLoadDigestPreview } from "../../../../projects/ngx-ramblers/src/app/models/member.model";
 import { memberBulkLoadDigestHtml } from "../../../../projects/ngx-ramblers/src/app/functions/member-bulk-load-digest";
+import { joinNotificationSubject } from "../../../../projects/ngx-ramblers/src/app/functions/notification-subject";
 import { sendTransactionalEmailRequest } from "./send-transactional-mail";
 import { signoffHtmlForConfig } from "./signoff-names";
 import { logBrevoError } from "../common/error-log";
@@ -54,7 +55,7 @@ export function buildSubject(notifConfig: NotificationConfig, params: Record<str
     parameter ? parameter.split(".").reduce((value: any, key: string) => value?.[key], params) : null;
   const prefix = resolveParameter(notifConfig.subject?.prefixParameter);
   const suffix = resolveParameter(notifConfig.subject?.suffixParameter);
-  return [prefix, notifConfig.subject?.text, suffix].filter(item => item).join(" - ");
+  return joinNotificationSubject([prefix, notifConfig.subject?.text, suffix]);
 }
 
 async function memberBulkLoadDigestEmailRequest(digest: MemberBulkLoadDigest): Promise<MemberBulkLoadDigestEmail> {

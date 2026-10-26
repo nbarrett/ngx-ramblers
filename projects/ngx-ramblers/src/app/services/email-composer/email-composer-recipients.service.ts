@@ -766,13 +766,13 @@ export class EmailComposerRecipientsService {
                 }
                 else if (config.defaultMemberSelection === MemberSelection.MAILING_LIST) {
                     this.session.state.recipientMode = RecipientMode.ENTIRE_LIST;
-                    this.session.state.sendingChannel = SendingChannel.CAMPAIGN;
                     this.session.state.preFilterKey = null;
                     if (isNumber(config.defaultListId)) {
                         this.session.state.selectedListId = config.defaultListId;
                     }
                     this.session.state.selectedMemberIds = [];
                     this.applyDefaultListIfNeeded();
+                    this.syncSendingChannel();
                 }
                 else {
                     this.session.state.recipientMode = RecipientMode.SELECTED_MEMBERS;

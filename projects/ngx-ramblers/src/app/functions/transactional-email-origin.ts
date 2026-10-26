@@ -2,10 +2,13 @@ import {
   BrevoTransactionalEmailSummary,
   TransactionalEmailOrigin
 } from "../models/mail.model";
+import { notificationSubjectAffixDelimiter } from "./notification-subject";
 
 export function subjectStemFromTransactional(subject: string): string {
-  const parts = (subject || "").split(" - ").map(part => part.trim()).filter(part => part.length > 0);
-  return parts.length >= 3 ? parts.slice(0, -1).join(" - ") : (subject || "").trim();
+  const text = subject || "";
+  const delimiter = notificationSubjectAffixDelimiter(text);
+  const parts = text.split(delimiter).map(part => part.trim()).filter(part => part.length > 0);
+  return parts.length >= 3 ? parts.slice(0, -1).join(delimiter).trim() : text.trim();
 }
 
 export function transactionalOriginLabel(origin: TransactionalEmailOrigin): string {

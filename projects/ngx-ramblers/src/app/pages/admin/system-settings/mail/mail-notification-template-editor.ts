@@ -466,40 +466,38 @@ import { DurationPickerComponent } from "../../../../modules/common/duration-pic
                       }
                     </div>
                   </div>
-                  @if (notificationConfig.defaultMemberSelection !== MemberSelection.MAILING_LIST) {
-                    <div class="row">
-                      <div class="col-sm-6">
-                        <div class="form-group">
-                          <label for="pre-send-action">
-                            Pre-Send Action</label>
-                          <select [compareWith]="arrayComparer" class="form-control input-sm"
-                                  [(ngModel)]="notificationConfig.preSendActions"
-                                  id="pre-send-action">
-                            @for (type of workflowActions; track type.key) {
-                              <option
-                                [ngValue]="workflowActionValue(type.key)">{{ stringUtils.asTitle(type.value) }}
-                              </option>
-                            }
-                          </select>
-                        </div>
-                      </div>
-                      <div class="col-sm-6">
-                        <div class="form-group">
-                          <label for="post-send-action">
-                            Post-Send Action</label>
-                          <select [compareWith]="arrayComparer" class="form-control input-sm"
-                                  [(ngModel)]="notificationConfig.postSendActions"
-                                  id="post-send-action">
-                            @for (type of workflowActions; track type.key) {
-                              <option
-                                [ngValue]="workflowActionValue(type.key)">{{ stringUtils.asTitle(type.value) }}
-                              </option>
-                            }
-                          </select>
-                        </div>
+                  <div class="row">
+                    <div class="col-sm-6">
+                      <div class="form-group">
+                        <label for="pre-send-action">
+                          Pre-Send Action</label>
+                        <select [compareWith]="arrayComparer" class="form-control input-sm"
+                                [(ngModel)]="notificationConfig.preSendActions"
+                                id="pre-send-action">
+                          @for (type of workflowActions; track type.key) {
+                            <option
+                              [ngValue]="workflowActionValue(type.key)">{{ stringUtils.asTitle(type.value) }}
+                            </option>
+                          }
+                        </select>
                       </div>
                     </div>
-                  }
+                    <div class="col-sm-6">
+                      <div class="form-group">
+                        <label for="post-send-action">
+                          Post-Send Action</label>
+                        <select [compareWith]="arrayComparer" class="form-control input-sm"
+                                [(ngModel)]="notificationConfig.postSendActions"
+                                id="post-send-action">
+                          @for (type of workflowActions; track type.key) {
+                            <option
+                              [ngValue]="workflowActionValue(type.key)">{{ stringUtils.asTitle(type.value) }}
+                            </option>
+                          }
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 }
                 @if (!isWorkflowConfig) {
                   <div class="row">
