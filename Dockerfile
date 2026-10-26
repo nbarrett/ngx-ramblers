@@ -93,7 +93,7 @@ CMD ["npm", "run", "server", "--prefix", "server"]
 # =============================================================================
 # Worker stage (Ramblers upload worker - Serenity/JS Playwright base)
 # =============================================================================
-FROM --platform=linux/amd64 ghcr.io/serenity-js/playwright:v1.60.0-noble AS worker
+FROM --platform=linux/amd64 ghcr.io/serenity-js/playwright:v1.62.1-resolute AS worker
 
 ARG NODE_VERSION=24.14.0
 ARG NPM_VERSION=11.9.0
@@ -132,6 +132,7 @@ WORKDIR /usr/src/app/server
 COPY server/package*.json ./
 
 RUN npm ci --ignore-scripts
+RUN npx playwright install chromium
 
 COPY server /usr/src/app/server
 
