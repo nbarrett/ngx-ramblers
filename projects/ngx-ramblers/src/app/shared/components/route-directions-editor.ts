@@ -128,22 +128,6 @@ import { RouteStepControls } from "./route-step-controls";
                                    [editing]="editing" [editingNow]="editing"
                                    (guideEdit)="beginEdit()" (guideTextChange)="onTextChange()" (addStep)="addAfter($event)" (removeStep)="remove($event)"
                                    (stepSelect)="select($event)" (previous)="previous()" (next)="next()" (fullScreen)="fullScreen.emit()"/>
-          } @else if (chrome === RouteDirectionsChrome.VIEW) {
-            <div class="alert alert-warning d-flex align-items-start mb-0">
-              <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1 me-2"/>
-              <div class="route-alert-copy">
-                <strong class="d-block">{{ emptyTitle }}</strong>
-                <p class="mb-0">{{ emptyBody }}</p>
-              </div>
-            </div>
-          } @else if (!generating && showToolbar) {
-            <div class="alert alert-warning d-flex align-items-start mb-0">
-              <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0 mt-1 me-2"/>
-              <div class="route-alert-copy">
-                <strong class="d-block">No directions yet</strong>
-                <p class="mb-0">Generate directions reads the shape of the route to find every turn and names the roads and paths where OpenStreetMap knows them. Each direction is a draft to check here, then save {{ saveLabel }} to keep them.</p>
-              </div>
-            </div>
           }
         </div>
       }
@@ -164,8 +148,6 @@ export class RouteDirectionsEditor {
   @Input() saveLabel = "the route";
   @Input() missingTitle = "Save the route first";
   @Input() missingBody = "Directions are generated from the saved GPX file, then kept on this route.";
-  @Input() emptyTitle = "No directions yet";
-  @Input() emptyBody = "Choose Edit, then Generate directions.";
   @Input() writtenDirections: string[] = [];
   @Input() chrome: RouteDirectionsChrome = RouteDirectionsChrome.PANEL;
   @Input() panelHeight = 280;

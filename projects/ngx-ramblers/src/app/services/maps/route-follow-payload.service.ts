@@ -240,7 +240,7 @@ export class RouteFollowPayloadService {
         walkId: null,
         routeId: route?.id || null,
         ramblersSlug: null,
-        osMapsRouteId: null,
+        osMapsRouteId: route?.osMapsRouteId || null,
         provider: map.provider || MapProvider.OS,
         osStyle: map.osStyle || DEFAULT_OS_STYLE,
         color: route?.color || PaletteColor.ROSE,
@@ -301,13 +301,12 @@ export class RouteFollowPayloadService {
         ? await this.loadGpx(walk.fields.gpxFile)
         : {points: [] as RouteFollowPoint[], waypoints: [] as RouteFollowWaypoint[], totalMetres: 0};
       const authored = walk.fields?.routeWaypoints || [];
-      const planningMarkers = !this.walkHasGpx(walk)
-        ? markersSyncedWithLocation(authored, {
+      const waypoints = !this.walkHasGpx(walk)
+        ? this.planningWaypointsFromLocation(authored, {
           start: walk.groupEvent?.start_location,
           end: walk.groupEvent?.end_location
         })
-        : authored;
-      const waypoints = this.mergeWaypoints(planningMarkers, parsed.waypoints);
+        : this.mergeWaypoints(authored, parsed.waypoints);
       return {
         ...walk.fields?.gpxFile,
         source: RouteFollowSource.WALK,
@@ -354,6 +353,10 @@ export class RouteFollowPayloadService {
         return this.urlService.resourceRelativePathForAWSFileName(filePath) || null;
       }
     }
+  }
+
+  planningWaypointsFromLocation(authored: MapMarker[], location: {start?: Partial<LocationDetails> | null; end?: Partial<LocationDetails> | null}): RouteFollowWaypoint[] {
+    return this.mergeWaypoints(markersSyncedWithLocation(authored, location), []);
   }
 
   waypointFromMarker(marker: MapMarker, index: number): RouteFollowWaypoint {

@@ -11,7 +11,7 @@ import os from "os";
 import { envConfig } from "../env-config/env-config";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
 import { EPSG_27700_PROJ4, MapProjectionCode } from "../../../projects/ngx-ramblers/src/app/common/maps/map-projection.constants";
-import { MapRouteImportMarker, MapRouteImportResponse } from "../../../projects/ngx-ramblers/src/app/models/map-route-import.model";
+import { MapRouteImportGroupedFile, MapRouteImportMarker, MapRouteImportResponse } from "../../../projects/ngx-ramblers/src/app/models/map-route-import.model";
 import {
   AwsInfo,
   AwsUploadErrorResponse,
@@ -21,6 +21,7 @@ import { generateUid } from "../shared/string-utils";
 import { putObjectDirect } from "../aws/aws-controllers";
 import { isAwsUploadErrorResponse } from "../aws/aws-utils";
 import { toPairs, isString, keys } from "es-toolkit/compat";
+import { saveFileImportedGpx } from "../os-maps/os-maps-imported-route-store";
 
 const debugLog = debug(envConfig.logNamespace("map-route-import"));
 debugLog.enabled = true;
@@ -58,7 +59,7 @@ export async function importEsriRoute(req: Request, res: Response) {
     const markers = markersFromPointFeatures(geoJson.features, projection);
     debugLog("importEsriRoute: extracted point markers:", markers.length);
 
-    const gpxFiles: {type: string; count: number; file: ServerFileNameData}[] = [];
+    const gpxFiles: MapRouteImportGroupedFile[] = [];
 
     for (const [statusDesc, features] of toPairs(grouped)) {
       const lineFeatures = features.filter(f => f.geometry && !isPointGeometry(f.geometry));
@@ -80,11 +81,13 @@ export async function importEsriRoute(req: Request, res: Response) {
 
       const gpxFile = await uploadGeneratedGpx(routeName, gpxContent);
       debugLog(`importEsriRoute: uploaded GPX for ${statusDesc}:`, gpxFile);
+      const library = await saveFileImportedGpx({...gpxFile, title: routeName});
 
       gpxFiles.push({
         type: statusDesc,
         count: lineFeatures.length,
-        file: gpxFile
+        file: gpxFile,
+        routeId: library.routeId
       });
     }
 

@@ -1,3 +1,4 @@
+import { PageContent, PageContentType } from "../../models/content-text.model";
 import { TestBed } from "@angular/core/testing";
 import { provideHttpClient } from "@angular/common/http";
 import { provideHttpClientTesting } from "@angular/common/http/testing";
@@ -228,4 +229,37 @@ describe("RouteFollowSaveService", () => {
     expect(uploadArgs[1]).toBe("Hillside trail");
     expect(savedImported[savedImported.length - 1].gpxFile?.title).toBe("Hillside trail");
   });
+  it("updates the library and retains page markers and styling on a linked route", async () => {
+    const row = {type: PageContentType.MAP, map: {routes: [{id: "route-one", osMapsRouteId: "library-one", gpxFile: {awsFileName: "old.gpx"}}]}};
+    const page = {path: "routes/hillside", rows: [row]} as PageContent;
+    const pages = TestBed.inject(PageContentService);
+    vi.spyOn(pages, "findByPath").mockResolvedValue(page);
+    const savedPage = vi.spyOn(pages, "createOrUpdate");
+    const payload = {...TestBed.inject(RouteFollowPayloadService).recordingPayload("fictional"),
+      source: RouteFollowSource.PAGE, path: page.path, routeId: "route-one", osMapsRouteId: "library-one",
+      title: "Hillside Park", color: "#123456", waypoints: [{id: "turn-one", latitude: 51, longitude: 0, label: "Gate"}]};
+    const imports = walkGpx.importGpxFile.mock.calls.length;
+    await service.save(payload, [{latitude: 51, longitude: 0}, {latitude: 51.01, longitude: 0.01}]);
+    expect(walkGpx.importGpxFile.mock.calls.length).toBe(imports);
+    expect(osMapsExport.saveImportedRoute).toHaveBeenLastCalledWith("library-one", expect.objectContaining({waypoints: payload.waypoints}));
+    expect(savedPage).toHaveBeenCalledWith(page);
+    expect(row.map.routes[0]).toEqual(expect.objectContaining({color: "#123456", osMapsRouteId: "library-one"}));
+    expect(page.rows[0].map.markers).toEqual(payload.waypoints);
+  });
+
+  it("reuses the library link on repeated saves from a previously unlinked page", async () => {
+    const page = {path: "routes/hillside", rows: [{type: PageContentType.MAP, map: {routes: [{id: "route-one", gpxFile: {awsFileName: "old.gpx"}}]}}]} as PageContent;
+    const pages = TestBed.inject(PageContentService);
+    vi.spyOn(pages, "findByPath").mockResolvedValue(page);
+    const payload = {...TestBed.inject(RouteFollowPayloadService).recordingPayload("fictional"),
+      source: RouteFollowSource.PAGE, path: page.path, routeId: "route-one", title: "Hillside Park"};
+    const imports = walkGpx.importGpxFile.mock.calls.length;
+    const points = [{latitude: 51, longitude: 0}, {latitude: 51.01, longitude: 0.01}];
+    const saved = await service.save(payload, points);
+    expect(saved.awsFileName).toBe("saved.gpx");
+    await service.save(payload, points);
+    expect(walkGpx.importGpxFile.mock.calls.length).toBe(imports + 1);
+    expect(page.rows[0].map.routes[0].osMapsRouteId).toBe("recording-fictional-id");
+  });
+
 });

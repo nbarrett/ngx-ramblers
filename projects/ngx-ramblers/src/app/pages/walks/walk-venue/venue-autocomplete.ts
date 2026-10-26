@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewChild } from "@angular/core";
+import { booleanAttribute, Component, EventEmitter, inject, Input, OnDestroy, OnInit, Output, ViewChild } from "@angular/core";
 import { AsyncPipe, DecimalPipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { NgLabelTemplateDirective, NgOptionTemplateDirective, NgHeaderTemplateDirective, NgSelectComponent } from "@ng-select/ng-select";
@@ -43,7 +43,9 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
       (ngModelChange)="onVenueSelected($event)"
       [inputAttrs]="{ autocomplete: 'one-time-code', 'data-lpignore': 'true', 'data-form-type': 'other' }">
       <ng-template ng-label-tmp let-item="item">
-        <fa-icon [icon]="item.type | toVenueIcon" class="colour-mintcake me-2"></fa-icon>
+        @if (!hideSelectedIcon) {
+          <fa-icon [icon]="item.type | toVenueIcon" class="colour-mintcake me-2"></fa-icon>
+        }
         <span>{{ venueLabel(item) }}</span>
       </ng-template>
       <ng-template ng-option-tmp let-item="item">
@@ -76,7 +78,9 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
     } @else if (showSelectionHint && selectedVenue) {
       <small class="form-text text-muted">Edit this text to search again, then choose a replacement result.</small>
     }
-    <app-place-name-choice [choice]="placeNameChoice" (keep)="keepTypedPlaceName()" (useResult)="useResultPlaceName()"/>
+    @if (!skipPlaceNameChoice) {
+      <app-place-name-choice [choice]="placeNameChoice" (keep)="keepTypedPlaceName()" (useResult)="useResultPlaceName()"/>
+    }
   `,
   styles: [`
     :host ::ng-deep .ng-select .ng-value-container
@@ -143,7 +147,10 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
   @Input() disabled = false;
   @Input() clearable = true;
   @Input() minTermLength = 2;
+  @Input({transform: booleanAttribute}) skipPlaceNameChoice = false;
+  @Input({transform: booleanAttribute}) hideSelectedIcon = false;
   @Input() startingPoint: { latitude: number; longitude: number } | null = null;
+  @Input({transform: booleanAttribute}) placesOnly = false;
   @Input() set initialVenue(venue: Partial<VenueWithUsageStats> | null) {
     if (venue?.name) {
       this.applyingInitial = true;
@@ -158,7 +165,7 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
       }, 0);
     }
   }
-  @Output() venueSelected = new EventEmitter<VenueWithUsageStats>();
+  @Output() venueSelected = new EventEmitter<VenueWithUsageStats | null>();
 
   venueInput$ = new Subject<string>();
   venueSuggestions$!: Observable<VenueWithDistance[]>;
@@ -217,6 +224,27 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
         }
         return this.venueService.venues().pipe(
           switchMap(venues => {
+            if (this.placesOnly) {
+              if (!term || term.length < Math.max(this.minTermLength, 3)) {
+                return of([] as VenueWithUsageStats[]);
+              } else if (UK_POSTCODE_PATTERN.test(term.trim())) {
+                return from(this.addressQueryService.gridReferenceLookup(term)).pipe(
+                  map(response => {
+                    const fromPostcode = this.venueFromPostcodeLookup(response, term);
+                    return fromPostcode ? [fromPostcode] : [];
+                  }),
+                  catchError(() => of([] as VenueWithUsageStats[]))
+                );
+              } else {
+                return from(this.addressQueryService.venueSearch(term)).pipe(
+                  map(googleResults => googleResults.map(r => this.mapGoogleResultToVenue(r))),
+                  catchError(err => {
+                    this.logger.error("Google Places search failed:", err);
+                    return of([] as VenueWithUsageStats[]);
+                  })
+                );
+              }
+            }
             let storedResults: VenueWithUsageStats[];
             if (!term || term.length < this.minTermLength) {
               storedResults = [...venues];
@@ -295,7 +323,8 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
       type: result.type || VenueTypeValue.OTHER,
       usageCount: 0,
       source: VenueSource.GOOGLE,
-      distance: this.calculateDistanceFromLatLon(result.lat, result.lon)
+      distance: this.calculateDistanceFromLatLon(result.lat, result.lon),
+      viewport: result.viewport || null
     } as VenueWithDistance;
   }
 
@@ -369,13 +398,17 @@ export class VenueAutocompleteComponent implements OnInit, OnDestroy {
   }
 
   onVenueSelected(venue: VenueWithUsageStats | null) {
-    if (venue && !this.applyingInitial) {
+    if (!venue) {
+      this.selectedVenue = null;
+      this.placeNameChoice = null;
+      this.venueSelected.emit(null);
+    } else if (!this.applyingInitial) {
       this.selectionRequired = false;
       const enteredName = this.preservedSearchText();
       if (enteredName) {
         venue.enteredName = enteredName;
         venue.ngSelectLabel = enteredName;
-        this.placeNameChoice = placeNameChoiceFor(enteredName, venue);
+        this.placeNameChoice = this.skipPlaceNameChoice ? null : placeNameChoiceFor(enteredName, venue);
       } else {
         this.placeNameChoice = null;
       }

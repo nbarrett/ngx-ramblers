@@ -8,10 +8,13 @@ export enum VenueTypeValue {
   RESTAURANT = "restaurant",
   HALL = "hall",
   CHURCH = "church",
+  COUNTRY = "country",
+  COUNTY = "county",
   PUB = "pub",
   STATION = "station",
   POINT_OF_INTEREST = "point of interest",
   LOCATION = "location",
+  TOWN = "town",
   OTHER = "other"
 }
 
@@ -25,8 +28,25 @@ export const VENUE_TYPE_TERMS: Record<VenueTypeValue, string[]> = {
   [VenueTypeValue.STATION]: ["station", "railway", "rail", "train", "metro", "underground", "tube"],
   [VenueTypeValue.POINT_OF_INTEREST]: ["viewpoint", "monument", "memorial", "landmark", "attraction", "museum", "gallery", "castle", "ruins", "bridge"],
   [VenueTypeValue.LOCATION]: ["green", "common", "square", "crossroads", "junction", "corner", "gate", "woods", "forest", "park", "field", "meadow"],
+  [VenueTypeValue.COUNTRY]: [],
+  [VenueTypeValue.COUNTY]: [],
+  [VenueTypeValue.TOWN]: [],
   [VenueTypeValue.OTHER]: []
 };
+
+export function mapZoomForVenueType(type: string | null | undefined): number {
+  if (type === VenueTypeValue.COUNTRY) {
+    return 6;
+  } else if (type === VenueTypeValue.COUNTY) {
+    return 7;
+  } else if (type === VenueTypeValue.TOWN) {
+    return 11;
+  } else if (type === VenueTypeValue.LOCATION) {
+    return 13;
+  } else {
+    return 14;
+  }
+}
 
 const WORD_BOUNDARY_TERMS = new Set(["church", "chapel", "abbey", "cathedral", "priory", "minster", "hall", "inn", "pub", "oak", "head", "bell", "crown", "swan", "bull", "lion", "rose", "anchor", "fox", "bear", "eagle", "robin", "horse", "hare", "stag", "hart", "dog", "cock", "hen", "pheasant", "falcon", "hawk", "raven", "magpie", "pig", "boar", "lamb", "sheep", "goat", "badger", "otter", "deer", "buck", "elephant", "parrot", "dolphin", "hook", "hatchet", "chequers", "windmill", "vineyard", "angel", "duke", "bedford", "ale", "beer"]);
 
@@ -61,6 +81,14 @@ export interface Venue {
   lat?: number;
   lon?: number;
   url?: string;
+  viewport?: PlaceViewport;
+}
+
+export interface PlaceViewport {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
 }
 
 export interface PlaceNameChoice {

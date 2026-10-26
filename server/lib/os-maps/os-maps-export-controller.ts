@@ -18,6 +18,7 @@ import { failOsMapsExportResult, latestOsMapsExportResult, osMapsExportResultByJ
 import { dateTimeNowAsValue } from "../shared/dates";
 import { latestOsMapsRouteListing, listedImportedFrom, listedImportedOsMapsRoutes, listedRouteFromImportedRecord } from "./os-maps-route-listing-store";
 import { importedRecordsByRouteId, osMapsImportedRouteById, osMapsImportedRouteByNumber, saveOsMapsImportedRoute, withListingPreviewPoints } from "./os-maps-imported-route-store";
+import { syncImportedRoutePages } from "./os-maps-route-pages";
 
 function actorNameFrom(req: Request): string {
   const user = req.user as Partial<MemberCookie> | undefined;
@@ -161,6 +162,7 @@ export async function updateOsMapsImportedRoute(req: Request, res: Response): Pr
       } else if (!routeAdmin(member) && req.body?.gpxFile?.awsFileName && req.body.gpxFile.awsFileName !== existing.gpxFile?.awsFileName) {
         res.status(403).json({error: "The route file cannot be replaced"});
       } else {
+        const previousAwsFileName = existing.gpxFile?.awsFileName || null;
         const saved = await saveOsMapsImportedRoute(req.params.routeId, {
           ...(visibility ? {visibility} : {}),
           gpxFile: req.body?.gpxFile || null,
@@ -170,6 +172,7 @@ export async function updateOsMapsImportedRoute(req: Request, res: Response): Pr
           ...(isArray(req.body?.waypoints) ? {waypoints: req.body.waypoints} : {}),
           ...(req.body?.difficulty === null || isObject(req.body?.difficulty) ? {difficulty: req.body.difficulty} : {})
         }, routeContributorFrom(req));
+        await syncImportedRoutePages(req.params.routeId, saved?.gpxFile, previousAwsFileName);
         res.json(saved);
       }
     }

@@ -2,7 +2,7 @@ import { OsMapsImportContext } from "./os-maps-export.model";
 import { FileNameData } from "./aws-object.model";
 import { RouteAudit } from "./audit";
 import * as L from "leaflet";
-import { toSlug } from "../functions/strings";
+import { toKebabCase } from "../functions/strings";
 import { ExtendedGroupEvent } from "./group-event.model";
 import { Difficulty, LocationDetails, Metadata } from "./ramblers-walks-manager";
 import { Feature } from "./walk-feature.model";
@@ -658,7 +658,7 @@ export function followCacheKey(parts: {
 }
 
 export function followRouteCommands(routeNumber: number, title?: string | null): string[] {
-  const slug = toSlug(title || "");
+  const slug = toKebabCase(title || "");
   if (slug) {
     return ["/", AppPath.ROOT, AppPath.ROUTE, String(routeNumber), slug];
   } else {

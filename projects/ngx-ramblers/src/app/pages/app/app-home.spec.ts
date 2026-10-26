@@ -133,9 +133,9 @@ describe("walking app header counts", () => {
     component["nearbyOnly"] = true;
     component["nearbyRange"] = {min: 0, max: 1, unit: DistanceUnit.MILES};
     component.visibleRoutes = vi.fn().mockReturnValue(Array.from({length: 18}));
-    expect(component.matchCountLabel()).toBe("Showing 18 routes within 1 mile");
+    expect(component.matchCountLabel()).toBe("Showing 18 routes within 1 mile of you");
     component["nearbyRange"] = {min: 0, max: 2, unit: DistanceUnit.MILES};
-    expect(component.matchCountLabel()).toBe("Showing 18 routes within 2 miles");
+    expect(component.matchCountLabel()).toBe("Showing 18 routes within 2 miles of you");
   });
 
   it("pluralises card distances", () => {

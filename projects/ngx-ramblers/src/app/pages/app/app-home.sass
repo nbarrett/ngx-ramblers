@@ -30,6 +30,35 @@
   font-size: 1rem
   line-height: 1.4
 
+.app-home.app-home-embedded
+  --app-bg: transparent
+  background: transparent
+  height: auto
+  min-height: 0
+  padding: 0
+  overflow: visible
+  user-select: text
+  -webkit-user-select: text
+  font-family: inherit
+
+.app-home-place-search-control
+  display: block
+  width: 100%
+
+.app-home-search .app-home-place-search-control ::ng-deep .ng-select .ng-select-container
+  min-height: 44px
+  border-radius: var(--radius-1)
+  border: 1px solid var(--app-input-border)
+  background: var(--app-input-bg)
+  box-shadow: none
+
+.app-home-search .app-home-place-search-control ::ng-deep .ng-value-container,
+.app-home-search .app-home-place-search-control ::ng-deep .ng-input
+  padding-left: 8px
+
+.app-home-search .app-home-place-search-control ::ng-deep .ng-input input
+  padding-left: 0
+
 @mixin app-home-dark-tokens
   --app-bg: #102018
   --app-ink: #f4f1ea
@@ -104,6 +133,8 @@
 .app-home-map-search:has(.app-home-creator)
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)
 
+
+
 .app-home-controls
   display: grid
   grid-template-columns: repeat(3, minmax(0, 1fr))
@@ -117,6 +148,7 @@
   border-radius: 50%
 
 .app-home-controls .btn
+  width: 100%
   margin-left: 0 !important
   min-width: 0
   min-height: 44px

@@ -1,3 +1,4 @@
+import { coordinateValue } from "../../functions/locate";
 import { CompassCalibrationHelpComponent } from "../../shared/components/compass-calibration-help";
 import { NativeCompassService } from "../../services/maps/native-compass.service";
 import { SwipeAxis } from "../../models/swipe.model";
@@ -15,6 +16,8 @@ import { RouteAuditComponent } from "../../modules/common/route-audit";
 import { RouteElevationComponent } from "../../shared/components/route-elevation";
 import { RouteDirectionsEditor } from "../../shared/components/route-directions-editor";
 import { WalkGradeSelect } from "../../shared/components/walk-grade-select";
+import { VenueAutocompleteComponent } from "../walks/walk-venue/venue-autocomplete";
+import { mapZoomForVenueType, VenueTypeValue, VenueWithUsageStats } from "../../models/event-venue.model";
 import { WalkGradingComponent } from "../walks/walk-view/walk-grading";
 import { Difficulty } from "../../models/ramblers-walks-manager";
 import { RouteVisibility, routeAuditCreatedLabel } from "../../models/os-maps-export.model";
@@ -45,9 +48,12 @@ import {
   faLayerGroup,
   faListOl,
   faLocationArrow,
+  faMagnifyingGlass,
+  faMinus,
   faMoon,
   faPause,
   faPencil,
+  faPlus,
   faPersonWalking,
   faPlay,
   faRightLeft,
@@ -60,7 +66,7 @@ import {
 import * as L from "leaflet";
 import { isNumber } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
-import { combineLatest, Subscription } from "rxjs";
+import { combineLatest, firstValueFrom, Subscription } from "rxjs";
 import {
   AppAppearance,
   AppInstallPlatform,
@@ -153,6 +159,7 @@ import proj4 from "proj4";
 import { MapLoadingOverlay } from "../../shared/components/map-loading-overlay";
 import { RouterHistoryService } from "../../services/router-history.service";
 import { DateUtilsService } from "../../services/date-utils.service";
+import { SystemConfigService } from "../../services/system/system-config.service";
 
 @Component({
   selector: "app-route-follow",
@@ -178,27 +185,29 @@ import { DateUtilsService } from "../../services/date-utils.service";
             </div>
           </div>
         </div>
-      } @else if (loading) {
-        <div class="follow-loading">
-          <app-map-loading-overlay [heading]="payload?.source === RouteFollowSource.RECORDING ? 'Finding your location' : 'Loading your route'"
-                                   [description]="payload?.source === RouteFollowSource.RECORDING ? 'Getting a fresh GPS location for your recording' : 'Getting the route and map ready for your walk'"/>
-          <button class="btn btn-quiet btn-icon follow-loading-close" type="button" (click)="closeFollow()"
-                  tooltip="Back" aria-label="Back">
-            <fa-icon [icon]="faChevronLeft"/>
-          </button>
-        </div>
       } @else {
-        @if (options) {
+        @for (mapOptions of options ? [options] : []; track mapOptions) {
           <div class="follow-map"
                leaflet
-               [leafletOptions]="options"
+               [leafletOptions]="mapOptions"
                [leafletLayers]="layers"
                (leafletMapReady)="onMapReady($event)">
           </div>
         }
+        @if (showOpeningOverlay) {
+          <div class="follow-loading">
+            <app-map-loading-overlay [heading]="drawingFromBlank ? 'Opening the map' : payload?.source === RouteFollowSource.RECORDING ? 'Finding your location' : 'Loading your route'"
+                                     [description]="drawingFromBlank ? 'Getting the map ready so you can find or plot a route' : payload?.source === RouteFollowSource.RECORDING ? 'Getting a fresh GPS location for your recording' : 'Getting the route and map ready for your walk'"/>
+            <button class="btn btn-quiet btn-icon follow-loading-close" type="button" (click)="closeFollow()"
+                    tooltip="Back" aria-label="Back">
+              <fa-icon [icon]="faChevronLeft"/>
+            </button>
+          </div>
+        }
+        @if (!showOpeningOverlay) {
         <app-compass-calibration-help [open]="compassHelpOpen" [backLabel]="compassHelpBackLabel"
                                       (closed)="compassHelpOpen = false"/>
-        <h1 class="visually-hidden">{{ payload?.title || "Record a route" }}</h1>
+        <h1 class="visually-hidden">{{ payload?.title || (drawingFromBlank ? "Plot a route" : "Record a route") }}</h1>
         <div class="follow-top" [class.has-banner]="showOffRoute || !!locationMessage || !!forkAhead || showCompassCalibrationWarning">
           <div class="follow-top-bar">
             <div class="follow-top-actions">
@@ -243,8 +252,8 @@ import { DateUtilsService } from "../../services/date-utils.service";
                 </div>
               }
             </div>
-            <div class="follow-hud">
-              @if (progress?.mode !== RouteFollowMode.EDITING) {
+            @if (followingRoute()) {
+              <div class="follow-hud">
                 @if (compassHeadingText) {
                   <div class="follow-tape-heading">{{ compassHeadingText }}</div>
                 }
@@ -263,12 +272,12 @@ import { DateUtilsService } from "../../services/date-utils.service";
                     <span class="follow-tape-needle"></span>
                   </div>
                 </div>
-              }
-              @if (gridReference) {
-                <div class="follow-tape-grid">{{ gridReference }}</div>
-              }
-            </div>
-            @if (directionsOnMap && instructionWaypoint && instructionText && progress && progress.mode !== RouteFollowMode.IDLE && progress.mode !== RouteFollowMode.EDITING) {
+                @if (gridReference) {
+                  <div class="follow-tape-grid">{{ gridReference }}</div>
+                }
+              </div>
+            }
+            @if (showStepBanner()) {
               <div class="follow-instruction">
                 <div class="follow-instruction-number" [style.background]="markerColour" [style.color]="'#ffffff'">
                   @if (instructionWaypoint.turn) {
@@ -477,6 +486,21 @@ import { DateUtilsService } from "../../services/date-utils.service";
               <span class="follow-map-scale-spacer"></span>
             }
           <div class="follow-map-tools">
+            <div class="follow-tool-stack">
+              <button class="follow-tool" type="button" (click)="zoomIn()" [disabled]="!canZoomIn()"
+                      tooltip="Zoom in" [isDisabled]="!tooltipsEnabled"
+                      placement="left" container=".follow-app"
+                      aria-label="Zoom in">
+                <fa-icon [icon]="faPlus"/>
+              </button>
+              <button class="follow-tool" type="button" (click)="zoomOut()" [disabled]="!canZoomOut()"
+                      tooltip="Zoom out" [isDisabled]="!tooltipsEnabled"
+                      placement="left" container=".follow-app"
+                      aria-label="Zoom out">
+                <fa-icon [icon]="faMinus"/>
+              </button>
+            </div>
+            @if (showCompassControl()) {
             <button class="follow-heading-tool" type="button" [class.is-active]="headingUp"
                     (click)="toggleMapHeading()"
                     [tooltip]="headingUp ? 'Keep the map north-up' : 'Turn the map with the route'"
@@ -489,6 +513,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
                 <span class="follow-heading-n">N</span>
               }
             </button>
+            }
             @if (progress?.mode === RouteFollowMode.EDITING && !thinningPrompt) {
               <div class="follow-tool-stack">
                 <button class="follow-tool" type="button"
@@ -563,7 +588,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
             <span class="follow-sheet-grab" aria-hidden="true"></span>
           </button>
           <h2 class="follow-sheet-heading">{{ sheetHeading() }}</h2>
-          @if (payload?.source === RouteFollowSource.RECORDING && progress?.mode === RouteFollowMode.IDLE) {
+          @if (payload?.source === RouteFollowSource.RECORDING && progress?.mode === RouteFollowMode.IDLE && !drawingFromBlank) {
             <button class="btn btn-primary follow-main-btn follow-recording-tray" type="button" (click)="recordRoute()">
               <fa-icon [icon]="faCircle" class="follow-recording-indicator is-ready"/> Start recording
             </button>
@@ -622,7 +647,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
                   <fa-icon [icon]="faHouse"/>
                   Back
                 </button>
-              } @else {
+              } @else if (!plottingRoute()) {
                 <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)" [disabled]="savingRoute || startingFollow">
                   <fa-icon [icon]="startControlIcon()"/>
                   {{ startControlLabel() }}
@@ -658,6 +683,22 @@ import { DateUtilsService } from "../../services/date-utils.service";
                (draggingChange)="onSheetBodyDragging($event)"
                (swipeOffset)="onSheetBodySwipeOffset($event)">
           <div class="follow-sheet-body">
+          @if (drawingFromBlank || creatingLine) {
+            <div class="follow-place-block">
+              <label class="form-label" for="follow-place-search">Go to a place</label>
+              <app-venue-autocomplete id="follow-place-search"
+                                      placeholder="Town, postcode, pub or hill"
+                                      skipPlaceNameChoice
+                                      hideSelectedIcon
+                                      placesOnly
+                                      [showSelectionHint]="false"
+                                      [minTermLength]="2"
+                                      (venueSelected)="onPlaceSearch($event)"/>
+              @if (!hasLine) {
+                <p class="follow-library-note">Click the map to plot the line. Each click adds a point.</p>
+              }
+            </div>
+          }
           @if (payload && payload.source !== RouteFollowSource.RECORDING && !showingRouteDetails()) {
             <app-route-audit [audit]="payload" iconsOnly showDates [createdLabel]="routeAuditCreatedLabel(payload)"/>
           }
@@ -687,7 +728,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
           @if (persistMessage) {
             <p class="follow-offline-status">{{ persistMessage }}</p>
           }
-          @if (nativeCompass.supported()) {
+          @if (nativeCompass.supported() && !drawingFromBlank && progress?.mode !== RouteFollowMode.EDITING) {
             <button type="button" class="btn btn-quiet follow-secondary-btn mb-2" (click)="openCompassHelpFromSettings()"><fa-icon [icon]="faCompass"/>Compass calibration help</button>
           }
           @if (sessionStorageError) {
@@ -696,7 +737,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
               <div><strong>Session storage unavailable</strong><p>{{ sessionStorageError }}</p></div>
             </div>
           }
-          @if (startLocationMessage) {
+          @if (startLocationMessage && !plottingRoute()) {
             <div class="alert alert-warning d-flex align-items-start gap-2" role="status">
               <fa-icon [icon]="faCircleExclamation"/>
               <div><strong class="d-block">Head to the start</strong>{{ startLocationMessage }}</div>
@@ -712,14 +753,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
             </div>
           }
           @if (progress?.mode === RouteFollowMode.RECORDING) {
-            <p class="follow-library-note">Walk the route. It is drawn as you go. Pause when you need a break, then save when you finish.</p>
-          } @else if (progress?.mode === RouteFollowMode.EDITING && showEditThinning) {
-            <p class="follow-library-note">This line has {{ originalEditCount }} points. Showing {{ editVertices.length }} so you can edit it.</p>
-            <div class="follow-speed">
-              <app-range-slider label="Keep more points" unit=""
-                                [min]="editDetailMin" [max]="editDetailMax" [step]="1"
-                                [value]="editDetail" (valueChange)="onEditDetail($event)"/>
-            </div>
+            <p class="follow-library-note">Walk the route. It is recorded as you go. Pause when you need a break, then save when you finish.</p>
           } @else if (!hasLine && !canEditRoute) {
             <p class="follow-library-note">Ramblers publish the start of this route. The route itself and the turn-by-turn stay on their site, so this screen will take you to the start.</p>
           }
@@ -727,28 +761,28 @@ import { DateUtilsService } from "../../services/date-utils.service";
             <p class="follow-library-note">Editing and recording are for walk leaders and admins. <a [href]="loginUrl()">Log in</a> to see those options here.</p>
           }
           @if (hasLine || recordingSession) {
-            <div class="follow-stats" [class.follow-edit-stats]="progress?.mode === RouteFollowMode.EDITING">
-              <div class="follow-stat">
-                <span aria-live="polite">{{ progress?.mode === RouteFollowMode.EDITING ? "Distance" : recordingSession ? (progress?.mode === RouteFollowMode.PAUSED ? "Recorded · paused" : "Distance recorded") : "Remaining distance" }}</span>
-                <strong aria-live="polite">{{ remainingDistance }}</strong>
-              </div>
-              <div class="follow-stat">
-                <span>{{ progress?.mode === RouteFollowMode.EDITING ? "Estimated time" : recordingSession ? "Elapsed time" : "Remaining time" }}</span>
-                <strong aria-live="polite">{{ remainingTime }}</strong>
-              </div>
-              @if (hasElevation && progress?.mode !== RouteFollowMode.EDITING) {
+            <div class="follow-metrics">
+              <div class="follow-stats" [class.follow-edit-stats]="progress?.mode === RouteFollowMode.EDITING">
                 <div class="follow-stat">
-                  <span>Current elevation</span>
-                  <strong>{{ currentElevation }}</strong>
+                  <span aria-live="polite">{{ progress?.mode === RouteFollowMode.EDITING ? "Distance" : recordingSession ? (progress?.mode === RouteFollowMode.PAUSED ? "Recorded · paused" : "Distance recorded") : "Remaining distance" }}</span>
+                  <strong aria-live="polite">{{ remainingDistance }}</strong>
                 </div>
+                <div class="follow-stat">
+                  <span>{{ progress?.mode === RouteFollowMode.EDITING ? "Estimated time" : recordingSession ? "Elapsed time" : "Remaining time" }}</span>
+                  <strong aria-live="polite">{{ remainingTime }}</strong>
+                </div>
+                @if (hasElevation && progress?.mode !== RouteFollowMode.EDITING) {
+                  <div class="follow-stat">
+                    <span>Current elevation</span>
+                    <strong>{{ currentElevation }}</strong>
+                  </div>
+                }
+              </div>
+              @if (progress?.mode === RouteFollowMode.EDITING) {
+                <app-section-toggle [tabs]="distanceUnitTabs" [selectedTab]="distanceUnit"
+                                    [queryParamKey]="StoredValue.DISTANCE_UNIT"
+                                    (selectedTabChange)="distanceUnitChanged($event)"/>
               }
-            </div>
-          }
-          @if (progress?.mode === RouteFollowMode.EDITING) {
-            <div class="mb-3 text-center">
-              <app-section-toggle [tabs]="distanceUnitTabs" [selectedTab]="distanceUnit"
-                                  [queryParamKey]="StoredValue.DISTANCE_UNIT"
-                                  (selectedTabChange)="distanceUnitChanged($event)"/>
             </div>
           }
           @if (progress?.mode === RouteFollowMode.PREVIEW) {
@@ -764,7 +798,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
           }
           @if (payload && showingRouteDetails() && (showFollowExtras() || editingRouteDetails())) {
             <div class="thumbnail-heading-frame">
-              <div class="thumbnail-heading">{{ payload.source === RouteFollowSource.RECORDING ? "Save your recording" : "Route details" }}</div>
+              <div class="thumbnail-heading">{{ payload.source === RouteFollowSource.RECORDING && !drawingFromBlank ? "Save your recording" : "Route details" }}</div>
               <div class="follow-route-details">
                 @if (showFollowExtras() && payload.source !== RouteFollowSource.RECORDING) {
                   <app-route-audit [audit]="payload" [createdLabel]="routeAuditCreatedLabel(payload)"
@@ -777,13 +811,15 @@ import { DateUtilsService } from "../../services/date-utils.service";
                             [placeholder]="defaultRecordingTitle()"
                             [(ngModel)]="payload.title" (ngModelChange)="recordingDetailsChanged()"
                             (keydown.enter)="$event.preventDefault()" [disabled]="savingRoute"></textarea>
-                  @if (payload.source === RouteFollowSource.RECORDING) {
+                  @if (payload.source === RouteFollowSource.RECORDING && !drawingFromBlank) {
                     <p class="follow-library-note">Change this if you like. You can save with this name.</p>
                   }
                   <label class="form-label" for="recording-description">Description</label>
-                  <textarea id="recording-description" class="form-control" maxlength="10000" rows="3" [(ngModel)]="payload.description" (ngModelChange)="recordingDetailsChanged()" [disabled]="savingRoute"></textarea>
-                  @if (payload.source === RouteFollowSource.RECORDING) {
-                    <p class="mt-2 mb-0">Saving adds this route to the group's Maps list.</p>
+                  <textarea #recordingDescription id="recording-description" class="form-control follow-description-input" rows="3"
+                            cdkTextareaAutosize [cdkAutosizeMinRows]="3" maxlength="10000"
+                            [(ngModel)]="payload.description" (ngModelChange)="recordingDetailsChanged()" [disabled]="savingRoute"></textarea>
+                  @if (payload.source === RouteFollowSource.RECORDING && !drawingFromBlank) {
+                    <p class="follow-library-note">Saving adds this route to the group's Maps list.</p>
                   }
                   @if (showFollowExtras() && (payload.source === RouteFollowSource.OS_MAPS || payload.source === RouteFollowSource.RECORDING)) {
                     <label class="form-label" for="route-visibility">Who can see</label>
@@ -822,7 +858,6 @@ import { DateUtilsService } from "../../services/date-utils.service";
                                              [chrome]="RouteDirectionsChrome.VIEW"
                                              [waypoints]="payload.waypoints" [points]="payload.points"
                                              [disabled]="true" [listId]="'follow-directions-view'" [markerColour]="markerColour"
-                                             [emptyBody]="canEditRoute ? 'Choose Edit, then Generate directions.' : 'This route has no directions yet.'"
                                              (stepSelect)="browseWaypoint($event)"/>
               }
             }
@@ -861,7 +896,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
                 {{ followExtraSettings ? "Hide additional settings" : "Additional settings" }}
               </button>
             }
-            @if (progress?.mode === RouteFollowMode.EDITING) {
+            @if (progress?.mode === RouteFollowMode.EDITING && (hasLine || plottingRoute())) {
               @if (thinningPrompt) {
                 <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="declineThinning()">
                   Keep all points
@@ -879,11 +914,21 @@ import { DateUtilsService } from "../../services/date-utils.service";
                   <fa-icon [icon]="faRightLeft"/>
                   Reverse
                 </button>
-                @if (!showEditThinning && originalEditCount > editThinFrom) {
-                  <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="enableThinning()">
+                @if (originalEditCount > editThinFrom) {
+                  <button class="btn follow-secondary-btn" type="button" (click)="enableThinning()"
+                          [class.btn-primary]="showEditThinning" [class.btn-quiet]="!showEditThinning"
+                          [attr.aria-pressed]="showEditThinning">
                     <fa-icon [icon]="faCompress"/>
                     Thin
                   </button>
+                  @if (showEditThinning) {
+                    <div class="follow-actions-span follow-thin-slider">
+                      <p class="follow-library-note">This line has {{ originalEditCount }} points. Showing {{ editVertices.length }} so you can edit it.</p>
+                      <app-range-slider label="Keep more points" unit=""
+                                        [min]="editDetailMin" [max]="editDetailMax" [step]="1"
+                                        [value]="editDetail" (valueChange)="onEditDetail($event)"/>
+                    </div>
+                  }
                 }
               }
               <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="cancelEdit()">
@@ -926,7 +971,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
                 }
                 {{ savingRoute ? "Saving" : recordingStopAction ? "Stop recording" : "Save route" }}
               </button>
-            } @else if (!thinningPrompt && (progress?.mode === RouteFollowMode.FOLLOWING || progress?.mode === RouteFollowMode.PAUSED || progress?.mode === RouteFollowMode.PREVIEW)) {
+            } @else if (!thinningPrompt && !plottingRoute() && (progress?.mode === RouteFollowMode.FOLLOWING || progress?.mode === RouteFollowMode.PAUSED || progress?.mode === RouteFollowMode.PREVIEW)) {
               <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="stop()">
                 <fa-icon [icon]="faStop"/>
                 Stop
@@ -935,12 +980,12 @@ import { DateUtilsService } from "../../services/date-utils.service";
                 <fa-icon [icon]="startControlIcon()"/>
                 {{ startControlLabel() }}
               </button>
-            } @else if (!thinningPrompt && progress?.mode === RouteFollowMode.IDLE && payload?.source !== RouteFollowSource.RECORDING) {
+            } @else if (!thinningPrompt && !plottingRoute() && progress?.mode === RouteFollowMode.IDLE && payload?.source !== RouteFollowSource.RECORDING) {
               <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)" [disabled]="startingFollow">
                 <fa-icon [icon]="startControlIcon()"/>
                 {{ startControlLabel() }}
               </button>
-              @if (!creatingLine && offlineStatus !== RouteFollowOfflineStatus.AVAILABLE && offlineStatus !== RouteFollowOfflineStatus.SAVING) {
+              @if (offlineStatus !== RouteFollowOfflineStatus.AVAILABLE && offlineStatus !== RouteFollowOfflineStatus.SAVING) {
                 <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="saveOffline()" [disabled]="!!saveProgress">
                   <fa-icon [icon]="faFloppyDisk"/>
                   Save off-line
@@ -955,7 +1000,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
                 <button class="btn follow-secondary-btn" type="button" (click)="editRoute()"
                         [class.btn-primary]="creatingLine" [class.btn-quiet]="!creatingLine">
                   <fa-icon [icon]="faPencil"/>
-                  {{ hasLine ? "Edit" : "Draw" }}
+                  {{ hasLine ? "Edit" : "Plot" }}
                 </button>
               }
               @if (canDeleteSavedRoute()) {
@@ -974,11 +1019,12 @@ import { DateUtilsService } from "../../services/date-utils.service";
           </div>
         </section>
         </div>
+        }
       }
     </div>
   `,
   styleUrls: ["./route-follow.sass"],
-  imports: [CompassCalibrationHelpComponent, SectionToggle, SwipeableDirective, CdkTextareaAutosize, MapLoadingOverlay, RouteAuditComponent, RouteElevationComponent, RouteDirectionsEditor, WalkGradeSelect, WalkGradingComponent, FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent]
+  imports: [CompassCalibrationHelpComponent, SectionToggle, SwipeableDirective, CdkTextareaAutosize, MapLoadingOverlay, RouteAuditComponent, RouteElevationComponent, RouteDirectionsEditor, WalkGradeSelect, WalkGradingComponent, FormsModule, LeafletModule, FontAwesomeModule, RangeSliderComponent, TooltipDirective, MapRouteStylePaletteComponent, VenueAutocompleteComponent]
 })
 export class RouteFollowComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("RouteFollowComponent", NgxLoggerLevel.ERROR);
@@ -1043,6 +1089,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private memberLogin = inject(MemberLoginService);
   private uiActions = inject(UiActionsService);
   private mapTiles = inject(MapTilesService);
+  private systemConfig = inject(SystemConfigService);
   private osBranding = inject(OsMapsBrandingService);
   private markerStyle = inject(MapMarkerStyleService);
   private mapControls = inject(MapControlsStateService);
@@ -1077,6 +1124,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly MobileAppAction = MobileAppAction;
   protected mapTileLoads = 0;
   protected mapTilesLoading = false;
+  protected mapReady = false;
   protected mapTilesFailed = false;
   protected canEditRoute = false;
   protected styleRoute: MapRoute | null = null;
@@ -1112,6 +1160,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected sheetState = RouteFollowSheetState.MINIMISED;
   followPanelWide = false;
   followExtraSettings = false;
+  protected drawingFromBlank = false;
+  private plotCentre: {latitude: number; longitude: number} | null = null;
+  protected nearbyPlaceName: string | null = null;
   private changeDetector = inject(ChangeDetectorRef);
   @ViewChild("followSheet") private followSheet: ElementRef<HTMLElement> | null = null;
   private sheetAnimation: Animation | null = null;
@@ -1123,6 +1174,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly faCompass = faCompass;
   protected readonly faCircleHalfStroke = faCircleHalfStroke;
   protected readonly faLocationArrow = faLocationArrow;
+  protected readonly faMagnifyingGlass = faMagnifyingGlass;
   protected readonly faMoon = faMoon;
   protected readonly faSun = faSun;
   protected readonly faPause = faPause;
@@ -1149,6 +1201,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private zone = inject(NgZone);
   private injector = inject(Injector);
   private recordingNameAutosize: CdkTextareaAutosize | null = null;
+  private recordingDescriptionAutosize: CdkTextareaAutosize | null = null;
   protected mapBearing = 0;
   protected headingUp = false;
   protected appearance: AppAppearance = AppAppearance.LIGHT;
@@ -1177,6 +1230,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly MapProvider = MapProvider;
   protected readonly osTermsHref = OsMapsBrandingHref.TERMS;
   protected readonly osErrorHref = OsMapsBrandingHref.ERROR_REPORTING;
+  protected readonly faPlus = faPlus;
+  protected readonly faMinus = faMinus;
   protected readonly faLayerGroup = faLayerGroup;
   protected readonly faListOl = faListOl;
   protected readonly faSignsPost = faSignsPost;
@@ -1207,7 +1262,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   @ViewChild("recordingName", {read: CdkTextareaAutosize}) set recordingNameAutosizeInput(autosize: CdkTextareaAutosize | null) {
     this.recordingNameAutosize = autosize;
-    this.fitRecordingName();
+    this.fitRouteDetailFields();
+  }
+
+  @ViewChild("recordingDescription", {read: CdkTextareaAutosize}) set recordingDescriptionAutosizeInput(autosize: CdkTextareaAutosize | null) {
+    this.recordingDescriptionAutosize = autosize;
+    this.fitRouteDetailFields();
   }
   private discardAndClose = false;
   private arrowGroup = L.layerGroup();
@@ -1253,7 +1313,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       const selection = JSON.stringify([
         pathParams.get(RouteParam.ROUTE_NUMBER),
         ...[StoredValue.FOLLOW_PATH, StoredValue.ROUTE_ID, StoredValue.WALK_ID, StoredValue.RAMBLERS_SLUG,
-          StoredValue.ROUTE, StoredValue.OS_MAPS_ROUTE_ID, StoredValue.TRACK, StoredValue.VIA, StoredValue.RECORD_ROUTE]
+          StoredValue.ROUTE, StoredValue.OS_MAPS_ROUTE_ID, StoredValue.TRACK, StoredValue.VIA, StoredValue.RECORD_ROUTE,
+          StoredValue.DRAW_ROUTE, StoredValue.LAT, StoredValue.LON, StoredValue.NEARBY_PLACE]
           .map(key => queryParams.get(key))
       ]);
       const unit = queryParams.get(StoredValue.DISTANCE_UNIT);
@@ -1270,7 +1331,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
           routeKey,
           Number(queryParams.get(StoredValue.TRACK)) || 0,
           viaFromQuery(queryParams.get(StoredValue.VIA)),
-          queryParams.get(StoredValue.RECORD_ROUTE)
+          queryParams.get(StoredValue.RECORD_ROUTE) || queryParams.get(StoredValue.DRAW_ROUTE),
+          !!queryParams.get(StoredValue.DRAW_ROUTE) && !queryParams.get(StoredValue.RECORD_ROUTE)
         );
       }
     }));
@@ -1402,11 +1464,15 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   get creatingLine(): boolean {
-    return this.canEditRoute && !this.hasLine && this.payload?.source !== RouteFollowSource.RECORDING;
+    return this.canEditRoute && !this.hasLine && (this.payload?.source !== RouteFollowSource.RECORDING || this.drawingFromBlank);
   }
 
   get drawingNewLine(): boolean {
     return this.progress?.mode === RouteFollowMode.EDITING && this.originalEditCount === 0;
+  }
+
+  plottingRoute(): boolean {
+    return this.drawingFromBlank || this.creatingLine || this.drawingNewLine;
   }
 
   get showingPlanningAnchors(): boolean {
@@ -1519,6 +1585,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   onMapReady(map: L.Map): void {
     this.mapRef = map;
+    this.mapReady = true;
     this.pointerMarker = null;
     this.arrowGroup.addTo(map);
     this.waypointGroup.addTo(map);
@@ -1554,12 +1621,26 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (this.progress?.mode === RouteFollowMode.EDITING) {
       this.refreshEditHandles();
     }
-    if (this.skipNextFit) {
+    if (this.plotCentre) {
+      this.panMapTo(this.plotCentre.latitude, this.plotCentre.longitude, VenueTypeValue.TOWN);
+    } else if (this.skipNextFit) {
       this.skipNextFit = false;
     } else {
       this.fitRoute();
     }
     requestAnimationFrame(() => map.invalidateSize());
+  }
+
+  get showOpeningOverlay(): boolean {
+    if (this.error) {
+      return false;
+    } else if (this.loading || !this.options || !this.mapReady) {
+      return true;
+    } else if (this.mapTilesFailed || this.mapTileLoads > 0) {
+      return false;
+    } else {
+      return this.mapTilesLoading;
+    }
   }
 
   get upcomingWaypoint(): RouteFollowWaypoint | null {
@@ -1862,8 +1943,12 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   sheetHeading(): string {
-    if (this.progress?.mode === RouteFollowMode.EDITING) {
+    if (this.creatingLine || this.drawingNewLine) {
+      return "Plot a route";
+    } else if (this.progress?.mode === RouteFollowMode.EDITING) {
       return "Edit route";
+    } else if (this.drawingFromBlank) {
+      return this.payload?.title || "Plot a route";
     } else if (this.payload?.source === RouteFollowSource.RECORDING && this.recordingDetailsOpen) {
       return "Save your recording";
     } else if (this.payload?.title) {
@@ -1895,7 +1980,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   onPeekAction(event: Event): void {
     event.stopPropagation();
-    if (this.progress?.mode === RouteFollowMode.PAUSED) {
+    if (this.plottingRoute()) {
+      this.editRoute();
+    } else if (this.progress?.mode === RouteFollowMode.PAUSED) {
       this.resume();
     } else if (this.progress?.mode === RouteFollowMode.FOLLOWING || this.progress?.mode === RouteFollowMode.PREVIEW || this.progress?.mode === RouteFollowMode.RECORDING) {
       this.pause();
@@ -1925,7 +2012,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   get showCompassCalibrationWarning(): boolean {
-    return this.nativeCompass.calibrationRecommended() && !this.compassCalibrationDismissed;
+    return this.followingRoute() && this.nativeCompass.calibrationRecommended() && !this.compassCalibrationDismissed;
   }
 
   openCompassHelpFromMap(): void {
@@ -1949,7 +2036,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   defaultRecordingTitle(): string {
-    return "Recorded walk, " + this.dateUtils.displayDateAbbreviatedTime(this.dateUtils.dateTimeNow());
+    const kind = this.drawingFromBlank ? "Plotted route" : "Recorded walk";
+    return kind + ", " + this.dateUtils.displayDateAbbreviatedTime(this.dateUtils.dateTimeNow());
   }
 
   private ensureRecordingTitle(): void {
@@ -2204,7 +2292,9 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   async start(): Promise<void> {
-    if (!this.mobileAccess.allowed(MobileAppAction.FOLLOW)) {
+    if (this.plottingRoute()) {
+      this.editRoute();
+    } else if (!this.mobileAccess.allowed(MobileAppAction.FOLLOW)) {
       this.persistError = "You do not have permission to follow routes.";
     } else {
       this.startingFollow = true;
@@ -2307,10 +2397,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   editRoute(): void {
-    if (!this.mobileAccess.allowed(MobileAppAction.EDIT)) {
-      this.persistError = "You do not have permission to edit routes.";
-    } else if (!this.payload) {
+    if (!this.payload) {
       return;
+    } else if (!this.canEditRoute) {
+      this.persistError = "You do not have permission to edit routes.";
     } else {
       const source = this.followService.trackPoints().length >= 2
         ? this.followService.trackPoints()
@@ -2493,6 +2583,84 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   recordingDetailsChanged(): void {
     this.persistFollowSession(true);
+    this.fitRouteDetailFields();
+  }
+
+  followingRoute(): boolean {
+    return this.progress?.mode === RouteFollowMode.FOLLOWING || this.progress?.mode === RouteFollowMode.PAUSED;
+  }
+
+  showCompassControl(): boolean {
+    if (this.drawingFromBlank || this.progress?.mode === RouteFollowMode.EDITING) {
+      return false;
+    } else {
+      return this.followingRoute() || this.progress?.mode === RouteFollowMode.RECORDING;
+    }
+  }
+
+  showStepBanner(): boolean {
+    return this.showCompassControl() && this.directionsOnMap && !!this.instructionWaypoint && !!this.instructionText;
+  }
+
+  onPlaceSearch(venue: VenueWithUsageStats | null): void {
+    const latitude = coordinateValue(venue?.lat);
+    const longitude = coordinateValue(venue?.lon);
+    if (venue && latitude !== null && longitude !== null) {
+      this.followUser = false;
+      this.skipNextFit = true;
+      this.plotCentre = {latitude, longitude};
+      this.panMapTo(latitude, longitude, venue.type);
+      this.nearbyPlaceName = venue.name || venue.enteredName || null;
+      if (this.payload && !this.hasLine) {
+        this.payload = {
+          ...this.payload,
+          waypoints: this.payloadService.planningWaypointsFromLocation(this.payload.waypoints, {
+            start: {latitude, longitude, description: venue.name || venue.enteredName || ""}
+          })
+        };
+        this.refreshWaypointPins();
+        this.redraw();
+      }
+      this.persistFollowSession(true);
+    }
+  }
+
+
+  private panMapTo(latitude: number, longitude: number, venueType?: string | null): void {
+    const maxZoom = this.mapTiles.maxZoomForStyle(this.mapProvider, this.osStyle);
+    const minZoom = this.mapTiles.minZoomForStyle(this.mapProvider, this.osStyle);
+    const webZoom = mapZoomForVenueType(venueType);
+    const matched = this.mapTiles.matchingZoom(MapProvider.OSM, "", webZoom, this.mapProvider, this.osStyle, latitude);
+    const zoom = Math.min(maxZoom, Math.max(minZoom, matched));
+    this.restoredMapView = {center: L.latLng(latitude, longitude), zoom};
+    if (this.mapRef) {
+      this.mapRef.invalidateSize();
+      this.mapRef.setView([latitude, longitude], zoom);
+    }
+  }
+
+  zoomIn(): void {
+    this.mapRef?.zoomIn();
+  }
+
+  zoomOut(): void {
+    this.mapRef?.zoomOut();
+  }
+
+  canZoomIn(): boolean {
+    if (!this.mapRef) {
+      return false;
+    } else {
+      return this.mapRef.getZoom() < this.mapRef.getMaxZoom();
+    }
+  }
+
+  canZoomOut(): boolean {
+    if (!this.mapRef) {
+      return false;
+    } else {
+      return this.mapRef.getZoom() > this.mapRef.getMinZoom();
+    }
   }
 
   get routeDifficulty(): Difficulty | null {
@@ -2500,20 +2668,24 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   editingRouteDetails(): boolean {
-    if (this.payload?.source === RouteFollowSource.RECORDING && this.recordingDetailsOpen) {
+    if (!this.hasLine) {
+      return false;
+    } else if (this.payload?.source === RouteFollowSource.RECORDING && this.recordingDetailsOpen) {
       return true;
     } else if (this.progress?.mode === RouteFollowMode.EDITING) {
-      return this.followExtraSettings;
+      return this.followPanelWide || this.followExtraSettings;
     } else {
       return false;
     }
   }
 
   showingRouteDetails(): boolean {
-    if (this.editingRouteDetails()) {
+    if (!this.hasLine) {
+      return false;
+    } else if (this.editingRouteDetails()) {
       return true;
     } else {
-      return !!(this.payload && this.hasLine && !this.recordingSession);
+      return !!(this.payload && !this.recordingSession);
     }
   }
 
@@ -2568,13 +2740,14 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
   }
 
-  private fitRecordingName(): void {
-    const autosize = this.recordingNameAutosize;
-    if (autosize) {
+  private fitRouteDetailFields(): void {
+    const fields = [this.recordingNameAutosize, this.recordingDescriptionAutosize]
+      .filter((field): field is CdkTextareaAutosize => !!field);
+    if (fields.length > 0) {
       afterNextRender(() => {
-        autosize.resizeToFitContent(true);
+        fields.forEach(autosize => autosize.resizeToFitContent(true));
         if (document.fonts?.ready) {
-          document.fonts.ready.then(() => autosize.resizeToFitContent(true));
+          document.fonts.ready.then(() => fields.forEach(autosize => autosize.resizeToFitContent(true)));
         }
       }, {injector: this.injector});
     }
@@ -2604,7 +2777,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     } else if (!this.payload || this.savingRoute) {
       return;
     } else if (recorded.length < 2) {
-      this.persistError = "Walk or draw at least two points first.";
+      this.persistError = "Walk or plot at least two points first.";
     } else {
       this.ensureRecordingTitle();
       this.savingRoute = true;
@@ -2883,31 +3056,43 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   private attachEditLine(latLngs: [number, number][], color: string, weight: number, opacity: number): void {
     const map = this.mapRef;
-    if (map && this.editHalo) {
-      this.editHalo.setLatLngs(latLngs);
-      this.editHalo.setStyle({weight: weight + 4});
-    } else if (map) {
-      this.editHalo = L.polyline(latLngs, {
-        color: "#ffffff",
-        weight: weight + 4,
-        opacity: 0.95,
-        lineJoin: "round",
-        lineCap: "round",
-        interactive: false
-      }).addTo(map);
-    }
-    if (map && this.editCore) {
-      this.editCore.setLatLngs(latLngs);
-      this.editCore.setStyle({color, weight, opacity});
-    } else if (map) {
-      this.editCore = L.polyline(latLngs, {
-        color,
-        weight,
-        opacity,
-        lineJoin: "round",
-        lineCap: "round",
-        interactive: false
-      }).addTo(map);
+    if (!map) {
+      return;
+    } else {
+      if (this.editHalo && !map.hasLayer(this.editHalo)) {
+        this.editHalo.remove();
+        this.editHalo = null;
+      }
+      if (this.editCore && !map.hasLayer(this.editCore)) {
+        this.editCore.remove();
+        this.editCore = null;
+      }
+      if (this.editHalo) {
+        this.editHalo.setLatLngs(latLngs);
+        this.editHalo.setStyle({weight: weight + 4});
+      } else {
+        this.editHalo = L.polyline(latLngs, {
+          color: "#ffffff",
+          weight: weight + 4,
+          opacity: 0.95,
+          lineJoin: "round",
+          lineCap: "round",
+          interactive: false
+        }).addTo(map);
+      }
+      if (this.editCore) {
+        this.editCore.setLatLngs(latLngs);
+        this.editCore.setStyle({color, weight, opacity});
+      } else {
+        this.editCore = L.polyline(latLngs, {
+          color,
+          weight,
+          opacity,
+          lineJoin: "round",
+          lineCap: "round",
+          interactive: false
+        }).addTo(map);
+      }
     }
   }
 
@@ -2921,9 +3106,11 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private insertPointOnRoute(latLng: L.LatLng, containerPoint: L.Point): void {
     const click = {latitude: latLng.lat, longitude: latLng.lng};
     const map = this.mapRef;
-    if (map && this.editVertices.length === 0) {
+    if (!map) {
+      return;
+    } else if (this.drawingNewLine || this.editVertices.length === 0) {
       this.insertOffRouteVertex(click);
-    } else if (map && this.nearestVertexDistance(containerPoint) > 20) {
+    } else if (this.nearestVertexDistance(containerPoint) > 20) {
       const nearestSegment = this.followService.nearestSegment(click);
       if (nearestSegment) {
         const linePoint = map.latLngToContainerPoint([nearestSegment.point.latitude, nearestSegment.point.longitude]);
@@ -3175,7 +3362,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   }
 
   private restoreFollowSession(): void {
-    const session = this.storedFollowSession();
+    const session = this.drawingFromBlank ? null : this.storedFollowSession();
     const currentKey = this.payload ? followCacheKey(this.payload) : null;
     if (session && currentKey && followCacheKey(session) === currentKey) {
       this.recordingDetailsOpen = !!session.recordingDetailsOpen;
@@ -3222,8 +3409,17 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async load(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null, trackIndex = 0, via: number[] = [], recordingId: string | null = null): Promise<void> {
+  private async load(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null, trackIndex = 0, via: number[] = [], recordingId: string | null = null, drawing = false): Promise<void> {
     const sequence = ++this.loadSequence;
+    if (navigator.onLine && this.systemConfig && !this.systemConfig.systemConfig()) {
+      try {
+        await firstCompleted(firstValueFrom(this.systemConfig.events()), ROUTE_FOLLOW_NETWORK_TIMEOUT_MS, "Map configuration timed out");
+      } catch (error) {
+        this.logger.warn("Map configuration unavailable; using cached route settings", error);
+      }
+    }
+    this.drawingFromBlank = drawing;
+    this.plotCentre = null;
     this.saveAsNewRecordingId = null;
     this.startLocationMessage = null;
     this.mapTiles.allowCachedOsTiles(false);
@@ -3233,6 +3429,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     this.locatingPosition = false;
     this.sheetState = RouteFollowSheetState.MINIMISED;
     this.loading = true;
+    this.mapReady = false;
+    this.mapTileLoads = 0;
+    this.mapTilesLoading = false;
+    this.mapTilesFailed = false;
     this.error = null;
     this.recordingDetailsOpen = false;
     this.loadedWalk = null;
@@ -3255,6 +3455,27 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
           const loaded = await this.networkPayload(path, routeId, walkId, ramblersSlug, osMapsRouteId, trackIndex, via);
           if (sequence === this.loadSequence) {
             await this.applyLoaded(this.usablePayload(loaded) ? loaded : null);
+          }
+        }
+        if (sequence === this.loadSequence) {
+          await this.ensureWalkForEdit(walkId, sequence);
+          if (drawing) {
+            if (this.memberLogin.memberLoggedIn()) {
+              this.canEditRoute = true;
+            }
+            const lat = coordinateValue(this.route.snapshot.queryParamMap.get(StoredValue.LAT));
+            const lon = coordinateValue(this.route.snapshot.queryParamMap.get(StoredValue.LON));
+            this.nearbyPlaceName = this.route.snapshot.queryParamMap.get(StoredValue.NEARBY_PLACE);
+            if (lat !== null && lon !== null) {
+              this.plotCentre = {latitude: lat, longitude: lon};
+              if (this.mapRef) {
+                this.mapRef.setView([lat, lon], 10);
+              }
+            }
+            this.editRoute();
+            this.expandSheet();
+          } else {
+            this.openRequestedEdit();
           }
         }
       }
@@ -3317,9 +3538,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         this.loadedWalk = session && followCacheKey(session) === key ? session.walk || this.loadedWalk : this.loadedWalk;
         this.offlineStatus = offlineStatus;
         this.payload = loaded;
-        this.canEditRoute = loaded.source === RouteFollowSource.RECORDING
-          ? this.mobileAccess.allowed(MobileAppAction.RECORD)
-          : loaded.source === RouteFollowSource.OS_MAPS ? !!loaded.canEdit : this.routeIsEditable(loaded) && this.mobileAccess.allowed(MobileAppAction.EDIT);
+        this.canEditRoute = this.routeCanBeEdited(loaded);
         this.loginPrompt = !this.canEditRoute && loaded.source !== RouteFollowSource.RAMBLERS_LIBRARY && !this.memberLogin.memberLoggedIn();
         this.styleRoute = this.styleFromPayload(loaded);
         this.rememberSavedStyle(loaded);
@@ -3329,8 +3548,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
           provider: (loaded.provider as MapProvider) || MapProvider.OS,
           osStyle: loaded.osStyle || DEFAULT_OS_STYLE
         });
-        this.mapProvider = (loaded.provider as MapProvider) || stored.provider;
-        this.osStyle = loaded.osStyle || stored.osStyle || DEFAULT_OS_STYLE;
+        this.applyPlotOrFollowBasemap(loaded, stored);
         this.followService.loadRoute(loaded.points, loaded.waypoints, key);
         this.followService.listenForCompass();
         this.restoreFollowSession();
@@ -3365,6 +3583,17 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     return walk ? this.payloadService.payloadFromWalk(walk) : null;
   }
 
+  private applyPlotOrFollowBasemap(loaded: RouteFollowPayload, stored: {provider: MapProvider; osStyle: string}): void {
+    if (this.drawingFromBlank && this.mapTiles.hasOsApiKey()) {
+      this.mapProvider = MapProvider.OS;
+      this.osStyle = DEFAULT_OS_STYLE;
+      this.payload = {...loaded, provider: MapProvider.OS, osStyle: DEFAULT_OS_STYLE};
+    } else {
+      this.mapProvider = (loaded.provider as MapProvider) || stored.provider;
+      this.osStyle = loaded.osStyle || stored.osStyle || DEFAULT_OS_STYLE;
+    }
+  }
+
   private rememberSavedStyle(payload: RouteFollowPayload): void {
     this.savedStyle = {
       color: payload.color || PaletteColor.ROSE,
@@ -3392,17 +3621,53 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     };
   }
 
+  private routeCanBeEdited(payload: RouteFollowPayload): boolean {
+    if (payload.source === RouteFollowSource.RECORDING) {
+      return this.mobileAccess.allowed(MobileAppAction.RECORD);
+    } else if (payload.source === RouteFollowSource.OS_MAPS) {
+      return !!payload.canEdit;
+    } else {
+      return this.routeIsEditable(payload);
+    }
+  }
+
   private routeIsEditable(payload: RouteFollowPayload): boolean {
     if (payload.source === RouteFollowSource.RECORDING) {
       return true;
     } else if (payload.source === RouteFollowSource.WALK) {
-      return !!(this.loadedWalk && this.walkDisplay.allowEdits(this.loadedWalk));
+      return !!(this.loadedWalk && this.walkDisplay.allowEdits(this.loadedWalk)) || this.walkDisplay.allowAdminEdits();
     } else if (payload.source === RouteFollowSource.PAGE) {
       return this.memberLogin.allowContentEdits();
     } else if (payload.source === RouteFollowSource.OS_MAPS) {
       return !!payload.canEdit;
     } else {
       return false;
+    }
+  }
+
+  private async ensureWalkForEdit(walkId: string | null, sequence: number): Promise<void> {
+    if (walkId && sequence === this.loadSequence) {
+      if (this.loadedWalk) {
+        this.refreshCanEdit();
+      } else if (this.walksAndEventsService) {
+        const walk = await this.walksAndEventsService.queryById(walkId);
+        if (sequence === this.loadSequence) {
+          this.loadedWalk = walk || null;
+          this.refreshCanEdit();
+        }
+      }
+    }
+  }
+
+  private refreshCanEdit(): void {
+    if (this.payload) {
+      this.canEditRoute = this.routeCanBeEdited(this.payload);
+    }
+  }
+
+  private openRequestedEdit(): void {
+    if (this.canEditRoute && this.route?.snapshot?.queryParamMap.get(StoredValue.EDIT_ROUTE) === "true") {
+      this.editRoute();
     }
   }
 
@@ -3429,7 +3694,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   private async prepareMapOptions(payload: RouteFollowPayload): Promise<void> {
     const sequence = this.loadSequence;
-    const needsCurrentLocation = payload.source === RouteFollowSource.RECORDING && this.followService.trackPoints().length === 0;
+    const needsCurrentLocation = !this.drawingFromBlank && payload.source === RouteFollowSource.RECORDING && this.followService.trackPoints().length === 0;
     const position = needsCurrentLocation ? await this.currentLocation.currentPosition(true) : null;
     if (sequence === this.loadSequence) {
       if (needsCurrentLocation && !position) {
@@ -3453,7 +3718,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     const style = this.osStyle;
     const first = payload.points[0] || payload.waypoints[0] || {latitude: 54.5, longitude: -3};
     const maxZoom = this.mapTiles.maxZoomForStyle(provider, style);
-    const zoom = view ? Math.min(view.zoom, maxZoom) : maxZoom - 2;
+    const minZoom = this.mapTiles.minZoomForStyle(provider, style);
+    const zoom = view ? Math.min(Math.max(view.zoom, minZoom), maxZoom) : Math.max(maxZoom - 2, minZoom);
     const center = view?.center || L.latLng(first.latitude, first.longitude);
     const baseLayer = this.mapTiles.createBaseLayer(provider, style);
     this.observeMapTiles(baseLayer);
@@ -3462,6 +3728,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       zoom,
       center,
       crs: this.mapTiles.crsForStyle(provider, style),
+      minZoom,
       maxZoom,
       zoomControl: false,
       attributionControl: false,
@@ -3683,7 +3950,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       } else {
         this.clearPointer();
       }
-      if (this.followUser && this.mapRef && this.progress?.position) {
+      if (this.followUser && !this.drawingFromBlank && this.mapRef && this.progress?.position) {
         this.mapRef.panTo([this.progress.position.latitude, this.progress.position.longitude]);
       }
     }
@@ -3712,10 +3979,10 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       this.mapRef.fitBounds(bounds, padding);
     } else if (this.mapRef && this.payload?.waypoints?.length >= 2) {
       const bounds = L.latLngBounds(this.payload.waypoints.map(waypoint => [waypoint.latitude, waypoint.longitude] as [number, number]));
-      this.mapRef.fitBounds(bounds, {...padding, maxZoom: 16});
+      this.mapRef.fitBounds(bounds, {...padding, maxZoom: this.mapTiles.maxZoomForStyle(this.mapProvider, this.osStyle)});
     } else if (this.mapRef && this.payload?.waypoints?.length) {
       const start = this.payload.waypoints[0];
-      this.mapRef.setView([start.latitude, start.longitude], Math.max(this.mapRef.getZoom(), 16));
+      this.panMapTo(start.latitude, start.longitude, VenueTypeValue.TOWN);
     }
   }
 

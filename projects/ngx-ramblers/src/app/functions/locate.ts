@@ -16,6 +16,11 @@ export function googleMapsDestination(latitude: number, longitude: number): stri
     : null;
 }
 
+export function coordinateValue(value: unknown): number | null {
+  const parsed = value === null || value === undefined || value === "" ? NaN : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function locatePagePath(params: LocateLinkParams, basePath = ""): string {
   const pin = googleMapsDestination(params.lat, params.lon);
   const query = [
