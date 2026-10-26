@@ -173,7 +173,6 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       this.applySelectedFilterFromParam();
     }));
     this.notify = this.notifierService.createAlertInstance(this.notifyTarget);
-    this.mailchimpConfig = await this.mailchimpConfigService.getConfig();
     this.logger.info("subscribing to systemConfigService events");
     this.subscriptions.push(this.systemConfigService.events().subscribe(async (systemConfig: SystemConfig) => {
       this.systemConfig = systemConfig;
@@ -190,6 +189,9 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
       .subscribe(searchTerm => this.applyFilterToMembers(searchTerm)));
     this.memberLoginService.showLoginPromptWithRouteParameter("expenseId");
     this.logger.off("this.memberFilter:", this.memberFilter);
+    this.generateFilters();
+    this.refreshMembers();
+    this.mailchimpConfig = await this.mailchimpConfigService.getConfig();
     this.latestMemberBulkLoadAudit = await this.memberBulkLoadAuditService.findLatestBulkLoadAudit();
     this.refreshUnsubscribeHistory();
     this.subscriptions.push(this.memberService.changeNotifications().subscribe(apiResponse => {
@@ -214,7 +216,11 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
         this.mailMessagingConfig = mailMessagingConfig;
         this.logger.info("retrieved MailMessagingConfig event:", mailMessagingConfig?.mailConfig);
         this.generateFilters();
-        this.refreshMembers();
+        if (this.members.length === 0) {
+          this.refreshMembers();
+        } else {
+          this.applyFilterToMembers();
+        }
       }));
   }
 
@@ -363,13 +369,14 @@ export class MemberAdminComponent implements OnInit, OnDestroy {
         title: "Walk Leader", group: "Administrators", filter: (member: Member) => this.isWalkLeader(member)
       }
     ];
+    const previousResults = this.memberFilter?.results || [];
     this.memberFilter = {
-      sortField: "memberName",
-      sortFunction: MEMBER_SORT,
-      reverseSort: false,
-      sortDirection: ASCENDING,
-      results: [],
-      availableFilters: (filter1.concat(filter2).concat(filter3)).filter(item => item)
+      sortField: this.memberFilter?.sortField || "memberName",
+      sortFunction: this.memberFilter?.sortFunction || MEMBER_SORT,
+      reverseSort: this.memberFilter?.reverseSort || false,
+      sortDirection: this.memberFilter?.sortDirection || ASCENDING,
+      results: previousResults,
+      availableFilters: (filter1.concat(filter2 || []).concat(filter3)).filter(item => item)
     };
     this.applyStoredSort();
     this.logger.info("filters:", filter1, filter2, filter3);

@@ -6,6 +6,7 @@ export interface BrevoContactViewState {
   canLoadMore: boolean;
   eventsDays: number;
   eventsLimit: number;
+  eventsOffset: number;
   events: BrevoEmailEvent[];
   contactDetails: BrevoContactDetails | null;
   campaignStats: BrevoContactCampaignStats | null;

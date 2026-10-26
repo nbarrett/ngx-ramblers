@@ -9,7 +9,8 @@ import { scheduleBrevo } from "../common/rate-limiting";
 import { dateTimeNowAsValue } from "../../shared/dates";
 import { member } from "../../mongo/models/member";
 import { brevoContactSnapshot } from "../../mongo/models/brevo-contact-snapshot";
-import { BrevoEmailEvent, NumberOrString } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { BrevoEmailEvent, BrevoTransactionalEmailSummary, NumberOrString } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
+import { mergeTransactionalSendsIntoEvents } from "../../../../projects/ngx-ramblers/src/app/functions/brevo-contact-activity";
 import { mapBrevoContactFields } from "./map-brevo-fields";
 
 const messageType = "brevo:contact-snapshot";
@@ -36,7 +37,21 @@ async function fetchAllEvents(client: BrevoClient, email: string): Promise<Brevo
       break;
     }
   }
-  return all;
+  try {
+    const sends = await scheduleBrevo(() => client.transactionalEmails.getTransacEmailsList({
+      email,
+      sort: "desc",
+      limit: EVENTS_PER_PAGE,
+      offset: 0
+    }), "transactionalEmails.getTransacEmailsList");
+    return mergeTransactionalSendsIntoEvents(
+      all,
+      (sends.transactionalEmails ?? []) as BrevoTransactionalEmailSummary[]
+    );
+  } catch (sendError: any) {
+    debugLog("fetchAllEvents:getTransacEmailsList failed", email, sendError?.message || sendError);
+    return all;
+  }
 }
 
 async function contactInfoOrNull(client: BrevoClient, identifierString: string): Promise<Brevo.GetContactInfoResponse | null> {

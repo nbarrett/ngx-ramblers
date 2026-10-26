@@ -1,3 +1,4 @@
+import { mergeTransactionalSendsIntoEvents } from "../../../functions/brevo-contact-activity";
 import { Component, EventEmitter, inject, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -203,6 +204,7 @@ export class BrevoContactViewComponent implements OnChanges {
     canLoadMore: false,
     eventsDays: 90,
     eventsLimit: 50,
+    eventsOffset: 0,
     events: [],
     contactDetails: null,
     campaignStats: null,
@@ -484,13 +486,14 @@ export class BrevoContactViewComponent implements OnChanges {
     if (!this.contactEmail || this.state.loadingMore) return;
     this.state = { ...this.state, loadingMore: true };
     try {
-      const offset = this.state.events.length;
+      const offset = this.state.eventsOffset;
       const report = await this.brevoContactService.getEmailEventReport(this.contactEmail, { days: this.state.eventsDays, limit: this.state.eventsLimit, offset });
       const newEvents = report?.events || [];
       this.state = {
         ...this.state,
-        events: [...this.state.events, ...newEvents],
-        canLoadMore: newEvents.length === this.state.eventsLimit,
+        events: mergeTransactionalSendsIntoEvents([...this.state.events, ...newEvents], []),
+        eventsOffset: report?.nextOffset ?? offset + newEvents.length,
+        canLoadMore: report?.hasMore ?? newEvents.length === this.state.eventsLimit,
         loadingMore: false
       };
     } catch (error: any) {
@@ -529,7 +532,8 @@ export class BrevoContactViewComponent implements OnChanges {
         contactDetails: snapshot?.contactDetails ?? liveDetails,
         campaignStats: snapshot?.campaignStats ?? liveStats,
         events,
-        canLoadMore: !snapshot && events.length === this.state.eventsLimit
+        eventsOffset: report?.nextOffset ?? liveEvents.length,
+        canLoadMore: !snapshot && (report?.hasMore ?? liveEvents.length === this.state.eventsLimit)
       };
       this.campaignDerivedEvents = this.buildCampaignEvents(this.state.campaignStats);
     } catch (error: any) {
@@ -579,6 +583,7 @@ export class BrevoContactViewComponent implements OnChanges {
       canLoadMore: false,
       eventsDays: 90,
       eventsLimit: 50,
+      eventsOffset: 0,
       events: [],
       contactDetails: null,
       campaignStats: null,
