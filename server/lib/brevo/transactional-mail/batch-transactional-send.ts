@@ -37,6 +37,7 @@ import { applyPostSendActionsToMembers } from "../../mongo/controllers/member-bu
 import { CommitteeConfig, CommitteeMember, committeeRoleMatchingEmail, roleEmailAddresses, roleRecipientMemberIds } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { outboundEmailForMember } from "../../../../projects/ngx-ramblers/src/app/functions/committee-members";
 import { batchSendRecipientSplit, composerContentHasPersonalisation, composerRecipientKeepsRoleMailbox, composerRecipientIsExpandableSet, composerSharesRecipientHeaders } from "../../../../projects/ngx-ramblers/src/app/functions/email-composer";
+import { joinNotificationSubject } from "../../../../projects/ngx-ramblers/src/app/functions/notification-subject";
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
 import { ADMIN_SET_PASSWORD_PATH, SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
@@ -208,7 +209,7 @@ function buildSubject(notifConfig: NotificationConfig, suppliedSubject: string, 
   const suffix = notifConfig.subject?.suffixParameter
     ? resolveParameter(notifConfig.subject.suffixParameter, params)
     : null;
-  return [prefix, suppliedSubject, suffix].filter(value => value).join(" - ");
+  return joinNotificationSubject([prefix, suppliedSubject, suffix]);
 }
 
 function resolveParameter(path: string, params: SendSmtpEmailParams): string {

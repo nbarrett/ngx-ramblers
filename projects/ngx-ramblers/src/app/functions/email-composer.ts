@@ -1,5 +1,5 @@
 import { uniq } from "es-toolkit/compat";
-import { BrandingMode, MemberSelection, MergeFieldParamsGroup } from "../models/mail.model";
+import { BrandingMode, MemberSelection, MergeFieldParamsGroup, WorkflowAction } from "../models/mail.model";
 import { CommitteeMember, roleEmailAddresses } from "../models/committee.model";
 import { Member } from "../models/member.model";
 import { committeeAssignedEmailsForMemberId, memberHoldsCommitteeRole, outboundEmailForMember } from "./committee-members";
@@ -517,13 +517,18 @@ export function composerWholeMailingListSelected(options: {
   }
 }
 
+export function composerNeedsPerMemberSend(preSendActions?: WorkflowAction[] | null): boolean {
+  return (preSendActions ?? []).length > 0;
+}
+
 export function composerSendsAsCampaign(
   recipientMode: RecipientMode,
   brandingMode: BrandingMode,
   committeeOnlyAudience = false,
-  wholeMailingListSelected = false
+  wholeMailingListSelected = false,
+  perMemberSend = false
 ): boolean {
-  if (brandingMode === BrandingMode.UNBRANDED || committeeOnlyAudience) {
+  if (brandingMode === BrandingMode.UNBRANDED || committeeOnlyAudience || perMemberSend) {
     return false;
   } else if (recipientMode === RecipientMode.ENTIRE_LIST) {
     return true;
@@ -711,6 +716,10 @@ export function composerRecipientMatchesQuery(item: {email: string; name?: strin
       || (item.committeeRoleLabel || "").toLowerCase().includes(needle)
       || (item.searchText || "").includes(needle);
   }
+}
+
+export function composerShouldKeepRecipientQuery(query: string, remainingUnselectedMatches: number): boolean {
+  return (query || "").trim().length > 0 && remainingUnselectedMatches > 0;
 }
 
 export function composerSuggestionShowsEmail(item: ComposerExternalRecipient): boolean {

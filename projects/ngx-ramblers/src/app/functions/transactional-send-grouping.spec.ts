@@ -27,7 +27,14 @@ describe("subjectStemFromTransactional", () => {
       "Example Group - Your NGX-Ramblers Login"
     );
   });
+
+  it("strips the name suffix when the title uses em dashes throughout", () => {
+    expect(subjectStemFromTransactional(
+      "NGX-Ramblers — Mobile Trial — Your login details — Alex Reed"
+    )).toBe("NGX-Ramblers — Mobile Trial — Your login details");
+  });
 });
+
 
 describe("groupTransactionalEmailsBySendAction", () => {
   it("groups a personalised batch as one send action and keeps separate actions apart", () => {

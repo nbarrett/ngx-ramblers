@@ -33,6 +33,7 @@ import { signoffHtmlForConfig } from "./signoff-names";
 import { assertSendAllowed } from "../send-permission";
 import { ramblersAccountMergeFields } from "../../../../projects/ngx-ramblers/src/app/models/ramblers-legal.model";
 import { emailLocalPart, stripTrailingSlash, validEmail } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
+import { joinNotificationSubject } from "../../../../projects/ngx-ramblers/src/app/functions/notification-subject";
 import {emailAddressForRole} from "./send-member-bulk-load-digest-email";
 import {separateReplyToAddress} from "../../../../projects/ngx-ramblers/src/app/functions/email-addresses";
 import * as inboxAliases from "../../inbox/inbox-aliases";
@@ -324,7 +325,7 @@ function buildSubject(notifConfig: NotificationConfig, params: any): string {
   const suffix = notifConfig.subject?.suffixParameter
     ? resolveParameter(notifConfig.subject.suffixParameter, params)
     : null;
-  return [prefix, notifConfig.subject?.text, suffix].filter(item => item).join(" - ");
+  return joinNotificationSubject([prefix, notifConfig.subject?.text, suffix]);
 }
 
 function resolveParameter(paramPath: string, params: any): string {

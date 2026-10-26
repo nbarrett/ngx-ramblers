@@ -6,7 +6,7 @@ import {BrandingMode, ComposerExternalRecipient, RecipientAddressMode, Recipient
 import {StoredValue} from "../../models/ui-actions";
 import {CommitteeMember} from "../../models/committee.model";
 import {Member} from "../../models/member.model";
-import {ListInfo, MemberSelection, NotificationConfig} from "../../models/mail.model";
+import {ListInfo, MemberSelection, NotificationConfig, WorkflowAction} from "../../models/mail.model";
 import {MailListUpdaterService} from "../mail/mail-list-updater.service";
 import {EmailComposerSessionService} from "./email-composer-session.service";
 import {EmailComposerRecipientSourcesService} from "./email-composer-recipient-sources.service";
@@ -369,6 +369,46 @@ describe("composer list expansion", () => {
     service.applyRecipientDefaultsFrom(config);
     expect(state.selectedListId).toBe(13);
     expect(state.recipientMode).toBe(RecipientMode.ENTIRE_LIST);
+  });
+
+  it("uses a mailing list only to pick members when the config has a pre-send action", () => {
+    const members = [{id: "alex", firstName: "Alex", lastName: "Reed", email: "alex.reed@example.com"} as Member];
+    const list = {id: 14, name: "Mobile Trial"} as ListInfo;
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.BRANDED;
+    state.notificationConfig = {
+      id: "login-details",
+      defaultMemberSelection: MemberSelection.MAILING_LIST,
+      defaultListId: 14,
+      preSendActions: [WorkflowAction.GENERATE_GROUP_MEMBER_PASSWORD_RESET_ID]
+    } as NotificationConfig;
+    const config = state.notificationConfig;
+    TestBed.configureTestingModule({providers: [
+      EmailComposerRecipientsService,
+      {provide: EmailComposerSessionService, useValue: {state, inboxReplyContext: null, syncStateToUrl: vi.fn()}},
+      {provide: MailListUpdaterService, useValue: {memberSubscribed: () => true}},
+      {provide: EmailComposerRecipientSourcesService, useValue: {
+        members,
+        allMembers: members,
+        committeeReferenceData: null,
+        candidateMembers: () => members,
+        nonEmptyLists: () => [list],
+        unbrandedCommitteeLists: () => [],
+        subscribedMemberCount: () => members.length
+      }},
+      {provide: EmailComposerRecipientResolutionService, useValue: {
+        committeeRoleSendOffered: () => false,
+        committeeOnlyAudience: () => false,
+        sendingAsCampaign: () => false,
+        headerEmailSet: () => new Set(),
+        memberRecipientsForIds: () => []
+      }}
+    ]});
+    const service = TestBed.inject(EmailComposerRecipientsService);
+    service.applyRecipientDefaultsFrom(config, true);
+    expect(state.recipientMode).toBe(RecipientMode.ENTIRE_LIST);
+    expect(state.selectedListId).toBe(14);
+    expect(state.sendingChannel).toBe(SendingChannel.TRANSACTIONAL_BATCH);
   });
 
   it("replaces a default mailing list when a filter email type is auto-applied", () => {

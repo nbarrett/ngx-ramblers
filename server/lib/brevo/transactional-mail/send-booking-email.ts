@@ -14,6 +14,7 @@ import {
 import { resolveAccentColor } from "../../../../projects/ngx-ramblers/src/app/models/email-accent-palette";
 import { CommitteeConfig } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import {emailAddressForRole, emailAddressesForRoles} from "./send-member-bulk-load-digest-email";
+import { joinNotificationSubject } from "../../../../projects/ngx-ramblers/src/app/functions/notification-subject";
 
 import { SystemConfig } from "../../../../projects/ngx-ramblers/src/app/models/system.model";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
@@ -155,7 +156,7 @@ function buildSubject(notifConfig: NotificationConfig, subjectText: string, para
   const prefix = notifConfig.subject?.prefixParameter
     ? resolveParameter(notifConfig.subject.prefixParameter, params)
     : null;
-  return [prefix, subjectText].filter(item => item).join(" - ");
+  return joinNotificationSubject([prefix, subjectText]);
 }
 
 function resolveParameter(paramPath: string, params: any): string {

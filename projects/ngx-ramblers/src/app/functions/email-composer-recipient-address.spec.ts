@@ -29,6 +29,7 @@ import {
   composerRecipientFromSuggestion,
   composerRecipientIsSamePerson,
   composerRecipientMatchesQuery,
+  composerShouldKeepRecipientQuery,
   composerSuggestionShowsEmail,
   defaultAddresseeTypeForBranding,
   memberIsCoveredByComposerHeaders,
@@ -105,6 +106,12 @@ describe("composer member identity recipients", () => {
     expect(composerRecipientMatchesQuery(identities[0], "treasurer")).toEqual(true);
     expect(composerRecipientMatchesQuery(identities[0], "treasurer@group.example.org.uk")).toEqual(true);
     expect(composerRecipientMatchesQuery(identities[0], "alex.reed@example.com")).toEqual(true);
+  });
+
+  it("keeps a recipient query when other matches remain", () => {
+    expect(composerShouldKeepRecipientQuery("gars", 3)).toEqual(true);
+    expect(composerShouldKeepRecipientQuery("gars", 0)).toEqual(false);
+    expect(composerShouldKeepRecipientQuery("", 4)).toEqual(false);
   });
 
   it("lists a vacant role once when it has more than one mailbox", () => {
@@ -417,6 +424,10 @@ describe("composerSendsAsCampaign", () => {
 
   it("does not apply campaign sending to unbranded mail", () => {
     expect(composerSendsAsCampaign(RecipientMode.ENTIRE_LIST, BrandingMode.UNBRANDED)).toEqual(false);
+  });
+
+  it("does not send a mailing list as a campaign when each member needs a pre-send action", () => {
+    expect(composerSendsAsCampaign(RecipientMode.ENTIRE_LIST, BrandingMode.BRANDED, false, true, true)).toEqual(false);
   });
 });
 

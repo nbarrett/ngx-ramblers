@@ -3,7 +3,7 @@ import {memberHoldsCommitteeRole} from "../../functions/committee-members";
 import {isNumber, values} from "es-toolkit/compat";
 import {Member, MemberTerm} from "../../models/member.model";
 import {BrandingMode, EmailComposerRecipientEntry, ComposerExternalRecipient, RecipientAddressMode, RecipientMode, RECIPIENT_PRE_FILTERS} from "../../models/email-composer.model";
-import {COMPOSER_EVERYONE_FILTER_EMAIL, composerCampaignListId, composerCommitteeRoleSendOffered, composerRecipientFromMember, composerRecipientIsExpandableSet, composerRecipientsForAddressMode, composerSelectedMembersAreCommitteeAudience, composerSendsAsCampaign, composerWholeMailingListSelected, memberIsCoveredByComposerHeaders} from "../../functions/email-composer";
+import {COMPOSER_EVERYONE_FILTER_EMAIL, composerCampaignListId, composerCommitteeRoleSendOffered, composerNeedsPerMemberSend, composerRecipientFromMember, composerRecipientIsExpandableSet, composerRecipientsForAddressMode, composerSelectedMembersAreCommitteeAudience, composerSendsAsCampaign, composerWholeMailingListSelected, memberIsCoveredByComposerHeaders} from "../../functions/email-composer";
 import {MemberSelection} from "../../models/mail.model";
 import {MailListUpdaterService} from "../mail/mail-list-updater.service";
 import {MemberService} from "../member/member.service";
@@ -329,7 +329,8 @@ export class EmailComposerRecipientResolutionService {
         this.session.state.recipientMode,
         this.session.state.brandingMode,
         this.committeeOnlyAudience(),
-        this.wholeMailingListSelected()
+        this.wholeMailingListSelected(),
+        composerNeedsPerMemberSend(this.session.state.notificationConfig?.preSendActions)
       );
     }
   }

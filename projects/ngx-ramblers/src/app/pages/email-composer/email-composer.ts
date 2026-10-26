@@ -300,6 +300,7 @@ import { CampaignOverflowNotice, NGX_BREVO_CAMPAIGN_TAG } from "../../models/bre
 import { ScheduledTaskId } from "../../models/scheduled-task.model";
 import { ScheduledTaskService } from "../../services/scheduled-task.service";
 import { stripTrailingSlash } from "../../functions/strings";
+import { joinNotificationSubject } from "../../functions/notification-subject";
 import { StickyControlsDirective } from "../../modules/common/tiptap-editor/sticky-controls.directive";
 
 const HIDDEN_STYLE_PATTERN = /display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|max-height\s*:\s*0/i;
@@ -4420,7 +4421,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     };
     const prefix = resolve(subjectConfig?.prefixParameter);
     const suffix = resolve(subjectConfig?.suffixParameter);
-    return [prefix, subject, suffix].filter(value => value).join(" - ");
+    return joinNotificationSubject([prefix, subject, suffix]);
   }
 
   private composedBodyParts(): {

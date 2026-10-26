@@ -42,7 +42,7 @@ describe("site registration email", () => {
     });
 
     const request = send.firstCall.args[0];
-    expect(request.subject).toBe("Configured confirmation - Example Ramblers");
+    expect(request.subject).toBe("Configured confirmation – Example Ramblers");
     expect(request.body).toContain("ACTION_URL");
     expect(request.params.messageMergeFields.ACTION_URL).toContain("/register/confirm/");
     expect(request.params.messageMergeFields.RETURN_URL).toContain("/register/token");

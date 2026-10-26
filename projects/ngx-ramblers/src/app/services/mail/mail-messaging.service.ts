@@ -36,6 +36,7 @@ import { committeeRoleForMemberId, memberRecordId, outboundEmailForMember } from
 
 import { ramblersAccountMergeFields } from "../../models/ramblers-legal.model";
 import { resolveContactUsRecipientAddresses } from "../../functions/contact-us-delivery";
+import { joinNotificationSubject } from "../../functions/notification-subject";
 import { resolveAccentColor } from "../../models/email-accent-palette";
 import { DateRangeUnit } from "../../models/search.model";
 import { DateUtilsService } from "../date-utils.service";
@@ -416,7 +417,7 @@ export class MailMessagingService {
     const keyValues: KeyValue<any>[] = extractParametersFrom(emailRequest.params, false);
     const prefix = subject?.prefixParameter ? keyValues.find(item => item.key === subject?.prefixParameter)?.value : null;
     const suffix = subject?.suffixParameter ? keyValues.find(item => item.key === subject?.suffixParameter)?.value : null;
-    const returnedSubject = [prefix, subject?.text, suffix].filter(item => item).join(" - ");
+    const returnedSubject = joinNotificationSubject([prefix, subject?.text, suffix]);
     this.logger.info("keyValues ->", keyValues, "subject ->", subject, "returnedSubject:", returnedSubject);
     return returnedSubject;
   }
