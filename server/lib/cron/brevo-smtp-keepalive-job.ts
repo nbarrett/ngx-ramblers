@@ -1,8 +1,7 @@
 import debug from "debug";
 import { envConfig } from "../env-config/env-config";
 import { registerScheduledTask } from "./scheduled-task-registry";
-import { configuredBrevo } from "../brevo/brevo-config";
-import { sendSmtpKeepalive } from "../brevo/smtp-relay";
+import { sendSmtpKeepalive, smtpKeepaliveAuths } from "../brevo/smtp-relay";
 import { ScheduledTaskId } from "../../../projects/ngx-ramblers/src/app/models/scheduled-task.model";
 
 const debugLog = debug(envConfig.logNamespace("cron:brevo-smtp-keepalive"));
@@ -10,8 +9,8 @@ debugLog.enabled = true;
 
 async function smtpCredentialsConfigured(): Promise<boolean> {
   try {
-    const config = await configuredBrevo();
-    return !!config.smtpUser?.trim() && !!config.smtpPassword?.trim();
+    const auths = await smtpKeepaliveAuths();
+    return auths.length > 0;
   } catch (error: any) {
     debugLog("Failed to read Brevo config when checking SMTP credentials:", error?.message || error);
     return false;
@@ -24,7 +23,7 @@ export async function scheduleBrevoSmtpKeepalive(): Promise<void> {
     await registerScheduledTask({
       id: ScheduledTaskId.BREVO_SMTP_KEEPALIVE,
       name: "Brevo SMTP key keepalive",
-      description: "Sends a monthly probe through the Brevo SMTP relay so the SMTP key is not marked inactive after three months of disuse, and confirms inbound committee email can still be relayed.",
+      description: "Sends a monthly probe through each configured Brevo SMTP login and key so unused keys are not marked inactive after three months, and confirms inbound committee email can still be relayed.",
       cronExpression,
       enabled: true,
       run: async () => {
