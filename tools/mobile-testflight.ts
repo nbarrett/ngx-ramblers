@@ -1,5 +1,5 @@
 import { sign } from "node:crypto";
-import { setInterval } from "node:timers/promises";
+import { setInterval, setTimeout } from "node:timers/promises";
 import debug from "debug";
 import { dateTimeNow } from "../server/lib/shared/dates";
 import { AppleBuildBetaDetailResponse, AppleBuildProcessingState, AppleExternalBuildState, ApplePilotReleaseConfiguration, ApplePilotRequestMethod, ApplePilotGroupResponse, AppleReleaseBuild, AppleReleaseBuildResponse } from "../projects/ngx-ramblers/src/app/models/mobile-release.model";
@@ -15,17 +15,47 @@ function token(configuration: ApplePilotReleaseConfiguration): string {
   return `${payload}.${signature}`;
 }
 
+function retryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+function retryableAppleError(error: unknown): boolean {
+  return error instanceof Error && /request failed \((429|5\d\d)\)/.test(error.message);
+}
+
 async function request(configuration: ApplePilotReleaseConfiguration, path: string, body: unknown = null, method = body ? ApplePilotRequestMethod.POST : ApplePilotRequestMethod.GET, acceptedStatuses: number[] = []): Promise<Response> {
-  const response = await fetch(`https://api.appstoreconnect.apple.com/v1/${path}`, {
-    method,
-    headers: {Authorization: `Bearer ${token(configuration)}`, "Content-Type": "application/json"},
-    body: body ? JSON.stringify(body) : null,
-    signal: AbortSignal.timeout(30000)
-  });
-  if (!response.ok && !acceptedStatuses.includes(response.status)) {
-    throw new Error(`App Store Connect request failed (${response.status}): ${await response.text()}`);
+  const progress = {attempt: 0};
+  const maxAttempts = 4;
+  const outcome: {response: Response | null; error: string | null} = {response: null, error: null};
+  for (const wait of [0, 2000, 4000, 8000]) {
+    progress.attempt += 1;
+    if (wait > 0) {
+      await setTimeout(wait);
+    }
+    const response = await fetch(`https://api.appstoreconnect.apple.com/v1/${path}`, {
+      method,
+      headers: {Authorization: `Bearer ${token(configuration)}`, "Content-Type": "application/json"},
+      body: body ? JSON.stringify(body) : null,
+      signal: AbortSignal.timeout(30000)
+    });
+    if (response.ok || acceptedStatuses.includes(response.status)) {
+      outcome.response = response;
+      break;
+    } else {
+      const bodyText = await response.text();
+      if (retryableStatus(response.status) && progress.attempt < maxAttempts) {
+        logger("App Store Connect %s returned %s; retrying %s/%s: %s", path, response.status, progress.attempt, maxAttempts, bodyText);
+      } else {
+        outcome.error = `App Store Connect request failed (${response.status}): ${bodyText}`;
+        break;
+      }
+    }
   }
-  return response;
+  if (outcome.response) {
+    return outcome.response;
+  } else {
+    throw new Error(outcome.error);
+  }
 }
 
 function awaitingExternalDistribution(state: AppleExternalBuildState): boolean {
@@ -120,6 +150,20 @@ export async function assignProcessedBuild(configuration: ApplePilotReleaseConfi
   return assigned.value;
 }
 
+async function assignUntilDeadline(configuration: ApplePilotReleaseConfiguration, deadline: number): Promise<boolean> {
+  const assigned = {value: false};
+  try {
+    assigned.value = await assignProcessedBuild(configuration);
+  } catch (error) {
+    if (retryableAppleError(error) && dateTimeNow().toMillis() < deadline) {
+      logger("Pilot distribution hit a transient Apple error; will retry: %s", error instanceof Error ? error.message : error);
+    } else {
+      throw error;
+    }
+  }
+  return assigned.value;
+}
+
 async function main(): Promise<void> {
   const configuration: ApplePilotReleaseConfiguration = {
     appId: process.env.APP_STORE_CONNECT_APP_ID,
@@ -133,12 +177,13 @@ async function main(): Promise<void> {
     throw new Error("App Store Connect API credentials, app ID, pilot group ID and build number are required.");
   }
   const deadline = dateTimeNow().plus({minutes: 30}).toMillis();
-  const initialAssignment = await assignProcessedBuild(configuration);
-  if (!initialAssignment) {
+  const assigned = {value: false};
+  assigned.value = await assignUntilDeadline(configuration, deadline);
+  if (!assigned.value) {
     for await (const tick of setInterval(15000)) {
       if (dateTimeNow().toMillis() >= deadline) {
         throw new Error("Apple processing did not complete within 30 minutes. The upload is retained; check its processing status before retrying.");
-      } else if (await assignProcessedBuild(configuration)) {
+      } else if (await assignUntilDeadline(configuration, deadline)) {
         break;
       }
     }

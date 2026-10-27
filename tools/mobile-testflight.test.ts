@@ -253,6 +253,27 @@ test("preserves notification errors other than conflicts", async () => {
   }
 });
 
+test("retries a transient App Store Connect failure then continues", async () => {
+  const originalFetch = global.fetch;
+  const requests: string[] = [];
+  const remainingFailures = {count: 1};
+  global.fetch = async input => {
+    requests.push(input.toString());
+    if (remainingFailures.count > 0) {
+      remainingFailures.count -= 1;
+      return new Response(JSON.stringify({errors: [{status: "500", code: "UNEXPECTED_ERROR"}]}), {status: 500});
+    } else {
+      return Response.json({data: [{id: "example-build", attributes: {version: "101", processingState: AppleBuildProcessingState.PROCESSING}}]});
+    }
+  };
+  try {
+    assert.equal(await assignProcessedBuild(configuration), false);
+    assert.equal(requests.length, 2);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("fails promptly if Apple rejects a build while availability is being confirmed", async () => {
   const mock = notificationResponses(204, [AppleExternalBuildState.BETA_APPROVED, AppleExternalBuildState.BETA_REJECTED]);
   try {
