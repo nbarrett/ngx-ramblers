@@ -228,6 +228,7 @@ import { ButtonDropdownComponent } from "../../modules/common/button-dropdown/bu
 import { ButtonDropdownItem, ButtonDropdownItemType } from "../../models/button-dropdown.model";
 import { MaximisablePanelComponent } from "../../modules/common/maximisable-panel/maximisable-panel";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
+import { AlertPanelVariant } from "../../models/alert-panel.model";
 import { MemberAdminModalComponent } from "../admin/member-admin-modal/member-admin-modal.component";
 import { ArticleBlockSingleEditor } from "../../modules/common/article-blocks/article-block-single-editor";
 import { SectionDividerSelectComponent } from "../../modules/common/section-divider-select/section-divider-select";
@@ -453,6 +454,17 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           }
         </ng-template>
         <ng-template #composerStatusAlerts>
+          @if (session.notifyTarget.showAlert) {
+            <app-alert-panel grouped compact class="mb-3" [variant]="composerNotifyVariant()">
+              <app-alert-message [title]="session.notifyTarget.alertTitle || 'Composer'"
+                                 [icon]="session.notifyTarget.alert?.icon || faCheckCircle"
+                                 [messageKey]="session.notifyTarget.alertMessage || session.notifyTarget.alertTitle || ''">
+                @if (session.notifyTarget.alertMessage) {
+                  {{ session.notifyTarget.alertMessage }}
+                }
+              </app-alert-message>
+            </app-alert-panel>
+          }
           <app-alert-panel grouped compact
                            [attr.role]="composerHydrating() || drafting.creatingReleaseNoteUpdate ? 'status' : null"
                            [attr.aria-live]="composerHydrating() || drafting.creatingReleaseNoteUpdate ? 'polite' : null">
@@ -638,12 +650,6 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
       }
 
 
-            @if (session.notifyTarget.showAlert) {
-              <app-alert-message [title]="session.notifyTarget.alertTitle || 'Composer'"
-                                 [messageKey]="session.notifyTarget.alertMessage || ''">
-                {{ session.notifyTarget.alertMessage }}
-              </app-alert-message>
-            }
             @if (stepperActiveTab === EmailComposerStepKey.COMPOSE || stepperActiveTab === EmailComposerStepKey.SEND) {
               @if (pendingForwardedHeaderLines.length > 0 && stepperActiveTab === EmailComposerStepKey.COMPOSE) {
                 <app-alert-message title="Forwarded email detected" (dismissedChange)="dismissForwardedHeaderOffer()">
@@ -1545,6 +1551,17 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
 
   protected composerHydrating(): boolean {
     return this.inboxReplyLoading || this.pendingDraftLoad || !this.mailMessagingReady || (!this.membersLoaded && !this.openingInboxReply());
+  }
+
+  protected composerNotifyVariant(): AlertPanelVariant {
+    const alertType = this.session.notifyTarget.alert?.type;
+    if (alertType === "danger") {
+      return AlertPanelVariant.DANGER;
+    } else if (alertType === "warning") {
+      return AlertPanelVariant.WARNING;
+    } else {
+      return AlertPanelVariant.SUCCESS;
+    }
   }
 
   private openingInboxReply(): boolean {
