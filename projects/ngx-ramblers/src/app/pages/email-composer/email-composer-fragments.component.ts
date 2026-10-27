@@ -3,7 +3,7 @@ import { CommonModule } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faGripVertical, faAlignLeft, faAddressCard, faCalendarDays, faSignature, faCircleInfo, faTableColumns, faGripLines, faFile, faChevronDown, faChevronRight, faTrash, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { isUndefined } from "es-toolkit/compat";
-import { ArticleBlock, BrandingMode, ComposerFragment, ComposerFragmentKind, EmailComposerState, EventInclusionMode, EXPANDABLE_FRAGMENT_KINDS, DragHoverPosition, SECTION_DIVIDER_OPTIONS } from "../../models/email-composer.model";
+import { ArticleBlock, BrandingMode, ComposerFragment, ComposerFragmentKind, EmailComposerState, EXPANDABLE_FRAGMENT_KINDS, DragHoverPosition, SECTION_DIVIDER_OPTIONS } from "../../models/email-composer.model";
 import { CommitteeFile } from "../../models/committee.model";
 import { EmailComposerFragmentBodyContext } from "../../models/email-composer.model";
 import { EmailComposerFragmentsService } from "../../services/email-composer/email-composer-fragments.service";
@@ -62,11 +62,13 @@ import { SectionDividerSelectComponent } from "../../modules/common/section-divi
                 </button>
               }
             </div>
+            @if (state.brandingMode !== BrandingMode.UNBRANDED || fragment.kind === ComposerFragmentKind.DIVIDER) {
             <div class="fragment-divider-cell" (click)="$event.stopPropagation()">
               <app-section-divider-select [label]="fragment.kind === ComposerFragmentKind.DIVIDER ? 'Style' : 'Divider after'"
                                           [value]="fragment.dividerAfter"
                                           (valueChange)="editor.onFragmentDividerChange(state, parentPath.concat([i]), $event)"/>
             </div>
+            }
             @if (editor.isFragmentExpanded(state, fragment.id)) {
               <div class="fragment-row-body">
                 @if (fragment.kind === ComposerFragmentKind.MULTI_COLUMN) {
@@ -115,6 +117,7 @@ export class EmailComposerFragmentsComponent {
     committeeFiles = new Map<string, CommitteeFile>();
     @Input()
     eventSummary = "";
+    protected readonly BrandingMode = BrandingMode;
     protected editor = inject(EmailComposerFragmentsService);
     protected committeeDisplayService = inject(CommitteeDisplayService);
     protected readonly ComposerFragmentKind = ComposerFragmentKind;
@@ -208,13 +211,9 @@ export class EmailComposerFragmentsComponent {
         return EXPANDABLE_FRAGMENT_KINDS.has(fragment.kind);
     }
     protected showComposerFragment(fragment: ComposerFragment): boolean {
-        if (fragment.kind === ComposerFragmentKind.EVENTS && this.state.eventInclusion === EventInclusionMode.NONE) {
-            return false;
-        }
-        else {
-            return true;
-        }
+        return this.editor.fragmentVisible(this.state, fragment);
     }
+
     private toPlainTextPreview(input: string): string {
         if (isUndefined(document)) {
             return input;

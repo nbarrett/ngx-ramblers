@@ -18,7 +18,7 @@ import { EditorState } from "@tiptap/pm/state";
 import { redoDepth, undoDepth } from "@tiptap/pm/history";
 import StarterKit from "@tiptap/starter-kit";
 import { ListItem } from "@tiptap/extension-list";
-import { HtmlBold, HtmlItalic, HtmlLink, markdownMarksForClipboard } from "./html-marks.extension";
+import { HtmlBold, HtmlItalic, HtmlLink, SafeParagraph, markdownMarksForClipboard } from "./html-marks.extension";
 import { ImageAlign, ImageResizeCorner, ImageSpacing, SpacedImage } from "./spaced-image.extension";
 import { Markdown } from "@tiptap/markdown";
 import { MermaidCodeBlock, refreshMermaidCodeBlockPreviews } from "./mermaid-code-block.extension";
@@ -44,6 +44,7 @@ import {
   faListOl,
   faListUl,
   faPaintbrush,
+  faPaste,
   faQuoteRight,
   faRedo,
   faRemoveFormat,
@@ -73,7 +74,7 @@ import {
   friendlyText,
   stripMergeFieldBraces
 } from "../../../functions/merge-fields";
-import { EditorFocusPosition, TiptapMark, TiptapTableCommand, TokenPopupType } from "../../../models/tiptap-editor.model";
+import { EditorFocusPosition, TiptapPasteEvent, TiptapMark, TiptapTableCommand, TokenPopupType } from "../../../models/tiptap-editor.model";
 import { MERGE_FIELD_NODE_NAME, MergeField } from "./merge-field.extension";
 import { LINK_TOKEN_NODE_NAME, LinkToken } from "./link-token.extension";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
@@ -88,6 +89,7 @@ import { nativeApiUrl } from "../../../functions/native-walking";
 import { UrlService } from "../../../services/url.service";
 import { FileUtilsService } from "../../../file-utils.service";
 import { hasSoftWrappedParagraph, normaliseWordPasteMarkdown, unwrapSoftLineBreaks } from "../../../functions/unwrap-line-breaks";
+import { emailHeadersNearTop, extractLeadingTitle, formattedPasteMarkdown } from "../../../functions/email-composer-intro-paste";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PasteDetectionService } from "../../../services/paste-detection.service";
 import { DocumentConversionService } from "../../../services/committee/document-conversion.service";
@@ -363,6 +365,33 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
       </div>
     </div>
   }
+  @if (pendingLiteralPaste) {
+    <div class="alert alert-warning d-flex align-items-start gap-2 mb-0 rounded-0 tiptap-paste-prompt">
+      <fa-icon [icon]="faCircleExclamation" class="mt-1"/>
+      <div>
+        <strong class="d-block">Paste formatted?</strong>
+        <p class="mb-2">Formatted as ordinary mail, or without formatting.@if (pendingLiteralHasHeaders) {
+          Formatted will use the detected subject and recipients.
+        } @else if (pendingLiteralHasTitle) {
+          Formatted will use the leading title as the subject when the current subject is blank or automatic.
+        }</p>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-primary" (click)="confirmFormattedPaste()">
+            <fa-icon [icon]="faRemoveFormat" class="me-1"/>Formatted
+          </button>
+          <button type="button" class="btn btn-quiet" (click)="confirmLiteralPaste()">
+            <fa-icon [icon]="faPaste" class="me-1"/>Not formatted
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+  @if (pasteError) {
+    <div class="alert alert-danger d-flex align-items-start gap-2 mb-0 rounded-0">
+      <fa-icon [icon]="faCircleExclamation"/>
+      <div><strong>Paste failed</strong><br>{{ pasteError }}</div>
+    </div>
+  }
   </div>
   @if (imageCropperOpen) {
     <div class="inline-input-bar" style="display:block">
@@ -385,12 +414,6 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
   @if (pastedDocumentImporting) {
     <div class="inline-input-bar" style="display:block">
       <span class="token-editor-title">Importing pasted document…</span>
-    </div>
-  }
-  @if (pasteError) {
-    <div class="alert alert-danger d-flex align-items-start gap-2">
-      <fa-icon [icon]="faCircleExclamation"/>
-      <div><strong>Paste failed</strong><br>{{ pasteError }}</div>
     </div>
   }
   @if (sourceMode) {
@@ -642,8 +665,9 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
 
   protected addExternalUrl = (term: string): MemberMergeFieldHint => ({token: (term || "").trim(), label: (term || "").trim()});
   @Output() valueChange = new EventEmitter<string>();
-  @Output() rawPaste = new EventEmitter<{ text: string; html?: string; consume: () => void }>();
+  @Output() rawPaste = new EventEmitter<TiptapPasteEvent>();
   @Output() contactButtonApplied = new EventEmitter<void>();
+  @Output() editingChange = new EventEmitter<boolean>();
 
   protected editor: Editor | null = null;
   private pendingValue: string = "";
@@ -732,6 +756,12 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected pastedDocumentImporting = false;
   protected pasteError = "";
   protected unwrapLineBreaksOnPaste = true;
+  protected pendingLiteralPaste: string | null = null;
+  protected pendingLiteralHasHeaders = false;
+  protected pendingLiteralHasTitle = false;
+  private pendingLiteralHtml: string | null = null;
+  protected readonly faPaste = faPaste;
+  private literalPasteShortcut = false;
   private http = inject(HttpClient);
   private fileUtilsService = inject(FileUtilsService);
 
@@ -788,6 +818,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     });
     const extensions: any[] = [
       StarterKit.configure({
+        paragraph: false,
         bold: false,
         italic: false,
         listItem: false,
@@ -799,6 +830,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       ListItem.extend({
         content: "block+"
       }),
+      SafeParagraph,
       HtmlBold,
       HtmlItalic,
       HtmlLink.configure({
@@ -835,64 +867,68 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         },
         handleKeyDown: (_view, event) => this.handleEditorKeyDown(event),
         handlePaste: (_view, event) => {
-          const pastedDocument = Array.from(event.clipboardData?.files ?? []).find(file => /\.(docx|pdf)$/i.test(file.name));
-          const pastedImage = Array.from(event.clipboardData?.files ?? []).find(file => file.type.startsWith("image/"));
-          const pastedHtml = event.clipboardData?.getData("text/html") ?? "";
-          const wordImages = imagesFromRtf(event.clipboardData?.getData("text/rtf") ?? "");
-          const pastedImageFiles = Array.from(event.clipboardData?.items ?? [])
-            .filter(item => item.kind === "file" && item.type.startsWith("image/"))
-            .map(item => item.getAsFile())
-            .filter((file): file is File => !!file);
-          const embeddedDataImages = dataImagesFromHtml(pastedHtml);
-          const internalPaste = isInternalPaste(pastedHtml);
-          const richTextPaste = !internalPaste && htmlHasRichFormatting(pastedHtml);
-          const text = event.clipboardData?.getData("text/plain") ?? "";
-          const consumed = {value: false};
-          let handled = false;
-          if (!internalPaste && pastedHtml && (isWordClipboardHtml(pastedHtml) || wordImages.length > 0 || pastedImageFiles.length > 0 || embeddedDataImages.length > 0 || htmlReferencesLocalImages(pastedHtml))) {
-            event.preventDefault();
-            void this.pasteWordHtml(pastedHtml, wordImages, pastedImageFiles, embeddedDataImages);
-            handled = true;
-          } else if (pastedDocument) {
-            event.preventDefault();
-            void this.importPastedDocument(pastedDocument);
-            handled = true;
-          } else if (pastedImage && !richTextPaste) {
-            event.preventDefault();
-            void this.uploadAndInsertPastedImage(pastedImage);
-            handled = true;
-          } else if (text || pastedHtml) {
-            this.zone.run(() => {
-              this.rawPaste.emit({
-                text,
-                html: pastedHtml || undefined,
-                consume: () => {
-                  consumed.value = true;
-                }
+          if (this.handleLiteralPaste(event)) {
+            return true;
+          } else {
+            const pastedDocument = Array.from(event.clipboardData?.files ?? []).find(file => /\.(docx|pdf)$/i.test(file.name));
+            const pastedImage = Array.from(event.clipboardData?.files ?? []).find(file => file.type.startsWith("image/"));
+            const pastedHtml = event.clipboardData?.getData("text/html") ?? "";
+            const wordImages = imagesFromRtf(event.clipboardData?.getData("text/rtf") ?? "");
+            const pastedImageFiles = Array.from(event.clipboardData?.items ?? [])
+              .filter(item => item.kind === "file" && item.type.startsWith("image/"))
+              .map(item => item.getAsFile())
+              .filter((file): file is File => !!file);
+            const embeddedDataImages = dataImagesFromHtml(pastedHtml);
+            const internalPaste = isInternalPaste(pastedHtml);
+            const richTextPaste = !internalPaste && htmlHasRichFormatting(pastedHtml);
+            const text = event.clipboardData?.getData("text/plain") ?? "";
+            const consumed = {value: false};
+            let handled = false;
+            if (!internalPaste && pastedHtml && (isWordClipboardHtml(pastedHtml) || wordImages.length > 0 || pastedImageFiles.length > 0 || embeddedDataImages.length > 0 || htmlReferencesLocalImages(pastedHtml))) {
+              event.preventDefault();
+              void this.pasteWordHtml(pastedHtml, wordImages, pastedImageFiles, embeddedDataImages);
+              handled = true;
+            } else if (pastedDocument) {
+              event.preventDefault();
+              void this.importPastedDocument(pastedDocument);
+              handled = true;
+            } else if (pastedImage && !richTextPaste) {
+              event.preventDefault();
+              void this.uploadAndInsertPastedImage(pastedImage);
+              handled = true;
+            } else if (text || pastedHtml) {
+              this.zone.run(() => {
+                this.rawPaste.emit({
+                  text,
+                  html: pastedHtml || undefined,
+                  consume: () => {
+                    consumed.value = true;
+                  }
+                });
               });
-            });
-            if (consumed.value) {
-              event.preventDefault();
-              handled = true;
-            } else if (richTextPaste && pastedHtml && /<img\b[^>]*src=["']data:image\//i.test(pastedHtml)) {
-              event.preventDefault();
-              void this.pasteRichHtmlWithImages(pastedHtml);
-              handled = true;
-            } else if (shouldPastePlainTextAsMarkdown(internalPaste, text, this.looksLikeMarkdown(text))) {
-              event.preventDefault();
-              this.insertMarkdownAtCursor(this.unwrapIfEnabled(sanitiseMarkdownForPaste(text)));
-              handled = true;
-            } else if (!internalPaste && !richTextPaste && text && this.unwrapLineBreaksOnPaste && hasSoftWrappedParagraph(text)) {
-              event.preventDefault();
-              const html = unwrapSoftLineBreaks(text)
-                .split(/\n{2,}/)
-                .map(block => `<p>${block.replace(/\n/g, "<br>")}</p>`)
-                .join("");
-              this.editor?.commands.insertContent(html);
-              handled = true;
+              if (consumed.value) {
+                event.preventDefault();
+                handled = true;
+              } else if (richTextPaste && pastedHtml && /<img\b[^>]*src=["']data:image\//i.test(pastedHtml)) {
+                event.preventDefault();
+                void this.pasteRichHtmlWithImages(pastedHtml);
+                handled = true;
+              } else if (shouldPastePlainTextAsMarkdown(internalPaste, text, this.looksLikeMarkdown(text))) {
+                event.preventDefault();
+                this.insertMarkdownAtCursor(this.unwrapIfEnabled(sanitiseMarkdownForPaste(text)));
+                handled = true;
+              } else if (!internalPaste && !richTextPaste && text && this.unwrapLineBreaksOnPaste && hasSoftWrappedParagraph(text)) {
+                event.preventDefault();
+                const html = unwrapSoftLineBreaks(text)
+                  .split(/\n{2,}/)
+                  .map(block => `<p>${block.replace(/\n/g, "<br>")}</p>`)
+                  .join("");
+                this.editor?.commands.insertContent(html);
+                handled = true;
+              }
             }
+            return handled;
           }
-          return handled;
         },
         transformPastedHTML: (html: string) => isInternalPaste(html) ? html : sanitiseHtmlForPaste(html)
       },
@@ -912,6 +948,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.queueMermaidPreviewRefresh();
     this.editor.on("focus", () => {
       this.zone.run(() => {
+        this.editingChange.emit(true);
         if (this.phoneLayout()) {
         } else {
           this.enterDetailMode();
@@ -925,6 +962,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
           const active = document.activeElement;
           const focusLeftTheEditor = !!active && active !== document.body && active !== document.documentElement && !this.host.nativeElement.contains(active);
           if (!this.editor?.isFocused && focusLeftTheEditor) {
+            this.editingChange.emit(false);
             this.exitDetailMode();
             this.queueMermaidPreviewRefresh();
           }
@@ -1330,7 +1368,84 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.editor?.chain().focus().toggleHeading({ level }).run();
   }
 
+  private clipboardText(event: ClipboardEvent): string {
+    const plain = event.clipboardData?.getData("text/plain") ?? "";
+    const html = event.clipboardData?.getData("text/html") ?? "";
+    return (plain.trim() ? plain : html).replace(/\r\n?/g, "\n");
+  }
+
+  private handleLiteralPaste(event: ClipboardEvent): boolean {
+    const shortcut = this.literalPasteShortcut;
+    this.literalPasteShortcut = false;
+    const text = this.clipboardText(event);
+    const html = event.clipboardData?.getData("text/html") ?? "";
+    if (shortcut) {
+      event.preventDefault();
+      this.insertLiteralText(text);
+      return true;
+    } else if (!isInternalPaste(html) && this.pasteDetectionService.looksLikeLiteralPlainText(text, html)) {
+      event.preventDefault();
+      this.pendingLiteralPaste = text;
+      this.pendingLiteralHasHeaders = emailHeadersNearTop(text);
+      const title = extractLeadingTitle(text, html);
+      this.pendingLiteralHasTitle = !!title && title.body !== text;
+      this.pendingLiteralHtml = html || null;
+      this.pasteError = "";
+      this.editingChange.emit(false);
+      this.changeDetector.detectChanges();
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private insertLiteralText(text: string): void {
+    this.dismissLiteralPastePrompt();
+    if (text) {
+      this.editor?.chain().focus().insertContent({
+        type: "codeBlock",
+        attrs: {language: null},
+        content: [{type: "text", text: text.replace(/\r\n?/g, "\n")}]
+      }).run();
+    } else {
+      this.pasteError = "The clipboard contains no text.";
+      this.changeDetector.detectChanges();
+    }
+  }
+
+  private dismissLiteralPastePrompt(): void {
+    this.pendingLiteralPaste = null;
+    this.pendingLiteralHasHeaders = false;
+    this.pendingLiteralHasTitle = false;
+    this.pendingLiteralHtml = null;
+    this.pasteError = "";
+    this.changeDetector.detectChanges();
+  }
+
+  protected confirmLiteralPaste(): void {
+    this.insertLiteralText(this.pendingLiteralPaste ?? "");
+    this.editingChange.emit(true);
+  }
+
+  protected confirmFormattedPaste(): void {
+    const text = this.pendingLiteralPaste ?? "";
+    const html = this.pendingLiteralHtml;
+    this.dismissLiteralPastePrompt();
+    const consumed = {value: false};
+    this.zone.run(() => this.rawPaste.emit({
+      text,
+      html: html || null,
+      confirmed: true,
+      consume: () => consumed.value = true
+    }));
+    if (!consumed.value && text) {
+      this.insertMarkdownAtCursor(formattedPasteMarkdown(text));
+    }
+    this.editingChange.emit(true);
+  }
+
   private handleEditorKeyDown(event: KeyboardEvent): boolean {
+    this.literalPasteShortcut = (event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "v";
     return this.handleEmojiSuggestionKey(event) || this.handleListIndentKey(event);
   }
 
@@ -2415,13 +2530,19 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     const canUndo = this.editor ? undoDepth(this.editor.state) > 0 : false;
     const canRedo = this.editor ? redoDepth(this.editor.state) > 0 : false;
     const documentEmpty = this.editor ? this.editor.isEmpty : true;
-    if (canUndo !== this.canUndo || canRedo !== this.canRedo || documentEmpty !== this.documentEmpty) {
-      this.zone.run(() => {
-        this.canUndo = canUndo;
-        this.canRedo = canRedo;
-        this.documentEmpty = documentEmpty;
-        this.changeDetector.markForCheck();
-      });
+    this.documentEmpty = documentEmpty;
+    this.syncEmptyContentClass();
+    if (canUndo !== this.canUndo || canRedo !== this.canRedo) {
+      this.canUndo = canUndo;
+      this.canRedo = canRedo;
+      this.changeDetector.detectChanges();
+    }
+  }
+
+  private syncEmptyContentClass(): void {
+    const content = this.host.nativeElement.querySelector(".tiptap-content") as HTMLElement | null;
+    if (content) {
+      content.classList.toggle("tiptap-content-empty", this.documentEmpty && this.editable);
     }
   }
 

@@ -26,3 +26,10 @@ export enum EditorFocusPosition {
   START = "start",
   END = "end"
 }
+
+export interface TiptapPasteEvent {
+  text: string;
+  html?: string;
+  confirmed?: boolean;
+  consume: () => void;
+}

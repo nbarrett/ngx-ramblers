@@ -1,5 +1,6 @@
 import {
   extractLeadingTitle,
+  formattedPasteMarkdown,
   placeForwardedIntroMarkdown,
   planTitledIntroPaste,
   shouldRunIntroSmartPaste,
@@ -9,6 +10,15 @@ import {
 } from "./email-composer-intro-paste";
 
 describe("email-composer-intro-paste", () => {
+  it("preserves Markdown tables, quotes and automatic links for formatted paste", () => {
+    const markdown = "| Page | Link |\n| --- | --- |\n| Guide | <https://group.example.org.uk/guide> |\n\n> A quoted note";
+    expect(formattedPasteMarkdown(markdown)).toBe(markdown);
+  });
+
+  it("keeps HTML source literal when formatted paste is chosen", () => {
+    expect(formattedPasteMarkdown("<div>Example</div>")).toContain("&lt;div&gt;");
+  });
+
   describe("extractLeadingTitle", () => {
     it("reads a leading H1 or H2 as the title", () => {
       expect(extractLeadingTitle("## Background\n\nBody text")).toEqual({

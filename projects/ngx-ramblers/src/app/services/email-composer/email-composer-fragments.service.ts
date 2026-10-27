@@ -1,6 +1,6 @@
 import { inject } from "@angular/core";
 import { kebabCase } from "es-toolkit/compat";
-import { ArticleBlock, ArticleBlockPosition, BrandingMode, ComposerFragment, ComposerFragmentKind, DragHoverPosition, EmailComposerState, SectionDividerStyle } from "../../models/email-composer.model";
+import { ArticleBlock, ArticleBlockPosition, BrandingMode, ComposerFragment, ComposerFragmentKind, DragHoverPosition, EmailComposerState, EventInclusionMode, SectionDividerStyle } from "../../models/email-composer.model";
 import { buildDefaultFragmentOrder, newDividerFragment, newMultiColumnFragment } from "../../functions/email-composer";
 import { StringUtilsService } from "../string-utils.service";
 import { DateUtilsService } from "../date-utils.service";
@@ -295,12 +295,39 @@ export class EmailComposerFragmentsService {
     isColumnDragHover(state: EmailComposerState, parentPath: number[]): boolean {
         return this.pathsEqual(state, this.dragHoverColumnPath, parentPath);
     }
-    fragmentsForRender(state: EmailComposerState): ComposerFragment[] {
-        if (state.fragmentOrder && state.fragmentOrder.length > 0) {
-            return state.fragmentOrder;
+    fragmentVisible(state: EmailComposerState, fragment: ComposerFragment): boolean {
+        if (state.brandingMode === BrandingMode.UNBRANDED) {
+            switch (fragment.kind) {
+                case ComposerFragmentKind.INTRO:
+                case ComposerFragmentKind.COMMITTEE_FILE:
+                case ComposerFragmentKind.DIVIDER:
+                    return true;
+                case ComposerFragmentKind.MULTI_COLUMN:
+                    return (fragment.columns ?? []).flat().some(child => this.fragmentVisible(state, child));
+                default:
+                    return false;
+            }
         } else {
-            const isUnbranded = state.brandingMode === BrandingMode.UNBRANDED;
-            return buildDefaultFragmentOrder(state, { includeTemplateContent: !isUnbranded && !!state.notificationConfig?.body?.trim(), unbranded: isUnbranded });
+            return fragment.kind !== ComposerFragmentKind.EVENTS || state.eventInclusion !== EventInclusionMode.NONE;
+        }
+    }
+
+    fragmentsForRender(state: EmailComposerState): ComposerFragment[] {
+        const isUnbranded = state.brandingMode === BrandingMode.UNBRANDED;
+        const fragments = state.fragmentOrder?.length > 0
+            ? state.fragmentOrder
+            : buildDefaultFragmentOrder(state, {includeTemplateContent: !isUnbranded && !!state.notificationConfig?.body?.trim(), unbranded: isUnbranded});
+        if (isUnbranded) {
+            const visibleFragments = (list: ComposerFragment[]): ComposerFragment[] => list
+                .filter(fragment => this.fragmentVisible(state, fragment))
+                .map(fragment => ({
+                    ...fragment,
+                    ...(fragment.kind !== ComposerFragmentKind.DIVIDER ? {dividerAfter: SectionDividerStyle.NONE} : {}),
+                    ...(fragment.kind === ComposerFragmentKind.MULTI_COLUMN ? {columns: (fragment.columns ?? []).map(visibleFragments)} : {})
+                }));
+            return visibleFragments(fragments);
+        } else {
+            return fragments;
         }
     }
 

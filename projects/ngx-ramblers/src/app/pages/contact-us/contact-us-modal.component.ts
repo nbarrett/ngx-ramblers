@@ -20,6 +20,7 @@ import { DateUtilsService } from "../../services/date-utils.service";
 import { FirstAndLastName } from "../../models/member.model";
 import { MemberNamingService } from "../../services/member/member-naming.service";
 import { FormsModule } from "@angular/forms";
+import { SuppressAutofillDirective } from "../../modules/common/suppress-autofill/suppress-autofill.directive";
 import { RecaptchaModule } from "ng-recaptcha-2";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { MarkdownComponent } from "ngx-markdown";
@@ -47,8 +48,7 @@ import { contactUsDeliveryProblem, effectiveContactUsTarget, withContactUsRecipi
               <div class="form-group">
                 <label for="contact-name">Your Name</label>
                 <input #contactNameInput [(ngModel)]="contactFormDetails.name" name="contactPersonName" type="text" id="contact-name"
-                       class="form-control" required autocomplete="one-time-code" autocapitalize="none"
-                       autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
+                       class="form-control" required appSuppressAutofill>
                 @if (contactForm.submitted && !contactForm.controls.contactPersonName?.valid) {
                   <div class="text-danger">
                     Name is required.
@@ -69,8 +69,7 @@ import { contactUsDeliveryProblem, effectiveContactUsTarget, withContactUsRecipi
                   <label for="contact-email">Your Email Address</label>
                   <input [(ngModel)]="contactFormDetails.email" name="contactPersonEmail" type="email" id="contact-email"
                          class="form-control" [required]="!contactFormDetails.anonymous"
-                         autocomplete="one-time-code" autocapitalize="none" autocorrect="off" spellcheck="false"
-                         data-lpignore="true" data-1p-ignore data-form-type="other">
+                         appSuppressAutofill>
                   @if (contactForm.submitted && !contactForm.controls.contactPersonEmail?.valid && !contactFormDetails.anonymous) {
                     <div class="text-danger">
                       Valid email is required.
@@ -79,11 +78,10 @@ import { contactUsDeliveryProblem, effectiveContactUsTarget, withContactUsRecipi
                 </div>
               }
               <div class="form-group">
-                <label for="contact-subject">Subject</label>
-                <input [(ngModel)]="contactFormDetails.subject" name="contactSubject" type="text" id="contact-subject"
-                       class="form-control" required autocomplete="one-time-code" autocapitalize="none"
-                       autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
-                @if (contactForm.submitted && !contactForm.controls.contactSubject?.valid) {
+                <label for="contact-heading">Subject</label>
+                <input [(ngModel)]="contactFormDetails.subject" name="contactHeading" type="text" id="contact-heading"
+                       class="form-control" required appSuppressAutofill>
+                @if (contactForm.submitted && !contactForm.controls.contactHeading?.valid) {
                   <div class="text-danger">
                     Subject is required.
                   </div>
@@ -93,9 +91,7 @@ import { contactUsDeliveryProblem, effectiveContactUsTarget, withContactUsRecipi
                 <label for="contact-message">Your Message</label>
                 <textarea [(ngModel)]="contactFormDetails.message" name="contactMessage" id="contact-message"
                           class="form-control"
-                          rows="8" required autocomplete="one-time-code" autocapitalize="none"
-                          autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore
-                          data-form-type="other"></textarea>
+                          rows="8" required appSuppressAutofill></textarea>
                 @if (contactForm.submitted && !contactForm.controls.contactMessage?.valid) {
                   <div class="text-danger">
                     Message is required.
@@ -223,7 +219,7 @@ import { contactUsDeliveryProblem, effectiveContactUsTarget, withContactUsRecipi
         </div>
       </div>
     `,
-    imports: [FormsModule, RecaptchaModule, FontAwesomeModule, NotificationDirective, MarkdownComponent, DisplayDateAndTimePipe]
+    imports: [FormsModule, RecaptchaModule, FontAwesomeModule, NotificationDirective, MarkdownComponent, DisplayDateAndTimePipe, SuppressAutofillDirective]
 })
 export class ContactUsModalComponent implements OnInit, OnDestroy, AfterViewInit {
   queryParams: Params;

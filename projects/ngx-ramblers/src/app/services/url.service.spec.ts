@@ -68,6 +68,21 @@ describe("UrlService", () => {
         expect(service.publicBaseUrl()).toBe("https://www.example.org.uk");
     });
 
+    describe("absoluteUrlFor public attachments", () => {
+        it.each(["api/aws/s3/email-attachments/example.pdf", "/api/aws/s3/email-attachments/example.pdf"])("joins %s to the public origin once", path => {
+            LOCATION_VALUE.location.href = "http://localhost:4200/admin/email-composer";
+            const service = TestBed.inject(UrlService);
+            expect(service.absoluteUrlFor(path, "https://group.example.org.uk/"))
+                .toBe("https://group.example.org.uk/api/aws/s3/email-attachments/example.pdf");
+        });
+
+        it("preserves an absolute native API URL instead of prefixing another origin", () => {
+            const service = TestBed.inject(UrlService);
+            expect(service.absoluteUrlFor("https://group.example.org.uk/api/aws/s3/email-attachments/example.docx", "https://directory.example.org.uk/"))
+                .toBe("https://group.example.org.uk/api/aws/s3/email-attachments/example.docx");
+        });
+    });
+
     describe("sameOriginUrl", () => {
         it("rewrites a cross-origin (non-www) api url onto the actual browser origin", () => {
             LOCATION_VALUE.location.href = "https://www.ngx-ramblers.org.uk/admin/inbox";

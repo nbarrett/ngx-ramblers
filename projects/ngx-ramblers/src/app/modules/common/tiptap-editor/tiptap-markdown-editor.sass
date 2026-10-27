@@ -194,7 +194,7 @@
 .tiptap-content-hidden
   display: none
 
-.tiptap-toolbar button
+.tiptap-toolbar button:not(.btn)
   background: transparent
   border: 1px solid transparent
   border-radius: 3px
@@ -203,25 +203,25 @@
   cursor: pointer
   color: #495057
 
-.tiptap-toolbar button:hover
+.tiptap-toolbar button:not(.btn):hover
   border-color: #adb5bd
   background-color: #ffffff
 
-.tiptap-toolbar button.is-active
+.tiptap-toolbar button:not(.btn).is-active
   background-color: #ffffff
   border-color: #6c757d
   color: #c05711
 
-.tiptap-toolbar button:disabled
+.tiptap-toolbar button:not(.btn):disabled
   opacity: 0.4
   cursor: not-allowed
   color: #adb5bd
 
-.tiptap-toolbar button:disabled:hover
+.tiptap-toolbar button:not(.btn):disabled:hover
   border-color: transparent
   background: transparent
 
-.tiptap-toolbar button.toolbar-text-toggle
+.tiptap-toolbar button:not(.btn).toolbar-text-toggle
   font-size: 0.8rem
   font-weight: 600
   border-color: #ced4da

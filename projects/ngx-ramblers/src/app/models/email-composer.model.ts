@@ -894,3 +894,11 @@ export enum EmailComposerDraftingMode {
   INTRO = "intro",
   EVENT_SETTINGS = "event-settings"
 }
+
+export interface ParsedEmailPaste {
+  to: ParsedMailbox[];
+  cc: ParsedMailbox[];
+  subject: string | null;
+  body: string;
+  forwardedHeaderLines: string[];
+}

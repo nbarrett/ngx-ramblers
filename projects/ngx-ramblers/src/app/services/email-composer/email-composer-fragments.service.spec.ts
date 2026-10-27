@@ -5,6 +5,8 @@ import {BrandingMode, ComposerFragmentKind, EmailCompositionKind, SectionDivider
 import {NotificationConfig} from "../../models/mail.model";
 import {DateUtilsService} from "../date-utils.service";
 import {StringUtilsService} from "../string-utils.service";
+import {EmailComposerFragmentsComponent} from "../../pages/email-composer/email-composer-fragments.component";
+import {CommitteeDisplayService} from "../../pages/committee/committee-display.service";
 import {EmailComposerFragmentsService} from "./email-composer-fragments.service";
 
 describe("composer fragment editing", () => {
@@ -12,7 +14,8 @@ describe("composer fragment editing", () => {
     TestBed.configureTestingModule({providers: [
       EmailComposerFragmentsService,
       {provide: DateUtilsService, useValue: {}},
-      {provide: StringUtilsService, useValue: {}}
+      {provide: StringUtilsService, useValue: {}},
+      {provide: CommitteeDisplayService, useValue: {}}
     ]});
   });
 
@@ -38,6 +41,71 @@ describe("composer fragment editing", () => {
     expect(state.fragmentOrder).toHaveLength(1);
     expect(service.expandedFragmentIds.has(intro.id)).toBe(true);
     expect(state.introMarkdown).toBe("Please review the arrangements.");
+  });
+
+  it("hides inherited branded sections in Compose and restores them when switching back", () => {
+    const service = TestBed.inject(EmailComposerFragmentsService);
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.UNBRANDED;
+    state.fragmentOrder = [
+      {id: "intro", kind: ComposerFragmentKind.INTRO, dividerAfter: SectionDividerStyle.THIN_YELLOW},
+      {id: "template-content", kind: ComposerFragmentKind.TEMPLATE_CONTENT, dividerAfter: SectionDividerStyle.NONE},
+      {id: "signoff", kind: ComposerFragmentKind.SIGNOFF, dividerAfter: SectionDividerStyle.NONE}
+    ];
+    state.signoffTextMarkdown = "Regards, Alex";
+    const originalFragments = structuredClone(state.fragmentOrder);
+    const fixture = TestBed.createComponent(EmailComposerFragmentsComponent);
+    fixture.componentRef.setInput("state", state);
+    fixture.componentRef.setInput("bodyTemplate", null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain("Message");
+    expect(fixture.nativeElement.textContent).not.toContain("Template content");
+    expect(fixture.nativeElement.textContent).not.toContain("Signoff");
+    expect(fixture.nativeElement.textContent).not.toContain("Divider after");
+    expect(service.fragmentsForRender(state)).toEqual([{id: "intro", kind: ComposerFragmentKind.INTRO, dividerAfter: SectionDividerStyle.NONE}]);
+    expect(state.fragmentOrder).toEqual(originalFragments);
+    state.brandingMode = BrandingMode.BRANDED;
+    fixture.componentRef.setInput("state", {...state});
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain("Template content");
+    expect(fixture.nativeElement.textContent).toContain("Signoff");
+    expect(state.signoffTextMarkdown).toBe("Regards, Alex");
+    expect(state.fragmentOrder).toEqual(originalFragments);
+  });
+
+  it("excludes branded fragments recursively after reloading an unbranded draft", () => {
+    const service = TestBed.inject(EmailComposerFragmentsService);
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.UNBRANDED;
+    state.fragmentOrder = [
+      {id: "columns", kind: ComposerFragmentKind.MULTI_COLUMN, dividerAfter: SectionDividerStyle.NONE, columns: [[
+        {id: "intro", kind: ComposerFragmentKind.INTRO, dividerAfter: SectionDividerStyle.NONE},
+        {id: "signoff", kind: ComposerFragmentKind.SIGNOFF, dividerAfter: SectionDividerStyle.NONE}
+      ], [{id: "article", kind: ComposerFragmentKind.ARTICLE, dividerAfter: SectionDividerStyle.NONE}]]},
+      {id: "template", kind: ComposerFragmentKind.TEMPLATE_CONTENT, dividerAfter: SectionDividerStyle.NONE},
+      {id: "events", kind: ComposerFragmentKind.EVENTS, dividerAfter: SectionDividerStyle.NONE},
+      {id: "empty-columns", kind: ComposerFragmentKind.MULTI_COLUMN, dividerAfter: SectionDividerStyle.NONE, columns: [[{id: "hidden-signoff", kind: ComposerFragmentKind.SIGNOFF, dividerAfter: SectionDividerStyle.NONE}]]}
+    ];
+    const restored = JSON.parse(JSON.stringify(state));
+    service.ensureUnbrandedMessage(restored);
+    const visible = service.fragmentsForRender(restored);
+    expect(visible).toHaveLength(1);
+    expect(visible[0].columns?.map(column => column.map(fragment => fragment.kind))).toEqual([[ComposerFragmentKind.INTRO], []]);
+    expect(service.expandedFragmentIds.has("intro")).toBe(true);
+    expect(restored.fragmentOrder).toEqual(state.fragmentOrder);
+  });
+
+  it("keeps deliberately added committee files and divider sections in unbranded mail", () => {
+    const service = TestBed.inject(EmailComposerFragmentsService);
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.UNBRANDED;
+    state.fragmentOrder = [
+      {id: "intro", kind: ComposerFragmentKind.INTRO, dividerAfter: SectionDividerStyle.NONE},
+      {id: "files", kind: ComposerFragmentKind.COMMITTEE_FILE, dividerAfter: SectionDividerStyle.NONE, committeeFileIds: ["example-file"]},
+      {id: "divider", kind: ComposerFragmentKind.DIVIDER, dividerAfter: SectionDividerStyle.THIN_YELLOW}
+    ];
+    expect(service.fragmentsForRender(state).map(fragment => fragment.kind)).toEqual([ComposerFragmentKind.INTRO, ComposerFragmentKind.COMMITTEE_FILE, ComposerFragmentKind.DIVIDER]);
+    expect(service.fragmentsForRender(state)[2].dividerAfter).toBe(SectionDividerStyle.THIN_YELLOW);
   });
 
   it("moves an existing article into a column without losing other fragments", () => {

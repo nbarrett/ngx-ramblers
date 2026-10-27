@@ -111,6 +111,13 @@ export function refreshMermaidCodeBlockPreviews(root: HTMLElement | null | undef
 }
 
 export const MermaidCodeBlock = CodeBlock.extend({
+  renderMarkdown(node, helpers) {
+    const content = node.content ? helpers.renderChildren(node.content) : "";
+    const backtickRuns: string[] = content.match(/`+/g) ?? [];
+    const longestBackticks = backtickRuns.reduce((longest, run) => Math.max(longest, run.length), 0);
+    const fence = "`".repeat(Math.max(3, longestBackticks + 1));
+    return `${fence}${node.attrs?.language || ""}\n${content}\n${fence}`;
+  },
   addNodeView() {
     return ({node, editor}) => {
       const dom = document.createElement("div");
@@ -192,8 +199,8 @@ export const MermaidCodeBlock = CodeBlock.extend({
       });
       mutationObserver.observe(code, {characterData: true, childList: true, subtree: true});
 
-      setTimeout(schedulePaint, 0);
-      setTimeout(() => {
+      const initialPaintTimer = setTimeout(schedulePaint, 0);
+      const refreshTimer = setTimeout(() => {
         const root = editor?.view?.dom as HTMLElement | undefined;
         if (root) {
           refreshMermaidCodeBlockPreviews(root);
@@ -217,6 +224,8 @@ export const MermaidCodeBlock = CodeBlock.extend({
         },
         destroy: () => {
           mutationObserver.disconnect();
+          clearTimeout(initialPaintTimer);
+          clearTimeout(refreshTimer);
           if (retryState.timer) {
             clearTimeout(retryState.timer);
           }

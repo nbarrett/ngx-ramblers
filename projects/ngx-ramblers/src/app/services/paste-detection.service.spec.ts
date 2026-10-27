@@ -214,6 +214,22 @@ Hever Castle`;
 
   });
 
+  describe("looksLikeLiteralPlainText", () => {
+    it("detects leading Markdown and rich-text titles before extraction", () => {
+      expect(service.looksLikeLiteralPlainText("# Proposed subject\n\nBody")).toBe(true);
+      expect(service.looksLikeLiteralPlainText("Proposed subject\nBody", "<h1>Proposed subject</h1><p>Body</p>")).toBe(true);
+      expect(service.looksLikeLiteralPlainText("Body text\n\n## Later section\nMore text")).toBe(true);
+    });
+
+    it("detects mail headers, HTML as text and diffs", () => {
+      expect(service.looksLikeLiteralPlainText("From: Alex Reed <alex.reed@example.com>\nSubject: Keep this")).toBe(true);
+      expect(service.looksLikeLiteralPlainText("<link rel=\"canonical\" href=\"https://group.example.org.uk/example.pdf\">")).toBe(true);
+      expect(service.looksLikeLiteralPlainText("% diff before.txt after.txt\n< old line\n> new line")).toBe(true);
+      expect(service.looksLikeLiteralPlainText("Hello Nick, thanks for the walk.")).toBe(false);
+      expect(service.looksLikeLiteralPlainText("<link rel=\"shortcut icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n<link rel=\"apple-touch-icon\" sizes=\"57x57\" href=\"apple-icon-57x57.png\">")).toBe(true);
+    });
+  });
+
   describe("looksLikeMarkdown", () => {
     it("treats prose whose only markdown is web or mailto links as markdown", () => {
       expect(service.looksLikeMarkdown("Raise a ticket with [the training team](mailto:training@example.com) to get access.")).toBe(true);

@@ -28,12 +28,14 @@ export function renderEmailComposerMarkdown(markdown: string): string {
 }
 
 function styleMarkdownElements(html: string): string {
+  const withWhitespace = html.replace(/<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi, paragraph =>
+    / {2,}|\t|&#(?:32|9);/.test(paragraph) ? addInlineStyle(paragraph, "p", "white-space:pre-wrap;") : paragraph);
   return [
     {tag: "table", style: "border-collapse:collapse;margin:8px 0;width:100%;max-width:100%;"},
     {tag: "th", style: "border:1px solid #ced4da;padding:6px 8px;vertical-align:top;overflow-wrap:break-word;background-color:#f8f9fa;font-weight:bold;text-align:left;"},
     {tag: "td", style: "border:1px solid #ced4da;padding:6px 8px;vertical-align:top;overflow-wrap:break-word;"},
     {tag: "blockquote", style: "border-left:4px solid #9bc8ab;margin:16px 0;padding:12px 20px;background-color:#f7fbf8;color:#343a40;font-style:italic;"}
-  ].reduce((styledHtml, element) => addInlineStyle(styledHtml, element.tag, element.style), html);
+  ].reduce((styledHtml, element) => addInlineStyle(styledHtml, element.tag, element.style), withWhitespace);
 }
 
 function addInlineStyle(html: string, tag: string, style: string): string {

@@ -1,3 +1,5 @@
+import { escapeMarkdownBlockStarts } from "../../../functions/email-composer-intro-paste";
+import Paragraph from "@tiptap/extension-paragraph";
 import Bold from "@tiptap/extension-bold";
 import Italic from "@tiptap/extension-italic";
 import Link from "@tiptap/extension-link";
@@ -62,5 +64,12 @@ export const HtmlLink = Link.extend({
   },
   renderMarkdown(node: JSONContent, helpers: MarkRenderHelpers): string {
     return renderLinkMarkdown(node, helpers);
+  }
+});
+
+export const SafeParagraph = Paragraph.extend({
+  renderMarkdown(node, helpers, context) {
+    const rendered = this.parent?.(node, helpers, context) ?? "";
+    return escapeMarkdownBlockStarts(rendered);
   }
 });
