@@ -274,7 +274,14 @@ export class DateUtilsService {
   }
 
   inclusiveDayRange(fromDate: number, toDate: number): number[] {
-    return range(fromDate, toDate + 1, this.MILLISECONDS_IN_ONE_DAY).map(item => this.asValueNoTime(item));
+    const start = this.asDateTime(fromDate).startOf("day");
+    const end = this.asDateTime(toDate).startOf("day");
+    const dayCount = Math.floor(end.diff(start, "days").days) + 1;
+    if (dayCount <= 0) {
+      return [];
+    } else {
+      return range(0, dayCount).map(offset => start.plus({days: offset}).toMillis());
+    }
   }
 
   currentYear(): number {
