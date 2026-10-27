@@ -1,0 +1,458 @@
+@import "../../assets/styles/colours"
+
+.album-timeline
+  --timeline-film: #{$ramblers-colour-granite}
+  --timeline-bar: #{$ramblers-colour-mintcake}
+  --timeline-bar-text: #{$ramblers-colour-cloudy}
+  --timeline-text: #{$ramblers-colour-cloudy}
+  --timeline-accent: #{$ramblers-colour-cloudy}
+  --timeline-track: rgba(0, 0, 0, 0.28)
+  --timeline-fill: rgba(255, 255, 255, 0.35)
+  --timeline-tick: rgba(255, 255, 255, 0.75)
+  --timeline-tick-on: rgba(255, 255, 255, 0.22)
+  --timeline-knob: #{$ramblers-colour-cloudy}
+  --timeline-meta-shadow: 0 2px 16px rgba(0, 0, 0, 0.55)
+  --timeline-letterbox: #1c1d1d
+  position: relative
+  display: flex
+  flex-direction: column
+  background: var(--timeline-film)
+  color: var(--timeline-text)
+  --timeline-gap: 16px
+  border-radius: 6px
+  overflow: hidden
+
+  &:not(.is-ready)
+    .timeline-track,
+    .timeline-meta,
+    .timeline-arrow
+      opacity: 0
+
+  &.palette-mintcake,
+  &.palette-ramblers
+    --timeline-film: #{$ramblers-colour-granite}
+    --timeline-bar: #{$ramblers-colour-mintcake}
+    --timeline-bar-text: #{$ramblers-colour-cloudy}
+    --timeline-accent: #{$ramblers-colour-cloudy}
+    --timeline-knob: #{$ramblers-colour-cloudy}
+
+  &.palette-sunset
+    --timeline-film: #{$ramblers-colour-granite}
+    --timeline-bar: #{$ramblers-colour-sunset}
+    --timeline-bar-text: #{$ramblers-colour-cloudy}
+    --timeline-accent: #{$ramblers-colour-cloudy}
+    --timeline-knob: #{$ramblers-colour-cloudy}
+
+  &.palette-rosy-cheeks,
+  &.palette-heather
+    --timeline-film: #{$ramblers-colour-granite}
+    --timeline-bar: #{$ramblers-colour-rosycheeks}
+    --timeline-bar-text: #{$ramblers-colour-cloudy}
+    --timeline-accent: #{$ramblers-colour-cloudy}
+    --timeline-knob: #{$ramblers-colour-cloudy}
+
+  &.palette-sunrise
+    --timeline-film: #{$ramblers-colour-granite}
+    --timeline-bar: #{$ramblers-colour-sunrise}
+    --timeline-bar-text: #{$ramblers-colour-cloudy}
+    --timeline-accent: #{$ramblers-colour-cloudy}
+    --timeline-knob: #{$ramblers-colour-cloudy}
+
+  &.palette-sunrise-granite,
+  &.palette-gold
+    --timeline-film: #{$ramblers-colour-granite}
+    --timeline-bar: #{$ramblers-colour-sunrise}
+    --timeline-bar-text: #{$ramblers-colour-granite}
+    --timeline-accent: #{$ramblers-colour-granite}
+    --timeline-track: rgba(64, 65, 65, 0.22)
+    --timeline-fill: rgba(64, 65, 65, 0.2)
+    --timeline-tick: rgba(64, 65, 65, 0.75)
+    --timeline-tick-on: rgba(64, 65, 65, 0.16)
+    --timeline-knob: #{$ramblers-colour-granite}
+
+  &.palette-granite,
+  &.palette-dusk
+    --timeline-film: #{$ramblers-colour-granite}
+    --timeline-bar: #{$ramblers-colour-granite}
+    --timeline-bar-text: #{$ramblers-colour-cloudy}
+    --timeline-accent: #{$ramblers-colour-cloudy}
+    --timeline-knob: #{$ramblers-colour-cloudy}
+
+  &.palette-black,
+  &.palette-night
+    --timeline-film: #{$ramblers-colour-black}
+    --timeline-bar: #{$ramblers-colour-black}
+    --timeline-bar-text: #{$ramblers-colour-cloudy}
+    --timeline-accent: #{$ramblers-colour-cloudy}
+    --timeline-knob: #{$ramblers-colour-cloudy}
+
+  &.palette-cloudy,
+  &.palette-paper
+    --timeline-film: #{$ramblers-colour-cloudy}
+    --timeline-bar: #{$ramblers-colour-mintcake}
+    --timeline-bar-text: #{$ramblers-colour-granite}
+    --timeline-text: #{$ramblers-colour-granite}
+    --timeline-accent: #{$ramblers-colour-granite}
+    --timeline-track: rgba(64, 65, 65, 0.22)
+    --timeline-fill: rgba(64, 65, 65, 0.18)
+    --timeline-tick: rgba(64, 65, 65, 0.78)
+    --timeline-tick-on: rgba(64, 65, 65, 0.16)
+    --timeline-knob: #{$ramblers-colour-granite}
+    --timeline-meta-shadow: none
+    --timeline-letterbox: #{$ramblers-colour-grey}
+    box-shadow: inset 0 0 0 1px rgba(64, 65, 65, 0.28)
+
+  &.palette-sunset-ink,
+  &.palette-sunset-light
+    --timeline-film: #{$ramblers-colour-cloudy}
+    --timeline-bar: #{$ramblers-colour-sunset}
+    --timeline-bar-text: #{$ramblers-colour-granite}
+    --timeline-text: #{$ramblers-colour-granite}
+    --timeline-accent: #{$ramblers-colour-granite}
+    --timeline-track: rgba(64, 65, 65, 0.22)
+    --timeline-fill: rgba(64, 65, 65, 0.18)
+    --timeline-tick: rgba(64, 65, 65, 0.78)
+    --timeline-tick-on: rgba(64, 65, 65, 0.16)
+    --timeline-knob: #{$ramblers-colour-granite}
+    --timeline-meta-shadow: none
+    --timeline-letterbox: #{$ramblers-colour-grey}
+    box-shadow: inset 0 0 0 1px rgba(64, 65, 65, 0.28)
+
+  &.palette-rosy-cheeks-light
+    --timeline-film: #{$ramblers-colour-cloudy}
+    --timeline-bar: #{$ramblers-colour-rosycheeks}
+    --timeline-bar-text: #{$ramblers-colour-granite}
+    --timeline-text: #{$ramblers-colour-granite}
+    --timeline-accent: #{$ramblers-colour-granite}
+    --timeline-track: rgba(64, 65, 65, 0.22)
+    --timeline-fill: rgba(64, 65, 65, 0.18)
+    --timeline-tick: rgba(64, 65, 65, 0.78)
+    --timeline-tick-on: rgba(64, 65, 65, 0.16)
+    --timeline-knob: #{$ramblers-colour-granite}
+    --timeline-meta-shadow: none
+    --timeline-letterbox: #{$ramblers-colour-grey}
+    box-shadow: inset 0 0 0 1px rgba(64, 65, 65, 0.28)
+
+  &.palette-sunrise-light
+    --timeline-film: #{$ramblers-colour-cloudy}
+    --timeline-bar: #{$ramblers-colour-sunrise}
+    --timeline-bar-text: #{$ramblers-colour-granite}
+    --timeline-text: #{$ramblers-colour-granite}
+    --timeline-accent: #{$ramblers-colour-granite}
+    --timeline-track: rgba(64, 65, 65, 0.22)
+    --timeline-fill: rgba(64, 65, 65, 0.18)
+    --timeline-tick: rgba(64, 65, 65, 0.78)
+    --timeline-tick-on: rgba(64, 65, 65, 0.16)
+    --timeline-knob: #{$ramblers-colour-granite}
+    --timeline-meta-shadow: none
+    --timeline-letterbox: #{$ramblers-colour-grey}
+    box-shadow: inset 0 0 0 1px rgba(64, 65, 65, 0.28)
+
+.timeline-stories
+  display: none
+  position: absolute
+  left: 0
+  right: 0
+  top: 0
+  z-index: 6
+  padding: 10px 20px 12px
+  background: var(--timeline-bar)
+  color: var(--timeline-bar-text)
+
+.timeline-stories.open
+  display: block
+
+.story-toggle
+  margin: 0
+  padding: 0
+  border: 0
+  background: transparent
+  color: inherit
+  font: inherit
+  font-weight: 700
+  letter-spacing: 0
+  text-transform: none
+  font-size: 0.78rem
+  cursor: pointer
+  pointer-events: auto
+
+.story-toggle::after
+  content: " ▾"
+  font-size: 0.7rem
+
+.timeline-stories.open ~ .timeline-meta .story-toggle::after
+  content: " ▴"
+
+:host ::ng-deep .timeline-stories app-carousel-story-navigator .stories
+  position: static !important
+  top: auto !important
+  right: auto !important
+  left: auto !important
+  z-index: auto !important
+  display: block !important
+  margin: 0 !important
+  padding: 0 !important
+  background: var(--timeline-bar) !important
+  overflow: visible !important
+  filter: none !important
+  text-shadow: none !important
+
+:host ::ng-deep .timeline-stories .carousel-ul
+  display: flex !important
+  flex-wrap: wrap !important
+  justify-content: flex-start !important
+  gap: 4px 8px !important
+  margin: 0 !important
+  padding: 0 !important
+  width: 100% !important
+  max-width: none !important
+
+:host ::ng-deep .timeline-stories .stories li
+  margin: 0 18px 10px 0 !important
+
+:host ::ng-deep .timeline-stories .stories a
+  color: var(--timeline-bar-text) !important
+  text-shadow: none !important
+  filter: none !important
+  box-shadow: none !important
+  background: none !important
+  font-weight: 700 !important
+  font-size: 0.78rem !important
+  padding: 4px 6px 6px !important
+
+:host ::ng-deep .timeline-stories .stories a:hover,
+:host ::ng-deep .timeline-stories .stories a:focus,
+:host ::ng-deep .timeline-stories .stories a:active
+  color: var(--timeline-bar-text) !important
+
+:host ::ng-deep .timeline-stories .stories a.active
+  color: var(--timeline-bar-text) !important
+  background: linear-gradient(var(--timeline-bar-text), var(--timeline-bar-text)) 0 92% / 100% 0.18rem no-repeat !important
+  text-decoration: none !important
+
+:host ::ng-deep .timeline-stories .stories a.active::after,
+:host ::ng-deep .timeline-stories .stories a.active::before
+  display: none !important
+  content: none !important
+
+.timeline-meta
+  position: absolute
+  top: 12px
+  left: 12px
+  z-index: 3
+  pointer-events: none
+  max-width: min(34rem, calc(100% - 96px))
+  padding: 12px
+  background: var(--timeline-bar)
+  color: var(--timeline-bar-text)
+  text-shadow: none
+  border-radius: 4px
+
+.timeline-kicker
+  margin: 0
+  display: flex
+  align-items: baseline
+  gap: 10px
+  color: var(--timeline-bar-text)
+
+.timeline-kicker-label
+  text-transform: uppercase
+  letter-spacing: 0.14em
+  font-size: 0.72rem
+  font-weight: 700
+
+.timeline-date
+  margin: 6px 0 0
+  font-family: Rucksack, sans-serif
+  font-size: clamp(1rem, 1.7vw, 1.4rem)
+  font-weight: 400
+  line-height: 1.15
+
+.timeline-count
+  margin-left: 8px
+  font-size: 0.85rem
+  opacity: 0.75
+  font-family: inherit
+  font-weight: 400
+
+.timeline-title,
+.timeline-event
+  display: block
+  margin: 2px 0 0
+  opacity: 0.9
+  font-size: 0.9rem
+  color: inherit
+  pointer-events: auto
+  text-decoration: underline
+  text-underline-offset: 0.15em
+
+.timeline-title
+  text-decoration: none
+
+.timeline-track
+  flex: 1 1 auto
+  min-height: 280px
+  overflow: hidden
+  cursor: grab
+  touch-action: none
+  user-select: none
+  outline: none
+
+.timeline-track.dragging
+  cursor: grabbing
+
+.timeline-film
+  display: flex
+  align-items: center
+  gap: var(--timeline-gap)
+  height: 100%
+  padding: var(--timeline-gap)
+  box-sizing: border-box
+  width: max-content
+  will-change: transform
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)
+
+.album-timeline.instant-film .timeline-film
+  transition: none
+
+.timeline-slide
+  flex: 0 0 auto
+  margin: 0
+  min-width: 120px
+
+  img,
+  .timeline-video
+    width: auto
+    max-width: none
+    display: block
+    pointer-events: none
+    background: var(--timeline-letterbox)
+
+  .timeline-video
+    position: relative
+    pointer-events: auto
+
+.timeline-arrow
+  position: absolute
+  top: 50%
+  margin-top: -20px
+  z-index: 4
+  display: flex
+  align-items: center
+  justify-content: center
+  width: 40px
+  height: 40px
+  padding: 0
+  border: 2px solid var(--timeline-accent)
+  border-radius: 50%
+  background: var(--timeline-film)
+  color: var(--timeline-accent)
+  font-size: 1.35rem
+  line-height: 1
+  cursor: pointer
+
+.timeline-arrow.left
+  left: 12px
+  padding-right: 1px
+
+.timeline-arrow.right
+  right: 12px
+  padding-left: 1px
+
+.timeline-bar
+  position: relative
+  z-index: 5
+  flex-shrink: 0
+  padding: 8px 20px 10px
+  background: var(--timeline-bar)
+  color: var(--timeline-bar-text)
+
+.scrub-labels
+  position: relative
+  height: 18px
+  margin-bottom: 4px
+
+.scrub-label
+  position: absolute
+  top: 0
+  transform: translateX(-50%)
+  background: transparent
+  border: 0
+  color: inherit
+  padding: 0
+  font: inherit
+  font-size: 0.78rem
+  font-weight: 700
+  white-space: nowrap
+  cursor: pointer
+  line-height: 1.2
+
+.scrub-label.start
+  transform: none
+
+.scrub-label.end
+  transform: translateX(-100%)
+
+.scrub
+  position: relative
+  height: 28px
+  background: var(--timeline-track)
+  cursor: grab
+  touch-action: none
+
+.scrub:active
+  cursor: grabbing
+
+.scrub-fill
+  display: none
+
+.scrub-knob
+  position: absolute
+  top: 3px
+  z-index: 2
+  width: 12px
+  height: 22px
+  margin-left: -6px
+  background: var(--timeline-knob)
+  pointer-events: none
+  transition: left 0.55s cubic-bezier(0.22, 1, 0.36, 1)
+
+.album-timeline.instant-film .scrub-knob
+  transition: none
+
+.scrub-days
+  position: absolute
+  inset: 0
+
+.tick
+  position: absolute
+  top: auto
+  bottom: 10px
+  transform: translateX(-50%)
+  width: 8px
+  height: 8px
+  background: transparent
+  border: 0
+  border-left: 1px solid var(--timeline-tick)
+  padding: 0
+  pointer-events: none
+
+.tick.major
+  height: 16px
+  bottom: 8px
+  border-left-width: 2px
+
+.tick.on
+  height: 24px
+  bottom: 6px
+  background: var(--timeline-tick-on)
+
+@media (max-width: 767px)
+  .timeline-arrow
+    width: 40px
+    height: 40px
+    font-size: 1.5rem
+
+  .timeline-meta
+    left: 14px
+    top: 14px

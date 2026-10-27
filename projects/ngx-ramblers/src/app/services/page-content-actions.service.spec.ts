@@ -27,6 +27,7 @@ describe("PageContentActionsService", () => {
         expect(template.carousel.gridViewOptions.gap).toBe(0.25);
         expect(existingAlbum.gridViewOptions.gap).toBe(1.75);
         expect(DEFAULT_GRID_OPTIONS.gap).toBe(0.25);
+        expect(existingAlbum.autoHideStoryNavigator).toBe(false);
     });
 
     it("treats a route row as distinct from a map row and initialises guide data", () => {
