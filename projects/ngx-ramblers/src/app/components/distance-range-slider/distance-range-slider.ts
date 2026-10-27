@@ -111,17 +111,27 @@ import { debounceTime } from "rxjs/operators";
           width: 28px
           height: 28px
 
+      .btn-group
+        display: inline-flex
+        flex-wrap: nowrap
       .btn-unit
         padding: 0.25rem 0.75rem
         font-size: 0.875rem
         border: 1px solid #dee2e6
         background-color: #fff
         color: #495057
+        border-radius: 0
+      .btn-unit:first-child
+        border-radius: 50rem 0 0 50rem
+      .btn-unit:last-child
+        border-radius: 0 50rem 50rem 0
+        margin-left: -1px
 
       .btn-unit.active
         background-color: var(--ramblers-colour-sunrise)
         border-color: var(--ramblers-colour-sunrise)
         color: var(--ramblers-colour-black)
+        z-index: 1
 
       .range-labels
         display: flex

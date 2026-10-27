@@ -8,6 +8,7 @@ import { SectionToggleTab } from "../../models/section-toggle.model";
 import { DistanceUnit } from "../../models/walk.model";
 import { routeVisibleToMember } from "../../functions/route-access";
 import { generateUid } from "../../functions/numbers";
+import { MapDefaultsService } from "../../services/maps/map-defaults.service";
 import { MobileAppAccessService } from "../../services/maps/mobile-app-access.service";
 import { MobileAppAction } from "../../models/walks-config.model";
 import { routeSegments } from "../../functions/route-geometry";
@@ -693,9 +694,10 @@ import { SystemConfigService } from "../../services/system/system-config.service
                                       placesOnly
                                       [showSelectionHint]="false"
                                       [minTermLength]="2"
+                                      [initialVenue]="placeSearchVenue"
                                       (venueSelected)="onPlaceSearch($event)"/>
               @if (!hasLine) {
-                <p class="follow-library-note">Click the map to plot the line. Each click adds a point.</p>
+                <p class="follow-library-note">Drag the start pin, then tap the map to plot from there. Pan and zoom until you are ready.</p>
               }
             </div>
           }
@@ -779,7 +781,8 @@ import { SystemConfigService } from "../../services/system/system-config.service
                 }
               </div>
               @if (progress?.mode === RouteFollowMode.EDITING) {
-                <app-section-toggle [tabs]="distanceUnitTabs" [selectedTab]="distanceUnit"
+                <app-section-toggle class="follow-unit-toggle" small pill
+                                    [tabs]="distanceUnitTabs" [selectedTab]="distanceUnit"
                                     [queryParamKey]="StoredValue.DISTANCE_UNIT"
                                     (selectedTabChange)="distanceUnitChanged($event)"/>
               }
@@ -1082,6 +1085,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
   });
   private currentLocation = inject(CurrentLocationService);
+  private mapDefaults = inject(MapDefaultsService);
   private walkDisplay = inject(WalkDisplayService);
   protected readonly RouteVisibility = RouteVisibility;
   protected readonly RouteDirectionsChrome = RouteDirectionsChrome;
@@ -1112,10 +1116,11 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected distanceUnit = DistanceUnit.MILES;
   protected readonly distanceUnitTabs: SectionToggleTab[] = [
     {value: DistanceUnit.MILES, label: "Miles"},
-    {value: DistanceUnit.KILOMETRES, label: "Kilometres"}
+    {value: DistanceUnit.KILOMETRES, label: "km"}
   ];
   protected readonly StoredValue = StoredValue;
   private loadedRouteSelection: string | null = null;
+  private plotRecordingId: string | null = null;
   private saveAsNewRecordingId: string | null = null;
   protected startLocationMessage: string | null = null;
   protected startingFollow = false;
@@ -1163,6 +1168,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected drawingFromBlank = false;
   private plotCentre: {latitude: number; longitude: number} | null = null;
   protected nearbyPlaceName: string | null = null;
+  protected placeSearchVenue: Partial<VenueWithUsageStats> | null = null;
   private changeDetector = inject(ChangeDetectorRef);
   @ViewChild("followSheet") private followSheet: ElementRef<HTMLElement> | null = null;
   private sheetAnimation: Animation | null = null;
@@ -1314,8 +1320,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
         pathParams.get(RouteParam.ROUTE_NUMBER),
         ...[StoredValue.FOLLOW_PATH, StoredValue.ROUTE_ID, StoredValue.WALK_ID, StoredValue.RAMBLERS_SLUG,
           StoredValue.ROUTE, StoredValue.OS_MAPS_ROUTE_ID, StoredValue.TRACK, StoredValue.VIA, StoredValue.RECORD_ROUTE,
-          StoredValue.DRAW_ROUTE, StoredValue.LAT, StoredValue.LON, StoredValue.NEARBY_PLACE]
-          .map(key => queryParams.get(key))
+          StoredValue.PLOT_ROUTE, StoredValue.DRAW_ROUTE, StoredValue.LAT, StoredValue.LON, StoredValue.NEARBY_PLACE]
+          .map(key => queryParams.get(key) ? (key === StoredValue.DRAW_ROUTE || key === StoredValue.PLOT_ROUTE ? "true" : queryParams.get(key)) : null)
       ]);
       const unit = queryParams.get(StoredValue.DISTANCE_UNIT);
       if (unit === DistanceUnit.MILES || unit === DistanceUnit.KILOMETRES) {
@@ -1323,6 +1329,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       }
       if (selection !== this.loadedRouteSelection) {
         this.loadedRouteSelection = selection;
+        const plotting = !queryParams.get(StoredValue.RECORD_ROUTE)
+          && !!(queryParams.get(StoredValue.PLOT_ROUTE) || queryParams.get(StoredValue.DRAW_ROUTE));
         void this.load(
           queryParams.get(StoredValue.FOLLOW_PATH),
           queryParams.get(StoredValue.ROUTE_ID),
@@ -1331,8 +1339,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
           routeKey,
           Number(queryParams.get(StoredValue.TRACK)) || 0,
           viaFromQuery(queryParams.get(StoredValue.VIA)),
-          queryParams.get(StoredValue.RECORD_ROUTE) || queryParams.get(StoredValue.DRAW_ROUTE),
-          !!queryParams.get(StoredValue.DRAW_ROUTE) && !queryParams.get(StoredValue.RECORD_ROUTE)
+          this.recordingIdForLoad(queryParams.get(StoredValue.RECORD_ROUTE), plotting),
+          plotting
         );
       }
     }));
@@ -1417,7 +1425,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
 
   get remainingDistance(): string {
     if (this.progress?.mode === RouteFollowMode.EDITING) {
-      return this.followService.formatDistance(this.followService.totalMetres(), this.distanceUnit);
+      return this.followService.formatDistance(this.followService.totalMetres(), this.distanceUnit, false);
     } else if (!this.hasLine && !this.progress?.position) {
       return "—";
     } else {
@@ -2438,6 +2446,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       this.editVertices = this.editVertices.slice(0, this.editVertices.length - 1);
       this.followService.replaceTrack(this.editVertices);
       this.refreshEditHandles();
+      this.refreshArrows();
       this.redraw();
     }
   }
@@ -2625,6 +2634,22 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
   }
 
+  private ensurePlotStartPin(): void {
+    if (this.payload && this.plotCentre && !this.hasLine) {
+      this.payload = {
+        ...this.payload,
+        waypoints: this.payloadService.planningWaypointsFromLocation(this.payload.waypoints, {
+          start: {
+            latitude: this.plotCentre.latitude,
+            longitude: this.plotCentre.longitude,
+            description: this.nearbyPlaceName || ""
+          }
+        })
+      };
+      this.refreshWaypointPins();
+      this.redraw();
+    }
+  }
 
   private panMapTo(latitude: number, longitude: number, venueType?: string | null): void {
     const maxZoom = this.mapTiles.maxZoomForStyle(this.mapProvider, this.osStyle);
@@ -2904,7 +2929,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     if (this.progress?.mode !== RouteFollowMode.EDITING || this.editTool !== RouteFollowEditTool.PENCIL || this.draggingVertexIndex !== null || !this.mapRef) {
       this.clearInsertHover();
     } else if (this.editVertices.length < 2) {
-      this.setInsertHover(true);
+      this.setInsertHover(false);
     } else {
       const nearest = this.followService.nearestSegment({latitude: event.latlng.lat, longitude: event.latlng.lng});
       if (!nearest) {
@@ -2950,7 +2975,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   };
 
   private handleEditPointerDown(event: PointerEvent): void {
-    const onHandle = event.target instanceof Element && !!event.target.closest(".follow-edit-handle-hit");
+    const onHandle = event.target instanceof Element && !!event.target.closest(".follow-edit-handle-hit, .leaflet-marker-icon");
     if (this.progress?.mode === RouteFollowMode.EDITING && this.editTool === RouteFollowEditTool.PENCIL && this.draggingVertexIndex === null && event.isPrimary && !onHandle) {
       this.editTap = {active: true, pointerId: event.pointerId, x: event.clientX, y: event.clientY};
     }
@@ -3409,6 +3434,19 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
   }
 
+  private recordingIdForLoad(recorded: string | null, plotting: boolean): string | null {
+    if (recorded) {
+      this.plotRecordingId = null;
+      return recorded;
+    } else if (plotting) {
+      this.plotRecordingId = this.plotRecordingId || generateUid();
+      return this.plotRecordingId;
+    } else {
+      this.plotRecordingId = null;
+      return null;
+    }
+  }
+
   private async load(path: string | null, routeId: string | null, walkId: string | null, ramblersSlug: string | null, osMapsRouteId: string | null, trackIndex = 0, via: number[] = [], recordingId: string | null = null, drawing = false): Promise<void> {
     const sequence = ++this.loadSequence;
     if (navigator.onLine && this.systemConfig && !this.systemConfig.systemConfig()) {
@@ -3419,7 +3457,13 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       }
     }
     this.drawingFromBlank = drawing;
-    this.plotCentre = null;
+    const plotLat = drawing ? coordinateValue(this.route.snapshot.queryParamMap.get(StoredValue.LAT)) : null;
+    const plotLon = drawing ? coordinateValue(this.route.snapshot.queryParamMap.get(StoredValue.LON)) : null;
+    this.plotCentre = plotLat !== null && plotLon !== null ? {latitude: plotLat, longitude: plotLon} : null;
+    this.nearbyPlaceName = drawing ? this.route.snapshot.queryParamMap.get(StoredValue.NEARBY_PLACE) : null;
+    this.placeSearchVenue = this.nearbyPlaceName
+      ? {name: this.nearbyPlaceName, lat: this.plotCentre?.latitude, lon: this.plotCentre?.longitude}
+      : null;
     this.saveAsNewRecordingId = null;
     this.startLocationMessage = null;
     this.mapTiles.allowCachedOsTiles(false);
@@ -3463,17 +3507,11 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
             if (this.memberLogin.memberLoggedIn()) {
               this.canEditRoute = true;
             }
-            const lat = coordinateValue(this.route.snapshot.queryParamMap.get(StoredValue.LAT));
-            const lon = coordinateValue(this.route.snapshot.queryParamMap.get(StoredValue.LON));
-            this.nearbyPlaceName = this.route.snapshot.queryParamMap.get(StoredValue.NEARBY_PLACE);
-            if (lat !== null && lon !== null) {
-              this.plotCentre = {latitude: lat, longitude: lon};
-              if (this.mapRef) {
-                this.mapRef.setView([lat, lon], 10);
-              }
+            this.ensurePlotStartPin();
+            if (this.plotCentre && this.mapRef) {
+              this.mapRef.setView([this.plotCentre.latitude, this.plotCentre.longitude], 10);
             }
             this.editRoute();
-            this.expandSheet();
           } else {
             this.openRequestedEdit();
           }
@@ -3695,7 +3733,11 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private async prepareMapOptions(payload: RouteFollowPayload): Promise<void> {
     const sequence = this.loadSequence;
     const needsCurrentLocation = !this.drawingFromBlank && payload.source === RouteFollowSource.RECORDING && this.followService.trackPoints().length === 0;
-    const position = needsCurrentLocation ? await this.currentLocation.currentPosition(true) : null;
+    const needsPlotLocation = this.drawingFromBlank && !this.plotCentre && !(payload.points?.length) && !(payload.waypoints?.length);
+    const position = (needsCurrentLocation || needsPlotLocation) ? await this.currentLocation.currentPosition(!needsPlotLocation) : null;
+    if (needsPlotLocation) {
+      await this.mapDefaults.resolve();
+    }
     if (sequence === this.loadSequence) {
       if (needsCurrentLocation && !position) {
         this.options = null;
@@ -3703,9 +3745,24 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
       } else {
         if (position) {
           this.followService.applyPosition({latitude: position.lat, longitude: position.lng}, null, null);
+          if (needsPlotLocation) {
+            this.plotCentre = {latitude: position.lat, longitude: position.lng};
+          }
           this.restoredMapView = {
             center: L.latLng(position.lat, position.lng),
             zoom: this.mapTiles.maxZoomForStyle(this.mapProvider, this.osStyle) - 2
+          };
+        } else if (this.plotCentre) {
+          this.restoredMapView = {
+            center: L.latLng(this.plotCentre.latitude, this.plotCentre.longitude),
+            zoom: 10
+          };
+        } else if (needsPlotLocation) {
+          const groupCentre = this.mapDefaults.center();
+          this.plotCentre = {latitude: groupCentre[0], longitude: groupCentre[1]};
+          this.restoredMapView = {
+            center: L.latLng(groupCentre[0], groupCentre[1]),
+            zoom: this.mapDefaults.zoom()
           };
         }
         this.buildMapOptions(payload, this.restoredMapView);
@@ -3716,7 +3773,8 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private buildMapOptions(payload: RouteFollowPayload, view: {center: L.LatLng; zoom: number} | null = null): void {
     const provider = this.mapProvider;
     const style = this.osStyle;
-    const first = payload.points[0] || payload.waypoints[0] || {latitude: 54.5, longitude: -3};
+    const groupCentre = this.mapDefaults.center();
+    const first = payload.points[0] || payload.waypoints[0] || this.plotCentre || {latitude: groupCentre[0], longitude: groupCentre[1]};
     const maxZoom = this.mapTiles.maxZoomForStyle(provider, style);
     const minZoom = this.mapTiles.minZoomForStyle(provider, style);
     const zoom = view ? Math.min(Math.max(view.zoom, minZoom), maxZoom) : Math.max(maxZoom - 2, minZoom);
@@ -3745,24 +3803,29 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   private refreshWaypointPins(): void {
     this.waypointGroup.clearLayers();
     const editing = this.progress?.mode === RouteFollowMode.EDITING || this.progress?.mode === RouteFollowMode.RECORDING;
-    if (this.payload && ((this.stepPinsOnMap && !editing) || this.showingPlanningAnchors)) {
-      const displayedWaypoints = this.showingPlanningAnchors
-        ? this.payload.waypoints.filter(waypoint => waypoint.kind === RouteWaypointKind.START || waypoint.kind === RouteWaypointKind.END)
+    const showStartWhileEditing = this.progress?.mode === RouteFollowMode.EDITING && !!this.startWaypoint();
+    if (this.payload && ((this.stepPinsOnMap && !editing) || this.showingPlanningAnchors || showStartWhileEditing)) {
+      const displayedWaypoints = this.showingPlanningAnchors || showStartWhileEditing
+        ? this.payload.waypoints.filter(waypoint => waypoint.kind === RouteWaypointKind.START
+          || (this.showingPlanningAnchors && waypoint.kind === RouteWaypointKind.END))
         : this.directedWaypoints;
       displayedWaypoints.forEach((waypoint, index) => {
-        const draggableStart = this.drawingNewLine && waypoint.kind === RouteWaypointKind.START;
+        const draggableStart = waypoint.kind === RouteWaypointKind.START && this.progress?.mode === RouteFollowMode.EDITING;
         const pin = L.marker([waypoint.latitude, waypoint.longitude], {
-          icon: this.showingPlanningAnchors && waypoint.kind
+          icon: (this.showingPlanningAnchors || showStartWhileEditing) && waypoint.kind
             ? this.markerStyle.routeAnchorIcon(waypoint.kind)
             : this.markerStyle.numberedMarkerIcon(this.waypointNumber(waypoint, index), this.mapProvider, this.osStyle),
           keyboard: false,
-          zIndexOffset: 500,
-          draggable: draggableStart
+          zIndexOffset: 800,
+          draggable: draggableStart,
+          autoPan: false
         });
         if (draggableStart) {
+          pin.on("dragstart", event => this.zone.run(() => this.onStartAnchorDragStart(event)));
+          pin.on("drag", event => this.zone.run(() => this.onStartAnchorDrag(waypoint, event.target as L.Marker)));
           pin.on("dragend", event => this.zone.run(() => this.onStartAnchorDragEnd(waypoint, event.target as L.Marker)));
-        }
-        if (this.drawingNewLine) {
+          pin.bindTooltip("Drag to move the start", {direction: "top", offset: [0, -36]});
+        } else if (this.drawingNewLine) {
           const finish = waypoint.kind === RouteWaypointKind.END;
           pin.bindTooltip(finish ? "Click to add the finish point" : "Click here to start the route", {direction: "top", offset: [0, -36]});
           pin.on("click", event => this.zone.run(() => {
@@ -3792,22 +3855,46 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
     }
   }
 
-  private onStartAnchorDragEnd(waypoint: RouteFollowWaypoint, marker: L.Marker): void {
-    const latLng = marker.getLatLng();
-    const moved = {latitude: latLng.lat, longitude: latLng.lng};
-    const anchoredToLine = this.editVertices.length > 0 && this.isSameLatLng(this.editVertices[0], waypoint);
-    this.payload = {
-      ...this.payload,
-      waypoints: this.payload.waypoints.map(existing => existing.id === waypoint.id ? {...existing, ...moved} : existing)
-    };
-    if (anchoredToLine) {
-      this.editVertices = this.editVertices.map((vertex, index) => index === 0 ? moved : vertex);
-      this.followService.replaceTrack(this.editVertices);
-      this.syncEditLineFromVertices();
-      this.refreshEditHandles();
+  private onStartAnchorDragStart(event: L.LeafletEvent): void {
+    this.ignoreEditClick = true;
+    this.mapRef?.dragging.disable();
+    const original = (event as L.LeafletMouseEvent).originalEvent;
+    if (original) {
+      L.DomEvent.stop(original);
     }
-    this.refreshArrows();
-    this.redraw();
+  }
+
+  private onStartAnchorDrag(waypoint: RouteFollowWaypoint, marker: L.Marker): void {
+    this.movePlotStart(waypoint, marker.getLatLng(), false);
+  }
+
+  private onStartAnchorDragEnd(waypoint: RouteFollowWaypoint, marker: L.Marker): void {
+    this.movePlotStart(waypoint, marker.getLatLng(), true);
+    this.mapRef?.dragging.enable();
+  }
+
+  private movePlotStart(waypoint: RouteFollowWaypoint, latLng: L.LatLng, finished: boolean): void {
+    if (!this.payload) {
+      return;
+    } else {
+      const moved = {latitude: latLng.lat, longitude: latLng.lng};
+      this.plotCentre = moved;
+      this.payload = {
+        ...this.payload,
+        waypoints: this.payload.waypoints.map(existing => existing.id === waypoint.id ? {...existing, ...moved} : existing)
+      };
+      if (this.editVertices.length > 0) {
+        this.editVertices = this.editVertices.map((vertex, index) => index === 0 ? moved : vertex);
+        this.followService.replaceTrack(this.editVertices);
+        this.syncEditLineFromVertices();
+      }
+      if (finished) {
+        this.refreshEditHandles();
+        this.refreshArrows();
+        this.redraw();
+        this.persistFollowSession(true);
+      }
+    }
   }
 
   private refreshArrows(): void {

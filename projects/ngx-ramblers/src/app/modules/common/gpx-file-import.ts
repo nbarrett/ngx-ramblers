@@ -12,8 +12,16 @@ import { Logger, LoggerFactory } from "../../services/logger-factory.service";
   selector: "app-gpx-file-import",
   imports: [FontAwesomeModule, FileUploadModule],
   host: {
-    class: "gpx-file-import"
+    class: "gpx-file-import d-flex align-items-center gap-2"
   },
+  styles: [`
+    :host
+      min-width: 12rem
+    .drop-zone
+      flex: 1 1 auto
+      margin-top: 0
+      min-width: 8rem
+  `],
   template: `
     @if (showButton) {
       <button type="button" class="btn btn-quiet" [disabled]="disabled || busy" (click)="choose()">

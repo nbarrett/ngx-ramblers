@@ -166,7 +166,9 @@ export async function saveOsMapsImportedRoute(routeId: string, update: {
 export function withImportedAt(routes: OsMapsListedRoute[], importedById: Record<string, OsMapsImportedRouteRecord>): OsMapsListedRoute[] {
   return (routes || []).map(route => {
     const imported = importedById[route.id];
-    const gpxFile = imported?.gpxFile || route.gpxFile || null;
+    const gpxFile = imported?.gpxFile || null;
+    const startLatitude = imported?.gpxFile?.startLat ?? route.startLatitude ?? route.gpxFile?.startLat ?? null;
+    const startLongitude = imported?.gpxFile?.startLng ?? route.startLongitude ?? route.gpxFile?.startLng ?? null;
     return {
       id: route.id,
       ownerMemberId: imported?.ownerMemberId || route.ownerMemberId || null,
@@ -179,7 +181,9 @@ export function withImportedAt(routes: OsMapsListedRoute[], importedById: Record
       createdAtValue: route.createdAtValue,
       distanceMetres: route.distanceMetres || gpxFile?.distanceMetres || 0,
       source: route.source,
-      importedAt: imported?.importedAt || 0,
+      startLatitude,
+      startLongitude,
+      importedAt: imported?.importedAt || null,
       gpxFile,
       routeColor: imported?.color || route.routeColor || null,
       routeWeight: imported?.weight || route.routeWeight || null,

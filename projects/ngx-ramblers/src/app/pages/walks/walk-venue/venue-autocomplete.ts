@@ -92,9 +92,17 @@ import { VenueIconPipe } from "../../../pipes/venue-icon.pipe";
     :host ::ng-deep .ng-select .ng-value-container .ng-value fa-icon
       display: inline-flex !important
       margin-right: 0.5rem !important
+    :host ::ng-deep .ng-select.ng-select-single .ng-select-container
+      height: auto
+      min-height: 44px
     :host ::ng-deep .ng-select.ng-select-single .ng-select-container .ng-value-container .ng-value
       display: flex !important
       align-items: center !important
+    :host ::ng-deep .ng-select.ng-select-single .ng-select-container .ng-value-container .ng-input
+      top: 0
+      bottom: 0
+      display: flex
+      align-items: center
     :host ::ng-deep .ng-dropdown-header
       background: #fff
       border-bottom: 1px solid var(--rsm-border, #d9dee3)

@@ -29,6 +29,8 @@ function listedRouteFromRecord(record: Record<string, unknown>, source: OsMapsRo
     const createdAt = firstString(metadata.createdAt, record.createdAt);
     const created = createdAt ? dateTimeFromIso(createdAt) : null;
     const distanceMetres = isNumber(characteristics.distance) ? characteristics.distance : 0;
+    const start = coordinatesFrom(characteristics.start) || coordinatesFrom(metadata.start)
+      || coordinatesFrom(record.start) || coordinatesFrom(characteristics.centroid);
     return {
       id,
       title,
@@ -36,9 +38,31 @@ function listedRouteFromRecord(record: Record<string, unknown>, source: OsMapsRo
       createdAt,
       createdAtValue: created?.isValid ? created.toMillis() : 0,
       distanceMetres,
-      source
+      source,
+      startLatitude: start?.latitude ?? null,
+      startLongitude: start?.longitude ?? null
     };
   }
+}
+
+function coordinatesFrom(value: unknown): {latitude: number; longitude: number} | null {
+  if (!isObject(value)) {
+    return null;
+  } else {
+    const record = value as Record<string, unknown>;
+    const latitude = firstNumber(record.latitude, record.lat);
+    const longitude = firstNumber(record.longitude, record.lon, record.lng);
+    if (latitude === null || longitude === null || (latitude === 0 && longitude === 0)) {
+      return null;
+    } else {
+      return {latitude, longitude};
+    }
+  }
+}
+
+function firstNumber(...values: unknown[]): number | null {
+  const match = values.find(value => isNumber(value) && Number.isFinite(value));
+  return isNumber(match) ? match : null;
 }
 
 function firstString(...values: unknown[]): string {

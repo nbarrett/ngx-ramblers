@@ -23,7 +23,7 @@ export async function saveOsMapsRouteListing(routes: OsMapsListedRoute[], ownerM
   })));
 }
 
-const LISTING_ROUTE_FIELDS = "listedAt routes.id routes.title routes.url routes.createdAt routes.createdAtValue routes.distanceMetres routes.source routes.importedAt routes.number routes.ownerMemberId routes.visibility";
+const LISTING_ROUTE_FIELDS = "listedAt routes.id routes.title routes.url routes.createdAt routes.createdAtValue routes.distanceMetres routes.source routes.startLatitude routes.startLongitude routes.importedAt routes.number routes.ownerMemberId routes.visibility";
 
 export async function latestOsMapsRouteListing(ownerMemberId: string | null = null, importedById?: Record<string, OsMapsImportedRouteRecord>): Promise<OsMapsRouteListing> {
   const imported = importedById || await importedRecordsByRouteId();
@@ -61,6 +61,8 @@ export function listedRouteFromImportedRecord(record: OsMapsImportedRouteRecord)
     createdAtValue: record.gpxFile?.walkedAt || record.importedAt || 0,
     distanceMetres: record.gpxFile?.distanceMetres || 0,
     source: OsMapsRouteSource.CREATED,
+    startLatitude: record.gpxFile?.startLat ?? null,
+    startLongitude: record.gpxFile?.startLng ?? null,
     importedAt: record.importedAt,
     gpxFile: record.gpxFile,
     routeColor: record.color,
@@ -92,7 +94,23 @@ export async function clearUnimportedOsMapsListing(ownerMemberId: string | null 
 
 export async function removeOsMapsRouteFromApp(routeId: string): Promise<void> {
   await mongooseClient.execute(async () => {
-    await osMapsRouteListing.updateMany({}, {$pull: {routes: {id: routeId}}});
+    const imported = await osMapsImportedRoute.findOne({routeId}).lean();
+    const startLatitude = imported?.gpxFile?.startLat ?? null;
+    const startLongitude = imported?.gpxFile?.startLng ?? null;
     await osMapsImportedRoute.deleteOne({routeId});
+    const listings = await osMapsRouteListing.find({"routes.id": routeId}).lean();
+    await Promise.all((listings || []).map(document => {
+      const routes = (document.routes || []).map(route => route.id === routeId
+        ? {
+          ...route,
+          importedAt: null,
+          number: null,
+          gpxFile: null,
+          startLatitude: route.startLatitude ?? startLatitude,
+          startLongitude: route.startLongitude ?? startLongitude
+        }
+        : route);
+      return osMapsRouteListing.updateOne({_id: document._id}, {$set: {routes}});
+    }));
   });
 }

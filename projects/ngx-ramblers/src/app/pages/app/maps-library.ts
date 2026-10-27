@@ -17,7 +17,7 @@ import { NgSelectModule } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription, take } from "rxjs";
-import { faArrowLeft, faPeopleGroup, faCompass, faCalendarDay, faCheck, faRoute, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faSliders, faShareNodes, faSpinner, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faArrowUpRightFromSquare, faPeopleGroup, faCompass, faCalendarDay, faCheck, faDownload, faRoute, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faSliders, faShareNodes, faSpinner, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { PageContentType } from "../../models/content-text.model";
@@ -71,9 +71,10 @@ import { OsMapsRoutePreviewMapComponent } from "../walks/walk-admin/os-maps-rout
 import { CardImageOrMap } from "../../modules/common/card/image/card-image-or-map";
 import { MediaQueryService } from "../../services/committee/media-query.service";
 import { OsMapsExportService } from "../../services/maps/os-maps-export.service";
-import { OsMapsListedRoute } from "../../models/os-maps-export.model";
+import { isOsMapsRouteUrl, OsMapsListedRoute, RouteVisibility } from "../../models/os-maps-export.model";
 import { CurrentLocationService } from "../../services/maps/current-location.service";
 import { DistanceRangeSlider } from "../../components/distance-range-slider/distance-range-slider";
+import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modules/common/resizer/resizer";
 import { DistanceRange, DistanceUnit } from "../../models/search.model";
 import { DisplayedWalk, EventType, FALLBACK_MEDIA, KM_PER_MILE } from "../../models/walk.model";
 import { MemberLoginService } from "../../services/member/member-login.service";
@@ -225,7 +226,7 @@ const MAP_LIST_BATCH_SIZE = 20;
                 <fa-icon [icon]="faArrowsRotate"/>
               </button>
               @if (!embeddedLibrary && view === AppHomeView.MAPS) {
-                <button class="btn btn-quiet btn-icon" type="button" (click)="chooseGpxFile()"
+                <button class="btn btn-quiet btn-icon d-none d-md-inline-flex" type="button" (click)="chooseGpxFile()"
                         [disabled]="importingGpx || (memberLogin.memberLoggedIn() && !mobileAccess.allowed(MobileAppAction.IMPORT))"
                         aria-label="Import GPX" tooltip="Import GPX">
                   <fa-icon [icon]="faFileImport"/>
@@ -262,7 +263,7 @@ const MAP_LIST_BATCH_SIZE = 20;
                 <button class="btn" type="button" [attr.aria-pressed]="nearbyOnly"
                         [class.btn-primary]="nearbyOnly" [class.btn-quiet]="!nearbyOnly" (click)="chooseNearby()">
                   <fa-icon [icon]="nearbyOnly ? faCheck : faLocationDot"/>
-                  <span>Near me</span>
+                  <span>{{ nearbyPlaceName ? "Near " + nearbyPlaceName : "Near me" }}</span>
                 </button>
                 <button class="btn" type="button" [attr.aria-pressed]="favouritesOnly"
                         [class.btn-primary]="favouritesOnly" [class.btn-quiet]="!favouritesOnly"
@@ -428,8 +429,12 @@ const MAP_LIST_BATCH_SIZE = 20;
           <section class="app-home-section app-home-map-list">
             <h2 class="visually-hidden">Maps</h2>
             @for (route of displayedRoutes(); track routeKey(route)) {
-              <div class="app-home-card app-home-route-card">
-                <a class="app-home-route-main" [routerLink]="routeLink(route)"
+              <div class="app-home-card app-home-route-card"
+                   [class.os-maps-route-card]="embeddedLibrary"
+                   [style.--os-maps-route-preview-width.px]="embeddedLibrary ? previewWidth : null">
+                <a class="app-home-route-main" [class.os-maps-route-preview]="embeddedLibrary"
+                   [style.min-height.px]="embeddedLibrary ? previewHeight : null"
+                   [routerLink]="routeLink(route)"
                    [queryParams]="routeQuery(route)" (click)="retainMapsScroll()">
                   <app-os-maps-route-preview-map class="flush" fill [route]="listedOsMapsRoute(route)"
                                                  [gpxFile]="route.gpxFile || null" [cacheKey]="routeKey(route)"
@@ -464,6 +469,83 @@ const MAP_LIST_BATCH_SIZE = 20;
                                      [walkedByName]="route.walkedByName"/>
                   </div>
                 </a>
+                @if (embeddedLibrary) {
+                  <app-resizer class="os-maps-route-width-resizer d-none d-md-flex" subtle
+                               [orientation]="ResizerOrientation.HORIZONTAL" [variant]="ResizerVariant.BAR"
+                               [size]="previewWidth" [minSize]="minPreviewWidth" [maxSize]="maxPreviewWidth"
+                               resizeHint="Drag to change the width of the map"
+                               (sizeChange)="onPreviewWidthChange($event)" (resizeEnd)="savePreviewWidth()"/>
+                  <app-resizer class="os-maps-route-height-resizer d-none d-md-flex" subtle
+                               [orientation]="ResizerOrientation.VERTICAL" [variant]="ResizerVariant.BAR"
+                               [size]="previewHeight" [minSize]="minPreviewHeight" [maxSize]="maxPreviewHeight"
+                               resizeHint="Drag to change the height of the map"
+                               (sizeChange)="onPreviewHeightChange($event)" (resizeEnd)="savePreviewHeight()"/>
+                  <app-resizer class="os-maps-route-corner-resizer d-none d-md-flex" subtle
+                               [orientation]="ResizerOrientation.CORNER" [variant]="ResizerVariant.BAR"
+                               [size]="previewWidth" [minSize]="minPreviewWidth" [maxSize]="maxPreviewWidth"
+                               [secondarySize]="previewHeight" [minSecondarySize]="minPreviewHeight" [maxSecondarySize]="maxPreviewHeight"
+                               resizeHint="Drag to change the width and height of the map"
+                               (sizeChange)="onPreviewWidthChange($event)" (secondarySizeChange)="onPreviewHeightChange($event)"
+                               (resizeEnd)="savePreviewWidth()" (secondaryResizeEnd)="savePreviewHeight()"/>
+                  @if (listedOsMapsRoute(route); as listed) {
+                    @if (listed.walks?.length) {
+                      <div class="d-none d-md-block mt-2">
+                        <strong>Referenced by {{ listed.walks.length }} {{ listed.walks.length === 1 ? "walk" : "walks" }}</strong>
+                        @for (walk of listed.walks; track walk.id) {
+                          <div><a [routerLink]="walkReferenceLink(walk)">{{ walk.title }}</a></div>
+                        }
+                      </div>
+                    }
+                    @if (route.gpxFile?.awsFileName) {
+                      <div class="d-none d-md-flex align-items-center gap-2 mt-2">
+                        @if (listed.canEdit) {
+                          <label [for]="'route-visibility-' + routeKey(route)" class="mb-0">Visibility</label>
+                          <select [id]="'route-visibility-' + routeKey(route)" class="form-select form-select-sm"
+                                  [ngModel]="listed.visibility || RouteVisibility.GROUP"
+                                  (ngModelChange)="changeVisibility(listed, $event)">
+                            <option [ngValue]="RouteVisibility.PRIVATE">Private</option>
+                            <option [ngValue]="RouteVisibility.GROUP">Shared with the group</option>
+                          </select>
+                        } @else {
+                          <span>{{ listed.visibility === RouteVisibility.PRIVATE ? "Private" : "Shared with the group" }}</span>
+                        }
+                      </div>
+                    }
+                  }
+                    <div class="d-none d-md-flex flex-wrap gap-2">
+                      <a class="btn btn-primary" [routerLink]="routeLink(route)" [queryParams]="editQuery(route)"
+                         [attr.aria-label]="'Open ' + route.title">
+                        <fa-icon [icon]="faArrowUpRightFromSquare" class="me-2"/>
+                        Open
+                      </a>
+                      @if (gpxDownloadUrl(route)) {
+                        <a class="btn btn-quiet" [href]="gpxDownloadUrl(route)" [download]="gpxDownloadFileName(route)">
+                          <fa-icon [icon]="faDownload" class="me-2"/>
+                          Download GPX
+                        </a>
+                      }
+                      @if (osMapsHref(route)) {
+                        <a class="btn btn-quiet" [href]="osMapsHref(route)" target="_blank" rel="noopener">
+                          <img src="/assets/images/local/os-api/os-logo-maps.svg" alt="" width="46" height="12"/>
+                          OS Maps
+                        </a>
+                      }
+                      @if (confirmingRemoveKey === routeKey(route)) {
+                        <button type="button" class="btn btn-danger" (click)="confirmRemoveSavedRoute(route); $event.stopPropagation()">
+                          <fa-icon [icon]="faTrash" class="me-2"/>
+                          Confirm delete
+                        </button>
+                        <button type="button" class="btn btn-quiet" (click)="confirmingRemoveKey = null; $event.stopPropagation()">
+                          Cancel
+                        </button>
+                      } @else {
+                        <button type="button" class="btn btn-quiet" (click)="beginRemoveSavedRoute(route); $event.stopPropagation()">
+                          <fa-icon [icon]="faTrash" class="me-2"/>
+                          Delete
+                        </button>
+                      }
+                    </div>
+                }
                 <app-route-map-actions [favourite]="isFavourite(route)" [showHide]="isWebsiteMap(route)"
                                        (favouriteToggle)="toggleFavourite(route)"
                                        (hide)="removeSavedRoute(route)">
@@ -602,13 +684,23 @@ const MAP_LIST_BATCH_SIZE = 20;
     </ng-template>
   `,
   styleUrls: ["./app-home.sass"],
-  imports: [CompassCalibrationHelpComponent, AreaSelector, GroupSelector, NgSelectModule, PullToRefreshComponent, VisibilityObserverDirective, RouterLink, FormsModule, FontAwesomeModule, RouteAuditComponent, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, CardImageOrMap, TooltipModule, DistanceRangeSlider, NgTemplateOutlet, FileUploadModule, RouteMapActionsComponent, VenueAutocompleteComponent]
+  imports: [CompassCalibrationHelpComponent, AreaSelector, GroupSelector, NgSelectModule, PullToRefreshComponent, VisibilityObserverDirective, RouterLink, FormsModule, FontAwesomeModule, RouteAuditComponent, DisplayDatePipe, DisplayTimePipe, OsMapsRoutePreviewMapComponent, CardImageOrMap, TooltipModule, DistanceRangeSlider, NgTemplateOutlet, FileUploadModule, RouteMapActionsComponent, VenueAutocompleteComponent, ResizerComponent]
 })
 export class MapsLibraryComponent implements OnInit, OnDestroy {
   embeddedLibrary = false;
   @Input() set embedded(value: boolean | string) {
     this.embeddedLibrary = coerceBooleanProperty(value);
   }
+  protected readonly ResizerOrientation = ResizerOrientation;
+  protected readonly ResizerVariant = ResizerVariant;
+  protected readonly minPreviewWidth = 240;
+  protected readonly maxPreviewWidth = 720;
+  protected readonly defaultPreviewWidth = 638;
+  protected readonly minPreviewHeight = 160;
+  protected readonly maxPreviewHeight = 560;
+  protected readonly defaultPreviewHeight = 257;
+  protected previewWidth = 638;
+  protected previewHeight = 257;
   protected readonly refreshRoutes = async (): Promise<void> => {
     await Promise.all([this.load(), this.listPreferences.refresh()]);
   };
@@ -735,6 +827,9 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
   protected readonly faSun = faSun;
   protected readonly faTrash = faTrash;
   protected readonly faXmark = faXmark;
+  protected readonly faDownload = faDownload;
+  protected readonly faArrowUpRightFromSquare = faArrowUpRightFromSquare;
+  protected readonly RouteVisibility = RouteVisibility;
   protected readonly AppPath = AppPath;
   protected readonly AppInstallPlatform = AppInstallPlatform;
   protected readonly AppAppearance = AppAppearance;
@@ -846,6 +941,8 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
       this.loading = false;
       this.bindSiteKeyboard();
     } else {
+    this.previewWidth = Number(this.uiActions.initialValueFor(StoredValue.OS_MAPS_ROUTE_PREVIEW_WIDTH)) || this.defaultPreviewWidth;
+    this.previewHeight = Number(this.uiActions.initialValueFor(StoredValue.OS_MAPS_ROUTE_PREVIEW_HEIGHT)) || this.defaultPreviewHeight;
     void this.listPreferences.refresh();
     this.subscriptions.push(this.activatedRoute.queryParamMap.subscribe(params => {
       this.customising = params.get(StoredValue.APP_SETTINGS) === "true";
@@ -957,6 +1054,22 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
     });
   };
 
+  onPreviewWidthChange(width: number): void {
+    this.previewWidth = width;
+  }
+
+  savePreviewWidth(): void {
+    this.uiActions.saveValueFor(StoredValue.OS_MAPS_ROUTE_PREVIEW_WIDTH, this.previewWidth);
+  }
+
+  onPreviewHeightChange(height: number): void {
+    this.previewHeight = height;
+  }
+
+  savePreviewHeight(): void {
+    this.uiActions.saveValueFor(StoredValue.OS_MAPS_ROUTE_PREVIEW_HEIGHT, this.previewHeight);
+  }
+
   chooseGpxFile(): void {
     this.afterSignIn(() => {
       if (this.mobileAccess.allowed(MobileAppAction.IMPORT)) {
@@ -1062,7 +1175,10 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
   }
 
   creatorOptions(): RouteContributor[] {
-    return uniqBy(this.routes.filter(route => !!route.createdBy).map(route => ({memberId: route.createdBy, name: route.createdByName || "Unknown user"})), contributor => contributor.memberId)
+    return uniqBy(this.routes.filter(route => !!route.createdBy).map(route => ({
+      memberId: String(route.createdBy),
+      name: (route.createdByName || "Unknown user").trim()
+    })), contributor => contributor.name.toLowerCase())
       .sort((left, right) => left.name.localeCompare(right.name));
   }
 
@@ -1073,13 +1189,17 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
 
   visibleRoutes(): RouteFollowSummary[] {
     const needle = this.routeSearch.trim().toLowerCase();
+    const selectedCreator = this.creatorOptions().find(contributor => contributor.memberId === this.creator);
+    const creatorName = (selectedCreator?.name || "").toLowerCase();
     const shown = this.routes.filter(route => {
       const key = this.routeKey(route) || "";
       const visible = !this.listPreferences.isHidden(key);
       const favourite = !this.favouritesOnly || this.isFavourite(route);
       const named = needle.length === 0 || (route.title || "").toLowerCase().includes(needle);
       const nearby = !this.nearbyOnly || this.isNearby(route);
-      const creator = !this.creator || route.createdBy === this.creator;
+      const routeCreatorName = (route.createdByName || "").trim().toLowerCase();
+      const creator = !this.creator || String(route.createdBy) === this.creator
+        || (!!creatorName && routeCreatorName === creatorName);
       return visible && favourite && named && nearby && creator;
     });
     return this.nearbyOnly ? [...shown].sort((left, right) => (this.milesAway(left) ?? 9999) - (this.milesAway(right) ?? 9999)) : shown;
@@ -1165,14 +1285,22 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
   }
 
   async chooseNearby(): Promise<void> {
-    this.nearbyOnly = !this.nearbyOnly;
-    this.locationError = null;
-    this.nearbyPlaceName = null;
-    void this.uiActions.updateQueryParameter(StoredValue.NEARBY, this.nearbyOnly ? "true" : null);
-    void this.uiActions.updateQueryParameter(StoredValue.NEARBY_PLACE, null);
-    void this.uiActions.updateQueryParameter(StoredValue.PROXIMITY_LAT, null);
-    void this.uiActions.updateQueryParameter(StoredValue.PROXIMITY_LNG, null);
     if (this.nearbyOnly) {
+      this.nearbyOnly = false;
+      this.nearbyPlaceName = null;
+      this.locationError = null;
+      void this.uiActions.updateQueryParameter(StoredValue.NEARBY, null);
+      void this.uiActions.updateQueryParameter(StoredValue.NEARBY_PLACE, null);
+      void this.uiActions.updateQueryParameter(StoredValue.PROXIMITY_LAT, null);
+      void this.uiActions.updateQueryParameter(StoredValue.PROXIMITY_LNG, null);
+    } else {
+      this.nearbyOnly = true;
+      this.nearbyPlaceName = null;
+      this.locationError = null;
+      void this.uiActions.updateQueryParameter(StoredValue.NEARBY, "true");
+      void this.uiActions.updateQueryParameter(StoredValue.NEARBY_PLACE, null);
+      void this.uiActions.updateQueryParameter(StoredValue.PROXIMITY_LAT, null);
+      void this.uiActions.updateQueryParameter(StoredValue.PROXIMITY_LNG, null);
       await this.refreshLocation();
     }
   }
@@ -1204,7 +1332,7 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
     this.display.rememberFollowReturnUrl();
     void this.router.navigate(["/", AppPath.ROOT, AppPath.ROUTE], {
       queryParams: {
-        [StoredValue.DRAW_ROUTE]: generateUid(),
+        [StoredValue.PLOT_ROUTE]: "true",
         [StoredValue.LAT]: latitude !== null ? String(latitude) : null,
         [StoredValue.LON]: longitude !== null ? String(longitude) : null,
         [StoredValue.NEARBY_PLACE]: placeName
@@ -1279,6 +1407,43 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
   listedOsMapsRoute(route: RouteFollowSummary): OsMapsListedRoute | null {
     const key = this.routeKey(route);
     return key ? this.importedOsMapsByKey[key] || null : null;
+  }
+
+  osMapsHref(route: RouteFollowSummary): string | null {
+    const listed = this.listedOsMapsRoute(route);
+    return listed && isOsMapsRouteUrl(listed.url) ? listed.url : null;
+  }
+
+  gpxDownloadUrl(route: RouteFollowSummary): string | null {
+    return this.payloadService.gpxDownloadUrl(route.gpxFile || this.listedOsMapsRoute(route)?.gpxFile);
+  }
+
+  gpxDownloadFileName(route: RouteFollowSummary): string {
+    const original = (route.gpxFile || this.listedOsMapsRoute(route)?.gpxFile)?.originalFileName;
+    if (original) {
+      return original.toLowerCase().endsWith(".gpx") ? original : `${original}.gpx`;
+    } else {
+      return `${this.stringUtils.kebabCase(route.title || "route")}.gpx`;
+    }
+  }
+
+  editQuery(route: RouteFollowSummary): Record<string, string> {
+    return {...this.routeQuery(route), [StoredValue.EDIT_ROUTE]: "true"};
+  }
+
+  walkReferenceLink(walk: {id: string; slug?: string}): string[] {
+    return ["/" + this.display.walksArea(), walk.slug || walk.id];
+  }
+
+  async changeVisibility(listed: OsMapsListedRoute | null, visibility: RouteVisibility): Promise<void> {
+    if (listed?.id) {
+      const updated = await this.osMapsExport.changeVisibility(listed.id, visibility);
+      this.importedOsMapsByKey = {...this.importedOsMapsByKey, [this.routeKeyFromListed(updated) || listed.id]: updated};
+    }
+  }
+
+  private routeKeyFromListed(route: OsMapsListedRoute): string | null {
+    return route.number ? String(route.number) : route.id || null;
   }
 
   isFavourite(route: RouteFollowSummary): boolean {

@@ -57,6 +57,8 @@ export interface OsMapsListedRoute extends OsMapsImportContext {
   createdAtValue: number;
   distanceMetres: number;
   source: OsMapsRouteSource;
+  startLatitude?: number | null;
+  startLongitude?: number | null;
   importedAt?: number | null;
   gpxFile?: FileNameData | null;
   routeColor?: string | null;

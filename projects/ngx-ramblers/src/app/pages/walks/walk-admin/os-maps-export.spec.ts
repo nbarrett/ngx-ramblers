@@ -150,7 +150,7 @@ describe("OS Maps export job reconnection", () => {
     service.listing.mockResolvedValue({listedAt: 1, routes: []});
     await state.page.refreshRoutes();
     expect(state.page.jobFeature).toBe(SerenityFeature.OS_MAPS_LIST);
-    expect(state.page.activeTabId).toBe(OsMapsExportTab.JOB_PROGRESS);
+    expect(state.page.showJobProgress).toBe(true);
     expect(state.page.currentJobFileName).toBe("os-maps-list-example.json");
     expect(state.page.startingJob).toBe(false);
     expect(state.page.loading).toBe(false);
@@ -312,5 +312,67 @@ describe("OS Maps export job reconnection", () => {
     expect(service.listing).toHaveBeenNthCalledWith(1, OsMapsAccountScope.GROUP);
     expect(service.listing).toHaveBeenNthCalledWith(2, OsMapsAccountScope.GROUP, expect.objectContaining({nearby: true, latitude: 51, longitude: 1}));
     expect(state.page.visibleRoutes()).toEqual([route]);
+  });
+
+  it("selecting a place turns nearby on for that place", () => {
+    state.page.onPlaceSearch({name: "Birdlip", lat: 51.82, lon: -2.1} as never);
+    expect(state.page.nearbyOnly).toBe(true);
+    expect(state.page.nearbyPlaceName).toBe("Birdlip");
+    expect(state.page.placeSearchVenue?.name).toBe("Birdlip");
+    expect(state.page.here).toEqual({latitude: 51.82, longitude: -2.1});
+  });
+
+  it("clearing the place search turns nearby off", () => {
+    state.page.onPlaceSearch({name: "Birdlip", lat: 51.82, lon: -2.1} as never);
+    state.page.onPlaceSearch(null);
+    expect(state.page.nearbyOnly).toBe(false);
+    expect(state.page.nearbyPlaceName).toBeNull();
+    expect(state.page.placeSearchVenue).toBeNull();
+  });
+
+  it("clicking Near me when it is off uses GPS and clicking again turns it off", async () => {
+    const origin = vi.fn().mockResolvedValue({latitude: 51, longitude: 1});
+    TestBed.inject(RouteNearbyService).origin = origin;
+    state.page.nearbyOnly = false;
+    await state.page.chooseNearby();
+    expect(state.page.nearbyOnly).toBe(true);
+    expect(state.page.nearbyPlaceName).toBeNull();
+    await state.page.chooseNearby();
+    expect(state.page.nearbyOnly).toBe(false);
+    expect(state.page.nearbyPlaceName).toBeNull();
+  });
+
+  it("uses fresh GPS coordinates after switching off a searched place", async () => {
+    await vi.advanceTimersByTimeAsync(0);
+    const origin = vi.fn().mockResolvedValue({latitude: 51, longitude: 1});
+    TestBed.inject(RouteNearbyService).origin = origin;
+    state.page.onPlaceSearch({name: "Hillside Park", lat: 55, lon: -3} as never);
+    await state.page.chooseNearby();
+    await state.page.chooseNearby();
+    expect(origin).toHaveBeenCalledOnce();
+    expect(service.listing).toHaveBeenLastCalledWith(OsMapsAccountScope.GROUP, expect.objectContaining({nearby: true, latitude: 51, longitude: 1}));
+    expect(TestBed.inject(UiActionsService).updateQueryParameters).toHaveBeenLastCalledWith(expect.objectContaining({
+      [StoredValue.NEARBY_PLACE]: null,
+      [StoredValue.PROXIMITY_LAT]: "51",
+      [StoredValue.PROXIMITY_LNG]: "1"
+    }));
+  });
+
+  it("uses fresh GPS coordinates after clearing a searched place", async () => {
+    await vi.advanceTimersByTimeAsync(0);
+    const origin = vi.fn().mockResolvedValue({latitude: 51, longitude: 1});
+    TestBed.inject(RouteNearbyService).origin = origin;
+    state.page.onPlaceSearch({name: "Hillside Park", lat: 55, lon: -3} as never);
+    state.page.onPlaceSearch(null);
+    await state.page.chooseNearby();
+    expect(origin).toHaveBeenCalledOnce();
+    expect(service.listing).toHaveBeenLastCalledWith(OsMapsAccountScope.GROUP, expect.objectContaining({nearby: true, latitude: 51, longitude: 1}));
+  });
+
+  it("clicking Near Birdlip turns the nearby filter off", async () => {
+    state.page.onPlaceSearch({name: "Birdlip", lat: 51.82, lon: -2.1} as never);
+    await state.page.chooseNearby();
+    expect(state.page.nearbyOnly).toBe(false);
+    expect(state.page.nearbyPlaceName).toBeNull();
   });
 });
