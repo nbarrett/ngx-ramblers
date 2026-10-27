@@ -94,9 +94,9 @@ describe("aws-utils.contentTypeFrom", () => {
     expect(contentTypeFrom("meeting.ics")).toEqual("text/calendar; charset=utf-8");
   });
 
-  it("returns application/msword for .doc / .docx", () => {
+  it("returns the correct Word content type for .doc and .docx", () => {
     expect(contentTypeFrom("letter.doc")).toEqual("application/msword");
-    expect(contentTypeFrom("letter.docx")).toEqual("application/msword");
+    expect(contentTypeFrom("letter.docx")).toEqual("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
   });
 
   it("returns application/gpx+xml for .gpx", () => {

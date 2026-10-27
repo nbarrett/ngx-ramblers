@@ -3,6 +3,7 @@ import { EmailComposer } from "./email-composer";
 import { StoredValue } from "../../models/ui-actions";
 import {
   AddresseeType,
+  ComposerFragmentKind,
   EmailCompositionKind,
   EmailComposerStepKey,
   RecipientMode,
@@ -48,6 +49,32 @@ describe("composer branding mode", () => {
     });
     return instance;
   }
+
+  it.each([BrandingMode.UNBRANDED, BrandingMode.BRANDED])("renders deliberate sign-off text and applies automatic names only in branded mode: %s", mode => {
+    const signoffNames = vi.fn(() => "<p>Alex Reed, Chair</p>");
+    const instance = composer({
+      fragmentEditor: {fragmentsForRender: () => [{kind: ComposerFragmentKind.SIGNOFF, id: "signoff"}]},
+      validSignoffRolesFor: (roles: string[]) => roles,
+      rendering: {
+        markdownToHtml: (text: string) => `<p>${text}</p>`,
+        joinSectionsWithPerSectionDividers: (sections: {content: string}[]) => sections.map(section => section.content).join("\n")
+      },
+      mailMessagingService: {signoffNames},
+      salutationHtml: () => ""
+    });
+    instance.session.state.brandingMode = mode;
+    instance.session.state.signoffTextMarkdown = "Regards, Casey";
+    const body = instance.composedBodyParts().combined;
+    expect(body).toContain("Regards, Casey");
+    expect(instance.session.state.signoffRoles).toEqual(["chair"]);
+    if (mode === BrandingMode.UNBRANDED) {
+      expect(body).not.toContain("Alex Reed");
+      expect(signoffNames).not.toHaveBeenCalled();
+    } else {
+      expect(body).toContain("Alex Reed");
+      expect(signoffNames).toHaveBeenCalledWith(["chair"]);
+    }
+  });
 
   it("restoring unbranded mode preserves the saved recipients, list, template and copy", () => {
     const instance = composer();

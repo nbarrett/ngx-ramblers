@@ -1,6 +1,7 @@
+import { ParsedEmailPaste } from "../models/email-composer.model";
 import {keys} from "es-toolkit/compat";
 import {parseEmailAddressList} from "./email-addresses";
-import { plainText } from "./strings";
+import { escapeHtml, plainText } from "./strings";
 
 export type IntroTitledPastePlan =
   | { apply: false }
@@ -164,7 +165,9 @@ export function emailHeadersNearTop(text: string): boolean {
   const lines = (text ?? "").split(/\r?\n/);
   const addressingHeader = /^(To|From|Cc|Bcc|Subject):\s*\S/i;
   const firstHeaderIdx = lines.findIndex(line => addressingHeader.test(stripMarkdownDecorations(line)));
-  return firstHeaderIdx >= 0 && lines.slice(0, firstHeaderIdx).every(line => {
+  const parsed = firstHeaderIdx >= 0 && firstHeaderIdx < 40 ? parseEmailHeadersFromMarkdown(text) : null;
+  const explicitEnvelope = !!parsed?.subject && parsed.forwardedHeaderLines.some(line => /^(To|Cc):\s*\S/i.test(line));
+  return explicitEnvelope || firstHeaderIdx >= 0 && lines.slice(0, firstHeaderIdx).every(line => {
     const stripped = stripMarkdownDecorations(line);
     return stripped === "" || /^\s*#{1,6}\s/.test(line) || /^[A-Za-z][A-Za-z -]*:\s/.test(stripped);
   });
@@ -176,19 +179,7 @@ export function buildForwardedIntroMarkdown(headerLines: string[], body: string)
   return `\n\n---\n\n${headerBlock}\n\n---\n\n${trimmedBody}`;
 }
 
-export function parseEmailHeadersFromMarkdown(content: string): {
-  to: {
-    name: string;
-    email: string;
-  }[];
-  cc: {
-    name: string;
-    email: string;
-  }[];
-  subject: string | null;
-  body: string;
-  forwardedHeaderLines: string[];
-} | null {
+export function parseEmailHeadersFromMarkdown(content: string): ParsedEmailPaste | null {
   const lines = content.split(/\r?\n/);
   const HEADER_REGEX = /^(To|From|Cc|Bcc|Subject|Date|Sent|Reply-To):\s*(.+)$/i;
   const firstHeaderIdx = lines.findIndex(line => {
@@ -203,25 +194,14 @@ export function parseEmailHeadersFromMarkdown(content: string): {
     if (keys(headers).length === 0 || (!headers.to && !headers.subject && !headers.from)) {
       return null;
     } else {
-      const body = bodyStartLine >= 0 ? lines.slice(bodyStartLine).join("\n").replace(/^\n+/, "") : "";
+      const body = bodyStartLine >= 0 ? lines.slice(bodyStartLine).join("\n").replace(/^\n+/, "").replace(/^---[ \t]*\n+/, "") : "";
       const headerEndIdx = bodyStartLine >= 0 ? bodyStartLine : lines.length;
       const forwardedHeaderLines = lines.slice(firstHeaderIdx, headerEndIdx)
         .map(line => stripMarkdownDecorations(line))
         .filter(line => line !== "");
       const toList = parseEmailAddressList(headers.to ?? "");
-      const fromList = parseEmailAddressList(headers.from ?? "");
-      const seenEmails = new Set<string>();
-      const combinedRecipients = [...toList, ...fromList].filter(item => {
-        const key = item.email.toLowerCase();
-        if (seenEmails.has(key)) {
-          return false;
-        } else {
-          seenEmails.add(key);
-          return true;
-        }
-      });
       return {
-        to: combinedRecipients,
+        to: toList,
         cc: parseEmailAddressList(headers.cc ?? ""),
         subject: headers.subject ?? null,
         body,
@@ -276,4 +256,30 @@ function stripMarkdownDecorations(line: string): string {
     .replace(/[*_`]+$/g, "")
     .replace(/\*\*|__/g, "")
     .trim();
+}
+
+export function escapeMarkdownBlockStarts(markdown: string): string {
+  return markdown
+    .replace(/^(#{1,6})(?=\s)/gm, "\\$1")
+    .replace(/^([-+])(?=\s)/gm, "\\$1")
+    .replace(/^(-{3,})(?=\s*$)/gm, "\\$1")
+    .replace(/^(\d+)([.)])(?=\s)/gm, "$1\\$2")
+    .replace(/^[ \t]+/gm, whitespace => whitespace.replace(/ /g, "&#32;").replace(/\t/g, "&#9;"));
+}
+
+export function plainTextAsMarkdown(text: string): string {
+  return escapeMarkdownBlockStarts(escapeHtml(text ?? "")
+    .replace(/([\\`*_[\]{}#+!|~-])/g, "\\$1")
+    .replace(/\r\n?/g, "\n"))
+    .split("\n")
+    .map((line, index, lines) => line + (index < lines.length - 1 ? (line && lines[index + 1] ? "  \n" : "\n") : ""))
+    .join("");
+}
+
+export function looksLikeDiagnosticPaste(text: string): boolean {
+  return /<\/?[a-z][a-z0-9-]*(?:\s[^>]*|\/?)>/i.test(text) || /^(?:%\s|diff\s|--- |\+\+\+ |@@ )/m.test(text);
+}
+
+export function formattedPasteMarkdown(text: string): string {
+  return looksLikeDiagnosticPaste(text) ? plainTextAsMarkdown(text) : text;
 }

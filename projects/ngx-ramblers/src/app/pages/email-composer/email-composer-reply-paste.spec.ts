@@ -3,11 +3,23 @@ import {convertToParamMap} from "@angular/router";
 import {StoredValue} from "../../models/ui-actions";
 import {BrandingMode} from "../../models/mail.model";
 import {defaultEmailComposerState} from "../../functions/email-composer";
-import {ComposerFragmentKind, RecipientAddressMode} from "../../models/email-composer.model";
+import {ComposerFragmentKind, EmailComposerState, RecipientMode, RecipientAddressMode} from "../../models/email-composer.model";
+import {EmailComposerRecipientsService} from "../../services/email-composer/email-composer-recipients.service";
 import {EmailComposerFragmentsService} from "../../services/email-composer/email-composer-fragments.service";
 import {EmailComposer} from "./email-composer";
 
 describe("composer reply paste", () => {
+  function recipientReset(state: Partial<EmailComposerState>) {
+    return {
+      clearRecipientSelection: vi.fn(() => EmailComposerRecipientsService.prototype.clearRecipientSelection.call({
+        session: {state, syncStateToUrl: vi.fn()},
+        expandedRecipientListIds: new Set(), expandedRecipientFilterKeys: new Set(),
+        pool: {recomputeCandidateMembers: vi.fn()},
+        setRecipientMode: (mode: RecipientMode) => state.recipientMode = mode
+      } as unknown as EmailComposerRecipientsService))
+    };
+  }
+
   it("leaves forwarded headers and body for normal insertion without changing the reply envelope", () => {
     const state = {
       brandingMode: BrandingMode.UNBRANDED,
@@ -16,6 +28,7 @@ describe("composer reply paste", () => {
       externalRecipients: [{name: "Alex Reed", email: "alex.reed@example.com"}]
     };
     const context = {
+      changeDetector: {detectChanges: vi.fn()},
       session: {state, inboxReplyContext: {}},
       subjectStillAutomatic: vi.fn(() => true),
       autoResolveTrackingUrls: vi.fn(() => Promise.resolve())
@@ -23,6 +36,7 @@ describe("composer reply paste", () => {
     const originalState = structuredClone(state);
     const event = {
       text: "**From: Casey Green <casey.green@example.com>**\n**To: Alex Reed <alex.reed@example.com>**\n**Subject: Weekend plans**\n\nThanks for the details.\n\n**From:&#x20;**Jordan Lane <jordan.lane@example.com>\n**Subject:&#x20;**Re: Weekend plans\n\nSee you soon.",
+      confirmed: true,
       consume: vi.fn()
     };
     EmailComposer.prototype["onIntroRawPaste"].call(context as unknown as EmailComposer, event);
@@ -30,6 +44,17 @@ describe("composer reply paste", () => {
     expect(state).toEqual(originalState);
     expect(context.subjectStillAutomatic).not.toHaveBeenCalled();
     expect(context.autoResolveTrackingUrls).not.toHaveBeenCalled();
+  });
+
+  it("does not extract a title or headers until the user confirms", () => {
+    const state = {brandingMode: BrandingMode.UNBRANDED, subject: "", introMarkdown: "", externalRecipients: [], ccRecipients: []};
+    const context = {
+      changeDetector: {detectChanges: vi.fn()},session: {state, inboxReplyContext: null}};
+    const original = structuredClone(state);
+    const event = {text: "To: Alex Reed <alex.reed@example.com>\nSubject: Proposed subject\n\nBody text", consume: vi.fn()};
+    EmailComposer.prototype["onIntroRawPaste"].call(context as unknown as EmailComposer, event);
+    expect(state).toEqual(original);
+    expect(event.consume).not.toHaveBeenCalled();
   });
 
   it("still extracts recipients and subject when composing a new message", () => {
@@ -40,6 +65,7 @@ describe("composer reply paste", () => {
       focusAtEnd: vi.fn()
     };
     const context = {
+      changeDetector: {detectChanges: vi.fn()},
       session: {
         state: {
           brandingMode: BrandingMode.UNBRANDED,
@@ -54,17 +80,18 @@ describe("composer reply paste", () => {
       autoResolveTrackingUrls: vi.fn(() => Promise.resolve()),
       subjectStillAutomatic: vi.fn(() => false)
     };
+    Object.assign(context, {recipients: recipientReset(context.session.state)});
     Object.defineProperty(context, "introEditor", {get: () => introEditor});
     const event = {
       text: "From: Casey Green <casey.green@example.com>\nTo: Alex Reed <alex.reed@example.com>\nSubject: Weekend plans\n\nThanks for the details.",
+      confirmed: true,
       consume: vi.fn()
     };
     EmailComposer.prototype["onIntroRawPaste"].call(context as unknown as EmailComposer, event);
     expect(event.consume).toHaveBeenCalled();
     expect(context.session.state.subject).toBe("Weekend plans");
     expect(context.session.state.externalRecipients).toEqual([
-      {name: "Alex Reed", email: "alex.reed@example.com", saveForReuse: true},
-      {name: "Casey Green", email: "casey.green@example.com", saveForReuse: true}
+      {name: "Alex Reed", email: "alex.reed@example.com", saveForReuse: true}
     ]);
     expect(context.session.state.ccRecipients).toEqual([]);
     expect(context.session.state.introMarkdown).toContain("Thanks for the details.");
@@ -79,6 +106,7 @@ describe("composer reply paste", () => {
       focusAtEnd: vi.fn()
     };
     const context = {
+      changeDetector: {detectChanges: vi.fn()},
       session: {
         state: {
           brandingMode: BrandingMode.UNBRANDED,
@@ -93,6 +121,7 @@ describe("composer reply paste", () => {
       autoResolveTrackingUrls: vi.fn(() => Promise.resolve()),
       subjectStillAutomatic: vi.fn(() => false)
     };
+    Object.assign(context, {recipients: recipientReset(context.session.state)});
     Object.defineProperty(context, "introEditor", {get: () => introEditor});
     const event = {
       text: [
@@ -108,14 +137,14 @@ describe("composer reply paste", () => {
         "",
         "Alex"
       ].join("\n"),
+      confirmed: true,
       consume: vi.fn()
     };
     EmailComposer.prototype["onIntroRawPaste"].call(context as unknown as EmailComposer, event);
     expect(event.consume).toHaveBeenCalled();
     expect(context.session.state.subject).toBe("Re: Would you help me test the walking app?");
     expect(context.session.state.externalRecipients).toEqual([
-      {name: "Casey Green", email: "casey.green@example.com", saveForReuse: true},
-      {name: "Alex Reed", email: "alex.reed@example.com", saveForReuse: true}
+      {name: "Casey Green", email: "casey.green@example.com", saveForReuse: true}
     ]);
     expect(context.session.state.ccRecipients).toEqual([
       {name: "Jordan Lane", email: "jordan.lane@example.com", saveForReuse: true}
@@ -125,12 +154,68 @@ describe("composer reply paste", () => {
     expect(introEditor.syncValue).toHaveBeenCalledWith(context.session.state.introMarkdown);
   });
 
+  it.each([
+    {paste: "# Private planning note\n\nAudience: Alex. Status: DRAFT, not sent.\n\nComposer draft (not sent): https://group.example.org.uk/admin/email-composer\n\nFrom: Chair <chair@group.example.org.uk>\n\nTo: Alex Reed <alex.reed@example.com>\nCc: Casey Green <casey.green@example.com>\nSubject: Actual subject\n\n---\n\nHi Alex,\n\n- **Please review** [the guide](https://group.example.org.uk/guide)", subject: "Actual subject", toCount: 1},
+    {paste: "To: Alex Reed <alex.reed@example.com>\nCc: Alex Reed <alex.reed@example.com>\n\n# Actual subject\n\n---\n\nHi Alex,\n\n- **Please review** [the guide](https://group.example.org.uk/guide)", subject: "Actual subject", toCount: 1},
+    {paste: "**Subject: Actual subject**\n\nHi Alex,\n\n- **Please review** [the guide](https://group.example.org.uk/guide)", subject: "Actual subject", toCount: 0},
+    {paste: "# Private planning note\n\nStatus: DRAFT, not sent.\n\nBackground notes about this draft.\n\nTo: Alex Reed\nCc: Casey Green\nSubject: Actual subject\n\n---\n\nHi Alex,\n\n- **Please review** [the guide](https://group.example.org.uk/guide)", subject: "Actual subject", toCount: 0}
+  ])("replaces a bulk audience and imports the actual draft envelope: $paste", ({paste, subject, toCount}) => {
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.UNBRANDED;
+    state.recipientMode = RecipientMode.ENTIRE_LIST;
+    state.selectedListId = 42;
+    state.narrowListId = 43;
+    state.selectedMemberIds = ["old-member"];
+    state.externalRecipients = [{email: "old-list@example.com", listId: 42}];
+    state.bccRecipients = [{email: "old-bcc@example.com"}];
+    const warning = vi.fn();
+    const instance = Object.create(EmailComposer.prototype);
+    Object.assign(instance, {
+      session: {state, inboxReplyContext: null, notify: {warning}},
+      recipients: recipientReset(state),
+      changeDetector: {detectChanges: vi.fn()}, sender: {nameFromEmail: vi.fn()}
+    });
+    const syncValue = vi.fn();
+    Object.defineProperty(instance, "introEditor", {get: () => ({syncValue, focusAtEnd: vi.fn()})});
+    instance.onIntroRawPaste({text: paste, confirmed: true, consume: vi.fn()});
+    expect(state.subject).toBe(subject);
+    expect(state.recipientMode).toBe(RecipientMode.SELECTED_MEMBERS);
+    expect(state.selectedListId).toBeNull();
+    expect(state.narrowListId).toBeNull();
+    expect(state.selectedMemberIds).toEqual([]);
+    expect(state.externalRecipients).toHaveLength(toCount);
+    expect(state.bccRecipients).toEqual([]);
+    expect(state.introMarkdown).toContain("- **Please review** [the guide](https://group.example.org.uk/guide)");
+    expect(state.introMarkdown).not.toContain("Private planning note");
+    expect(syncValue).toHaveBeenCalledWith(state.introMarkdown);
+    if (paste.includes("To: Alex Reed\n")) {
+      expect(warning).toHaveBeenCalledOnce();
+    }
+  });
+
+  it("keeps the chosen audience when a formatted document has no email headers", () => {
+    const state = defaultEmailComposerState();
+    state.brandingMode = BrandingMode.UNBRANDED;
+    state.recipientMode = RecipientMode.ENTIRE_LIST;
+    state.selectedListId = 42;
+    state.externalRecipients = [{email: "list@example.com", listId: 42}];
+    const instance = Object.create(EmailComposer.prototype);
+    const recipients = recipientReset(state);
+    Object.assign(instance, {session: {state, inboxReplyContext: null}, recipients, changeDetector: {detectChanges: vi.fn()}});
+    instance.onIntroRawPaste({text: "Please read [the guide](https://group.example.org.uk/guide).", confirmed: true, consume: vi.fn()});
+    expect(recipients.clearRecipientSelection).not.toHaveBeenCalled();
+    expect(state.selectedListId).toBe(42);
+    expect(state.recipientMode).toBe(RecipientMode.ENTIRE_LIST);
+  });
+
   it("does not use a pasted heading as the reply subject", () => {
     const context = {
+      changeDetector: {detectChanges: vi.fn()},
       session: {state: {brandingMode: BrandingMode.UNBRANDED, subject: "Re: Weekend plans"}, inboxReplyContext: {}},
       subjectStillAutomatic: vi.fn(() => true)
     };
-    const event = {text: "# Forwarded notes\n\nKeep the whole message.", consume: vi.fn()};
+    const event = {text: "# Forwarded notes\n\nKeep the whole message.", confirmed: true,
+      consume: vi.fn()};
     EmailComposer.prototype["onIntroRawPaste"].call(context as unknown as EmailComposer, event);
     expect(context.session.state.subject).toBe("Re: Weekend plans");
     expect(event.consume).not.toHaveBeenCalled();

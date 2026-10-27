@@ -258,6 +258,14 @@ export const BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS: string[] = [
   "txt", "wav", "wma", "wmv", "xls", "xlsm", "xlsx", "xml", "zip"
 ];
 
+export function emailAttachmentExtension(fileName: string): string {
+  return (fileName.split(".").pop() ?? "").toLowerCase();
+}
+
+export function emailAttachmentSupported(fileName: string): boolean {
+  return BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS.includes(emailAttachmentExtension(fileName));
+}
+
 export interface SendSmtpEmailRequest extends EmailRequest {
   to?: EmailAddress[];
   bcc?: EmailAddress[];

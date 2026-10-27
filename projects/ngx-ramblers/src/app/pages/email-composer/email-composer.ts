@@ -1,4 +1,4 @@
-import {parseEmailHeadersFromMarkdown, emailHeadersNearTop, buildForwardedIntroMarkdown} from "../../functions/email-composer-intro-paste";
+import {parseEmailHeadersFromMarkdown, emailHeadersNearTop, formattedPasteMarkdown} from "../../functions/email-composer-intro-paste";
 import { EmailComposerSenderService } from "../../services/email-composer/email-composer-sender.service";
 import {EmailComposerDraftingComponent} from "./email-composer-drafting.component";
 import {EmailComposerDraftingMode} from "../../models/email-composer.model";
@@ -7,6 +7,7 @@ import { EmailComposerEventSelectionService } from "../../services/email-compose
 import {EmailComposerDocumentComponent} from "./email-composer-document.component";
 import { EmailComposerDocumentsService } from "../../services/email-composer/email-composer-documents.service";
 import { FocusInputDirective } from "../../modules/common/focus-input/focus-input.directive";
+import { SuppressAutofillDirective } from "../../modules/common/suppress-autofill/suppress-autofill.directive";
 import { AlertMessageComponent } from "../../modules/common/alert-panel/alert-message";
 import { EmailComposerRecipientsComponent } from "./email-composer-recipients.component";
 import { EmailComposerSessionService } from "../../services/email-composer/email-composer-session.service";
@@ -197,9 +198,9 @@ import {
 } from "../../models/ai.model";
 import { eventsForPurpose, RESEND_WITHIN_PERIOD_LABEL } from "../../functions/newsletter-purpose";
 import {
-  BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS,
   COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME,
   ComposerDrafting,
+  emailAttachmentSupported,
   ComposerRoleDefaults,
   CreateCampaignRequest,
   MemberSelection,
@@ -244,13 +245,12 @@ import {
 } from "../../functions/inbox-thread";
 import {
   extractLeadingTitle,
-  placeForwardedIntroMarkdown,
   planTitledIntroPaste,
-  shouldRunIntroSmartPaste,
   subjectNeedsPersonalising,
   subjectStillDefault,
   subjectTextFromPaste
 } from "../../functions/email-composer-intro-paste";
+import { TiptapPasteEvent } from "../../models/tiptap-editor.model";
 import { parseEmailAddressList } from "../../functions/email-addresses";
 import { InboxAttachment, InboxReplyComposeResponse } from "../../models/inbox.model";
 import TurndownService from "turndown";
@@ -328,6 +328,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     EmailComposerDraftingComponent,
     EmailComposerDocumentComponent,
     FocusInputDirective,
+    SuppressAutofillDirective,
     AlertMessageComponent,
     EmailComposerRecipientsComponent, EmailComposerAttachmentsComponent, EmailCompositionListComponent, EmailComposerFragmentsComponent, EmailComposerEventsComponent,
     PageComponent,
@@ -591,7 +592,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                 <div>
                 @if (composeUnbrandedNoRecipients) {
                   <div>Paste a forwarded email (with <code>To:</code>, <code>Cc:</code>, <code>Subject:</code> headers)
-                    into the body below and the addresses and subject will be picked up automatically, or go back to the
+                    into the body below and confirm the prompt to use its addresses and subject, or go back to the
                     Recipients step to add them by hand.
                   </div>
                 }
@@ -1050,16 +1051,20 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             </button>
           </legend>
           <div class="mb-2">
-            <label for="email-subject">Subject line</label>
-            <input id="email-subject" [appFocusInput]="pendingSubjectFocus"
+            <label for="composer-mail-title">Subject line</label>
+            <input #composerMailTitle id="composer-mail-title" name="composer-mail-title" appSuppressAutofill
+                   [appFocusInput]="pendingSubjectFocus"
                    (focusCompleted)="pendingSubjectFocus = false" type="text" class="form-control"
-                   [(ngModel)]="state.subject"
+                   [ngModel]="state.subject"
+                   (ngModelChange)="onSubjectModelChange($event)"
+                   (focus)="holdComposerChangeDetection('subject')"
+                   (blur)="releaseComposerChangeDetection('subject')"
                    [class.is-invalid]="!state.subject?.trim()"
                    placeholder="Enter the subject as it will appear in inboxes"
                    (paste)="onSubjectPaste($event)"/>
-            @if (!state.subject?.trim()) {
-              <small class="text-danger"><ng-container *ngTemplateOutlet="subjectRequiredValidation"/></small>
-            }
+            <small #subjectRequiredError class="text-danger" [class.d-none]="!!state.subject?.trim()">
+              <ng-container *ngTemplateOutlet="subjectRequiredValidation"/>
+            </small>
           </div>
           @if (!composeSettingsExpanded) {
             @let attachments = state.attachments ?? [];
@@ -1140,6 +1145,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                     <app-tiptap-markdown-editor #introEditor
                                                 [value]="state.introMarkdown"
                                                 (valueChange)="onIntroMarkdownChange($event)"
+                                                (editingChange)="onComposerEditorEditingChange($event)"
                                                 (rawPaste)="onIntroRawPaste($event)"
                                                 placeholder="Write your message here…"
                                                 stickyToolbar
@@ -1161,6 +1167,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                   @case (ComposerFragmentKind.SIGNOFF) {
                     <app-tiptap-markdown-editor [value]="state.signoffTextMarkdown"
                                                 (valueChange)="state.signoffTextMarkdown = $event"
+                                                (editingChange)="onComposerEditorEditingChange($event)"
                                                 placeholder="Sign off…"
                                                 [showMergeFields]="true"
                                                 [mergeFieldCatalogue]="composerMergeFieldCatalogue"/>
@@ -1377,6 +1384,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   private logger: Logger = inject(LoggerFactory).createLogger("EmailComposer", NgxLoggerLevel.ERROR);
+  private typingLogger: Logger = inject(LoggerFactory).createLogger("ComposerTyping", NgxLoggerLevel.INFO);
   private userHasEditedComposer = false;
   private volunteerManagementService = inject(VolunteerManagementService);
   protected volunteerAudienceSummary: VolunteerAudience | null = null;
@@ -1738,6 +1746,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   ngOnDestroy(): void {
+    this.releaseComposerChangeDetection("destroy");
     this.host.nativeElement.removeEventListener("input", this.markUserEditFromDom, true);
     this.host.nativeElement.removeEventListener("change", this.markUserEditFromDom, true);
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
@@ -1900,9 +1909,62 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
 
   protected committeeNotification: Notification | null = null;
   private committeeNotificationInputs: unknown[] = [];
+  private composerCdHeld = false;
+  private composerCdHoldSource: string | null = null;
+  private typingDoChecks = {count: 0};
 
   ngDoCheck(): void {
-    this.refreshCommitteeNotification();
+    this.typingDoChecks.count += 1;
+    if (this.composerCdHeld) {
+    } else {
+      const started = performance.now();
+      this.refreshCommitteeNotification();
+      const elapsed = performance.now() - started;
+      if (elapsed >= 2) {
+        this.typingLogger.info("ngDoCheck", elapsed.toFixed(1), "ms");
+      }
+    }
+  }
+
+  protected onSubjectModelChange(value: string): void {
+    this.session.state.subject = value;
+    this.userHasEditedComposer = true;
+    this.syncSubjectFieldValidity();
+  }
+
+  private syncSubjectFieldValidity(): void {
+    const valid = !!(this.session.state.subject ?? "").trim();
+    this.composerMailTitle?.nativeElement.classList.toggle("is-invalid", !valid);
+    this.subjectRequiredError?.nativeElement.classList.toggle("d-none", valid);
+  }
+
+  protected onComposerEditorEditingChange(editing: boolean): void {
+    if (editing) {
+      this.holdComposerChangeDetection("body");
+    } else {
+      this.releaseComposerChangeDetection("body");
+    }
+  }
+
+  protected holdComposerChangeDetection(source: string): void {
+    if (this.composerCdHeld) {
+    } else {
+      this.composerCdHeld = true;
+      this.composerCdHoldSource = source;
+      this.typingDoChecks.count = 0;
+      this.changeDetector.detach();
+      this.typingLogger.info("detached composer CD", source);
+    }
+  }
+
+  protected releaseComposerChangeDetection(source: string): void {
+    if (this.composerCdHeld) {
+      this.composerCdHeld = false;
+      this.typingLogger.info("reattach composer CD", source, "doChecks while held", this.typingDoChecks.count);
+      this.composerCdHoldSource = null;
+      this.changeDetector.reattach();
+      this.changeDetector.markForCheck();
+    }
   }
 
   private refreshCommitteeNotification(): void {
@@ -1912,7 +1974,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     } else {
       const inputs = [
         this.session.state.notificationConfig,
-        this.session.state.subject ?? "",
         this.addresseePlaceholder(),
         this.session.state.selectedListId ?? undefined,
         this.session.state.selectedMemberIds,
@@ -1995,6 +2056,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   @ViewChildren(TiptapMarkdownEditor)
   private markdownEditors!: QueryList<TiptapMarkdownEditor>;
 
+  @ViewChild("composerMailTitle") private composerMailTitle: ElementRef<HTMLInputElement>;
+  @ViewChild("subjectRequiredError") private subjectRequiredError: ElementRef<HTMLElement>;
   @ViewChild("introEditor")
   set introEditor(editor: TiptapMarkdownEditor | undefined) {
     this.introEditorRef = editor;
@@ -2020,72 +2083,45 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     this.session.state.subject = `${current.slice(0, start)}${plain}${current.slice(end)}`;
   }
 
-  protected onIntroRawPaste(event: {
-    text: string;
-    html?: string;
-    consume: () => void;
-  }): void {
-    if (!this.session.inboxReplyContext) {
-      const titled = extractLeadingTitle(event.text, event.html);
-      const parsedHeaders = parseEmailHeadersFromMarkdown(event.text);
-      if (parsedHeaders?.subject && emailHeadersNearTop(event.text)) {
-        this.session.state.subject = parsedHeaders.subject;
+  protected onIntroRawPaste(event: TiptapPasteEvent): void {
+    if (event.confirmed && !this.session.inboxReplyContext) {
+      const parsed = parseEmailHeadersFromMarkdown(event.text);
+      const headers = parsed && emailHeadersNearTop(event.text) ? parsed : null;
+      const titled = extractLeadingTitle(headers?.body ?? event.text, headers ? null : event.html);
+      const existingIntro = this.session.state.introMarkdown ?? "";
+      if (this.session.state.brandingMode === BrandingMode.UNBRANDED && headers) {
+        this.recipients.clearRecipientSelection();
+        this.recipients.forcedMemberId = null;
       }
-      if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
-        if (shouldRunIntroSmartPaste(true, !!this.session.inboxReplyContext)) {
-          const existingIntro = this.session.state.introMarkdown ?? "";
-          const hasExistingIntro = existingIntro.trim().length > 0;
-          const parsed = parsedHeaders;
-          if (titled && !(parsed && emailHeadersNearTop(event.text))) {
-            const plan = planTitledIntroPaste(event.text, titled, this.session.state.subject ?? "", this.session.state.notificationConfig?.subject?.text ?? "", hasExistingIntro);
-            if (plan.apply) {
-              event.consume();
-              if (plan.subject) {
-                this.session.state.subject = plan.subject;
-              }
-              this.session.state.introMarkdown = this.introEditor?.unwrapIfEnabled(plan.body) ?? plan.body;
-              this.introEditor?.syncValue(this.session.state.introMarkdown);
-              this.session.state.addresseeType = AddresseeType.NONE;
-              this.pendingForwardedHeaderLines = [];
-              queueMicrotask(() => this.introEditor?.focusAtStart());
-            }
-          } else {
-            if (parsed) {
-              event.consume();
-              const asRecipient = (addr: {name: string; email: string}) => ({
-                email: addr.email,
-                name: addr.name || this.sender.nameFromEmail(addr.email) || undefined,
-                saveForReuse: true
-              });
-              this.session.state.externalRecipients = appendUniqueRecipients(
-                this.session.state.externalRecipients,
-                parsed.to.map(asRecipient)
-              );
-              const toEmails = new Set(this.session.state.externalRecipients.map(item => item.email.toLowerCase()));
-              this.session.state.ccRecipients = appendUniqueRecipients(
-                this.session.state.ccRecipients ?? [],
-                parsed.cc.filter(addr => !toEmails.has(addr.email.toLowerCase())).map(asRecipient)
-              );
-              if (parsed.subject) {
-                this.session.state.subject = parsed.subject;
-              }
-              if (!hasExistingIntro) {
-                this.session.state.addresseeType = AddresseeType.NONE;
-              }
-              const unwrappedBody = this.introEditor?.unwrapIfEnabled(parsed.body) ?? parsed.body;
-              const forwardedMarkdown = buildForwardedIntroMarkdown(parsed.forwardedHeaderLines, unwrappedBody);
-              this.session.state.introMarkdown = placeForwardedIntroMarkdown(existingIntro, forwardedMarkdown, true);
-              this.introEditor?.syncValue(this.session.state.introMarkdown);
-              this.pendingForwardedHeaderLines = parsed.forwardedHeaderLines;
-              queueMicrotask(() => hasExistingIntro ? this.introEditor?.focusAtEnd() : this.introEditor?.focusAtStart());
-            }
-          }
+      if (headers && this.session.state.brandingMode === BrandingMode.UNBRANDED) {
+        event.consume();
+        const asRecipient = (addr: {name: string; email: string}) => ({email: addr.email, name: addr.name || this.sender.nameFromEmail(addr.email) || null, saveForReuse: true});
+        this.session.state.externalRecipients = appendUniqueRecipients([], headers.to.map(asRecipient));
+        const toEmails = new Set(headers.to.map(recipient => recipient.email.toLowerCase()));
+        this.session.state.ccRecipients = appendUniqueRecipients([], headers.cc.filter(recipient => !toEmails.has(recipient.email.toLowerCase())).map(asRecipient));
+        this.session.state.subject = headers.subject || titled?.title || this.session.state.subject;
+        const body = !headers.subject && titled ? titled.body : headers.body;
+        this.session.state.introMarkdown = [existingIntro, formattedPasteMarkdown(body)].filter(part => part.trim()).join("\n\n");
+        this.introEditor?.syncValue(this.session.state.introMarkdown);
+        this.pendingForwardedHeaderLines = [];
+        const unresolved = headers.forwardedHeaderLines.filter(line => /^(To|Cc):/i.test(line))
+          .some(line => parseEmailAddressList(line.replace(/^(To|Cc):\s*/i, "")).length === 0);
+        if (unresolved) {
+          this.session.notify.warning({title: "Add the named recipients", message: "Some To or Cc lines contain names without email addresses. Select those people on Recipients before sending. The previous audience has been cleared."});
         }
-        this.autoResolveTrackingUrls().catch(error => this.logger.warn("auto-resolve tracking urls failed", error));
+        queueMicrotask(() => this.introEditor?.focusAtEnd());
+      } else if (titled) {
+        const plan = planTitledIntroPaste(event.text, titled, this.session.state.subject ?? "", this.session.state.notificationConfig?.subject?.text ?? "", !!existingIntro.trim());
+        if (plan.apply) {
+          event.consume();
+          this.session.state.subject = plan.subject || this.session.state.subject;
+          this.session.state.introMarkdown = formattedPasteMarkdown(plan.body);
+          this.introEditor?.syncValue(this.session.state.introMarkdown);
+        }
+      } else if (headers?.subject) {
+        this.session.state.subject = headers.subject;
       }
-      if (titled && this.subjectStillAutomatic()) {
-        this.session.state.subject = titled.title;
-      }
+      this.changeDetector.detectChanges();
     }
   }
 
@@ -2601,7 +2637,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   private attachmentExtensionSupported(fileName: string): boolean {
-    return BREVO_SUPPORTED_ATTACHMENT_EXTENSIONS.includes(fileName.split(".").pop()?.toLowerCase() ?? "");
+    return emailAttachmentSupported(fileName);
   }
 
   private htmlToReplyMarkdown(html: string | null | undefined): string {
@@ -3520,6 +3556,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     if (key && this.canAccessStep(key)) {
       const scrollY = window.scrollY;
       this.setActiveStepperTab(key);
+      this.changeDetector.detectChanges();
       if (key === EmailComposerStepKey.COMPOSE) {
         this.focusComposeEditor();
       }
@@ -3806,7 +3843,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       {id: ComposerAddSectionAction.INTRO, label: this.state.brandingMode === BrandingMode.UNBRANDED ? "Message" : "Intro", icon: this.faPlus, disabled: this.fragmentEditor.hasFragmentKindAtTopLevel(this.state, ComposerFragmentKind.INTRO)},
       {id: ComposerAddSectionAction.ARTICLE, label: "Article block", icon: this.faPlus, hidden: !branded},
       {id: ComposerAddSectionAction.EVENTS, label: "Events", icon: this.faPlus, hidden: !branded, disabled: this.fragmentEditor.hasFragmentKindAtTopLevel(this.state, ComposerFragmentKind.EVENTS)},
-      {id: ComposerAddSectionAction.SIGNOFF, label: "Signoff", icon: this.faPlus, disabled: this.fragmentEditor.hasFragmentKindAtTopLevel(this.state, ComposerFragmentKind.SIGNOFF)},
+      {id: ComposerAddSectionAction.SIGNOFF, label: "Signoff", icon: this.faPlus, hidden: !branded, disabled: this.fragmentEditor.hasFragmentKindAtTopLevel(this.state, ComposerFragmentKind.SIGNOFF)},
       {id: ComposerAddSectionAction.COMMITTEE_FILE, label: "Committee file", icon: this.faFile},
       {id: ComposerAddSectionAction.DIVIDER, label: "Divider", icon: this.faPlus},
       {id: "section-columns", type: ButtonDropdownItemType.DIVIDER, hidden: !branded},
@@ -4437,7 +4474,9 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
           return this.rendering.markdownToHtml(this.session.state.introMarkdown);
         case ComposerFragmentKind.SIGNOFF: {
           const textHtml = this.rendering.markdownToHtml(this.session.state.signoffTextMarkdown);
-          const renderableRoles = this.validSignoffRolesFor(this.session.state.signoffRoles ?? []);
+          const renderableRoles = this.session.state.brandingMode === BrandingMode.UNBRANDED
+            ? []
+            : this.validSignoffRolesFor(this.session.state.signoffRoles ?? []);
           const namesHtml = renderableRoles.length > 0
             ? this.mailMessagingService.signoffNames(renderableRoles)
             : "";

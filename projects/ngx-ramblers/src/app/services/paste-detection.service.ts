@@ -1,5 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { Logger, LoggerFactory } from "./logger-factory.service";
+import { extractLeadingTitle, looksLikeDiagnosticPaste } from "../functions/email-composer-intro-paste";
 import { NgxLoggerLevel } from "ngx-logger";
 
 @Injectable({
@@ -147,6 +148,16 @@ export class PasteDetectionService {
 
   hasMarkdownImages(markdown: string): boolean {
     return /!\[([^\]]*)]\(([^)]+)\)/.test(markdown);
+  }
+
+  looksLikeLiteralPlainText(text: string, html?: string): boolean {
+    const sample = (text ?? "").replace(/\r\n?/g, "\n");
+    const longEnough = sample.length >= 12;
+    const emailHeaders = /^(from|to|cc|bcc|subject|date|reply-to):/im.test(sample);
+    const fence = /^```/m.test(sample);
+    const title = extractLeadingTitle(sample, html);
+    const leadingTitle = !!title && title.body !== sample;
+    return leadingTitle || this.looksLikeMarkdown(sample) || longEnough && (emailHeaders || looksLikeDiagnosticPaste(sample) || fence);
   }
 
   looksLikeMarkdown(text: string): boolean {

@@ -18,7 +18,6 @@ import { AlertMessage } from "../models/alert-target.model";
 import { EmailAttachment } from "../models/mail.model";
 import { RootFolder } from "../models/system.model";
 import { firstValueFrom } from "rxjs";
-import { stripTrailingSlash } from "../functions/strings";
 
 @Injectable({
   providedIn: "root"
@@ -94,11 +93,26 @@ export class FileUploadService {
     return this.emailAttachmentFromUpload(response, fileName, file.size);
   }
 
+  unionEmailAttachments(existing: EmailAttachment[], additions: EmailAttachment[]): EmailAttachment[] {
+    return additions.reduce((list, attachment) => {
+      return list.some(item => item.url === attachment.url) ? list : [...list, attachment];
+    }, existing);
+  }
+
+  emailAttachmentsFromUpload(response: AwsFileUploadResponse | null | undefined, fallbackName: string, fallbackSize: number): EmailAttachment[] {
+    return (response?.responses ?? []).flatMap(item => {
+      const fileName = item.uploadedFile?.originalname || fallbackName;
+      const sizeBytes = item.uploadedFile?.size || fallbackSize;
+      const attachment = this.emailAttachmentFromUpload({responses: [item], errors: response?.errors ?? []}, fileName, sizeBytes);
+      return attachment ? [attachment] : [];
+    });
+  }
+
   emailAttachmentFromUpload(response: AwsFileUploadResponse, fileName: string, sizeBytes: number): EmailAttachment | null {
     const fileNameData = response?.responses?.[0]?.fileNameData;
     if (fileNameData) {
       const relative = this.urlService.resourceRelativePathForAWSFileName(`${fileNameData.rootFolder}/${fileNameData.awsFileName}`);
-      const url = `${stripTrailingSlash(this.urlService.publicBaseUrl())}/${relative}`;
+      const url = this.urlService.absoluteUrlFor(relative, this.urlService.publicBaseUrl());
       return {name: fileName, url, sizeBytes};
     } else {
       this.logger.warn("uploadEmailAttachment: no fileNameData returned for", fileName, response);

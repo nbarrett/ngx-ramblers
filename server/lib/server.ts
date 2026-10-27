@@ -6,6 +6,7 @@ import debug from "debug";
 import { install } from "source-map-support";
 import { pluraliseWithCount } from "./shared/string-utils";
 import { addresses } from "./addresses/addresses";
+import { normaliseAwsFileRequest } from "./aws/aws-file-request";
 import { awsRoutes } from "./aws/aws-routes";
 import { mongoBackupRoutes } from "./backup/mongo-backup-routes";
 import { s3BackupRoutes } from "./backup/s3-backup-routes";
@@ -192,6 +193,7 @@ app.use(bodyParser.json({
 }));
 app.use(bodyParser.urlencoded({limit: "50mb", extended: true}));
 app.use(passport.initialize());
+app.use(normaliseAwsFileRequest);
 app.use("/api", requireReadOnlyViewAs);
 app.get("/ramblers-favicon.svg", ramblersFavicon);
 app.get("/manifest.webmanifest", serveWebManifest);

@@ -489,12 +489,14 @@ export class UrlService {
     return this.absoluteUrlFor(this.resourceRelativePathForAWSFileName(fileName));
   }
 
-  absoluteUrlFor(url: string): string {
-    if (!url) return url;
-    if (this.isRemoteUrl(url) || url.startsWith("mailto:") || url.startsWith("tel:")) return url;
-    const base = stripTrailingSlash(this.baseUrl());
-    const path = url.replace(/^\/+/, "");
-    return `${base}/${path}`;
+  absoluteUrlFor(url: string, baseUrl: string = this.baseUrl()): string {
+    if (!url || this.isRemoteUrl(url) || url.startsWith("mailto:") || url.startsWith("tel:")) {
+      return url;
+    } else {
+      const base = stripTrailingSlash(baseUrl);
+      const path = url.replace(/^\/+/, "");
+      return `${base}/${path}`;
+    }
   }
 
   resourceRelativePathForAWSFileName(fileName: string): string {
