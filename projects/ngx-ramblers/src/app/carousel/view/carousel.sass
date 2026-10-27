@@ -35,6 +35,61 @@
 .sc-inner
   position: relative
   margin: 0 auto
+  overflow: hidden
+
+.story-layer
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  z-index: 1001
+  min-height: 64px
+
+.story-hover-zone
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  height: 64px
+  cursor: pointer
+
+.story-chrome
+  position: absolute
+  top: 10px
+  left: 14px
+  z-index: 1002
+  pointer-events: none
+  display: flex
+  align-items: center
+  gap: 8px
+
+.story-pin.is-selected
+  display: inline-block
+  position: relative
+  padding: 1px 8px 4px
+  color: $ramblers-colour-cloudy
+  font-size: 12px
+  font-weight: bold
+  line-height: 1.5
+  text-decoration: none
+  @extend .drop-shadow
+  background: linear-gradient($ramblers-colour-sunset, $ramblers-colour-sunset) 0 67% / 100% 0.25rem no-repeat
+
+.story-hint
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  color: $ramblers-colour-cloudy
+  font-size: 14px
+  filter: drop-shadow(2px 2px 4px $ramblers-colour-granite)
+
+:host ::ng-deep app-carousel-story-navigator .stories
+  transition: opacity 0.3s ease, transform 0.3s ease
+
+:host ::ng-deep app-carousel-story-navigator.tucked .stories
+  opacity: 0
+  transform: translateY(-120%)
+  pointer-events: none
 
 
 .carousel-caption a
