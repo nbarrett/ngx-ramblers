@@ -8,6 +8,7 @@ import {
   isNull,
   isNumber,
   isObject,
+  isString,
   isUndefined,
   map,
   startCase,
@@ -132,7 +133,7 @@ StringUtilsService {
   }
 
   isAlertMessage(message: any): message is AlertMessage {
-    return message?.message && message?.title;
+    return isString(message?.title);
   }
 
   stripLineBreaks(str, andTrim: boolean) {

@@ -147,7 +147,11 @@ describe("StringUtilsService", () => {
     });
     it("should return stringified version of field if string", () => {
       expect(service.stringify({message: "foo"})).toBe("Message: foo");
-      expect(service.stringify({title: "who cares"})).toBe("Title: who cares");
+    });
+    it("should treat a title-only object as an AlertMessage and not dump the object", () => {
+      expect(service.isAlertMessage({title: "Draft saved", message: ""})).toBe(true);
+      expect(service.stringify({title: "Draft saved", message: ""})).toBe("");
+      expect(service.stringify({title: "who cares"})).toBeUndefined();
     });
     it("should return stringified version of message field if object", () => {
       expect(service.stringify({message: {some: {complex: {object: "wohoo"}}}})).toBe("Message -> Some -> Complex -> Object: wohoo");

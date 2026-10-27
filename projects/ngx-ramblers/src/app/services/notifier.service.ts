@@ -61,7 +61,7 @@ export class AlertInstance {
     this.alertTarget.alertTitle = this.stringUtils.isAlertMessage(message) ? message.title : undefined;
     this.alertTarget.alert = alertType;
     this.alertTarget.alertClass = alertType.class;
-    this.alertTarget.showAlert = this.alertTarget.alertMessages.length > 0;
+    this.alertTarget.showAlert = this.alertTarget.alertMessages.length > 0 || !!this.alertTarget.alertTitle;
     this.alertTarget.alertMessage = this.alertTarget.alertMessages.join(", ");
     if (alertType === ALERT_ERROR) {
       this.clearBusy();
