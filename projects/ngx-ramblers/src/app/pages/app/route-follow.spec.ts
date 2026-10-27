@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, ElementRef } from "@angular/core";
 import { DistanceUnit } from "../../models/walk.model";
 import { StoredValue } from "../../models/ui-actions";
-import { AppInstallPlatform, RouteFollowLocationError, RouteFollowMode, RouteFollowPoint, RouteFollowPayload, RouteFollowSession, RouteFollowSheetState, RouteFollowSource } from "../../models/route-follow.model";
+import { AppInstallPlatform, RouteFollowEditTool, RouteFollowLocationError, RouteFollowMode, RouteFollowPoint, RouteFollowPayload, RouteFollowSession, RouteFollowSheetState, RouteFollowSource } from "../../models/route-follow.model";
 import { DEFAULT_OS_STYLE, MapProvider } from "../../models/map.model";
 import { RouteFollowComponent } from "./route-follow";
 import * as L from "leaflet";
@@ -76,6 +76,20 @@ describe("route follow compass pointer", () => {
     expect(gestures.setBearing).toHaveBeenCalledTimes(1);
     expect(chevron.style.transform).toBe("rotate(50deg)");
     expect(view["mapBearing"] + 50).toBe(-30);
+  });
+});
+
+describe("route follow plot recording id", () => {
+  it("reuses the plot session when lat lon change and keeps a recorded id", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["plotRecordingId"] = null;
+    const first = view["recordingIdForLoad"](null, true);
+    const second = view["recordingIdForLoad"](null, true);
+    expect(first).toBeTruthy();
+    expect(second).toBe(first);
+    expect(view["recordingIdForLoad"]("keep-me", true)).toBe("keep-me");
+    expect(view["plotRecordingId"]).toBeNull();
+    expect(view["recordingIdForLoad"](null, false)).toBeNull();
   });
 });
 
@@ -516,6 +530,56 @@ describe("place search on the follow map", () => {
   });
 });
 
+describe("blank plot map", () => {
+  it("keeps map pan available before the first plotted point", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    const dragging = {disable: vi.fn(), enable: vi.fn()};
+    view["progress"] = {mode: RouteFollowMode.EDITING} as typeof view["progress"];
+    view["editTool"] = RouteFollowEditTool.PENCIL;
+    view["draggingVertexIndex"] = null;
+    view["editVertices"] = [];
+    view["insertHover"] = false;
+    view["mapRef"] = {dragging} as unknown as typeof view["mapRef"];
+    view["onEditHover"]({latlng: {lat: 51, lng: 0}, containerPoint: {x: 10, y: 10}} as never);
+    expect(dragging.disable).not.toHaveBeenCalled();
+  });
+
+  it("stretches the first plotted leg when the start pin is dragged", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["payload"] = {
+      waypoints: [{id: "start", latitude: 51.07, longitude: 0.87, kind: "start"}]
+    } as unknown as typeof view["payload"];
+    view["editVertices"] = [{latitude: 51.07, longitude: 0.87}, {latitude: 51.08, longitude: 0.88}];
+    view["followService"] = {replaceTrack: vi.fn()} as unknown as typeof view["followService"];
+    view["syncEditLineFromVertices"] = vi.fn();
+    view["refreshEditHandles"] = vi.fn();
+    view["refreshArrows"] = vi.fn();
+    view["redraw"] = vi.fn();
+    view["persistFollowSession"] = vi.fn();
+    view["movePlotStart"](view["payload"].waypoints[0], {lat: 51.09, lng: 0.9} as L.LatLng, true);
+    expect(view["editVertices"][0]).toEqual({latitude: 51.09, longitude: 0.9});
+    expect(view["editVertices"][1]).toEqual({latitude: 51.08, longitude: 0.88});
+    expect(view["followService"].replaceTrack).toHaveBeenCalled();
+  });
+
+  it("places a start pin at the plot centre", () => {
+    const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
+    view["payload"] = {waypoints: [], points: []} as unknown as typeof view["payload"];
+    view["plotCentre"] = {latitude: 51.07, longitude: 0.87};
+    view["nearbyPlaceName"] = "Ashford";
+    view["followService"] = {trackPoints: () => []} as unknown as typeof view["followService"];
+    view["payloadService"] = {
+      planningWaypointsFromLocation: vi.fn().mockReturnValue([{id: "start", latitude: 51.07, longitude: 0.87, kind: "start"}])
+    } as unknown as typeof view["payloadService"];
+    view["refreshWaypointPins"] = vi.fn();
+    view["redraw"] = vi.fn();
+    view["ensurePlotStartPin"]();
+    expect(view["payloadService"].planningWaypointsFromLocation).toHaveBeenCalledWith([], {
+      start: {latitude: 51.07, longitude: 0.87, description: "Ashford"}
+    });
+  });
+});
+
 describe("desktop follow panel", () => {
   it("titles the panel Edit route while editing", () => {
     const view = Object.create(RouteFollowComponent.prototype) as RouteFollowComponent;
@@ -577,13 +641,18 @@ describe("recording map starting location", () => {
     expect(view["buildMapOptions"]).toHaveBeenCalledWith(payload, view["restoredMapView"]);
   });
 
-  it("opens plotting without requiring a current GPS location", async () => {
+  it("opens plotting on the group centre when GPS is unavailable", async () => {
     const view = recordingView();
     view["drawingFromBlank"] = true;
+    view["plotCentre"] = null;
+    view["mapDefaults"] = {resolve: vi.fn().mockResolvedValue(undefined), center: () => [51.07, 0.87], zoom: () => 11} as unknown as typeof view["mapDefaults"];
     vi.mocked(view["currentLocation"].currentPosition).mockResolvedValue(null);
-    const payload = {source: RouteFollowSource.RECORDING} as RouteFollowPayload;
+    const payload = {source: RouteFollowSource.RECORDING, points: [], waypoints: []} as RouteFollowPayload;
     await view["prepareMapOptions"](payload);
-    expect(view["currentLocation"].currentPosition).not.toHaveBeenCalled();
+    expect(view["currentLocation"].currentPosition).toHaveBeenCalledWith(false);
+    expect(view["plotCentre"]).toEqual({latitude: 51.07, longitude: 0.87});
+    expect(view["restoredMapView"]?.center.lat).toBe(51.07);
+    expect(view["restoredMapView"]?.center.lng).toBe(0.87);
     expect(view["buildMapOptions"]).toHaveBeenCalledWith(payload, view["restoredMapView"]);
   });
 

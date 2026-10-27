@@ -295,6 +295,7 @@ describe("RouteFollowService", () => {
 
   it("formats edited route totals in the selected unit with useful precision", () => {
     expect(service.formatDistance(KM_PER_MILE * 1000, DistanceUnit.MILES)).toBe("1 mi");
+    expect(service.formatDistance(KM_PER_MILE * 1000, DistanceUnit.MILES, false)).toBe("1");
     expect(service.formatDistance(KM_PER_MILE * 1000, DistanceUnit.KILOMETRES)).toBe("1.61 km");
     expect(service.formatDistance(20000, DistanceUnit.MILES)).toBe("12.43 mi");
     expect(service.formatDistance(80, DistanceUnit.KILOMETRES)).toBe("0.08 km");

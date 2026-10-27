@@ -53,4 +53,20 @@ describe("pageOsMapsListedRoutes", () => {
     expect(paged.matchedCount).toEqual(1);
     expect(paged.page.map(item => item.id)).toEqual(["1"]);
   });
+
+  it("uses stored start coordinates when a route has no GPX file", () => {
+    const routes = [
+      route({id: "1", title: "Near", startLatitude: 51.42, startLongitude: -1.73}),
+      route({id: "2", title: "Far", startLatitude: 55.0, startLongitude: -3.0})
+    ];
+    const paged = pageOsMapsListedRoutes(routes, {
+      ...query,
+      nearbyOnly: true,
+      nearbyMiles: 11,
+      latitude: 51.42,
+      longitude: -1.73,
+      limit: 10
+    });
+    expect(paged.page.map(item => item.id)).toEqual(["1"]);
+  });
 });

@@ -20,11 +20,10 @@ import { VenueWithUsageStats } from "../../../models/event-venue.model";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faTrash, faArrowLeft, faArrowUpRightFromSquare, faXmark, faArrowDownWideShort, faArrowUpShortWide, faBookmark, faCalendarDays, faCheck, faCircleCheck, faCircleExclamation, faDownload, faEraser, faEyeSlash, faLocationDot, faMagnifyingGlass, faMap, faPersonWalking, faPowerOff, faRoute, faSpinner, faStar, faSync } from "@fortawesome/free-solid-svg-icons";
+import { faTrash, faArrowLeft, faArrowUpRightFromSquare, faXmark, faArrowDownWideShort, faArrowUpShortWide, faBookmark, faCalendarDays, faCheck, faChevronDown, faChevronRight, faCircleCheck, faCircleExclamation, faDownload, faEraser, faEyeSlash, faLocationDot, faMagnifyingGlass, faMap, faPersonWalking, faPowerOff, faRoute, faSpinner, faStar, faSync } from "@fortawesome/free-solid-svg-icons";
 import { ActivatedRoute } from "@angular/router";
 import { NgxLoggerLevel } from "ngx-logger";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
-import { TabDirective, TabsetComponent } from "ngx-bootstrap/tabs";
 import { exhaustMap, Subscription, timer } from "rxjs";
 import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../../modules/common/resizer/resizer";
 import { OsMapsRoutePreviewMapComponent } from "./os-maps-route-preview-map";
@@ -59,7 +58,6 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { UiActionsService } from "../../../services/ui-actions.service";
 import { UrlService } from "../../../services/url.service";
 import { SystemConfigService } from "../../../services/system/system-config.service";
-import { generateUid } from "../../../functions/numbers";
 import { WalkDisplayService } from "../walk-display.service";
 
 import { ROUTES_HOW_TO_IMPORT_URL } from "../../../models/walks-route-paths.model";
@@ -75,9 +73,39 @@ import { MapsLibraryComponent } from "../../app/maps-library";
 
 @Component({
   selector: "app-os-maps-export",
-  imports: [DistanceRangeSlider, OsMapsPersonalAccountComponent, SortableTableComponent, SortableTableCellDirective, RouterLink, RouteAuditComponent, WalkProgrammePageComponent, FormsModule, FontAwesomeModule, OsMapsLoginRequiredAlertComponent, SerenityJobAuditPanelComponent, TabsetComponent, TabDirective, TooltipDirective, OsMapsRoutePreviewMapComponent, ResizerComponent, RouteMapActionsComponent, GpxFileImportComponent, VenueAutocompleteComponent, MapsLibraryComponent],
+  imports: [DistanceRangeSlider, OsMapsPersonalAccountComponent, SortableTableComponent, SortableTableCellDirective, RouterLink, RouteAuditComponent, WalkProgrammePageComponent, FormsModule, FontAwesomeModule, OsMapsLoginRequiredAlertComponent, SerenityJobAuditPanelComponent, TooltipDirective, OsMapsRoutePreviewMapComponent, ResizerComponent, RouteMapActionsComponent, GpxFileImportComponent, VenueAutocompleteComponent, MapsLibraryComponent],
   template: `
     <app-walk-programme-page>
+      <div class="thumbnail-heading-frame">
+        <div class="thumbnail-heading">Routes</div>
+      <div class="d-none d-md-block">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <button type="button" class="btn btn-quiet" (click)="showImportTools = !showImportTools"
+                [attr.aria-expanded]="showImportTools">
+          <fa-icon [icon]="showImportTools ? faChevronDown : faChevronRight" class="me-2"/>
+          Import from OS Maps
+        </button>
+        <app-gpx-file-import class="flex-grow-1"
+                            [disabled]="busy()"
+                            (imported)="onGpxFileImported()"
+                            (failed)="onGpxFileImportFailed($event)"/>
+        @if (listing.listedAt) {
+          <button type="button" class="btn" [class.btn-primary]="nearbyOnly" [class.btn-quiet]="!nearbyOnly"
+                  [attr.aria-pressed]="nearbyOnly" (click)="chooseNearby()">
+            <fa-icon [icon]="nearbyOnly ? faCheck : faLocationDot" class="me-2"/>{{ nearbyPlaceName ? "Near " + nearbyPlaceName : "Near me" }}
+          </button>
+          <button type="button" class="btn" [class.btn-primary]="favouritesOnly" [class.btn-quiet]="!favouritesOnly"
+                  [attr.aria-pressed]="favouritesOnly" (click)="chooseFavourites()">
+            <fa-icon [icon]="favouritesOnly ? faCheck : faStar" class="me-2"/>Favourites
+          </button>
+          @if (listPreferences.hiddenCount()) {
+            <button type="button" class="btn btn-quiet" (click)="showHiddenMaps()">
+              <fa-icon [icon]="faEyeSlash" class="me-2"/>{{ listPreferences.hiddenMapsActionLabel() }}
+            </button>
+          }
+        }
+      </div>
+      @if (showImportTools) {
       @if (!loginConfigured && account === OsMapsAccountScope.GROUP) {
         <div class="mb-3">
           <app-os-maps-login-required-alert/>
@@ -94,8 +122,7 @@ import { MapsLibraryComponent } from "../../app/maps-library";
         </div>
       }
       <div class="os-maps-export-actions d-flex flex-wrap align-items-center gap-2 mb-3">
-        @if (activeTabId === OsMapsExportTab.OS_MAPS) {
-          @if (!listing.listedAt) {
+        @if (!listing.listedAt) {
             <button type="button" class="btn btn-primary" (click)="refreshRoutes()" [disabled]="busy() || !loginConfigured">
               <fa-icon [icon]="listingLoading || loading ? faSpinner : faSync" [animation]="listingLoading || loading ? 'spin' : null" class="me-2"/>
               {{ listingLoading ? "Loading saved routes…" : loading ? "Loading routes…" : "Load routes from OS Maps" }}
@@ -137,14 +164,13 @@ import { MapsLibraryComponent } from "../../app/maps-library";
               </button>
             </div>
           }
-        }
       </div>
       @if (errorMessage) {
-        <div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
-          <fa-icon [icon]="faCircleExclamation"/>
-          <div>
+        <div class="alert alert-danger d-flex align-items-start gap-2 min-w-0" role="alert">
+          <fa-icon [icon]="faCircleExclamation" class="flex-shrink-0"/>
+          <div class="min-w-0 text-break">
             <strong>Could not load or convert routes</strong>
-            <div>{{ errorMessage }}</div>
+            <div class="text-break">{{ errorMessage }}</div>
           </div>
         </div>
       }
@@ -194,44 +220,23 @@ import { MapsLibraryComponent } from "../../app/maps-library";
           </div>
         </div>
       }
-      <tabset class="custom-tabset">
-        <tab [active]="activeTabId === OsMapsExportTab.ROUTES" (selectTab)="selectTab(OsMapsExportTab.ROUTES)"
-             heading="Routes">
-          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-            <app-gpx-file-import class="d-flex flex-wrap align-items-center gap-2 flex-grow-1"
-                                [disabled]="busy()"
-                                (imported)="onGpxFileImported()"
-                                (failed)="onGpxFileImportFailed($event)"/>
-          </div>
-          <app-maps-library embedded/>
-        </tab>
-        <tab [active]="activeTabId === OsMapsExportTab.OS_MAPS" (selectTab)="selectTab(OsMapsExportTab.OS_MAPS)"
-             heading="OS Maps">
-          <div class="thumbnail-heading-frame">
-            <div class="thumbnail-heading">OS Maps</div>
-            <p class="os-maps-route-intro">Load routes from an OS Maps account, tick the ones you want, then convert them to GPX. Imported routes stay marked so you can see what is still to do next time.</p>
             <p class="mb-3"><a [href]="routesHowToImportUrl" target="_blank" rel="noopener noreferrer">How to import routes from OS Maps</a></p>
-            <div class="os-maps-route-toggles mb-3 d-flex flex-wrap gap-2" role="group" aria-label="Route list filters">
-              <button type="button" class="btn" [class.btn-primary]="nearbyOnly" [class.btn-quiet]="!nearbyOnly"
-                      [attr.aria-pressed]="nearbyOnly" (click)="chooseNearby()">
-                <fa-icon [icon]="nearbyOnly ? faCheck : faLocationDot" class="me-2"/>Near me
-              </button>
-              <button type="button" class="btn" [class.btn-primary]="favouritesOnly" [class.btn-quiet]="!favouritesOnly"
-                      [attr.aria-pressed]="favouritesOnly" (click)="chooseFavourites()">
-                <fa-icon [icon]="favouritesOnly ? faCheck : faStar" class="me-2"/>Favourites
-              </button>
-              @if (listPreferences.hiddenCount()) {
-                <button type="button" class="btn btn-quiet" (click)="showHiddenMaps()">
-                  <fa-icon [icon]="faEyeSlash" class="me-2"/>{{ listPreferences.hiddenMapsActionLabel() }}
-                </button>
-              }
-            </div>
-            <div class="mb-3">
-              <app-venue-autocomplete placeholder="Town, postcode, pub or hill"
+      }
+          @if (listing.listedAt) {
+            <div class="mb-3 d-flex flex-wrap align-items-stretch gap-2">
+              <app-venue-autocomplete class="flex-grow-1"
+                                      placeholder="Town, postcode, pub or hill"
+                                      skipPlaceNameChoice
+                                      hideSelectedIcon
+                                      placesOnly
                                       [showSelectionHint]="false"
                                       [minTermLength]="2"
                                       [startingPoint]="here"
+                                      [initialVenue]="placeSearchVenue"
                                       (venueSelected)="onPlaceSearch($event)"/>
+              <button type="button" class="btn btn-primary" (click)="findOrPlotRoute()">
+                <fa-icon [icon]="faRoute" class="me-2"/>Find or plot
+              </button>
             </div>
             @if (nearbyOnly) {
               <div class="mb-3">
@@ -457,22 +462,24 @@ import { MapsLibraryComponent } from "../../app/maps-library";
                   </div>
                 }
             </div>
-          </div>
-        </tab>
-        <tab [active]="activeTabId === OsMapsExportTab.JOB_PROGRESS"
-             (selectTab)="selectTab(OsMapsExportTab.JOB_PROGRESS)" heading="Job progress">
-          @if (isAdmin()) {
-          <app-serenity-job-audit-panel [fileName]="currentJobFileName"
-                                        [starting]="startingJob"
-                                        [jobRunning]="converting || loading"
-                                        [exportResult]="exportResult"
-                                        (finished)="onJobFinished($event)"
-                                        [feature]="jobFeature"/>
-          } @else {
-            <p>{{ loading ? "Loading your routes from OS Maps…" : converting ? "Converting your routes…" : "Your job has finished." }}</p>
           }
-        </tab>
-      </tabset>
+          @if (showJobProgress || converting || loading || startingJob) {
+            <div class="mt-3">
+              @if (isAdmin()) {
+                <app-serenity-job-audit-panel [fileName]="currentJobFileName"
+                                              [starting]="startingJob"
+                                              [jobRunning]="converting || loading"
+                                              [exportResult]="exportResult"
+                                              (finished)="onJobFinished($event)"
+                                              [feature]="jobFeature"/>
+              } @else {
+                <p>{{ loading ? "Loading your routes from OS Maps…" : converting ? "Converting your routes…" : "Your job has finished." }}</p>
+              }
+            </div>
+          }
+      </div>
+      <app-maps-library embedded class="d-md-none"/>
+      </div>
     </app-walk-programme-page>
   `,
   styles: [`
@@ -517,6 +524,9 @@ import { MapsLibraryComponent } from "../../app/maps-library";
       grid-area: height
       width: 100%
       height: 14px
+
+      @media (max-width: 767.98px)
+        display: none
 
     .os-maps-route-corner-resizer
       grid-area: corner
@@ -647,6 +657,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   private personalConfigured = false;
   nearbyOnly = false;
   nearbyPlaceName: string | null = null;
+  placeSearchVenue: Partial<VenueWithUsageStats> | null = null;
   favouritesOnly = false;
   nearbyMiles = APP_NEARBY_MILES;
   nearbyRange: DistanceRange = {min: 1, max: APP_NEARBY_MILES, unit: DistanceUnit.MILES};
@@ -717,6 +728,10 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   confirmClearUnimported = false;
   clearingUnimported = false;
   activeTabId = OsMapsExportTab.ROUTES;
+  showJobProgress = false;
+  showImportTools = false;
+  faChevronDown = faChevronDown;
+  faChevronRight = faChevronRight;
   errorMessage = "";
   warningMessage = "";
   successMessage = "";
@@ -776,8 +791,8 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   }
 
   private startPoint(route: OsMapsListedRoute): GeoCoordinate | null {
-    const lat = route.gpxFile?.startLat;
-    const lng = route.gpxFile?.startLng;
+    const lat = route.startLatitude ?? route.gpxFile?.startLat ?? route.gpxFile?.previewPoints?.[0]?.latitude;
+    const lng = route.startLongitude ?? route.gpxFile?.startLng ?? route.gpxFile?.previewPoints?.[0]?.longitude;
     return isNumber(lat) && isNumber(lng) && (lat !== 0 || lng !== 0) ? {latitude: lat, longitude: lng} : null;
   }
 
@@ -785,22 +800,62 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
     return this.nearby.milesAway(this.here, this.startPoint(route));
   }
 
-  async chooseNearby(): Promise<void> {
-    this.nearbyOnly = !this.nearbyOnly;
-    this.nearbyPlaceName = null;
-    this.writeViewToUrl();
-    await this.loadListing();
+  findOrPlotRoute(): void {
+    this.walkDisplay.rememberFollowReturnUrl();
+    void this.router.navigate(["/", AppPath.ROOT, AppPath.ROUTE], {
+      queryParams: {
+        [StoredValue.PLOT_ROUTE]: "true",
+        [StoredValue.LAT]: this.here ? String(this.here.latitude) : null,
+        [StoredValue.LON]: this.here ? String(this.here.longitude) : null,
+        [StoredValue.NEARBY_PLACE]: this.nearbyPlaceName
+      }
+    });
   }
 
-  onPlaceSearch(venue: VenueWithUsageStats): void {
-    if (isNumber(venue?.lat) && isNumber(venue?.lon)) {
-      this.here = {latitude: venue.lat, longitude: venue.lon};
-      this.nearbyPlaceName = venue.name || null;
-      this.nearbyOnly = true;
-      this.locationError = "";
+  async chooseNearby(): Promise<void> {
+    if (this.nearbyOnly) {
+      this.clearNearbyFilter();
+      this.writeViewToUrl();
+      await this.loadListing();
+    } else {
+      await this.useGpsNearby();
+    }
+  }
+
+  onPlaceSearch(venue: VenueWithUsageStats | null): void {
+    if (venue && isNumber(venue.lat) && isNumber(venue.lon)) {
+      this.applyPlaceNearby(venue.name || venue.enteredName || "Place", venue.lat, venue.lon);
+      this.writeViewToUrl();
+      void this.loadListing();
+    } else if (!venue) {
+      this.clearNearbyFilter();
       this.writeViewToUrl();
       void this.loadListing();
     }
+  }
+
+  private applyPlaceNearby(name: string, latitude: number, longitude: number): void {
+    this.nearbyOnly = true;
+    this.nearbyPlaceName = name;
+    this.here = {latitude, longitude};
+    this.placeSearchVenue = {name, lat: latitude, lon: longitude};
+    this.locationError = "";
+  }
+
+  private clearNearbyFilter(): void {
+    this.nearbyOnly = false;
+    this.nearbyPlaceName = null;
+    this.placeSearchVenue = null;
+  }
+
+  private async useGpsNearby(): Promise<void> {
+    this.nearbyOnly = true;
+    this.nearbyPlaceName = null;
+    this.placeSearchVenue = null;
+    this.here = null;
+    this.writeViewToUrl();
+    await this.loadListing();
+    this.writeViewToUrl();
   }
 
   chooseFavourites(): void {
@@ -887,8 +942,8 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       this.sortDirection = ASCENDING;
     }
     const tabParam = this.activatedRoute.snapshot.queryParams[StoredValue.TAB];
-    if (tabParam === OsMapsExportTab.JOB_PROGRESS || tabParam === OsMapsExportTab.OS_MAPS) {
-      this.activeTabId = tabParam;
+    if (tabParam === OsMapsExportTab.JOB_PROGRESS) {
+      this.showJobProgress = true;
     }
     this.search = this.activatedRoute.snapshot.queryParams[StoredValue.SEARCH] || "";
     this.userFilter = this.activatedRoute.snapshot.queryParams[StoredValue.USER] || "";
@@ -902,8 +957,13 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
     this.nearbyPlaceName = this.activatedRoute.snapshot.queryParams[StoredValue.NEARBY_PLACE] || null;
     const searchedLat = coordinateValue(this.activatedRoute.snapshot.queryParams[StoredValue.PROXIMITY_LAT]);
     const searchedLng = coordinateValue(this.activatedRoute.snapshot.queryParams[StoredValue.PROXIMITY_LNG]);
-    if (searchedLat !== null && searchedLng !== null) {
+    if (this.nearbyPlaceName && searchedLat !== null && searchedLng !== null) {
+      this.applyPlaceNearby(this.nearbyPlaceName, searchedLat, searchedLng);
+    } else if (searchedLat !== null && searchedLng !== null) {
       this.here = {latitude: searchedLat, longitude: searchedLng};
+    }
+    if (this.nearbyPlaceName && !this.nearbyOnly) {
+      this.nearbyOnly = true;
     }
     this.favouritesOnly = this.activatedRoute.snapshot.queryParams[StoredValue.FAVOURITES] === "true";
     this.nearbyMiles = Number(this.activatedRoute.snapshot.queryParams[StoredValue.NEARBY_MILES]) || APP_NEARBY_MILES;
@@ -992,7 +1052,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
   plotNewRoute(): void {
     this.walkDisplay.rememberFollowReturnUrl();
     void this.router.navigate(["/" + AppPath.ROOT + "/" + AppPath.ROUTE], {
-      queryParams: {[StoredValue.DRAW_ROUTE]: generateUid()}
+      queryParams: {[StoredValue.PLOT_ROUTE]: "true"}
     });
   }
 
@@ -1131,6 +1191,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
 
   selectTab(tab: OsMapsExportTab): void {
     this.activeTabId = tab;
+    this.showJobProgress = tab === OsMapsExportTab.JOB_PROGRESS;
     this.writeViewToUrl();
   }
 
@@ -1144,7 +1205,7 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       [StoredValue.PROXIMITY_LNG]: this.nearbyOnly && this.here ? String(this.here.longitude) : null,
       [StoredValue.FAVOURITES]: this.favouritesOnly ? "true" : null,
       [StoredValue.SESSION]: this.currentJobFileName,
-      [StoredValue.TAB]: this.activeTabId === OsMapsExportTab.ROUTES ? null : this.activeTabId,
+      [StoredValue.TAB]: this.showJobProgress ? OsMapsExportTab.JOB_PROGRESS : null,
       [StoredValue.SORT]: this.sortKey ? this.stringUtils.kebabCase(this.sortKey) : null,
       [StoredValue.SORT_ORDER]: this.sortDirection === DESCENDING ? SortDirection.DESC : SortDirection.ASC,
       [StoredValue.SEARCH]: this.search || null,
@@ -1180,7 +1241,12 @@ export class OsMapsExportPage implements OnInit, OnDestroy {
       try {
         await this.osMapsExportService.deleteRoute(route.id);
         this.selectedIds = new Set([...this.selectedIds].filter(id => id !== route.id));
-        this.listing = {...this.listing, routes: this.listing.routes.filter(item => item.id !== route.id)};
+        this.listing = {
+          ...this.listing,
+          routes: this.listing.routes.map(item => item.id === route.id
+            ? {...item, importedAt: null, gpxFile: item.gpxFile ? {...item.gpxFile, awsFileName: null} : null}
+            : item)
+        };
         this.listCache.save(this.account, this.listing);
         this.deleteRouteId = null;
         this.successMessage = "Route deleted";

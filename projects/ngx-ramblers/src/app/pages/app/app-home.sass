@@ -31,8 +31,8 @@
   line-height: 1.4
 
 .app-home.app-home-embedded
-  --app-bg: transparent
-  background: transparent
+  --app-bg: #fff
+  background: var(--app-bg)
   height: auto
   min-height: 0
   padding: 0
@@ -40,6 +40,70 @@
   user-select: text
   -webkit-user-select: text
   font-family: inherit
+
+  .app-home-route-card.os-maps-route-card
+    --resizer-vertical-alignment: flex-end
+    --resizer-corner-bottom-inset: 0px
+    display: grid
+    grid-template-columns: var(--os-maps-route-preview-width, 638px) 14px minmax(12rem, 1fr)
+    grid-template-rows: auto 14px
+    grid-template-areas: "map width copy" "height corner copy"
+    gap: 0
+    align-items: stretch
+    padding: 12px
+    margin-bottom: 8px
+
+    @media (max-width: 767.98px)
+      grid-template-columns: minmax(0, 1fr)
+      grid-template-rows: auto auto
+      grid-template-areas: "map" "copy"
+      gap: var(--space-2, .5rem)
+
+  .os-maps-route-preview
+    grid-area: map
+    position: relative
+    display: flex
+    width: 100%
+    height: 100%
+    min-width: 0
+    min-height: 0
+
+  .os-maps-route-preview app-os-maps-route-preview-map
+    flex: 1 1 auto
+    width: auto
+    min-width: 0
+    min-height: 0
+
+  .os-maps-route-width-resizer
+    grid-area: width
+    min-height: 8rem
+
+  .os-maps-route-height-resizer
+    grid-area: height
+    width: 100%
+    height: 14px
+
+  .os-maps-route-corner-resizer
+    grid-area: corner
+
+  .os-maps-route-copy
+    grid-area: copy
+    display: flex
+    flex-direction: column
+    gap: var(--bs-gap, 0.5rem)
+    color: inherit
+    text-decoration: none
+    min-width: 0
+
+  .app-home-card-copy-link
+    color: inherit
+    text-decoration: none
+
+  @media (max-width: 767.98px)
+    .os-maps-route-preview app-os-maps-route-preview-map
+      flex: 0 0 120px
+      width: 120px
+      min-height: 96px
 
 .app-home-place-search-control
   display: block
@@ -55,9 +119,21 @@
 .app-home-search .app-home-place-search-control ::ng-deep .ng-value-container,
 .app-home-search .app-home-place-search-control ::ng-deep .ng-input
   padding-left: 8px
+  align-items: center
+
+.app-home-search .app-home-place-search-control ::ng-deep .ng-select.ng-select-single .ng-select-container
+  height: auto
+
+.app-home-search .app-home-place-search-control ::ng-deep .ng-select.ng-select-single .ng-select-container .ng-value-container .ng-input
+  top: 0
+  bottom: 0
+  display: flex
+  align-items: center
 
 .app-home-search .app-home-place-search-control ::ng-deep .ng-input input
   padding-left: 0
+  height: auto
+  line-height: 1.4
 
 @mixin app-home-dark-tokens
   --app-bg: #102018
@@ -114,7 +190,8 @@
 .app-home-chrome
   position: sticky
   top: 0
-  z-index: 30
+  z-index: 2000
+  isolation: isolate
   background: var(--app-bg)
   padding-top: var(--space-2)
   padding-bottom: var(--space-2)
@@ -493,6 +570,8 @@
   justify-content: flex-start
   padding: 10px 12px
   min-width: 0
+  color: inherit
+  text-decoration: none
 
 .app-home-kicker
   text-transform: uppercase
@@ -613,6 +692,9 @@
   margin: 0 0 12px
 
 .app-home-card
+  position: relative
+  z-index: 0
+  isolation: isolate
   display: flex
   align-items: center
   gap: 12px

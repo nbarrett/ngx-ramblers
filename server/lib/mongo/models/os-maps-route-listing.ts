@@ -10,6 +10,8 @@ const osMapsListedRouteSchema = new mongoose.Schema({
   createdAtValue: {type: Number},
   distanceMetres: {type: Number},
   source: {type: String},
+  startLatitude: {type: Number},
+  startLongitude: {type: Number},
   importedAt: {type: Number}
 }, {_id: false});
 

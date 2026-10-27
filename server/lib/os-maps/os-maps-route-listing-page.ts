@@ -27,8 +27,8 @@ function routeKey(route: OsMapsListedRoute): string | null {
 }
 
 function startPoint(route: OsMapsListedRoute): {latitude: number; longitude: number} | null {
-  const latitude = route.gpxFile?.startLat;
-  const longitude = route.gpxFile?.startLng;
+  const latitude = route.startLatitude ?? route.gpxFile?.startLat ?? route.gpxFile?.previewPoints?.[0]?.latitude;
+  const longitude = route.startLongitude ?? route.gpxFile?.startLng ?? route.gpxFile?.previewPoints?.[0]?.longitude;
   if (isNumber(latitude) && isNumber(longitude) && (latitude !== 0 || longitude !== 0)) {
     return {latitude, longitude};
   } else {

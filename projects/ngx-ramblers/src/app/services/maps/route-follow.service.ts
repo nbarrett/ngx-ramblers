@@ -477,14 +477,15 @@ export class RouteFollowService {
     return reached[0]?.waypoint || null;
   }
 
-  formatDistance(metres: number | null, shortDistanceUnit = DistanceUnit.METRES): string {
+  formatDistance(metres: number | null, shortDistanceUnit = DistanceUnit.METRES, includeUnit = true): string {
     const milesInMetres = KM_PER_MILE * 1000;
     const shortDistanceLimit = shortDistanceUnit === DistanceUnit.FEET ? milesInMetres / 4 : 1000;
     if (!isNumber(metres) || metres < 0) {
       return "";
     } else if (shortDistanceUnit === DistanceUnit.MILES || shortDistanceUnit === DistanceUnit.KILOMETRES) {
       const value = metres / (shortDistanceUnit === DistanceUnit.MILES ? milesInMetres : 1000);
-      return `${Number(value.toFixed(2))} ${shortDistanceUnit}`;
+      const amount = `${Number(value.toFixed(2))}`;
+      return includeUnit ? `${amount} ${shortDistanceUnit}` : amount;
     } else if (metres < shortDistanceLimit) {
       return shortDistanceUnit === DistanceUnit.FEET
         ? `${Math.round(metres * FEET_PER_METRE)} ft`
