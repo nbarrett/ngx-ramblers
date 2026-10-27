@@ -7,12 +7,29 @@ import { ActivatedRoute } from "@angular/router";
 import { Subscription } from "rxjs";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { NgClass } from "@angular/common";
+import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-config";
 
 @Component({
     selector: "app-carousel-story-navigator",
-    templateUrl: "./carousel-story-navigator.component.html",
+    template: `
+      <div class="stories d-none d-md-block ramblers-list-bg-light">
+        <ul class="carousel-ul">
+          @for (tag of imageTagDataService.recentPhotosPlusImageTagsPlusAll(imageTags); track tag) {
+            <li>
+              @if (tag) {
+                <a href="#" placement="bottom" [tooltip]="'Show images for ' + tag.subject"
+                   [ngClass]="{'active' : imageTagDataService.isActive(tag, activeTag)}"
+                   (click)="onStoryClick($event, tag)"
+                   [textContent]="tag.subject"></a>
+              }
+            </li>
+          }
+        </ul>
+      </div>
+    `,
     styleUrls: ["./carousel-story-navigator.component.sass"],
-    imports: [TooltipDirective, NgClass]
+    imports: [TooltipDirective, NgClass],
+    providers: [...DELAYED_TOOLTIP_PROVIDERS]
 })
 export class CarouselStoryNavigatorComponent implements OnInit {
   private logger: Logger = inject(LoggerFactory).createLogger("CarouselStoryNavigatorComponent", NgxLoggerLevel.ERROR);
@@ -63,5 +80,11 @@ export class CarouselStoryNavigatorComponent implements OnInit {
       this.activeTag = tag;
       this.tagChanged.emit(tag);
     }
+  }
+
+  onStoryClick(event: MouseEvent, tag: ImageTag): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.selectTag(tag);
   }
 }

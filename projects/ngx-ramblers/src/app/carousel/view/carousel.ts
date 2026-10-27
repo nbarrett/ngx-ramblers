@@ -11,13 +11,15 @@ import {
   HasEventId,
   ImageTag,
   LazyLoadingMetadata,
+  RECENT_PHOTOS,
   SlideInitialisation
 } from "../../models/content-metadata.model";
 import { groupEventTypeFor } from "../../models/committee.model";
 import { PageService } from "../../services/page.service";
 import { MemberLoginService } from "../../services/member/member-login.service";
 import { ContentMetadataService } from "../../services/content-metadata.service";
-import { faPencil } from "@fortawesome/free-solid-svg-icons";
+import { faPencil, faSliders } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { Subscription } from "rxjs";
 import { AlbumData } from "../../models/content-text.model";
 import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata.service";
@@ -41,10 +43,39 @@ import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modu
       <div class="slider-container">
         <div class="sc-inner">
           @if (preview ? false : !hideStoryNavigator && album.showStoryNavigator) {
-            <app-carousel-story-navigator
-              [imageTags]="lazyLoadingMetadata?.contentMetadata?.imageTags"
-              [index]="index"
-              (tagChanged)="tagChanged($event)"/>
+            @if (album.autoHideStoryNavigator) {
+              <div class="story-layer"
+                   (mouseenter)="revealStoryNavigator()"
+                   (mousemove)="revealStoryNavigator()"
+                   (mouseleave)="concealStoryNavigator()">
+                <div class="story-hover-zone" tabindex="0"
+                     aria-label="Show photo stories"
+                     [style.pointer-events]="storyNavigatorTucked ? 'auto' : 'none'"
+                     (focusin)="revealStoryNavigator()"></div>
+                @if (storyNavigatorTucked) {
+                  <div class="story-chrome">
+                    @if (pinnedStoryLabel()) {
+                      <span class="story-pin is-selected">{{ pinnedStoryLabel() }}</span>
+                    }
+                    <span class="story-hint" title="Show stories">
+                      <fa-icon [icon]="faSliders"/>
+                    </span>
+                  </div>
+                }
+                <app-carousel-story-navigator
+                  class="story-navigator"
+                  [class.tucked]="storyNavigatorTucked"
+                  [imageTags]="lazyLoadingMetadata?.contentMetadata?.imageTags"
+                  [index]="index"
+                  (tagChanged)="tagChanged($event)"/>
+              </div>
+            } @else {
+              <app-carousel-story-navigator
+                class="story-navigator"
+                [imageTags]="lazyLoadingMetadata?.contentMetadata?.imageTags"
+                [index]="index"
+                (tagChanged)="tagChanged($event)"/>
+            }
           }
           @if (lazyLoadingMetadata?.selectedSlides.length > 0) {
             <carousel #carouselRef (mouseenter)="mouseEnter($event)" (mouseleave)="mouseLeave($event)" [isAnimated]="true"
@@ -123,7 +154,7 @@ import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../../modu
                    (sizeChange)="onHeightChange($event)"/>
     }`,
   styleUrls: ["./carousel.sass"],
-  imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe, YoutubeEmbed, ResizerComponent]
+  imports: [CarouselStoryNavigatorComponent, CarouselComponent_1, SlideComponent, NgStyle, TooltipDirective, DisplayDatePipe, YoutubeEmbed, ResizerComponent, FontAwesomeModule]
 })
 export class CarouselComponent implements OnInit, OnDestroy {
   protected readonly ResizerOrientation = ResizerOrientation;
@@ -140,6 +171,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
   public showIndicators = false;
   private subscriptions: Subscription[] = [];
   public faPencil = faPencil;
+  public faSliders = faSliders;
   protected readonly imageAlt = imageAlt;
   public album: AlbumData;
   public preview = false;
@@ -171,6 +203,10 @@ export class CarouselComponent implements OnInit, OnDestroy {
 
   public noPause = true;
   public videoIsPlaying = false;
+  public storyNavigatorTucked = false;
+  private storyHideTimer: ReturnType<typeof setTimeout> | null = null;
+  private storyHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  private storyClosedAfterChoice = false;
   DEFAULT_HEIGHT = 400;
 
   @HostListener("window:resize", ["$event"])
@@ -179,6 +215,7 @@ export class CarouselComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.applyStoryNavigatorMode();
     this.logger.info("ngOnInit:querying metadata service with root folder", RootFolder.carousels, "album name:", this.album?.name, "lazyLoadingMetadata:", this.lazyLoadingMetadata);
     if (this.lazyLoadingMetadata) {
       this.logger.info("externally initialised with", this?.lazyLoadingMetadata?.contentMetadata?.files?.length, "slides in total", "lazyLoadingMetadata:", this.lazyLoadingMetadata, "duplicateImages:", this.duplicateImages);
@@ -203,12 +240,71 @@ export class CarouselComponent implements OnInit, OnDestroy {
   private carouselDataInput(album: AlbumData) {
     this.logger.info("carouselDataInput:", album);
     this.album = album;
+    this.applyStoryNavigatorMode();
   }
 
   ngOnDestroy(): void {
+    this.clearStoryHideTimer();
+    this.clearStoryHoldTimer();
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
   }
 
+  revealStoryNavigator(): void {
+    this.clearStoryHideTimer();
+    if (this.album?.autoHideStoryNavigator && !this.storyClosedAfterChoice) {
+      this.storyNavigatorTucked = false;
+    }
+  }
+
+  concealStoryNavigator(): void {
+    if (!this.storyClosedAfterChoice) {
+      this.clearStoryHideTimer();
+      if (this.album?.autoHideStoryNavigator && !this.storyNavigatorTucked) {
+        this.storyHideTimer = setTimeout(() => {
+          this.storyNavigatorTucked = true;
+          this.storyHideTimer = null;
+        }, 200);
+      }
+    }
+  }
+
+  private applyStoryNavigatorMode(): void {
+    this.clearStoryHideTimer();
+    this.storyClosedAfterChoice = false;
+    this.storyNavigatorTucked = !!this.album?.autoHideStoryNavigator;
+  }
+
+  pinnedStoryLabel(): string {
+    if (this.album?.autoHideStoryNavigator && this.currentTag
+      && this.currentTag.key !== ALL_PHOTOS.key && this.currentTag.key !== RECENT_PHOTOS.key) {
+      return this.currentTag.subject;
+    } else {
+      return "";
+    }
+  }
+
+  private scheduleSlideAwayAfterChoice(): void {
+    this.clearStoryHoldTimer();
+    this.storyHoldTimer = setTimeout(() => {
+      this.storyNavigatorTucked = true;
+      this.storyClosedAfterChoice = false;
+      this.storyHoldTimer = null;
+    }, 2000);
+  }
+
+  private clearStoryHideTimer(): void {
+    if (this.storyHideTimer) {
+      clearTimeout(this.storyHideTimer);
+      this.storyHideTimer = null;
+    }
+  }
+
+  private clearStoryHoldTimer(): void {
+    if (this.storyHoldTimer) {
+      clearTimeout(this.storyHoldTimer);
+      this.storyHoldTimer = null;
+    }
+  }
 
   eventTooltip(dateSource: string) {
     return "Show details of this " + (groupEventTypeFor(dateSource)?.description || dateSource).toLowerCase();
@@ -282,6 +378,11 @@ export class CarouselComponent implements OnInit, OnDestroy {
   tagChanged(imageTag: ImageTag) {
     this.currentTag = imageTag;
     this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.TAG_CHANGE, this.duplicateImages, imageTag);
+    if (this.album?.autoHideStoryNavigator) {
+      this.clearStoryHideTimer();
+      this.storyClosedAfterChoice = true;
+      this.scheduleSlideAwayAfterChoice();
+    }
   }
 
   mouseEnter($event: MouseEvent) {
