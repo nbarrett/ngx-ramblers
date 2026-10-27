@@ -18,6 +18,7 @@ import { SecretInputComponent } from "../../../modules/common/secret-input/secre
 import { InputSize } from "../../../models/ui-size.model";
 import { FormSaveActionsComponent } from "../../../modules/common/form-save-actions/form-save-actions";
 import { FormSaveActions } from "../../../models/form-save-actions.model";
+import { MailClientPasswordsComponent } from "./mail-client-passwords";
 
 const pleaseTryAgain = " - please try again";
 
@@ -25,7 +26,7 @@ const pleaseTryAgain = " - please try again";
     selector: "app-change-password",
     templateUrl: "./change-password.component.html",
     styleUrls: ["../admin/admin.component.sass"],
-    imports: [PageComponent, FontAwesomeModule, FormsModule, ContactUsComponent, SecretInputComponent, FormSaveActionsComponent]
+    imports: [PageComponent, FontAwesomeModule, FormsModule, ContactUsComponent, SecretInputComponent, FormSaveActionsComponent, MailClientPasswordsComponent]
 })
 export class ChangePasswordComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("ChangePasswordComponent", NgxLoggerLevel.ERROR);

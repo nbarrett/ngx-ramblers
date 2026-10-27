@@ -194,6 +194,8 @@ export enum StoredValue {
   LON = "lon",
   MAIL_AUTH_SORT = "mail-auth-sort",
   MAIL_AUTH_SORT_ORDER = "mail-auth-sort-order",
+  MAIL_CLIENT_CREDENTIAL_SORT = "mail-client-credential-sort",
+  MAIL_CLIENT_CREDENTIAL_SORT_ORDER = "mail-client-credential-sort-order",
   MAIL_GROUPING = "mail-grouping",
   MAIL_MX_SORT = "mail-mx-sort",
   MAIL_MX_SORT_ORDER = "mail-mx-sort-order",

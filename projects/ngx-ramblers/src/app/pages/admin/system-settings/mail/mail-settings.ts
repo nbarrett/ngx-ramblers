@@ -296,6 +296,14 @@ import { ramblersRegisteredOfficeAddress } from "../../../../models/ramblers-leg
                             Off by default. When on, the email composer shows a &ldquo;This looks like a broadcast rather than a one-to-one reply&rdquo; alert on unbranded drafts that look like a list send, with a switch to Branded. Large unbranded sends are still blocked above 50 recipients.
                           </div>
                         </div>
+                        <div class="form-check mt-2">
+                          <input [(ngModel)]="mailMessagingConfig.mailConfig.allowMailClientAccess"
+                            type="checkbox" class="form-check-input" id="allow-mail-client-access">
+                          <label class="form-check-label" for="allow-mail-client-access">Allow Apple Mail, Outlook and Thunderbird</label>
+                          <div class="form-text">
+                            Off by default. When on, committee members can generate an application password on Profile → Change password and point Apple Mail, Outlook or Thunderbird at this site for SMTP (port 587) and IMAP (port 993). Sends go from a committee role address they hold, are filed in the shared inbox Sent folder, and then go out through the existing mail path. Newsletters and member-list sends stay in the website composer.
+                          </div>
+                        </div>
                       </div>
                       <div class="thumbnail-heading-frame mx-2 mb-3">
                         <app-mail-send-refusals/>

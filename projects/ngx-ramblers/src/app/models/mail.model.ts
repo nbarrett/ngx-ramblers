@@ -437,6 +437,7 @@ export interface MailConfig extends BuiltInProcessMappings {
   respectEmailBlocks?: boolean;
   allowSystemEmailsWhenTransactionalOff?: boolean;
   showUnbrandedBroadcastWarning?: boolean;
+  allowMailClientAccess?: boolean;
   listSettings: ListSetting[];
   smtpServer?: string;
   smtpPort?: number;
@@ -1820,7 +1821,8 @@ export enum SendPurpose {
   BULK_LOAD_DIGEST = "bulk-load-digest",
   BOOKING = "booking",
   CAMPAIGN_SEND = "campaign-send",
-  CAMPAIGN_RELEASE = "campaign-release"
+  CAMPAIGN_RELEASE = "campaign-release",
+  MAIL_CLIENT = "mail-client"
 }
 
 export const SEND_PURPOSE_DESCRIPTIONS: Record<SendPurpose, string> = {
@@ -1834,7 +1836,8 @@ export const SEND_PURPOSE_DESCRIPTIONS: Record<SendPurpose, string> = {
   [SendPurpose.BULK_LOAD_DIGEST]: "Member bulk load summary",
   [SendPurpose.BOOKING]: "Booking email",
   [SendPurpose.CAMPAIGN_SEND]: "Campaign send",
-  [SendPurpose.CAMPAIGN_RELEASE]: "Campaign release"
+  [SendPurpose.CAMPAIGN_RELEASE]: "Campaign release",
+  [SendPurpose.MAIL_CLIENT]: "Mail application send"
 };
 
 export const SYSTEM_SEND_PURPOSES: SendPurpose[] = [SendPurpose.PASSWORD_RESET, SendPurpose.ADMIN_ALERT];
@@ -1846,7 +1849,8 @@ export const SEND_PURPOSES_KEEP_PERSONAL_RECIPIENTS: SendPurpose[] = [
   SendPurpose.BOOKING,
   SendPurpose.BATCH,
   SendPurpose.CAMPAIGN_SEND,
-  SendPurpose.CAMPAIGN_RELEASE
+  SendPurpose.CAMPAIGN_RELEASE,
+  SendPurpose.MAIL_CLIENT
 ];
 
 export function sendPurposeKeepsPersonalRecipients(purpose: SendPurpose): boolean {

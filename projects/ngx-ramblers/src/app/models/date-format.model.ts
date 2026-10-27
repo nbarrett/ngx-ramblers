@@ -12,6 +12,7 @@ export enum RamblersInsightHubDateFormat {
 }
 
 export enum UIDateFormat {
+  MAIL_CLIENT_INTERNAL_DATE = "dd-MMM-yyyy HH:mm:ss ZZZ",
   RAMBLERS_TIME = "HH:mm",
   DAY_MONTH_ABBREVIATED_TIME = "dd MMM HH:mm",
   DISPLAY_TIME = "h:mm a",

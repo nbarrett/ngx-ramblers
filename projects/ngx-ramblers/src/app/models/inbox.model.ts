@@ -22,7 +22,8 @@ export enum InboxReaderProvider {
   EMAIL_COMPOSER = "email-composer",
   GMAIL_API = "gmail-api",
   BREVO_INBOUND_PARSE = "brevo-inbound-parse",
-  CLOUDFLARE_INGRESS = "cloudflare-ingress"
+  CLOUDFLARE_INGRESS = "cloudflare-ingress",
+  MAIL_CLIENT = "mail-client"
 }
 
 export enum InboxProviderSwitchStep {
