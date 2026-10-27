@@ -106,3 +106,39 @@ describe("editor paste confirmation", () => {
     expect(instance.literalPasteShortcut).toBe(false);
   });
 });
+
+describe("emoji suggestions while composer change detection is detached", () => {
+  it("paints the shortcode list with detectChanges so it still appears while typing", () => {
+    const detectChanges = vi.fn();
+    const view = Object.assign(Object.create(TiptapMarkdownEditor.prototype), {
+      editable: true,
+      emojiSuggestions: [],
+      emojiActiveIndex: 0,
+      emojiSuggestionLimit: 36,
+      emojiShortcodeRange: null,
+      changeDetector: {detectChanges, markForCheck: vi.fn()},
+      zone: {run: (fn: () => void) => fn()},
+      emojiShortcodeService: {suggestionsFor: () => [{shortname: ":sun:", unicode: "☀️"}]},
+      editor: {
+        isActive: () => false,
+        state: {
+          selection: {
+            $from: {
+              pos: 5,
+              parentOffset: 4,
+              parent: {textBetween: () => ":sun"}
+            }
+          }
+        },
+        view: {
+          coordsAtPos: () => ({bottom: 0, left: 0}),
+          dom: {closest: () => null}
+        }
+      }
+    }) as TiptapMarkdownEditor;
+    view["refreshEmojiSuggestions"]();
+    expect(view["emojiSuggestions"]).toEqual([{shortname: ":sun:", unicode: "☀️"}]);
+    expect(detectChanges).toHaveBeenCalled();
+    expect(view["changeDetector"].markForCheck).not.toHaveBeenCalled();
+  });
+});

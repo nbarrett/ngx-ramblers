@@ -1461,7 +1461,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       return true;
     } else if (event.key === "Escape") {
       this.clearEmojiSuggestions();
-      this.changeDetector.markForCheck();
+      this.changeDetector.detectChanges();
       return true;
     } else {
       return false;
@@ -1471,7 +1471,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private moveEmojiActiveIndex(offset: number): boolean {
     const count = this.emojiSuggestions.length;
     this.emojiActiveIndex = (this.emojiActiveIndex + offset + count) % count;
-    this.changeDetector.markForCheck();
+    this.changeDetector.detectChanges();
     return true;
   }
 
@@ -1495,7 +1495,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       const selection = this.editor.state.selection;
       const $from = selection.$from;
       const textBefore = $from.parent.textBetween(0, $from.parentOffset, undefined, "\ufffc");
-      const match = textBefore.match(/:([a-z0-9_+-]+)$/i);
+      const match = textBefore.match(/:([a-z0-9_+-]*)$/i);
       if (match) {
         const from = $from.pos - match[0].length;
         const to = $from.pos;
@@ -1512,7 +1512,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       }
     }
     if (previousCount > 0 || this.emojiSuggestions.length > 0) {
-      this.zone.run(() => this.changeDetector.markForCheck());
+      this.zone.run(() => this.changeDetector.detectChanges());
     }
   }
 
