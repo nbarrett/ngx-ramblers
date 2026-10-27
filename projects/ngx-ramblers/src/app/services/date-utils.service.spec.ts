@@ -90,6 +90,26 @@ describe("DateUtilsService", () => {
     });
 
 
+    describe("inclusiveDayRange", () => {
+
+        it("should keep one calendar day per date across UK clocks going back", () => {
+            const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
+            const start = dateUtils.asDateTime("2026-10-24").startOf("day").toMillis();
+            const end = dateUtils.asDateTime("2026-10-27").startOf("day").toMillis();
+            const days = dateUtils.inclusiveDayRange(start, end).map(value => dateUtils.asDateTime(value).toISODate());
+            expect(days).toEqual(["2026-10-24", "2026-10-25", "2026-10-26", "2026-10-27"]);
+        });
+
+        it("should keep one calendar day per date across UK clocks going forward", () => {
+            const dateUtils: DateUtilsService = TestBed.inject(DateUtilsService);
+            const start = dateUtils.asDateTime("2026-03-28").startOf("day").toMillis();
+            const end = dateUtils.asDateTime("2026-03-30").startOf("day").toMillis();
+            const days = dateUtils.inclusiveDayRange(start, end).map(value => dateUtils.asDateTime(value).toISODate());
+            expect(days).toEqual(["2026-03-28", "2026-03-29", "2026-03-30"]);
+        });
+
+    });
+
     describe("parseTime", () => {
 
         it("should format morning time without minutes and optionally am suffix", () => {
