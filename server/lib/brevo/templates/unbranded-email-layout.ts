@@ -1,4 +1,41 @@
 import { RAMBLERS_EMAIL_TOKENS as T } from "./ramblers-design-tokens";
+import { JSDOM } from "jsdom";
+
+export function normaliseUnbrandedEmailContent(html: string): string {
+  const document = new JSDOM(html).window.document;
+  document.querySelectorAll("style, link[rel=stylesheet]").forEach(element => element.remove());
+  const headingSizes = new Map([
+    ["H1", T.h2Size],
+    ["H2", T.h3Size],
+    ["H3", T.h4Size],
+    ["H4", T.h4Size],
+    ["H5", T.bodyFontSize],
+    ["H6", T.bodyFontSize]
+  ]);
+  document.body.querySelectorAll<HTMLElement>("*").forEach(element => {
+    const weight = element.style.fontWeight;
+    const emphasis = element.style.fontStyle;
+    const heading = element.closest("h1,h2,h3,h4,h5,h6");
+    const link = element.closest("a");
+    Array.from(element.style).filter(property => property === "font" || property.startsWith("mso-") || property === "letter-spacing")
+      .forEach(property => element.style.removeProperty(property));
+    ["face", "size", "color"].forEach(attribute => element.removeAttribute(attribute));
+    element.style.setProperty("font-family", T.fontFamily);
+    element.style.setProperty("font-size", headingSizes.get(heading?.tagName) ?? T.bodyFontSize);
+    element.style.setProperty("line-height", heading ? "130%" : T.bodyLineHeight);
+    element.style.setProperty("color", link ? T.linkColor : T.bodyColor);
+    if (weight) {
+      element.style.setProperty("font-weight", weight);
+    }
+    if (emphasis) {
+      element.style.setProperty("font-style", emphasis);
+    }
+    if (link) {
+      element.style.setProperty("text-decoration", "underline");
+    }
+  });
+  return document.body.innerHTML;
+}
 
 function unbrandedStyles(): string {
   return `<style type="text/css">

@@ -69,7 +69,7 @@ COPY server /usr/src/app/server
 RUN npm run tsc
 RUN npm run copy-assets
 
-EXPOSE 5001
+EXPOSE 5001 1587 1993
 
 WORKDIR /usr/src/app
 
@@ -141,7 +141,7 @@ RUN npm run copy-assets
 
 RUN npm run serenity-bdd-update
 
-EXPOSE 5001
+EXPOSE 5001 1587 1993
 
 WORKDIR /usr/src/app
 

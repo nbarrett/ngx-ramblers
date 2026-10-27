@@ -3,12 +3,12 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { Subscription } from "rxjs";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCalendarPlus, faCopy } from "@fortawesome/free-solid-svg-icons";
-import { faApple, faGoogle, faMicrosoft, faWindows } from "@fortawesome/free-brands-svg-icons";
+import { faApple, faGoogle, faMicrosoft } from "@fortawesome/free-brands-svg-icons";
 import { StoredValue } from "../../../models/ui-actions";
 import { CalendarApp } from "../../../models/inbox.model";
 import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { SectionToggle } from "../../../shared/components/section-toggle";
-import { browserCalendarClientHints, localCalendarHref } from "../../../functions/calendar-add";
+import { browserCalendarClientHints, localCalendarHref, outlookPlatformTabs } from "../../../functions/calendar-add";
 import { FormsModule } from "@angular/forms";
 import { CalendarSubscriptionScope, OutlookCalendarPlatform } from "../../../models/walk-programme.model";
 import { ClipboardService } from "../../../services/clipboard.service";
@@ -135,9 +135,7 @@ export class CalendarSubscribeComponent implements OnInit, OnDestroy {
   readonly calendarTabs: SectionToggleTab[] = [
     {value: CalendarApp.LOCAL, label: "Apple Calendar", icon: faApple},
     {value: CalendarApp.GOOGLE, label: "Google Calendar", icon: faGoogle},
-    {value: OutlookCalendarPlatform.MAC, label: "Outlook on Mac", icon: faApple},
-    {value: OutlookCalendarPlatform.WINDOWS_NEW, label: "Outlook on Windows (new)", icon: faWindows},
-    {value: OutlookCalendarPlatform.WINDOWS_CLASSIC, label: "Outlook on Windows (classic)", icon: faWindows}
+    ...outlookPlatformTabs()
   ];
   readonly expanded = signal(false);
   readonly copyMessage = signal("");

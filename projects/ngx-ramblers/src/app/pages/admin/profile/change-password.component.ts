@@ -18,7 +18,6 @@ import { SecretInputComponent } from "../../../modules/common/secret-input/secre
 import { InputSize } from "../../../models/ui-size.model";
 import { FormSaveActionsComponent } from "../../../modules/common/form-save-actions/form-save-actions";
 import { FormSaveActions } from "../../../models/form-save-actions.model";
-
 const pleaseTryAgain = " - please try again";
 
 @Component({

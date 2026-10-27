@@ -1,10 +1,18 @@
 import { Types } from "mongoose";
-import { InboxAddress, InboxMessage, InboxMessageDirection, InboxThread } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { hiddenInboxFolders, InboxAddress, InboxMessage, InboxMessageDirection, InboxThread } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { inboxThreadId } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 
 export interface SentMessageRowsResult {
   rows: InboxThread[];
   totalCount: number;
+}
+
+export function sentMessageFilter(): Record<string, unknown> {
+  return {direction: InboxMessageDirection.OUTBOUND, autoReply: {$ne: true}};
+}
+
+export function sentFolderFilter(): Record<string, unknown> {
+  return {$nin: hiddenInboxFolders()};
 }
 
 export function sentThreadObjectIds(threadIds: string[]): Types.ObjectId[] {

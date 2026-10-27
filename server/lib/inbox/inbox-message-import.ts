@@ -503,12 +503,14 @@ async function notifyAssignedRoleMembers(aliasConfig: InboxAliasConfig, message:
 }
 
 export async function recordOutboundMessage(aliasConfig: InboxAliasConfig, outboundMessage: InboxMessage, internalEmails?: Set<string>): Promise<InboxMessage | null> {
-  const recipients = [...(outboundMessage.to ?? []), ...(outboundMessage.cc ?? [])].filter(recipient => recipient?.email);
+  const headerRecipients = [...(outboundMessage.to ?? []), ...(outboundMessage.cc ?? [])].filter(recipient => recipient?.email);
+  const recipients = headerRecipients.length ? headerRecipients : (outboundMessage.deliveryRecipients ?? []).filter(recipient => recipient?.email);
   if (!recipients.length) {
     debugLog("recordOutboundMessage: no recipient address on message", outboundMessage.messageId, "- skipping");
     return null;
   }
-  const counterparty = resolveThreadExternalAddress(outboundMessage, undefined, internalEmails);
+  const routingMessage = headerRecipients.length ? outboundMessage : {...outboundMessage, to: recipients};
+  const counterparty = resolveThreadExternalAddress(routingMessage, undefined, internalEmails);
   const existingThread = await findExistingThread(aliasConfig, outboundMessage, InboxThreadFolder.INBOX, counterparty);
   const now = dateTimeNow().toMillis();
   const thread = existingThread ?? await createThread(aliasConfig, outboundMessage, outboundMessage.sentAt ?? now, InboxThreadFolder.SENT, counterparty, InboxMessageDirection.OUTBOUND, internalEmails);
