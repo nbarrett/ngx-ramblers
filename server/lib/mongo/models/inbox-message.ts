@@ -1,3 +1,4 @@
+import { maintainImapUids, withImapUidBulkWrites } from "../../mail-client/mail-client-imap-uid-hooks";
 import mongoose, { Schema } from "mongoose";
 import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
@@ -43,5 +44,6 @@ const inboxMessageSchema = new mongoose.Schema({
 }, {collection: "inboxMessages"});
 
 inboxMessageSchema.plugin(uniqueValidator);
+inboxMessageSchema.plugin(maintainImapUids);
 
-export const inboxMessage: mongoose.Model<InboxMessage> = ensureModel<InboxMessage>("inbox-message", inboxMessageSchema);
+export const inboxMessage: mongoose.Model<InboxMessage> = withImapUidBulkWrites(ensureModel<InboxMessage>("inbox-message", inboxMessageSchema));

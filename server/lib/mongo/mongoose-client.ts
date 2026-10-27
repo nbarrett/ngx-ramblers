@@ -77,39 +77,41 @@ export async function connect(debug?: debug.Debugger): Promise<boolean> {
   const mongoUri = envConfig.mongo().uri.replace(/^"|"$/g, "");
   const debugConnect = debug || debugLog;
   if (mongoose.connection.readyState === 1) {
+    connected = true;
     debugConnect("Already connected to database:", mongoUri);
     return true;
-  }
-  try {
-    mongoose.connection.on("connected", () => {
-      debugConnect("Connected to database:", mongoUri);
-      connected = true;
-    });
-    mongoose.connection.on("disconnected", () => {
-      debugConnect("Disconnected from database:", mongoUri);
-      connected = false;
-    });
-    mongoose.connection.on("error", err => {
-      debugConnect("Connection error:", err);
-      connected = false;
-    });
-    mongoose.set("autoCreate", false);
-    mongoose.set("autoIndex", false);
-    await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 30000,
-      socketTimeoutMS: 30000,
-      connectTimeoutMS: 30000,
-      heartbeatFrequencyMS: 5000,
-      maxPoolSize: 10,
-      minPoolSize: 2,
-      maxIdleTimeMS: 45000,
-      ssl: true,
-      autoCreate: false,
-      autoIndex: false
-    });
-    return true;
-  } catch (error) {
-    debugConnect("Connection failed:", mongoUri, "error:", error);
-    throw error;
+  } else {
+    try {
+      mongoose.connection.on("connected", () => {
+        debugConnect("Connected to database:", mongoUri);
+        connected = true;
+      });
+      mongoose.connection.on("disconnected", () => {
+        debugConnect("Disconnected from database:", mongoUri);
+        connected = false;
+      });
+      mongoose.connection.on("error", err => {
+        debugConnect("Connection error:", err);
+        connected = false;
+      });
+      mongoose.set("autoCreate", false);
+      mongoose.set("autoIndex", false);
+      await mongoose.connect(mongoUri, {
+        serverSelectionTimeoutMS: 30000,
+        socketTimeoutMS: 30000,
+        connectTimeoutMS: 30000,
+        heartbeatFrequencyMS: 5000,
+        maxPoolSize: 10,
+        minPoolSize: 2,
+        maxIdleTimeMS: 45000,
+        ssl: true,
+        autoCreate: false,
+        autoIndex: false
+      });
+      return true;
+    } catch (error) {
+      debugConnect("Connection failed:", mongoUri, "error:", error);
+      throw error;
+    }
   }
 }

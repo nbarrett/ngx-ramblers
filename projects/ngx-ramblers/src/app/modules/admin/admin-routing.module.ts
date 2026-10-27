@@ -55,6 +55,10 @@ const rp = adminRelativePath;
         .then(m => m.ChangePasswordComponent), canActivate: [SystemHealthyGuard, LoggedInGuard, contactUsGuard]
     },
     {
+      path: rp(AdminProfilePath.EXTERNAL_EMAIL_SETUP), loadComponent: () => import("../../pages/admin/profile/external-email-setup")
+        .then(m => m.ExternalEmailSetupComponent), canActivate: [SystemHealthyGuard, LoggedInGuard, CommitteeAuthGuard, contactUsGuard]
+    },
+    {
       path: rp(AdminProfilePath.EMAIL_SUBSCRIPTIONS),
       loadComponent: () => import("../../pages/admin/profile/email-subscriptions.component")
         .then(m => m.EmailSubscriptionsComponent),
@@ -82,6 +86,8 @@ const rp = adminRelativePath;
     },
     { path: "contact-details", redirectTo: rp(AdminProfilePath.CONTACT_DETAILS), pathMatch: "full" },
     { path: "change-password", redirectTo: rp(AdminProfilePath.CHANGE_PASSWORD), pathMatch: "full" },
+    { path: "external-email-setup", redirectTo: rp(AdminProfilePath.EXTERNAL_EMAIL_SETUP), pathMatch: "full" },
+    { path: "mail-applications", redirectTo: rp(AdminProfilePath.EXTERNAL_EMAIL_SETUP), pathMatch: "full" },
     { path: "email-subscriptions", redirectTo: rp(AdminProfilePath.EMAIL_SUBSCRIPTIONS), pathMatch: "full" },
     { path: "photos-and-video", redirectTo: rp(AdminProfilePath.PHOTOS_AND_VIDEO), pathMatch: "full" },
     { path: "expenses/:expense-id", redirectTo: rp(AdminProfilePath.EXPENSES) + "/:expense-id", pathMatch: "full" },

@@ -1,5 +1,5 @@
 import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import { faGoogle, faMicrosoft } from "@fortawesome/free-brands-svg-icons";
+import { faApple, faGoogle, faMicrosoft, faWindows } from "@fortawesome/free-brands-svg-icons";
 import { faCalendarDay } from "@fortawesome/free-solid-svg-icons";
 import { isBrowser } from "es-toolkit";
 import { DateTime } from "luxon";
@@ -8,6 +8,17 @@ import { UIDateFormat } from "../models/date-format.model";
 import { ExtendedGroupEvent } from "../models/group-event.model";
 import { RamblersEventType, WalkStatus } from "../models/ramblers-walks-manager";
 import { escapeHtml, stripTrailingSlash } from "./strings";
+
+import { OutlookCalendarPlatform } from "../models/walk-programme.model";
+import { SectionToggleTab } from "../models/section-toggle.model";
+
+export function outlookPlatformTabs(): SectionToggleTab[] {
+  return [
+    {value: OutlookCalendarPlatform.MAC, label: "Outlook on Mac", icon: faApple},
+    {value: OutlookCalendarPlatform.WINDOWS_NEW, label: "Outlook on Windows (new)", icon: faWindows},
+    {value: OutlookCalendarPlatform.WINDOWS_CLASSIC, label: "Outlook on Windows (classic)", icon: faWindows}
+  ];
+}
 
 const DEFAULT_WALK_DURATION_HOURS = 3;
 

@@ -5,3 +5,4 @@ export const NOTIFICATION_CONFIG_COLLECTION = "notificationConfigs";
 export const INBOX_THREADS_COLLECTION = "inboxThreads";
 export const INBOX_MESSAGES_COLLECTION = "inboxMessages";
 export const INBOX_FOLDERS_COLLECTION = "inboxFolders";
+export const MAIL_CLIENT_CREDENTIALS_COLLECTION = "mailClientCredentials";

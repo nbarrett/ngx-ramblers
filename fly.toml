@@ -19,3 +19,27 @@ path = "/api/health"
 memory = "512mb"
 cpu_kind = "shared"
 cpus = 1
+
+[[services]]
+protocol = "tcp"
+internal_port = 1587
+auto_stop_machines = false
+auto_start_machines = true
+min_machines_running = 1
+processes = ["app"]
+
+  [[services.ports]]
+  port = 465
+  handlers = ["tls"]
+
+[[services]]
+protocol = "tcp"
+internal_port = 1993
+auto_stop_machines = false
+auto_start_machines = true
+min_machines_running = 1
+processes = ["app"]
+
+  [[services.ports]]
+  port = 993
+  handlers = ["tls"]

@@ -21,10 +21,14 @@ export function renderEmailComposerMarkdown(markdown: string): string {
   }
   try {
     const rendered = emailComposerMarked.parse(markdown, {async: false}) as string;
-    return resourceAwsImageUrls(styleMarkdownElements(constrainQuotedImages(constrainInlineImages(rendered))));
+    return formatEmailComposerHtml(rendered);
   } catch {
     return `<pre>${escapeHtml(markdown)}</pre>`;
   }
+}
+
+export function formatEmailComposerHtml(html: string): string {
+  return resourceAwsImageUrls(styleMarkdownElements(constrainQuotedImages(constrainInlineImages(html))));
 }
 
 function styleMarkdownElements(html: string): string {

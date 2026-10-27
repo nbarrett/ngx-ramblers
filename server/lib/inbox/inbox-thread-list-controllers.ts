@@ -7,11 +7,11 @@ import { envConfig } from "../env-config/env-config";
 import { errorResponse } from "../shared/error-response";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
-import { InboxMessage, InboxMessageDirection, InboxThread, foldersExcludedFromInboxList, InboxThreadFolder, InboxThreadListResponse, InboxUnreadCountsResponse, InboxUserFolderQuery, InboxViewScope } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { InboxMessage, InboxThread, foldersExcludedFromInboxList, InboxThreadFolder, InboxThreadListResponse, InboxUnreadCountsResponse, InboxUserFolderQuery, InboxViewScope } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { assignedInboxRoleTypesForMember, permittedInboxRoleTypes, permittedToReadJunk, requestMember, requestingMemberId } from "./inbox-access";
 import { defaultTenantSlug } from "./inbox-aliases";
-import { sentMessageRows, sentThreadObjectIds } from "./inbox-sent";
+import { sentFolderFilter, sentMessageFilter, sentMessageRows, sentThreadObjectIds } from "./inbox-sent";
 import { conversationCount, conversationCountsByRole, threadUnreadForMember, unreadConditionForMember, unreadConversationFilter } from "./inbox-unread-counts";
 const messageType = "inbox";
 const debugLog = debug(envConfig.logNamespace(messageType));
@@ -83,8 +83,8 @@ export async function listInboxThreads(req: Request, res: Response): Promise<voi
         if (req.query.folder === InboxThreadFolder.SENT) {
           const sentSearchTermRaw = isString(req.query.search) ? req.query.search.trim() : "";
           const outboundFilter: Record<string, unknown> = sentSearchTermRaw
-            ? { direction: InboxMessageDirection.OUTBOUND, autoReply: { $ne: true }, $or: messageSearchOr({ $regex: escapeSearchRegex(sentSearchTermRaw), $options: "i" }) }
-            : { direction: InboxMessageDirection.OUTBOUND, autoReply: { $ne: true } };
+            ? { ...sentMessageFilter(), $or: messageSearchOr({ $regex: escapeSearchRegex(sentSearchTermRaw), $options: "i" }) }
+            : sentMessageFilter();
           const outboundMessages = await inboxMessageModel.find(outboundFilter)
             .select("threadId messageId subject from to sentAt receivedAt direction").lean();
           const sentThreadIds = Array.from(new Set(outboundMessages.map(message => String(message.threadId))));
@@ -92,7 +92,7 @@ export async function listInboxThreads(req: Request, res: Response): Promise<voi
             tenantSlug: defaultTenantSlug(),
             _id: { $in: sentThreadObjectIds(sentThreadIds) },
             roleType: isString(roleType) ? roleType : { $in: scopeRoleTypes },
-            folder: { $nin: [InboxThreadFolder.JUNK, InboxThreadFolder.DELETED] }
+            folder: sentFolderFilter()
           };
           const sentThreads = await inboxThreadModel.find(sentFilter).lean();
           const { rows } = sentMessageRows(sentThreads as InboxThread[], outboundMessages as InboxMessage[], 0, Number.MAX_SAFE_INTEGER);

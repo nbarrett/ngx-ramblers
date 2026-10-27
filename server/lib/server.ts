@@ -292,6 +292,7 @@ app.use("/api/cloudflare/email-routing", cloudflareEmailRoutingRoutes);
 app.use("/api/cloudflare/web-analytics", cloudflareWebAnalyticsRoutes);
 app.use("/api/inbox/oauth", lazyRouter(async () => (await import("./inbox/oauth-routes")).inboxOauthRoutes));
 app.use("/api/inbox", lazyRouter(async () => (await import("./inbox/inbox-routes")).inboxRoutes));
+app.use("/api/mail-client", lazyRouter(async () => (await import("./mail-client/mail-client-routes")).mailClientRoutes));
 app.use("/api/environment-setup", environmentSetupRoutes);
 app.use("/api/documentation", documentationRoutes);
 app.use("/api/public/content", contentExportRoutes);
@@ -423,6 +424,10 @@ async function startServer() {
 
       scheduleBrevoCampaignRelease().catch(error => {
         debugLog("❌ Failed to schedule Brevo campaign release:", error);
+      });
+
+      import("./mail-client/mail-client-servers").then(module => module.startMailClientServers()).catch(error => {
+        debugLog("❌ Failed to start mail application SMTP/IMAP:", error);
       });
 
       scheduleBrevoSmtpKeepalive().catch(error => {

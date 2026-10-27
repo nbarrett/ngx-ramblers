@@ -38,11 +38,15 @@ describe("external transactional mail boundary", () => {
     expect(violations).toEqual([]);
   });
 
-  it("allows the reusable transactional gateway only for the contact-us delivery adapter", () => {
+  it("allows the reusable transactional gateway only for named delivery adapters", () => {
+    const allowed = new Set([
+      "contact-us/resolve-and-send.ts",
+      "mail-client/mail-client-submit.ts"
+    ]);
     const violations = sources
       .filter(file => readFileSync(file, "utf8").includes("brevo/transactional-mail/send-transactional-mail"))
       .map(file => relativeSourcePath(libraryRoot, file))
-      .filter(file => file !== "contact-us/resolve-and-send.ts");
+      .filter(file => !allowed.has(file));
     expect(violations).toEqual([]);
   });
 

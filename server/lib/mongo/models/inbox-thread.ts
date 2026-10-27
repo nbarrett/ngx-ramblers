@@ -1,3 +1,4 @@
+import { maintainImapUids, withImapUidBulkWrites } from "../../mail-client/mail-client-imap-uid-hooks";
 import mongoose, { Schema } from "mongoose";
 import { ensureModel } from "../utils/model-utils";
 import uniqueValidator from "mongoose-unique-validator";
@@ -31,5 +32,6 @@ const inboxThreadSchema = new mongoose.Schema({
 
 inboxThreadSchema.index({tenantSlug: 1, slug: 1, lastSeenAt: -1});
 inboxThreadSchema.plugin(uniqueValidator);
+inboxThreadSchema.plugin(maintainImapUids);
 
-export const inboxThread: mongoose.Model<InboxThread> = ensureModel<InboxThread>("inbox-thread", inboxThreadSchema);
+export const inboxThread: mongoose.Model<InboxThread> = withImapUidBulkWrites(ensureModel<InboxThread>("inbox-thread", inboxThreadSchema));

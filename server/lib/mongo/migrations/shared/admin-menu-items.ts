@@ -362,6 +362,14 @@ export const PHOTO_VIDEO_OPT_OUT_MENU_ITEM: ActionButtonColumn = {
   contentText: "Opt out of identifiable photographs and video used for group publicity"
 };
 
+export const EXTERNAL_EMAIL_SETUP_MENU_ITEM: ActionButtonColumn = {
+  accessLevel: "committee",
+  title: "External Email Setup",
+  icon: "faMobileScreen",
+  href: AdminProfilePath.EXTERNAL_EMAIL_SETUP,
+  contentText: "Set up Apple Mail, Outlook or Thunderbird with a committee role address. Create and revoke application passwords for each device."
+};
+
 export const PROFILE_MENU_ITEMS: ActionButtonColumn[] = [
   {
     accessLevel: "loggedInMember",
@@ -377,6 +385,7 @@ export const PROFILE_MENU_ITEMS: ActionButtonColumn[] = [
     href: AdminProfilePath.CHANGE_PASSWORD,
     contentText: "On this page you can:\n\n- Change your password\n- Change your username"
   },
+  EXTERNAL_EMAIL_SETUP_MENU_ITEM,
   {
     accessLevel: "loggedInMember",
     title: "Email subscriptions",

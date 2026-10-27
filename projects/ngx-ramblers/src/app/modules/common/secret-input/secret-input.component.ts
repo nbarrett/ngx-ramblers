@@ -101,6 +101,7 @@ import { InputSize } from "../../../models/ui-size.model";
             (click)="toggleVisibility()"
             [disabled]="disabled"
             [tooltip]="isVisible ? 'Hide' : 'Show'"
+            [attr.aria-label]="isVisible ? 'Hide value' : 'Show value'"
             delay="500"
             container="body">
             <fa-icon [icon]="isVisible ? faEyeSlash : faEye"></fa-icon>
@@ -113,6 +114,7 @@ import { InputSize } from "../../../models/ui-size.model";
           (click)="copyToClipboard()"
           [disabled]="disabled || !value"
           [tooltip]="justCopied ? 'Copied!' : 'Copy to clipboard'"
+          [attr.aria-label]="justCopied ? 'Copied to clipboard' : 'Copy to clipboard'"
           delay="500"
           container="body">
           <fa-icon [icon]="justCopied ? faCheck : faCopy"></fa-icon>

@@ -41,8 +41,9 @@ export enum AdminProfilePath {
   CONTACT_DETAILS = "admin/profile/contact-details",
   CHANGE_PASSWORD = "admin/profile/change-password",
   EMAIL_SUBSCRIPTIONS = "admin/profile/email-subscriptions",
-  PHOTOS_AND_VIDEO = "admin/profile/photos-and-video",
   EXPENSES = "admin/profile/expenses",
+  EXTERNAL_EMAIL_SETUP = "admin/profile/external-email-setup",
+  PHOTOS_AND_VIDEO = "admin/profile/photos-and-video",
 }
 
 export enum AdminMembersPath {
