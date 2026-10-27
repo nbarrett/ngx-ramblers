@@ -18,7 +18,8 @@ import {
   faSearch,
   faTableCells,
   faTableCellsLarge,
-  faTableColumns
+  faTableColumns,
+  faTimeline
 } from "@fortawesome/free-solid-svg-icons";
 import { AlbumData, AlbumView, DEFAULT_GRID_OPTIONS, GridLayoutMode, GridViewOptions } from "../../models/content-text.model";
 import { coerceBooleanProperty } from "@angular/cdk/coercion";
@@ -29,6 +30,7 @@ import {
   ContentMetadata,
   DuplicateImages,
   LazyLoadingMetadata,
+  RECENT_PHOTOS,
   SlideInitialisation
 } from "../../models/content-metadata.model";
 import { LazyLoadingMetadataService } from "../../services/lazy-loading-metadata.service";
@@ -39,6 +41,7 @@ import { BadgeButtonComponent } from "../../modules/common/badge-button/badge-bu
 import { BadgeStepperComponent } from "../../modules/common/badge-button/badge-stepper";
 import { AlbumGalleryComponent } from "./album-gallery";
 import { AlbumGridComponent } from "./album-grid";
+import { AlbumTimelineComponent } from "./album-timeline";
 import { CarouselComponent } from "../../carousel/view/carousel";
 import { AlbumBackgroundsComponent } from "./album-backgrounds";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
@@ -65,6 +68,9 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                 <app-badge-button [tooltip]="'view as grid'" [active]="albumView===AlbumView.GRID"
                                   [icon]="faTableCells" noRightMargin
                                   (click)="switchToView(AlbumView.GRID)" caption="grid"/>
+                <app-badge-button [tooltip]="'view as timeline'" [active]="albumView===AlbumView.TIMELINE"
+                                  [icon]="faTimeline" noRightMargin
+                                  (click)="switchToView(AlbumView.TIMELINE)" caption="timeline"/>
                 @if (albumView === AlbumView.GRID) {
                   <app-badge-button [tooltip]="'toggle titles'"
                                     [active]="gridViewOptions?.showTitles" [icon]="faRectangleAd"
@@ -138,10 +144,17 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                           [album]="album"
                           [index]="index"/>
           }
+          @if (albumView === AlbumView.TIMELINE) {
+            <app-album-timeline [lazyLoadingMetadata]="lazyLoadingMetadata"
+                                [duplicateImages]="duplicateImages"
+                                [album]="album"
+                                [preview]="preview"
+                                [index]="index"/>
+          }
         </div>
       </div>
     `,
-  imports: [BadgeButtonComponent, BadgeStepperComponent, AlbumBackgroundsComponent, AlbumGalleryComponent, AlbumGridComponent, CarouselComponent, FontAwesomeModule]
+  imports: [BadgeButtonComponent, BadgeStepperComponent, AlbumBackgroundsComponent, AlbumGalleryComponent, AlbumGridComponent, AlbumTimelineComponent, CarouselComponent, FontAwesomeModule]
 })
 export class AlbumComponent implements OnInit {
 
@@ -191,6 +204,7 @@ export class AlbumComponent implements OnInit {
   protected readonly faImage = faImage;
   protected readonly faRectangleAd = faRectangleAd;
   protected readonly faTableCells = faTableCells;
+  protected readonly faTimeline = faTimeline;
   protected readonly faSearch = faSearch;
   protected readonly faMountainSun = faMountainSun;
   get gridViewOptions(): GridViewOptions {
@@ -248,7 +262,7 @@ export class AlbumComponent implements OnInit {
     this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
     this.lazyLoadingMetadata = this.lazyLoadingMetadataService.initialise(contentMetadata);
     const slideCount = this.lazyLoadingMetadata?.contentMetadata?.files?.length || 0;
-    this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, ALL_PHOTOS, slideCount);
+    this.lazyLoadingMetadataService.initialiseAvailableSlides(this.lazyLoadingMetadata, SlideInitialisation.COMPONENT_INIT, this.duplicateImages, this.initialImageTag(), slideCount);
     if (complete) {
       this.noImages = !contentMetadata?.files?.length;
     }
@@ -258,7 +272,7 @@ export class AlbumComponent implements OnInit {
 
   private extendContentMetadata(contentMetadata: ContentMetadata) {
     this.duplicateImages = this.imageDuplicatesService.populateFrom(contentMetadata);
-    this.lazyLoadingMetadataService.replaceContentMetadata(this.lazyLoadingMetadata, contentMetadata, this.duplicateImages, ALL_PHOTOS);
+    this.lazyLoadingMetadataService.replaceContentMetadata(this.lazyLoadingMetadata, contentMetadata, this.duplicateImages, this.initialImageTag());
     const unshownSlides = this.lazyLoadingMetadata.availableSlides.length - this.lazyLoadingMetadata.selectedSlides.length;
     if (unshownSlides > 0) {
       this.lazyLoadingMetadataService.add(this.lazyLoadingMetadata, unshownSlides, "album shows every image");
@@ -275,6 +289,10 @@ export class AlbumComponent implements OnInit {
       this.album.albumView = albumView;
     }
     this.updateUrlParams();
+  }
+
+  private initialImageTag() {
+    return this.albumView === AlbumView.TIMELINE ? RECENT_PHOTOS : ALL_PHOTOS;
   }
 
   toggleShowTitles() {

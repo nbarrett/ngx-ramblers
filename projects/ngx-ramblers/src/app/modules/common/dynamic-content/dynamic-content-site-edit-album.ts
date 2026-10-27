@@ -10,6 +10,10 @@ import {
   ContentText,
   DEFAULT_GALLERY_OPTIONS,
   DEFAULT_GRID_OPTIONS,
+  DEFAULT_TIMELINE_OPTIONS,
+  TIMELINE_PALETTES,
+  TimelinePalette,
+  TimelinePlayDirection,
   FocalPointTarget,
   GridLayoutMode,
   ImageFit,
@@ -76,6 +80,17 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
                           <label class="form-check-label"
                                  [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-show-story-navigator')">
                             Show Story Navigator</label>
+                        </div>
+                      </div>
+                      <div class="col-sm-6">
+                        <div class="form-check mb-0">
+                          <input [(ngModel)]="row.carousel.autoHideStoryNavigator"
+                                 type="checkbox" class="form-check-input"
+                                 [disabled]="!row.carousel.showStoryNavigator"
+                                 [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-auto-hide-story-navigator')">
+                          <label class="form-check-label"
+                                 [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-auto-hide-story-navigator')">
+                            Auto-hide Story Selector (hover the top of the carousel)</label>
                         </div>
                       </div>
                       <div class="col-sm-6">
@@ -203,6 +218,36 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
                       </div>
                     </div>
                   </div>
+                  @if (row?.carousel?.albumView === AlbumView.TIMELINE) {
+                    <div class="col-sm-12 mt-3">
+                      <label [for]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-timeline-direction')">Play direction</label>
+                      <select class="form-control"
+                              [id]="actions.rowColumnIdentifierFor(rowIndex, 0, this.pageContent.path + '-timeline-direction')"
+                              [(ngModel)]="row.carousel.timelineViewOptions.playDirection">
+                        <option [ngValue]="TimelinePlayDirection.BACKWARDS">Newest first, then earlier</option>
+                        <option [ngValue]="TimelinePlayDirection.FORWARDS">Oldest first, then later</option>
+                      </select>
+                    </div>
+                    <div class="col-sm-12 mt-3">
+                      <label>Timeline style</label>
+                      <p class="small text-muted mb-2">Click a preview to apply it.</p>
+                      <div class="timeline-palette-row">
+                        @for (palette of timelinePalettes; track palette.id) {
+                          <button type="button" class="timeline-palette-preview"
+                                  [class.selected]="selectedTimelinePalette() === palette.id"
+                                  (click)="selectTimelinePalette(palette.id)">
+                            <span class="preview-film" [style.background]="palette.film">
+                              <span class="preview-bar" [style.background]="palette.bar">
+                                <span class="preview-tick" [style.background]="palette.accent"></span>
+                                <span class="preview-knob" [style.background]="palette.accent"></span>
+                              </span>
+                            </span>
+                            <span class="preview-name">{{ palette.name }}</span>
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
                   @if (row?.carousel?.albumView === AlbumView.BACKGROUNDS) {
                     <div class="col-sm-12 mt-3">
                       <div class="row">
@@ -578,6 +623,62 @@ function scaleOptions(...entries: [number, string][]): { value: number; label: s
       font-size: 0.85rem
       color: #6c757d
 
+    .timeline-palette-row
+      display: flex
+      flex-wrap: wrap
+      gap: 10px
+
+    .timeline-palette-preview
+      display: flex
+      flex-direction: column
+      align-items: stretch
+      width: 112px
+      padding: 0
+      border: 2px solid #dee2e6
+      border-radius: 6px
+      background: #fff
+      cursor: pointer
+      overflow: hidden
+
+    .timeline-palette-preview.selected
+      border-color: #9bc8ab
+      box-shadow: 0 0 0 1px #9bc8ab
+
+    .preview-film
+      display: block
+      height: 48px
+      position: relative
+
+    .preview-bar
+      position: absolute
+      left: 0
+      right: 0
+      bottom: 0
+      height: 12px
+
+    .preview-tick
+      position: absolute
+      left: 28%
+      top: 2px
+      bottom: 2px
+      width: 3px
+      border-radius: 1px
+
+    .preview-knob
+      position: absolute
+      left: 62%
+      top: 50%
+      width: 8px
+      height: 8px
+      margin: -4px 0 0 -4px
+      border-radius: 50%
+
+    .preview-name
+      display: block
+      padding: 4px 6px
+      font-size: 0.75rem
+      text-align: center
+
     ${rangeSliderStyles}
   `],
   imports: [TabsetComponent, TabDirective, FormsModule, AlbumComponent, BadgeButtonComponent, GroupEventTypeSelectorComponent, GroupEventSelectorComponent, NgClass, ContentTextEditor, ImageListEditComponent, DisplayDayPipe, ActionButtons, FocalPointPickerComponent, NgSelectComponent, ColourSelectorComponent, RangeSliderComponent, FontAwesomeModule, ZoomSliderComponent, WalkAlbumWorkflow]
@@ -623,6 +724,8 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
   public focalPointTargetValues: KeyValue<string>[] = enumKeyValues(FocalPointTarget);
   public previewPageContent: PageContent | null = null;
   protected readonly AlbumView = AlbumView;
+  protected readonly timelinePalettes = TIMELINE_PALETTES;
+  protected readonly TimelinePlayDirection = TimelinePlayDirection;
   public titleColourWrapper: { class: string } = {class: "colour-cloudy"};
   public textColourWrapper: { class: string } = {class: "colour-cloudy"};
   private systemConfigService = inject(SystemConfigService);
@@ -649,6 +752,7 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     }
     if (this.row?.carousel) {
       this.row.carousel.gridViewOptions = {...DEFAULT_GRID_OPTIONS, ...this.row.carousel.gridViewOptions};
+      this.row.carousel.timelineViewOptions = {...DEFAULT_TIMELINE_OPTIONS, ...this.row.carousel.timelineViewOptions};
     }
     if (!this.row?.carousel?.coverImageFocalPointTarget) {
       this.row.carousel.coverImageFocalPointTarget = FocalPointTarget.BOTH;
@@ -782,6 +886,16 @@ export class DynamicContentSiteEditAlbumComponent implements OnInit {
     }) as { class: string };
   }
 
+  selectedTimelinePalette(): TimelinePalette {
+    return this.row?.carousel?.timelineViewOptions?.palette || DEFAULT_TIMELINE_OPTIONS.palette;
+  }
+
+  selectTimelinePalette(id: TimelinePalette): void {
+    if (!this.row?.carousel.timelineViewOptions) {
+      this.row.carousel.timelineViewOptions = {...DEFAULT_TIMELINE_OPTIONS};
+    }
+    this.row.carousel.timelineViewOptions.palette = id;
+  }
 
   updateActionButtonPreview() {
     if (!this.row?.carousel) {

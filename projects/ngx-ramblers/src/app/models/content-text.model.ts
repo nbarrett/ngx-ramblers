@@ -528,6 +528,7 @@ export interface AlbumData {
   albumView: AlbumView;
   gridViewOptions: GridViewOptions;
   galleryViewOptions: GalleryViewOptions;
+  timelineViewOptions?: TimelineViewOptions;
   allowSwitchView: boolean;
   allowSocialShare?: boolean;
   showSocialPostLinks?: boolean;
@@ -539,6 +540,7 @@ export interface AlbumData {
   slideInterval: number;
   showIndicators: boolean;
   showStoryNavigator: boolean;
+  autoHideStoryNavigator?: boolean;
   height: number;
   backgroundImageNames?: string[];
   backgroundsOverlay?: BackgroundsOverlay;
@@ -865,6 +867,7 @@ export enum AlbumView {
   CAROUSEL = "carousel",
   GALLERY = "gallery",
   GRID = "grid",
+  TIMELINE = "timeline",
 }
 
 export enum AlbumEditTab {
@@ -925,6 +928,46 @@ export interface GridViewOptions extends HasColumnRange {
   imageFit?: ImageFit;
   gap?: number;
   borderRadius?: number;
+}
+
+export enum TimelinePalette {
+  MINTCAKE = "mintcake",
+  SUNSET = "sunset",
+  ROSY_CHEEKS = "rosy-cheeks",
+  SUNRISE = "sunrise",
+  SUNRISE_GRANITE = "sunrise-granite",
+  GRANITE = "granite",
+  CLOUDY = "cloudy",
+  SUNSET_LIGHT = "sunset-light",
+  SUNSET_INK = "sunset-ink",
+  ROSY_CHEEKS_LIGHT = "rosy-cheeks-light",
+  SUNRISE_LIGHT = "sunrise-light",
+  BLACK = "black",
+  RAMBLERS = "ramblers",
+  NIGHT = "night",
+  PAPER = "paper",
+  DUSK = "dusk",
+  HEATHER = "heather",
+  GOLD = "gold"
+}
+
+export interface TimelinePalettePreview {
+  id: TimelinePalette;
+  name: string;
+  film: string;
+  bar: string;
+  accent: string;
+}
+
+export enum TimelinePlayDirection {
+  BACKWARDS = "backwards",
+  FORWARDS = "forwards"
+}
+
+export interface TimelineViewOptions {
+  palette?: TimelinePalette;
+  kicker?: string;
+  playDirection?: TimelinePlayDirection;
 }
 
 export interface GalleryViewOptions {
@@ -992,6 +1035,26 @@ export const DEFAULT_GRID_OPTIONS: GridViewOptions = {
   gap: 0.25,
   borderRadius: 6
 };
+
+export const DEFAULT_TIMELINE_OPTIONS: TimelineViewOptions = {
+  palette: TimelinePalette.MINTCAKE,
+  kicker: "Timeline",
+  playDirection: TimelinePlayDirection.BACKWARDS
+};
+
+export const TIMELINE_PALETTES: TimelinePalettePreview[] = [
+  {id: TimelinePalette.MINTCAKE, name: "Mintcake", film: "rgb(64, 65, 65)", bar: "rgb(155, 200, 171)", accent: "rgb(255, 255, 255)"},
+  {id: TimelinePalette.SUNSET, name: "Sunset", film: "rgb(64, 65, 65)", bar: "rgb(240, 128, 80)", accent: "rgb(255, 255, 255)"},
+  {id: TimelinePalette.ROSY_CHEEKS, name: "Rosy cheeks", film: "rgb(64, 65, 65)", bar: "rgb(246, 176, 157)", accent: "rgb(255, 255, 255)"},
+  {id: TimelinePalette.SUNRISE, name: "Sunrise", film: "rgb(64, 65, 65)", bar: "rgb(249, 177, 4)", accent: "rgb(255, 255, 255)"},
+  {id: TimelinePalette.SUNRISE_GRANITE, name: "Sunrise granite", film: "rgb(64, 65, 65)", bar: "rgb(249, 177, 4)", accent: "rgb(64, 65, 65)"},
+  {id: TimelinePalette.GRANITE, name: "Granite", film: "rgb(64, 65, 65)", bar: "rgb(64, 65, 65)", accent: "rgb(255, 255, 255)"},
+  {id: TimelinePalette.BLACK, name: "Black", film: "rgb(33, 37, 41)", bar: "rgb(33, 37, 41)", accent: "rgb(255, 255, 255)"},
+  {id: TimelinePalette.CLOUDY, name: "Cloudy mintcake", film: "rgb(255, 255, 255)", bar: "rgb(155, 200, 171)", accent: "rgb(64, 65, 65)"},
+  {id: TimelinePalette.SUNSET_LIGHT, name: "Cloudy sunset", film: "rgb(255, 255, 255)", bar: "rgb(240, 128, 80)", accent: "rgb(64, 65, 65)"},
+  {id: TimelinePalette.ROSY_CHEEKS_LIGHT, name: "Cloudy rosy cheeks", film: "rgb(255, 255, 255)", bar: "rgb(246, 176, 157)", accent: "rgb(64, 65, 65)"},
+  {id: TimelinePalette.SUNRISE_LIGHT, name: "Cloudy sunrise", film: "rgb(255, 255, 255)", bar: "rgb(249, 177, 4)", accent: "rgb(64, 65, 65)"}
+];
 
 
 export interface PageContentGroup {
