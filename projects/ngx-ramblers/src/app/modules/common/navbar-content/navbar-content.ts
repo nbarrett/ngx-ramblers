@@ -17,7 +17,9 @@ import { HeaderButtonsComponent } from "../../../header-buttons/header-buttons";
            (pointermove)="onNavPointerMove($event)"
            (pointerup)="onNavPointerUp($event)"
            (pointercancel)="onNavPointerUp($event)"
-           (click)="onNavClick($event)">
+           (click)="onNavClick($event)"
+           (dragstart)="$event.preventDefault()"
+           (wheel)="onNavWheel($event)">
         <div [class]="'ramblers-list-' + (systemConfig?.header?.navBar?.class || '') + ' ' + containerClasses()">
           <ul [class]="listClasses()">
             <app-page-navigator/>
@@ -74,6 +76,19 @@ export class NavbarContentComponent  implements OnInit, OnDestroy {
         event.preventDefault();
       }
       el.scrollLeft = this.navDrag.startScroll - delta;
+    }
+  }
+
+  onNavWheel(event: WheelEvent): void {
+    const el = this.shell?.nativeElement;
+    if (el && !event.ctrlKey && el.scrollWidth > el.clientWidth && Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+      const scale = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? el.clientWidth : 1;
+      const nextScrollLeft = Math.min(Math.max(el.scrollLeft + event.deltaY * scale, 0), el.scrollWidth - el.clientWidth);
+      if (nextScrollLeft !== el.scrollLeft) {
+        event.preventDefault();
+        el.scrollLeft = nextScrollLeft;
+      }
     }
   }
 

@@ -719,6 +719,11 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                        (resizeEnd)="layout.persistListSize()"/>
         }
         @if (!viewingDrafts && (!layout.mobile || layout.mobileShowDetail)) {
+        <app-maximisable-panel #conversationPanel="maximisablePanel" class="inbox-conversation-panel inbox-scroll-contained"
+                               [maximiseQueryParam]="StoredValue.CONVERSATION_MAXIMISE"
+                               [showHeader]="conversationPanel.maximised"
+                               maximiseTooltip="Maximise this conversation to fill the screen"
+                               restoreTooltip="Restore conversation to the inbox layout">
         <div class="thumbnail-heading-frame-compact inbox-pane inbox-pane-messages">
           @if (readingOnMobile) {
             <div class="row g-2 inbox-reader-toolbar">
@@ -755,6 +760,12 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
                   <small class="text-muted d-block">To {{ toLabel }}</small>
                 }
               </div>
+              @if (!layout.mobile && !conversationPanel.maximised) {
+                <button class="btn btn-quiet btn-icon flex-shrink-0" type="button" (click)="conversationPanel.toggle()"
+                        aria-label="Maximise conversation" tooltip="Maximise this conversation to fill the screen">
+                  <fa-icon [icon]="faExpand"/>
+                </button>
+              }
               @if (selectedThread.folder === InboxThreadFolder.JUNK) {
                 <button class="btn btn-primary text-nowrap flex-shrink-0" type="button" [disabled]="busy" (click)="moveSelectedToInbox()">
                   <fa-icon [icon]="faInbox" class="me-1"></fa-icon>
@@ -792,6 +803,7 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
           }
           </div>
         </div>
+        </app-maximisable-panel>
         }
       </div>
       </div>

@@ -317,30 +317,32 @@ const MAP_LIST_BATCH_SIZE = 20;
                 <fa-icon [icon]="faArrowLeft" class="me-2"/> Back
               </button>
             </div>
-            <div class="thumbnail-heading-frame">
-              <div class="thumbnail-heading">App</div>
-              <div class="d-flex flex-wrap gap-2">
-                @if (nativeSite.origin()) {
-                  <button class="btn btn-quiet" type="button" (click)="changeGroupSite()" [disabled]="!!activeSession">
-                    <fa-icon [icon]="faPeopleGroup" class="me-2"/>Change group
+            @if (nativeSite.origin() || nativeBuildLabel || listPreferences.hiddenCount()) {
+              <div class="thumbnail-heading-frame">
+                <div class="thumbnail-heading">App</div>
+                <div class="d-flex flex-wrap gap-2">
+                  @if (nativeSite.origin()) {
+                    <button class="btn btn-quiet" type="button" (click)="changeGroupSite()" [disabled]="!!activeSession">
+                      <fa-icon [icon]="faPeopleGroup" class="me-2"/>Change group
+                    </button>
+                  }
+                </div>
+                @if (nativeBuildLabel) {
+                  <p class="app-home-build mt-2 mb-0">{{ nativeBuildLabel }}</p>
+                }
+                @if (listPreferences.hiddenCount()) {
+                  <button class="btn btn-quiet mt-2" type="button"
+                          (click)="showHiddenMaps()"><fa-icon [icon]="faMap" class="me-2"/>{{ listPreferences.hiddenMapsActionLabel() }}
                   </button>
                 }
+                @if (nativeSite.origin()) {
+                  <div class="d-flex flex-column gap-1 mt-2 app-home-meta">
+                    <span class="text-break">{{ nativeSite.origin() }}</span>
+                    <span>Changing group signs you out.</span>
+                  </div>
+                }
               </div>
-              @if (nativeBuildLabel) {
-                <p class="app-home-build mt-2 mb-0">{{ nativeBuildLabel }}</p>
-              }
-              @if (listPreferences.hiddenCount()) {
-                <button class="btn btn-quiet mt-2" type="button"
-                        (click)="showHiddenMaps()"><fa-icon [icon]="faMap" class="me-2"/>{{ listPreferences.hiddenMapsActionLabel() }}
-                </button>
-              }
-              @if (nativeSite.origin()) {
-                <div class="d-flex flex-column gap-1 mt-2 app-home-meta">
-                  <span class="text-break">{{ nativeSite.origin() }}</span>
-                  <span>Changing group signs you out.</span>
-                </div>
-              }
-            </div>
+            }
             @if (nativeCompass.supported()) {
               <div class="thumbnail-heading-frame">
                 <div class="thumbnail-heading">Compass</div>
@@ -371,7 +373,7 @@ const MAP_LIST_BATCH_SIZE = 20;
         }
 
         @if (listPreferences.syncMessage) {
-          <div class="alert alert-warning d-flex align-items-start gap-2" role="status">
+          <div class="alert alert-warning d-flex align-items-start gap-2 mt-3" role="status">
             <fa-icon [icon]="faCircleExclamation"/>
             <div><strong>Map preferences</strong>
               <p class="mb-0">{{ listPreferences.syncMessage }}</p></div>

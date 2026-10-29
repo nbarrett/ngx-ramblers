@@ -6,7 +6,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { SiteLogoComponent } from "../site-logo/site-logo";
 import { StoredValue } from "../../../models/ui-actions";
-import { DOCUMENT } from "@angular/common";
+import { MaximisablePanelService } from "../../../services/maximisable-panel.service";
 
 @Component({
   selector: "app-maximisable-panel",
@@ -79,6 +79,7 @@ import { DOCUMENT } from "@angular/common";
 })
 export class MaximisablePanelComponent implements OnInit, OnDestroy {
 
+  @Input() maximiseQueryParam = StoredValue.MAXIMISE;
   @Input() showHeader = true;
   @Input() showMaximise = true;
   @Input() showToggleButton = true;
@@ -87,17 +88,15 @@ export class MaximisablePanelComponent implements OnInit, OnDestroy {
   @Input() restoreTooltip = "Restore";
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private document = inject(DOCUMENT);
-  @HostBinding("class.maximised") maximised = this.route.snapshot.queryParamMap.get(StoredValue.MAXIMISE) === "true";
+  private panelService = inject(MaximisablePanelService);
+  @HostBinding("class.maximised") maximised = false;
   protected readonly faCompress = faCompress;
   protected readonly faExpand = faExpand;
   private subscriptions: Subscription[] = [];
-  private documentOverflow: string | null = null;
-  private bodyOverflow: string | null = null;
 
   ngOnInit(): void {
     this.subscriptions.push(this.route.queryParamMap.subscribe((paramMap: ParamMap) => {
-      this.setMaximised(paramMap.get(StoredValue.MAXIMISE) === "true");
+      this.setMaximised(paramMap.get(this.maximiseQueryParam) === "true");
     }));
   }
 
@@ -110,7 +109,7 @@ export class MaximisablePanelComponent implements OnInit, OnDestroy {
     this.setMaximised(!this.maximised);
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {[StoredValue.MAXIMISE]: this.maximised ? "true" : null},
+      queryParams: {[this.maximiseQueryParam]: this.maximised ? "true" : null},
       queryParamsHandling: "merge",
       replaceUrl: true
     });
@@ -118,25 +117,11 @@ export class MaximisablePanelComponent implements OnInit, OnDestroy {
 
   private setMaximised(value: boolean): void {
     const target = this.showMaximise && value;
-    if (target === this.maximised) {
-      this.updateDocumentScrolling(target);
-      return;
-    }
     this.maximised = target;
     this.updateDocumentScrolling(target);
   }
 
   private updateDocumentScrolling(maximised: boolean): void {
-    if (maximised && this.documentOverflow === null && this.bodyOverflow === null) {
-      this.documentOverflow = this.document.documentElement.style.overflow;
-      this.bodyOverflow = this.document.body.style.overflow;
-      this.document.documentElement.style.overflow = "hidden";
-      this.document.body.style.overflow = "hidden";
-    } else if (!maximised && this.documentOverflow !== null && this.bodyOverflow !== null) {
-      this.document.documentElement.style.overflow = this.documentOverflow;
-      this.document.body.style.overflow = this.bodyOverflow;
-      this.documentOverflow = null;
-      this.bodyOverflow = null;
-    }
+    this.panelService.updateDocumentScrolling(this, maximised);
   }
 }

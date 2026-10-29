@@ -1,5 +1,7 @@
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faPersonHiking, faSliders } from "@fortawesome/free-solid-svg-icons";
+import { AdminPath } from "../models/admin-route-paths.model";
+import { AccessLevel } from "../models/member-resource.model";
 import { AppPath } from "../models/route-follow.model";
 import { StoredValue } from "../models/ui-actions";
 import { MobileAppAction } from "../models/walks-config.model";
@@ -36,6 +38,8 @@ export class PageNavigatorComponent implements OnInit, OnDestroy {
   protected readonly faSliders = faSliders;
 
 
+  private readonly inboxLink: Link = {href: AdminPath.INBOX, title: "Inbox", accessLevel: AccessLevel.COMMITTEE};
+
   private logger: Logger = inject(LoggerFactory).createLogger("PageNavigatorComponent", NgxLoggerLevel.ERROR);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
   private accessLevelService = inject(AccessLevelService);
@@ -70,14 +74,24 @@ export class PageNavigatorComponent implements OnInit, OnDestroy {
   }
 
   isOnPage(link: Link): boolean {
-    const firstPathSegment: string = this.urlService.firstPathSegment() || "";
-    const isOnPage = firstPathSegment === link?.href;
-    this.logger.debug("isOnPage", link, "firstPathSegment", firstPathSegment, "->", isOnPage);
-    return isOnPage;
+    const currentPath = this.router.url.split(/[?#]/)[0];
+    const matchingPages = this.pages().filter(page => {
+      const path = this.navigationPath(page);
+      return currentPath === path || (path !== "/" && currentPath.startsWith(`${path}/`));
+    });
+    const selectedPage = matchingPages.reduce<Link | null>((selected, page) =>
+      !selected || this.navigationPath(page).length > this.navigationPath(selected).length ? page : selected, null);
+    return !!selectedPage && this.navigationPath(selectedPage) === this.navigationPath(link);
+  }
+
+  private navigationPath(link: Link): string {
+    return "/" + (link.href || "").replace(/^\/+|\/+$/g, "");
   }
 
   pages(): Link[] {
-    return (this.pageService?.group?.pages || []).filter(link => this.hasAccess(link) && this.allowedInNgxLite(link));
+    const configuredPages = (this.pageService?.group?.pages || [])
+      .filter(link => this.navigationPath(link) !== this.navigationPath(this.inboxLink));
+    return [...configuredPages, this.inboxLink].filter(link => this.hasAccess(link) && this.allowedInNgxLite(link));
   }
 
   private hasAccess(link: Link): boolean {

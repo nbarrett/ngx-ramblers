@@ -355,9 +355,19 @@
   padding-top: 0
   overflow: visible
 
+.inbox-conversation-panel
+  display: flex
+  flex-direction: column
+  min-width: 0
+  min-height: 0
+
+.inbox-conversation-panel .inbox-pane-messages
+  flex: 1 1 auto
+  min-height: 0
+
 .inbox-pane-messages
   padding-top: 1rem
-  overflow-y: auto
+  overflow: hidden
 
 .inbox-layout .inbox-pane
   margin: 0
@@ -523,8 +533,11 @@
   padding-left: calc(0.75rem + 4px)
 
 .inbox-detail-header
+  flex: 0 0 auto
   padding-bottom: 0.75rem
   border-bottom: 1px solid var(--bs-border-color)
+  background: #fff
+  z-index: 1
 
 .inbox-detail-header .btn
   font-size: 0.8rem
@@ -652,7 +665,7 @@
 .inbox-toolbar-actions .btn + .btn
   margin-left: 0
 
-@media (max-width: 767.98px), (orientation: landscape) and (max-height: 575.98px)
+@media (max-width: 767.98px), (pointer: coarse) and (orientation: landscape) and (max-height: 575.98px)
   .maximised .inbox-toolbar
     flex-wrap: wrap
   .maximised .inbox-toolbar-actions

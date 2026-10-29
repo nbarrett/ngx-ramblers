@@ -55,7 +55,8 @@ export class InboxLayoutService implements OnDestroy {
     private splitterDragging = false;
     updateMobile(): void {
         this.mobile = !isUndefined(window) && (window.innerWidth < DeviceSize.MEDIUM
-            || (window.innerWidth > window.innerHeight && window.innerHeight < DeviceSize.SMALL));
+            || (window.matchMedia("(pointer: coarse)").matches
+                && window.innerWidth > window.innerHeight && window.innerHeight < DeviceSize.SMALL));
     }
     get gridTemplateColumns(): string {
         return this.mobile
