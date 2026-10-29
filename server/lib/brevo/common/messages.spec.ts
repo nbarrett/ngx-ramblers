@@ -431,6 +431,38 @@ describe("brevo messages", () => {
     });
   });
 
+  describe("process BODY_CONTENT vs stored notification body", () => {
+
+    it("keeps walk-change html when the stored body is a membership-expiry letter", async () => {
+      const walkHtml = "<p>Gill Smith has made the following changes to the walk</p>";
+      const payload: Brevo.SendTransacEmailRequest = {};
+      await performTemplateSubstitution({
+        templateName: EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY,
+        body: "We've noticed that the Ramblers membership expiry date we have in our records for you has now passed",
+        params: {
+          messageMergeFields: {
+            subject: "Sarah Mitchell's walk (Walk details updated)",
+            BANNER_IMAGE_SOURCE: "",
+            ADDRESS_LINE: "Hello,",
+            BODY_CONTENT: walkHtml,
+            BODY_CONTENT_TOP: "",
+            BODY_CONTENT_BOTTOM: "",
+            ACCENT_COLOR: "#F9B104"
+          },
+          memberMergeFields: {FULL_NAME: "Alex Reed", EMAIL: "alex.reed@example.com", FNAME: "Alex", LNAME: "Reed", MEMBER_NUM: "", MEMBER_EXP: "", USERNAME: "alex", PW_RESET: ""},
+          systemMergeFields: {
+            APP_SHORTNAME: "GROUP", APP_LONGNAME: "Example Walking Group", APP_URL: "https://group.example.org.uk",
+            PW_RESET_LINK: "", FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""
+          },
+          accountMergeFields: ramblersAccountMergeFields()
+        }
+      }, payload, debug("test:process-body"));
+      expect(payload.htmlContent).toContain("Gill Smith has made the following changes to the walk");
+      expect(payload.htmlContent).not.toContain("remove you from our mailing lists");
+      expect(payload.htmlContent).not.toContain("membership expiry date");
+    });
+  });
+
   describe("renderTemplateMarkdownToHtml", () => {
 
     it("renders markdown to html while leaving template directives and merge fields intact", () => {
