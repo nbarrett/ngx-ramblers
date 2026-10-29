@@ -339,8 +339,22 @@ function substituteTemplateParameters(html: string, params: any): string {
   );
 }
 
+const BODY_CONTENT_TOKEN = /\{\{\s*params\.messageMergeFields\.BODY_CONTENT\s*\}\}/;
+
+function useStoredNotificationBody(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest | TemplateRenderRequest): boolean {
+  const stored = emailRequest.body;
+  if (!stored) {
+    return false;
+  } else {
+    const processContent = emailRequest.params?.messageMergeFields?.BODY_CONTENT;
+    const hasProcessContent = isString(processContent) && processContent.trim().length > 0;
+    const placesContent = BODY_CONTENT_TOKEN.test(stored);
+    return !hasProcessContent || placesContent;
+  }
+}
+
 export function composeShellAndBody(bodyMarkdown: string, showTitle: boolean = true): string {
-  const bodyPlacesContent = /\{\{\s*params\.messageMergeFields\.BODY_CONTENT\s*\}\}/.test(bodyMarkdown ?? "");
+  const bodyPlacesContent = BODY_CONTENT_TOKEN.test(bodyMarkdown ?? "");
   return [
     showTitle ? "<h3>{{params.messageMergeFields.subject}}</h3>" : "",
     "{% if params.messageMergeFields.ADDRESS_LINE %}<p>{{params.messageMergeFields.ADDRESS_LINE}}</p>{% endif %}",
@@ -376,12 +390,15 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
       const wrappedHtml = unbrandedEmailLayout(emailRequest.htmlContent ?? "");
       const substitutedHtmlContent = substituteTemplateParameters(wrappedHtml, emailRequest.params);
       sendSmtpEmail.htmlContent = inlineDefaultLinkStyles(applyBrevoConditionals(substitutedHtmlContent, emailRequest.params));
-    } else if (emailRequest.body) {
+    } else if (useStoredNotificationBody(emailRequest)) {
       debugLog("performing template substitution from editable body");
       sendSmtpEmail.htmlContent = renderBrandedTemplate(composeShellAndBody(emailRequest.body, emailRequest.showTitle !== false), emailRequest.params, emailRequest.templateOverrides, campaign);
     } else if (localTemplateContent) {
       debugLog("performing template substitution from local template", emailRequest.templateName);
       sendSmtpEmail.htmlContent = renderBrandedTemplate(localTemplateContent, emailRequest.params, emailRequest.templateOverrides, campaign);
+    } else if (isString(emailRequest.params?.messageMergeFields?.BODY_CONTENT) && emailRequest.params.messageMergeFields.BODY_CONTENT.trim().length > 0) {
+      debugLog("performing template substitution from process BODY_CONTENT");
+      sendSmtpEmail.htmlContent = renderBrandedTemplate(composeShellAndBody("{{params.messageMergeFields.BODY_CONTENT}}", emailRequest.showTitle !== false), emailRequest.params, emailRequest.templateOverrides, campaign);
     } else {
       debugLog(`Using supplied htmlContent`, emailRequest.htmlContent);
       sendSmtpEmail.htmlContent = emailRequest.htmlContent;
