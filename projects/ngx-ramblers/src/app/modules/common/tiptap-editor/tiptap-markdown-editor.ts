@@ -14,7 +14,7 @@ import {
 } from "@angular/core";
 import { NgClass } from "@angular/common";
 import { Editor, JSONContent } from "@tiptap/core";
-import { EditorState } from "@tiptap/pm/state";
+import { EditorState, NodeSelection } from "@tiptap/pm/state";
 import { redoDepth, undoDepth } from "@tiptap/pm/history";
 import StarterKit from "@tiptap/starter-kit";
 import { ListItem } from "@tiptap/extension-list";
@@ -469,9 +469,10 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
     </ul>
   }
   @if (editable && (mergeFieldSelected || linkTokenSelected || insertLinkMode || (imageSelected && imageSettingsOpen))) {
-    <div class="token-editor-popup" [class.above]="tokenEditorAbove"
+    <div class="token-editor-popup" [class.above]="tokenEditorAbove" [class.image-settings-popup]="imageSelected"
          [style.top.px]="tokenEditorTop" [style.left.px]="tokenEditorLeft"
-         [style.min-width.px]="tokenEditorMinWidth">
+         [style.min-width.px]="tokenEditorMinWidth"
+         [style.max-width.px]="imageSelected ? tokenEditorLeft - 4 : null">
       @if (imageSelected) {
         <div class="token-editor-title">Image</div>
         <div class="token-editor-actions">
@@ -844,7 +845,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       LinkToken,
       PageBreak,
       Markdown,
-      Table.configure({ resizable: false, HTMLAttributes: { class: "tiptap-table" } }),
+      Table.configure({ resizable: false, allowTableNodeSelection: true, HTMLAttributes: { class: "tiptap-table" } }),
       TableRow,
       TableHeader,
       TableCell
@@ -871,13 +872,14 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
             return true;
           } else {
             const pastedDocument = Array.from(event.clipboardData?.files ?? []).find(file => /\.(docx|pdf)$/i.test(file.name));
-            const pastedImage = Array.from(event.clipboardData?.files ?? []).find(file => file.type.startsWith("image/"));
+            const imageFiles = Array.from(event.clipboardData?.files ?? []).filter(file => file.type.startsWith("image/"));
             const pastedHtml = event.clipboardData?.getData("text/html") ?? "";
             const wordImages = imagesFromRtf(event.clipboardData?.getData("text/rtf") ?? "");
             const pastedImageFiles = Array.from(event.clipboardData?.items ?? [])
               .filter(item => item.kind === "file" && item.type.startsWith("image/"))
               .map(item => item.getAsFile())
               .filter((file): file is File => !!file);
+            const imagesToUpload = imageFiles.length ? imageFiles : pastedImageFiles;
             const embeddedDataImages = dataImagesFromHtml(pastedHtml);
             const internalPaste = isInternalPaste(pastedHtml);
             const richTextPaste = !internalPaste && htmlHasRichFormatting(pastedHtml);
@@ -892,9 +894,13 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
               event.preventDefault();
               void this.importPastedDocument(pastedDocument);
               handled = true;
-            } else if (pastedImage && !richTextPaste) {
+            } else if (imagesToUpload.length && !richTextPaste) {
               event.preventDefault();
-              void this.uploadAndInsertPastedImage(pastedImage);
+              void this.uploadAndInsertPastedImage(imagesToUpload);
+              handled = true;
+            } else if (!internalPaste && richTextPaste && /<img\b/i.test(pastedHtml)) {
+              event.preventDefault();
+              void this.pasteRichHtmlWithImages(pastedHtml);
               handled = true;
             } else if (text || pastedHtml) {
               this.zone.run(() => {
@@ -911,7 +917,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
                 handled = true;
               } else if (richTextPaste && pastedHtml && /<img\b[^>]*src=["']data:image\//i.test(pastedHtml)) {
                 event.preventDefault();
-                void this.pasteRichHtmlWithImages(pastedHtml);
+              void this.pasteRichHtmlWithImages(pastedHtml);
                 handled = true;
               } else if (shouldPastePlainTextAsMarkdown(internalPaste, text, this.looksLikeMarkdown(text))) {
                 event.preventDefault();
@@ -1383,7 +1389,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       event.preventDefault();
       this.insertLiteralText(text);
       return true;
-    } else if (!isInternalPaste(html) && this.pasteDetectionService.looksLikeLiteralPlainText(text, html)) {
+    } else if (!isInternalPaste(html) && !/<img\b/i.test(html) && this.pasteDetectionService.looksLikeLiteralPlainText(text, html)) {
       event.preventDefault();
       this.pendingLiteralPaste = text;
       this.pendingLiteralHasHeaders = emailHeadersNearTop(text);
@@ -1431,22 +1437,49 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     const text = this.pendingLiteralPaste ?? "";
     const html = this.pendingLiteralHtml;
     this.dismissLiteralPastePrompt();
-    const consumed = {value: false};
-    this.zone.run(() => this.rawPaste.emit({
-      text,
-      html: html || null,
-      confirmed: true,
-      consume: () => consumed.value = true
-    }));
-    if (!consumed.value && text) {
-      this.insertMarkdownAtCursor(formattedPasteMarkdown(text));
+    if (html && /<img\b/i.test(html)) {
+      void this.pasteRichHtmlWithImages(html);
+    } else {
+      const consumed = {value: false};
+      this.zone.run(() => this.rawPaste.emit({
+        text,
+        html: html || null,
+        confirmed: true,
+        consume: () => consumed.value = true
+      }));
+      if (!consumed.value && text) {
+        this.insertMarkdownAtCursor(formattedPasteMarkdown(text));
+      }
     }
     this.editingChange.emit(true);
   }
 
   private handleEditorKeyDown(event: KeyboardEvent): boolean {
     this.literalPasteShortcut = (event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "v";
-    return this.handleEmojiSuggestionKey(event) || this.handleListIndentKey(event);
+    return this.handleTableBoundaryDelete(event) || this.handleEmojiSuggestionKey(event) || this.handleListIndentKey(event);
+  }
+
+  private handleTableBoundaryDelete(event: KeyboardEvent): boolean {
+    const selection = this.editor?.state.selection;
+    const deleting = event.key === "Backspace" || event.key === "Delete";
+    if (!this.editor?.isEditable || !selection || !deleting || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+      return false;
+    } else if (selection instanceof NodeSelection && selection.node.type.name === "table") {
+      event.preventDefault();
+      return this.editor.commands.deleteSelection();
+    } else if (selection.empty && selection.$from.depth === 1 && selection.$from.parent.type.name === "paragraph" && selection.$from.parent.content.size === 0) {
+      const boundary = event.key === "Backspace" ? selection.$from.before() : selection.$from.after();
+      const resolved = this.editor.state.doc.resolve(boundary);
+      const adjacent = event.key === "Backspace" ? resolved.nodeBefore : resolved.nodeAfter;
+      if (adjacent?.type.name === "table") {
+        event.preventDefault();
+        return this.editor.commands.setNodeSelection(event.key === "Backspace" ? boundary - adjacent.nodeSize : boundary);
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
   }
 
   private handleEmojiSuggestionKey(event: KeyboardEvent): boolean {
@@ -2182,18 +2215,18 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     const fieldNode = this.editor.view.nodeDOM(this.editor.state.selection.from) as HTMLElement;
     if (this.imageSelected && fieldNode?.getBoundingClientRect) {
       const imageRect = fieldNode.getBoundingClientRect();
-      this.tokenEditorAbove = true;
+      this.tokenEditorAbove = false;
       this.tokenEditorMinWidth = 0;
-      this.tokenEditorTop = imageRect.top - rect.top - 6;
-      this.tokenEditorLeft = Math.max(4, imageRect.left - rect.left);
-      return;
+      this.tokenEditorTop = imageRect.top - rect.top + 48;
+      this.tokenEditorLeft = Math.max(8, imageRect.right - rect.left - 8);
+    } else {
+      const coords = this.editor.view.coordsAtPos(this.editor.state.selection.from);
+      const fieldWidth = fieldNode?.getBoundingClientRect ? fieldNode.getBoundingClientRect().width : 0;
+      this.tokenEditorAbove = false;
+      this.tokenEditorMinWidth = Math.min(Math.max(280, fieldWidth), shell.clientWidth - 8);
+      this.tokenEditorTop = coords.bottom - rect.top + 4;
+      this.tokenEditorLeft = Math.max(4, Math.min(coords.left - rect.left, shell.clientWidth - this.tokenEditorMinWidth - 4));
     }
-    const coords = this.editor.view.coordsAtPos(this.editor.state.selection.from);
-    const fieldWidth = fieldNode?.getBoundingClientRect ? fieldNode.getBoundingClientRect().width : 0;
-    this.tokenEditorAbove = false;
-    this.tokenEditorMinWidth = Math.min(Math.max(280, fieldWidth), shell.clientWidth - 8);
-    this.tokenEditorTop = coords.bottom - rect.top + 4;
-    this.tokenEditorLeft = Math.max(4, Math.min(coords.left - rect.left, shell.clientWidth - this.tokenEditorMinWidth - 4));
   }
 
   closeTokenEditor(): void {
@@ -2370,15 +2403,19 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.replaceSelectedImageOnSave = false;
   }
 
-  private async uploadAndInsertPastedImage(pastedImage: File): Promise<void> {
+  private async uploadAndInsertPastedImage(pastedImages: File[]): Promise<void> {
     if (!this.editable) {
       return;
     }
     this.pastedImageUploading = true;
     this.pasteError = "";
     try {
-      const src = await this.uploadedPastedImageUrl(pastedImage);
-      this.editor?.chain().focus().setImage({src, alt: ""}).run();
+      const images = await pastedImages.reduce(async (previous, file) => {
+        const uploaded = await previous;
+        const src = await this.uploadedPastedImageUrl(file);
+        return [...uploaded, {type: "image", attrs: {src, alt: ""}}];
+      }, Promise.resolve([] as {type: string; attrs: {src: string; alt: string}}[]));
+      this.editor?.chain().focus().insertContent(images).run();
     } catch (error) {
       this.pasteError = error?.message || "The image could not be uploaded";
       this.logger.error("pasted image upload failed:", error);
@@ -2439,7 +2476,13 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         const file = this.fileUtilsService.base64ToFileWithName(data, "");
         image.setAttribute("src", await this.uploadedPastedImageUrl(file));
       }
-      this.editor?.chain().focus().insertContent(document.body.innerHTML).run();
+      if (document.body.querySelector("table")) {
+        const converted = await this.documentConversionService.convertClipboardHtml(document.body.innerHTML);
+        this.insertMarkdownAtCursor(this.documentConversionService.separateEditingBlocks(normaliseWordPasteMarkdown(converted.markdown)));
+      } else {
+        this.editor?.chain().focus().insertContent(document.body.innerHTML).run();
+      }
+      this.flushMarkdownEmit();
     } catch (error) {
       this.pasteError = error?.message || "An embedded image could not be uploaded";
       this.logger.error("rich text image paste failed:", error);

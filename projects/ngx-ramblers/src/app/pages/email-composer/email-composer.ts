@@ -228,7 +228,6 @@ import { ButtonDropdownComponent } from "../../modules/common/button-dropdown/bu
 import { ButtonDropdownItem, ButtonDropdownItemType } from "../../models/button-dropdown.model";
 import { MaximisablePanelComponent } from "../../modules/common/maximisable-panel/maximisable-panel";
 import { AlertPanelComponent } from "../../modules/common/alert-panel/alert-panel";
-import { AlertPanelVariant } from "../../models/alert-panel.model";
 import { MemberAdminModalComponent } from "../admin/member-admin-modal/member-admin-modal.component";
 import { ArticleBlockSingleEditor } from "../../modules/common/article-blocks/article-block-single-editor";
 import { SectionDividerSelectComponent } from "../../modules/common/section-divider-select/section-divider-select";
@@ -454,8 +453,10 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
           }
         </ng-template>
         <ng-template #composerStatusAlerts>
-          @if (session.notifyTarget.showAlert) {
-            <app-alert-panel grouped compact class="mb-3" [variant]="composerNotifyVariant()">
+          <app-alert-panel grouped compact
+                           [attr.role]="composerHydrating() || drafting.creatingReleaseNoteUpdate ? 'status' : null"
+                           [attr.aria-live]="composerHydrating() || drafting.creatingReleaseNoteUpdate ? 'polite' : null">
+            @if (session.notifyTarget.showAlert) {
               <app-alert-message [title]="session.notifyTarget.alertTitle || 'Composer'"
                                  [icon]="session.notifyTarget.alert?.icon || faCheckCircle"
                                  [messageKey]="session.notifyTarget.alertMessage || session.notifyTarget.alertTitle || ''">
@@ -463,11 +464,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                   {{ session.notifyTarget.alertMessage }}
                 }
               </app-alert-message>
-            </app-alert-panel>
-          }
-          <app-alert-panel grouped compact
-                           [attr.role]="composerHydrating() || drafting.creatingReleaseNoteUpdate ? 'status' : null"
-                           [attr.aria-live]="composerHydrating() || drafting.creatingReleaseNoteUpdate ? 'polite' : null">
+            }
             @if (drafting.creatingReleaseNoteUpdate) {
               <app-alert-message [messageKey]="state.subject + (state.notificationConfig?.subject?.text || '')"
                                  title="Generating update…" [icon]="faSpinner" [spinning]="true">
@@ -1390,7 +1387,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   private logger: Logger = inject(LoggerFactory).createLogger("EmailComposer", NgxLoggerLevel.ERROR);
-  private typingLogger: Logger = inject(LoggerFactory).createLogger("ComposerTyping", NgxLoggerLevel.INFO);
   private userHasEditedComposer = false;
   private volunteerManagementService = inject(VolunteerManagementService);
   protected volunteerAudienceSummary: VolunteerAudience | null = null;
@@ -1551,17 +1547,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
 
   protected composerHydrating(): boolean {
     return this.inboxReplyLoading || this.pendingDraftLoad || !this.mailMessagingReady || (!this.membersLoaded && !this.openingInboxReply());
-  }
-
-  protected composerNotifyVariant(): AlertPanelVariant {
-    const alertType = this.session.notifyTarget.alert?.type;
-    if (alertType === "danger") {
-      return AlertPanelVariant.DANGER;
-    } else if (alertType === "warning") {
-      return AlertPanelVariant.WARNING;
-    } else {
-      return AlertPanelVariant.SUCCESS;
-    }
   }
 
   private openingInboxReply(): boolean {
@@ -1927,21 +1912,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
 
   protected committeeNotification: Notification | null = null;
   private committeeNotificationInputs: unknown[] = [];
-  private composerCdHeld = false;
-  private composerCdHoldSource: string | null = null;
-  private typingDoChecks = {count: 0};
-
   ngDoCheck(): void {
-    this.typingDoChecks.count += 1;
-    if (this.composerCdHeld) {
-    } else {
-      const started = performance.now();
-      this.refreshCommitteeNotification();
-      const elapsed = performance.now() - started;
-      if (elapsed >= 2) {
-        this.typingLogger.info("ngDoCheck", elapsed.toFixed(1), "ms");
-      }
-    }
+    this.refreshCommitteeNotification();
   }
 
   protected onSubjectModelChange(value: string): void {
@@ -1964,25 +1936,12 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     }
   }
 
-  protected holdComposerChangeDetection(source: string): void {
-    if (this.composerCdHeld) {
-    } else {
-      this.composerCdHeld = true;
-      this.composerCdHoldSource = source;
-      this.typingDoChecks.count = 0;
-      this.changeDetector.detach();
-      this.typingLogger.info("detached composer CD", source);
-    }
+  protected holdComposerChangeDetection(_source: string): void {
+    this.changeDetector.markForCheck();
   }
 
-  protected releaseComposerChangeDetection(source: string): void {
-    if (this.composerCdHeld) {
-      this.composerCdHeld = false;
-      this.typingLogger.info("reattach composer CD", source, "doChecks while held", this.typingDoChecks.count);
-      this.composerCdHoldSource = null;
-      this.changeDetector.reattach();
-      this.changeDetector.markForCheck();
-    }
+  protected releaseComposerChangeDetection(_source: string): void {
+    this.changeDetector.markForCheck();
   }
 
   private refreshCommitteeNotification(): void {
@@ -4056,7 +4015,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
             ? this.session.state.selectedListId?.toString() ?? null
             : null
         });
-        this.session.notify.success({title: "Draft loaded", message: this.draftStatusDetail(draft.title, false)});
       }
     } catch (error) {
       this.logger.error("loadDraft failed:", error);
@@ -4729,7 +4687,6 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   protected armSend(): void {
-    this.releaseComposerChangeDetection("send");
     if (!this.hasSendBlockers()) {
       if (this.confirmSend) {
         this.sendConfirm.as(ConfirmType.SEND_NOTIFICATION);
