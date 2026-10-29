@@ -102,6 +102,11 @@ export const SpacedImage = Image.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      src: {
+        default: null,
+        parseHTML: element => storedAwsImagePath(element.getAttribute("src") || ""),
+        renderHTML: attributes => ({src: nativeApiUrl(awsImageResourcePath(attributes["src"] || ""))})
+      },
       spacing: {
         default: ImageSpacing.Small,
         parseHTML: element => spacingFromStyle(element.getAttribute("style") || ""),

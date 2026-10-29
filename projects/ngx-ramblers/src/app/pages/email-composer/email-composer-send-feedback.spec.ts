@@ -32,6 +32,17 @@ describe("composer feedback after editing without a blur notification", () => {
     return {fixture, instance};
   }
 
+  it("keeps Angular updates attached while editing", async () => {
+    const {fixture, instance} = await composer();
+    const detach = vi.spyOn(instance.changeDetector, "detach");
+    fixture.componentInstance.feedback = () => "Ready";
+    instance.holdComposerChangeDetection("body");
+    instance.changeDetector.markForCheck();
+    await fixture.whenStable();
+    expect(detach).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector("p").textContent).toBe("Ready");
+  });
+
   it("shows Confirm send when Send is clicked while screen updates are paused", async () => {
     const {fixture, instance} = await composer();
     fixture.componentInstance.feedback = () => instance.sendConfirm.as.mock.calls.length ? "Confirm send" : "Editing";

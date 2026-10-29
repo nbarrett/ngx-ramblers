@@ -8,6 +8,16 @@ import { PDFParse } from "pdf-parse";
 import { convertBufferToMarkdown, convertHtmlToMarkdown, convertWordClipboardHtml, normaliseTables, replacePdfImagePlaceholders } from "./document-conversion";
 
 describe("website table conversion", () => {
+  it("keeps text and images from nested email layout tables in clipboard markdown", async () => {
+    const html = '<table><tr><td><table><tr><td><img src="https://group.example.org.uk/banner.png"><p>Autumn update</p></td></tr></table></td></tr><tr><td><table><tr><td><img src="https://group.example.org.uk/event.png"><p>Event details</p></td></tr></table></td></tr></table>';
+    const converted = await convertWordClipboardHtml(html);
+    expect(converted.markdown).toContain("https://group.example.org.uk/banner.png");
+    expect(converted.markdown).toContain("https://group.example.org.uk/event.png");
+    expect(converted.markdown).toContain("Autumn update");
+    expect(converted.markdown).toContain("Event details");
+    expect(converted.markdown).not.toContain("| ---");
+  });
+
   it("preserves every data row in side-by-side headerless tables without converting their layout wrappers", async () => {
     const html = `<table><tr><td><h1>Path checking</h1><p>Introduction.</p>
       <table><tr><td><table><tr><td>Hillside</td><td>Alex Reed</td></tr><tr><td>Woodland</td><td>Vacant</td></tr></table></td>
