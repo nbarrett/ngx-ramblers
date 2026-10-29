@@ -36,6 +36,25 @@ describe("editor paste confirmation", () => {
     return {preventDefault: vi.fn(), clipboardData: {getData: (type: string) => type === "text/plain" ? text : type === "text/html" ? html : ""}} as unknown as ClipboardEvent;
   }
 
+  it("routes HTML with images past the plain-text confirmation", () => {
+    const instance = context();
+    const event = clipboard("Book one Book two", '<p>Book one</p><img src="https://group.example.org.uk/first.png"><p>Book two</p>');
+    expect(instance.handleLiteralPaste(event)).toBe(false);
+    expect(instance.pendingLiteralPaste).toBe(null);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("keeps image HTML when confirming a formatted paste", () => {
+    const instance = context();
+    const html = '<p>Book one</p><img src="https://group.example.org.uk/first.png">';
+    instance.pendingLiteralPaste = "Book one";
+    instance.pendingLiteralHtml = html;
+    instance.pasteRichHtmlWithImages = vi.fn();
+    instance.confirmFormattedPaste();
+    expect(instance.pasteRichHtmlWithImages).toHaveBeenCalledWith(html);
+    expect(instance.rawPaste.emit).not.toHaveBeenCalled();
+  });
+
   it.each([true, false])("preserves diagnostic text through draft reload and sending with preformatted=%s", preformatted => {
     const original = editor();
     const restored = editor();

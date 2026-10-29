@@ -197,8 +197,8 @@ async function convertDocx(buffer: Buffer, imageUploader?: PdfImageUploader): Pr
   return convertHtmlToMarkdown(result.value);
 }
 
-export async function convertHtmlToMarkdown(html: string): Promise<DocumentConversionResponse> {
-  const markdown = htmlToMarkdown(await normaliseTables(html), undefined, true);
+export async function convertHtmlToMarkdown(html: string, preserveWebsiteLayout = false): Promise<DocumentConversionResponse> {
+  const markdown = htmlToMarkdown(await normaliseTables(html, preserveWebsiteLayout), undefined, true);
   return postProcessConvertedMarkdown(markdown);
 }
 
@@ -264,7 +264,7 @@ export async function convertWordClipboardHtml(html: string): Promise<DocumentCo
       paragraph.after(imageParagraph);
     }
   });
-  return convertHtmlToMarkdown(document.body.innerHTML);
+  return convertHtmlToMarkdown(document.body.innerHTML, true);
 }
 
 function pdfResponseFrom(text: string, pageCount: number): DocumentConversionResponse {

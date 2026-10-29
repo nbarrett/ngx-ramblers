@@ -21,6 +21,12 @@ describe("managed image editor storage", () => {
     });
   });
 
+  it("normalises the source attribute used by the base image view", () => {
+    const editor = new Editor({extensions: [StarterKit, SpacedImage.configure({resize: {enabled: true}}), Markdown], content: "![App](site-content/app.png)", contentType: "markdown"});
+    editors.push(editor);
+    expect(editor.view.dom.querySelector("img")?.getAttribute("src")).toBe("/api/aws/s3/site-content/app.png");
+  });
+
   it("keeps image sizing while saving a storage key in HTML image markup", () => {
     const editor = new Editor({
       extensions: [StarterKit, SpacedImage, Markdown],
