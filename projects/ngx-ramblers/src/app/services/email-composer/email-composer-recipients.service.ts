@@ -1,6 +1,6 @@
 import { inject } from "@angular/core";
 import { committeeRoleEmailDiffersFromPersonal, memberHoldsCommitteeRole } from "../../functions/committee-members";
-import { isNumber, kebabCase } from "es-toolkit/compat";
+import { isEqual, isNumber, kebabCase } from "es-toolkit/compat";
 import { Member } from "../../models/member.model";
 import { BrandingMode, ComposerExternalRecipient, RecipientAddressMode, RecipientField, RecipientMode, SendingChannel } from "../../models/email-composer.model";
 import { COMPOSER_VISIBLE_RECIPIENT_CHIP_LIMIT, composerCcFieldAvailable, composerCommitteeRecipients, appendUniqueRecipients, composerEveryoneFilterToken, composerFilterToken, COMPOSER_EVERYONE_FILTER_EMAIL, composerListToken, composerRecipientFromMember, composerRecipientIsSamePerson, composerRecipientsForAddressMode, composerRecipientIsExpandableSet, syncedRecipientAddressMode } from "../../functions/email-composer";
@@ -51,14 +51,15 @@ export class EmailComposerRecipientsService {
             }
         }
     }
+    private cachedCommitteeListRecipients: ComposerExternalRecipient[] = [];
     unbrandedCommitteeListRecipients(): ComposerExternalRecipient[] {
-        if (this.session.state.brandingMode === BrandingMode.UNBRANDED) {
-            return this.pool.unbrandedCommitteeLists()
-                .map(list => composerListToken(list.id, list.name, this.unbrandedListDisplayCount(list)));
+        const recipients = this.session.state.brandingMode === BrandingMode.UNBRANDED
+            ? this.pool.unbrandedCommitteeLists().map(list => composerListToken(list.id, list.name, this.unbrandedListDisplayCount(list)))
+            : [];
+        if (!isEqual(recipients, this.cachedCommitteeListRecipients)) {
+            this.cachedCommitteeListRecipients = recipients;
         }
-        else {
-            return [];
-        }
+        return this.cachedCommitteeListRecipients;
     }
     unbrandedListDisplayCount(list: ListInfo): number {
         if (this.session.state.selectedListId === list.id && this.resolver.unbrandedListExpanded()) {

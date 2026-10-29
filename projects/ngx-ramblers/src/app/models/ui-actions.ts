@@ -104,6 +104,7 @@ export enum StoredValue {
   CONTACT_TYPE = "contact-type",
   CONTACT_US = "contact-us",
   CONTENT_TEMPLATE_VIEW = "content-template-view",
+  CONVERSATION_MAXIMISE = "conversation-maximise",
   COPY_OF = "copy-of",
   COVERAGE = "coverage",
   CUSTOM_DOMAIN_SORT = "custom-domain-sort",

@@ -312,7 +312,7 @@ describe("rebuilding an inbox reply from its link", () => {
     Object.assign(instance, {
       session: {inboxReplyContext: null},
       inboxService: {
-        getThread: vi.fn().mockResolvedValue({thread: {id: "inbound-thread"}, messages: [{threadId: "inbound-thread", messageId: "original-message"}, {threadId: "inbound-thread", messageId: "later-reply"}]}),
+        getThread: vi.fn().mockResolvedValue({thread: {id: "inbound-thread"}, messages: [{threadId: "inbound-thread", messageId: "original-message", receivedAt: 1}, {threadId: "inbound-thread", messageId: "later-reply", receivedAt: 2}]}),
         composeReply: vi.fn().mockResolvedValue({threadId: "inbound-thread"})
       },
       applyInboxReply: vi.fn(),
@@ -326,23 +326,40 @@ describe("rebuilding an inbox reply from its link", () => {
     await instance.rebuildInboxReplyFromRoute(convertToParamMap({[StoredValue.THREAD]: "inbound-thread", [StoredValue.MESSAGE]: "original-message"}));
     expect(instance.inboxService.composeReply).toHaveBeenCalledWith("inbound-thread", {threadId: "inbound-thread", messageId: "original-message", forward: false});
     expect(instance.applyInboxReply).toHaveBeenCalled();
+    expect(instance.inboxService.getThread).not.toHaveBeenCalled();
   });
 
-  it("finds the selected message when the URL wraps the Message-ID in angle brackets", async () => {
+  it("passes the selected Message-ID to the reply endpoint for normalisation", async () => {
     const instance = composer();
     instance.inboxService.getThread.mockResolvedValue({
       thread: {id: "inbound-thread"},
       messages: [{threadId: "inbound-thread", messageId: "abc@mail.example.com"}]
     });
     await instance.rebuildInboxReplyFromRoute(convertToParamMap({[StoredValue.THREAD]: "inbound-thread", [StoredValue.MESSAGE]: "<abc@mail.example.com>"}));
-    expect(instance.inboxService.composeReply).toHaveBeenCalledWith("inbound-thread", {threadId: "inbound-thread", messageId: "abc@mail.example.com", forward: false});
+    expect(instance.inboxService.composeReply).toHaveBeenCalledWith("inbound-thread", {threadId: "inbound-thread", messageId: "<abc@mail.example.com>", forward: false});
     expect(instance.applyInboxReply).toHaveBeenCalled();
+  });
+
+  it("prepares a selected forward without loading the whole conversation", async () => {
+    const instance = composer();
+    await instance.rebuildInboxReplyFromRoute(convertToParamMap({[StoredValue.THREAD]: "inbound-thread", [StoredValue.MESSAGE]: "original-message", [StoredValue.FORWARD]: "true"}));
+    expect(instance.inboxService.getThread).not.toHaveBeenCalled();
+    expect(instance.inboxService.composeReply).toHaveBeenCalledWith("inbound-thread", {threadId: "inbound-thread", messageId: "original-message", forward: true});
+    expect(instance.applyInboxReply).toHaveBeenCalledWith(expect.objectContaining({forward: true}), true);
+  });
+
+  it("loads messages when an older link does not identify the message", async () => {
+    const instance = composer();
+    await instance.rebuildInboxReplyFromRoute(convertToParamMap({[StoredValue.THREAD]: "inbound-thread"}));
+    expect(instance.inboxService.getThread).toHaveBeenCalledWith("inbound-thread");
+    expect(instance.inboxService.composeReply).toHaveBeenCalledWith("inbound-thread", {threadId: "inbound-thread", messageId: "later-reply", forward: false});
   });
 
   it("does not silently replace a missing selected message with a newer reply", async () => {
     const instance = composer();
+    instance.inboxService.composeReply.mockRejectedValue(new Error("No message found on this thread"));
     await instance.rebuildInboxReplyFromRoute(convertToParamMap({[StoredValue.THREAD]: "inbound-thread", [StoredValue.MESSAGE]: "missing-message"}));
-    expect(instance.inboxService.composeReply).not.toHaveBeenCalled();
+    expect(instance.inboxService.composeReply).toHaveBeenCalledWith("inbound-thread", {threadId: "inbound-thread", messageId: "missing-message", forward: false});
     expect(instance.applyInboxReply).not.toHaveBeenCalled();
     expect(instance.inboxReplyLoading).toBe(false);
   });

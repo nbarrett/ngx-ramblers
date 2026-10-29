@@ -1771,6 +1771,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   private flushComposerEditors(): void {
+    this.releaseComposerChangeDetection("flush");
     this.markdownEditors?.forEach(editor => editor.flushMarkdownEmit());
   }
 
@@ -2516,32 +2517,28 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
     if (slug && !this.session.inboxReplyContext) {
       this.inboxReplyLoading = true;
       try {
-        const threadMessages = await this.inboxService.getThread(slug);
-        const threadId = inboxThreadId(threadMessages.thread);
-        if (threadId) {
-          const forward = queryParams.get(StoredValue.FORWARD) === "true";
-          const replyAll = queryParams.get(StoredValue.REPLY_ALL) === "true";
-          const messages = threadMessages.messages ?? [];
-          const messageId = queryParams.get(StoredValue.MESSAGE);
-          const target = messageId ? inboxMessageMatchingId(messages, messageId) : newestInboxMessage(messages);
-          if (target) {
-            const replyThreadId = target.threadId || threadId;
-            const reply = await this.inboxService.composeReply(replyThreadId, {
-              threadId: replyThreadId,
-              messageId: target.messageId,
-              forward
-            });
-            if (replyAll) {
-              const aliases = await this.inboxService.listAliases();
-              reply.cc = replyAllRecipients(reply, target, aliases.flatMap(alias => aliasMailboxAddresses(alias)));
-              reply.replyAll = true;
-            }
-            this.applyInboxReply({...reply, forward}, true);
-          } else {
-            this.logger.error("No messages on thread", slug, "so no reply to rebuild");
+        const forward = queryParams.get(StoredValue.FORWARD) === "true";
+        const replyAll = queryParams.get(StoredValue.REPLY_ALL) === "true";
+        const messageId = queryParams.get(StoredValue.MESSAGE);
+        const threadMessages = replyAll || !messageId ? await this.inboxService.getThread(slug) : null;
+        const threadId = threadMessages ? inboxThreadId(threadMessages.thread) : slug;
+        const messages = threadMessages?.messages ?? [];
+        const target = messageId ? inboxMessageMatchingId(messages, messageId) : newestInboxMessage(messages);
+        if (threadId && (!threadMessages || target)) {
+          const replyThreadId = target?.threadId || threadId;
+          const reply = await this.inboxService.composeReply(replyThreadId, {
+            threadId: replyThreadId,
+            messageId: target?.messageId || messageId,
+            forward
+          });
+          if (replyAll && target) {
+            const aliases = await this.inboxService.listAliases();
+            reply.cc = replyAllRecipients(reply, target, aliases.flatMap(alias => aliasMailboxAddresses(alias)));
+            reply.replyAll = true;
           }
+          this.applyInboxReply({...reply, forward}, true);
         } else {
-          this.logger.error("No thread matching slug", slug, "so no reply to rebuild");
+          this.logger.error("No matching message on thread", slug, "so no reply to rebuild");
         }
       } catch (error) {
         this.logger.error("Failed to rebuild inbox reply for thread", slug, error);
@@ -3589,6 +3586,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   private setActiveStepperTab(key: EmailComposerStepKey, queryParams: Record<string, string | null | undefined> = {}): void {
+    this.releaseComposerChangeDetection("step");
     this.stepperActiveTab = key;
     this.session.syncStateToUrl({...queryParams, [StoredValue.TAB]: key});
   }
@@ -4731,6 +4729,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   protected armSend(): void {
+    this.releaseComposerChangeDetection("send");
     if (!this.hasSendBlockers()) {
       if (this.confirmSend) {
         this.sendConfirm.as(ConfirmType.SEND_NOTIFICATION);
