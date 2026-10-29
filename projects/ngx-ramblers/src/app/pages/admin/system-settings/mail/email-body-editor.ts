@@ -255,6 +255,7 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(): void {
+    this.applyGeneratedContentFlag();
     this.ensureBody();
   }
 
@@ -317,11 +318,27 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
     }
   }
 
+  private processTemplate(): boolean {
+    const name = this.notificationConfig?.templateName as EmailTemplateName;
+    return !!name && EMAIL_TEMPLATES[name]?.kind === EmailTemplateKind.PROCESS;
+  }
+
+  private applyGeneratedContentFlag(): void {
+    if (this.notificationConfig) {
+      if (this.isBuiltInProcess && this.processTemplate()) {
+        this.isAutomaticallyGenerated = true;
+      } else if (!this.notificationConfig.templateName) {
+        this.isAutomaticallyGenerated = this.isBuiltInProcess && this.isPlaceholderOrEmpty(this.notificationConfig.body);
+      }
+    }
+  }
+
   private async ensureBody(): Promise<void> {
     if (!this.notificationConfig) {
       this.ready = false;
       return;
     }
+    this.applyGeneratedContentFlag();
     if (this.notificationConfig.templateName) {
       if (this.loadedForTemplate !== this.notificationConfig.templateName) {
         this.loadedForTemplate = this.notificationConfig.templateName;
@@ -344,7 +361,7 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
     this.busy = true;
     try {
       const response = await this.mailService.editableBody({templateName: this.notificationConfig.templateName, templateOverrides: overrides});
-      this.isAutomaticallyGenerated = this.isBuiltInProcess && this.isPlaceholderOrEmpty(response.body);
+      this.isAutomaticallyGenerated = this.isBuiltInProcess && (this.processTemplate() || this.isPlaceholderOrEmpty(response.body));
       if (!this.isAutomaticallyGenerated && this.notificationConfig.body == null) {
         this.notificationConfig.body = response.body;
       }
@@ -357,8 +374,11 @@ export class EmailBodyEditorComponent implements OnInit, OnChanges {
   }
 
   onBodyChange(value: string): void {
-    this.notificationConfig.body = value;
-    this.recalculateUnusedImageOverrides();
-    this.contentChange.emit();
+    const accept = !this.isAutomaticallyGenerated && !this.isComposerDriven();
+    if (accept) {
+      this.notificationConfig.body = value;
+      this.recalculateUnusedImageOverrides();
+      this.contentChange.emit();
+    }
   }
 }

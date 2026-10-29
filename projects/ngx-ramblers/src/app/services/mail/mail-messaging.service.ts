@@ -12,6 +12,9 @@ import {
   CreateSendSmtpEmailRequest,
   DEFAULT_MAIL_MESSAGING_CONFIG,
   EmailAddress,
+  EMAIL_TEMPLATES,
+  EmailTemplateKind,
+  EmailTemplateName,
   ListSetting,
   MailConfig,
   MailMessagingConfig,
@@ -448,7 +451,9 @@ export class MailMessagingService {
       ),
       templateName: createSendSmtpEmailRequest.notificationConfig.templateName,
       templateOverrides: this.resolveTemplateOverrides(createSendSmtpEmailRequest.notificationConfig.templateOverrides),
-      body: createSendSmtpEmailRequest.notificationConfig.body,
+      body: EMAIL_TEMPLATES[createSendSmtpEmailRequest.notificationConfig.templateName as EmailTemplateName]?.kind === EmailTemplateKind.PROCESS
+        ? null
+        : createSendSmtpEmailRequest.notificationConfig.body,
     };
     if (createSendSmtpEmailRequest.notificationConfig?.bccRoles.length > 0) {
       emailRequest.bcc = createSendSmtpEmailRequest.notificationConfig?.bccRoles?.map(role => this.createBrevoAddress(role));
