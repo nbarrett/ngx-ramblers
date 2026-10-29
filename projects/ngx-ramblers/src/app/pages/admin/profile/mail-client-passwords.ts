@@ -112,7 +112,7 @@ export class MailClientPasswordsComponent implements OnInit, OnDestroy {
   protected newLabel = "";
   protected createdSecret: string | null = null;
   protected creating = false;
-  protected sortKey = MailClientCredentialColumn.CREATED_AT;
+  protected sortKey: string = MailClientCredentialColumn.CREATED_AT;
   protected sortDirection: string = DESCENDING;
   protected readonly columns: SortableTableColumn<MailClientCredentialView>[] = [
     {key: MailClientCredentialColumn.LABEL, label: "Label", sortKey: MailClientCredentialColumn.LABEL},
