@@ -71,10 +71,12 @@ export function mailClientBodySection(message: MailClientMimeMessage, section: s
       return null;
     } else if (numbered[2] === "MIME") {
       return headerBuffer(part.headers.filter(header => /^content-/i.test(header.name)));
-    } else if (numbered[2]) {
-      return null;
-    } else {
+    } else if (numbered[2] === "TEXT" || !numbered[2]) {
       return part.body;
+    } else if (numbered[2].startsWith("HEADER")) {
+      return selectedHeaders(part.headers, numbered[2]);
+    } else {
+      return null;
     }
   } else if (normalised === "TEXT") {
     return message.root.body;

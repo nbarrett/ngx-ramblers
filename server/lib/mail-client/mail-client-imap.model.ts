@@ -13,6 +13,7 @@ export enum MailClientMailboxAttribute {
 export enum MailClientImapCommand {
   AUTHENTICATE = "AUTHENTICATE",
   CAPABILITY = "CAPABILITY",
+  CHECK = "CHECK",
   CLOSE = "CLOSE",
   DONE = "DONE",
   EXAMINE = "EXAMINE",

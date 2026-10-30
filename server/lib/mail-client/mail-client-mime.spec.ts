@@ -115,6 +115,8 @@ describe("mail client MIME fetch", () => {
     expect(selected).not.toContain("Content-Type:");
     expect(mailClientBodySection(mime, "HEADER.FIELDS.NOT (SUBJECT)").toString("utf8")).not.toContain("folded subject");
     expect(mailClientBodySection(mime, "1")).toEqual(Buffer.from("Hello\r\n", "utf8"));
+    expect(mailClientBodySection(mime, "1.TEXT")).toEqual(Buffer.from("Hello\r\n", "utf8"));
+    expect(mailClientBodySection(mime, "1.HEADER").toString("utf8")).toContain("Content-Type: text/plain");
   });
 
   it("propagates attachment download failures instead of serving an incomplete message", async () => {
