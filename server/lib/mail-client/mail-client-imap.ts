@@ -1,5 +1,6 @@
 import net, { Server, Socket } from "net";
 import debug from "debug";
+import { chunk } from "es-toolkit/compat";
 import { envConfig } from "../env-config/env-config";
 import { imapListenPort } from "./mail-client-ports";
 import { authenticateMailClient } from "./mail-client-credentials";
@@ -16,8 +17,8 @@ import {
   messagesInMailbox,
   selectedRoleForUsername
 } from "./mail-client-imap-mailbox";
-import { appendMailClientRfc822 } from "./mail-client-imap-append";
-import { imapEnvelopeFor, rfc822ForMessage } from "./mail-client-rfc822";
+import { appendMailClientRfc822, copyMailClientMessage } from "./mail-client-imap-append";
+import { imapEnvelopeFor } from "./mail-client-rfc822";
 import { mailClientMimeForMessage, mailClientBodyFetches, mailClientBodyStructure } from "./mail-client-mime";
 import { dateTimeFromMillis } from "../shared/dates";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
@@ -440,11 +441,10 @@ async function copyMessages(session: ImapSession, tag: string, args: string, byU
   } else {
     const selected = messagesForSet(session.messages, setText, byUid);
     const role = session.role;
-    const member = session.member;
     const copied = await selected.reduce<Promise<{source: number; destination: number}[]>>(async (previous, entry) => {
       const soFar = await previous;
       const full = await mailboxMessageById(entry.message.id ?? "") ?? entry.message;
-      const appended = await appendMailClientRfc822(role, mailbox, Buffer.from(rfc822ForMessage(full), "utf8"), member);
+      const appended = await copyMailClientMessage(role, mailbox, full);
       return [...soFar, {source: entry.uid, destination: appended.uid}];
     }, Promise.resolve([]));
     const state = await mailboxUidState(role, mailbox);
@@ -458,15 +458,22 @@ async function copyMessages(session: ImapSession, tag: string, args: string, byU
 async function fetchMessages(session: ImapSession, tag: string, args: string, byUid: boolean): Promise<void> {
   const [setText, itemsText] = splitSetAndItems(args);
   const selected = messagesForSet(session.messages, setText, byUid);
+  for (const batch of chunk(selected, 20)) {
+    await fetchMessageBatch(session, batch, itemsText);
+  }
+  write(session, `${tag} OK FETCH completed`);
+}
+
+async function fetchMessageBatch(session: ImapSession, selected: MailClientImapMessage[], itemsText: string): Promise<void> {
   const needsMime = /BODY|RFC822|\bALL\b|\bFAST\b|\bFULL\b/i.test(itemsText);
   const needsContent = needsMime || /\bENVELOPE\b/i.test(itemsText);
   const missingIds = needsContent ? selected.filter(entry => !entry.message.bodyHtml && !entry.message.bodyText).map(entry => entry.message.id).filter(Boolean) : [];
   const loaded = missingIds.length ? await mailboxMessagesById(missingIds) : [];
   const fullMessages = new Map(loaded.map(message => [message.id, message]));
   for (const entry of selected) {
-    entry.message = fullMessages.get(entry.message.id) ?? entry.message;
+    const message = fullMessages.get(entry.message.id) ?? entry.message;
     const metadataOnly = !/BODY(?:\.PEEK)?\[(?!HEADER\b|[0-9.]+\.MIME\])|\bRFC822(?:\.TEXT)?(?=[ )]|$)/i.test(itemsText);
-    const mime = needsMime ? await mailClientMimeForMessage(entry.message, metadataOnly) : null;
+    const mime = needsMime ? await mailClientMimeForMessage(message, metadataOnly) : null;
     const bodies = mime ? mailClientBodyFetches(mime, itemsText) : [];
     if (!session.readOnly && session.member?.id && /BODY\[(?!HEADER)|\bRFC822(?:\.TEXT)?(?=[ )]|$)/i.test(itemsText)) {
       await markThreadSeen(entry.thread, session.member.id, true);
@@ -475,10 +482,10 @@ async function fetchMessages(session: ImapSession, tag: string, args: string, by
     const flags = [entry.seen ? "\\Seen" : null, entry.deleted ? "\\Deleted" : null].filter(Boolean).join(" ");
     const attributes = [`UID ${entry.uid}`, `FLAGS (${flags})`, ...(mime ? [`RFC822.SIZE ${mime.raw.length}`] : [])];
     if (/\bENVELOPE\b|\bALL\b|\bFULL\b/i.test(itemsText)) {
-      attributes.push(`ENVELOPE ${imapEnvelopeFor(entry.message)}`);
+      attributes.push(`ENVELOPE ${imapEnvelopeFor(message)}`);
     }
     if (/\bINTERNALDATE\b|\bALL\b|\bFAST\b|\bFULL\b/i.test(itemsText)) {
-      const date = dateTimeFromMillis(entry.message.sentAt ?? entry.message.receivedAt ?? 0).toUTC().setLocale("en");
+      const date = dateTimeFromMillis(message.sentAt ?? message.receivedAt ?? 0).toUTC().setLocale("en");
       attributes.push(`INTERNALDATE "${date.toFormat(UIDateFormat.MAIL_CLIENT_INTERNAL_DATE).replace(/([+-]\d{2}):(\d{2})$/, "$1$2")}"`);
     }
     if (mime && /\bBODYSTRUCTURE\b|\bFULL\b|\bBODY(?![.\[])/i.test(itemsText)) {
@@ -496,7 +503,6 @@ async function fetchMessages(session: ImapSession, tag: string, args: string, by
     });
     session.socket.write(")\r\n");
   }
-  write(session, `${tag} OK FETCH completed`);
 }
 
 async function storeFlags(session: ImapSession, tag: string, args: string, byUid: boolean): Promise<void> {

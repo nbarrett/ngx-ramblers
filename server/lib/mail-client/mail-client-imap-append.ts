@@ -1,5 +1,5 @@
 import { simpleParser } from "mailparser";
-import { isArray } from "es-toolkit/compat";
+import { isArray, omit } from "es-toolkit/compat";
 import { CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import {
   InboxAddress,
@@ -82,13 +82,22 @@ export async function appendMailClientRfc822(
     } else {
       await persistWithoutRecipients(alias.roleType, outbound, mailbox.folder ?? InboxThreadFolder.INBOX, mailbox.userFolderId);
     }
-    const uid = await mailboxMessageUid(role, mailbox, messageId);
-    const state = await mailboxUidState(role, mailbox);
-    if (!uid) {
-      throw new Error("Message was stored without an IMAP identifier");
-    } else {
-      return {uidValidity: state.uidValidity, uid};
-    }
+    return appendResult(role, mailbox, messageId);
+  }
+}
+
+export async function copyMailClientMessage(role: CommitteeMember, mailbox: MailClientMailbox, message: InboxMessage): Promise<MailClientAppendResult> {
+  const stored = await persistWithoutRecipients(role.type, message, mailbox.folder ?? InboxThreadFolder.INBOX, mailbox.userFolderId);
+  return appendResult(role, mailbox, message.messageId, stored.id);
+}
+
+async function appendResult(role: CommitteeMember, mailbox: MailClientMailbox, messageId: string, documentId: string | null = null): Promise<MailClientAppendResult> {
+  const uid = await mailboxMessageUid(role, mailbox, messageId, documentId);
+  const state = await mailboxUidState(role, mailbox);
+  if (!uid) {
+    throw new Error("Message was stored without an IMAP identifier");
+  } else {
+    return {uidValidity: state.uidValidity, uid};
   }
 }
 
@@ -112,14 +121,14 @@ async function persistWithoutRecipients(roleType: string, outbound: InboxMessage
     slug: `imap-append-${now}`,
     firstSeenAt: now,
     lastSeenAt: now,
-    lastDirection: InboxMessageDirection.OUTBOUND,
+    lastDirection: outbound.direction,
     unread: false,
     messageIds: [outbound.messageId],
     sentFrom: outbound.from,
     externalAddress: outbound.to?.[0] || outbound.from
   });
   const threadId = createdThread.id ?? createdThread._id?.toString() ?? "";
-  const created = await inboxMessageModel.create({...outbound, threadId});
+  const created = await inboxMessageModel.create({...omit(outbound, ["id", "_id"]), threadId});
   return {...created.toObject(), id: created.id ?? created._id?.toString(), threadId};
 }
 

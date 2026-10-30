@@ -1,5 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
-import { ActivatedRoute, Router } from "@angular/router";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCircleCheck, faCircleExclamation, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -21,11 +21,14 @@ import { DESCENDING } from "../../../models/table-filtering.model";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 
 import { MailClientSetupComponent } from "./mail-client-setup";
+import { kebabCase } from "es-toolkit/compat";
+import { AdminPath } from "../../../models/admin-route-paths.model";
+import { MailSettingsTab } from "../../../models/mail.model";
 import { SecretInputComponent } from "../../../modules/common/secret-input/secret-input.component";
 
 @Component({
   selector: "app-mail-client-passwords",
-  imports: [FontAwesomeModule, FormsModule, TooltipDirective, SortableTableComponent, SortableTableCellDirective, DisplayDateAndTimePipe, MailClientSetupComponent, SecretInputComponent],
+  imports: [FontAwesomeModule, FormsModule, TooltipDirective, SortableTableComponent, SortableTableCellDirective, DisplayDateAndTimePipe, MailClientSetupComponent, SecretInputComponent, RouterLink],
   template: `
     @if (settings) {
     <div class="row thumbnail-heading-frame">
@@ -44,7 +47,7 @@ import { SecretInputComponent } from "../../../modules/common/secret-input/secre
             <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
             <div>
               <strong>Mail applications are switched off</strong>
-              <div>A site administrator can turn this on in Mail Settings → API. Groups that are happy with the website inbox can leave it off.</div>
+              <div>A site administrator can turn this on in <a [routerLink]="mailSettingsPath" [queryParams]="mailApiQueryParams">Admin → Mail Settings → API</a>. Groups that are happy with the website inbox can leave it off.</div>
             </div>
           </div>
         } @else {
@@ -103,6 +106,8 @@ export class MailClientPasswordsComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private subscriptions: Subscription[] = [];
+  protected readonly mailSettingsPath = "/" + AdminPath.MAIL_SETTINGS;
+  protected readonly mailApiQueryParams = {[StoredValue.TAB]: kebabCase(MailSettingsTab.MAIL_API_SETTINGS)};
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly faCircleCheck = faCircleCheck;
   protected readonly faPlus = faPlus;

@@ -299,9 +299,9 @@ import { ramblersRegisteredOfficeAddress } from "../../../../models/ramblers-leg
                         <div class="form-check mt-2">
                           <input [(ngModel)]="mailMessagingConfig.mailConfig.allowMailClientAccess"
                             type="checkbox" class="form-check-input" id="allow-mail-client-access">
-                          <label class="form-check-label" for="allow-mail-client-access">Allow Apple Mail, Outlook and Thunderbird</label>
+                          <label class="form-check-label" for="allow-mail-client-access">Allow External Mail Support</label>
                           <div class="form-text">
-                            Off by default. When on, committee members can generate an application password on Profile → External Email Setup and point Apple Mail, Outlook or Thunderbird at this site for SMTP (port 587) and IMAP (port 993). Sends go from a committee role address they hold, are filed in the shared inbox Sent folder, and then go out through the existing mail path. Newsletters and member-list sends stay in the website composer.
+                            Off by default. When on, committee members can generate an application password on Profile → External Email Setup and point Apple Mail, Outlook or Thunderbird at this site for SMTP (port 465) and IMAP (port 993), both with SSL/TLS. Sends go from a committee role address they hold, are filed in the shared inbox Sent folder, and then go out through the existing mail path. Newsletters and member-list sends stay in the website composer.
                           </div>
                         </div>
                       </div>

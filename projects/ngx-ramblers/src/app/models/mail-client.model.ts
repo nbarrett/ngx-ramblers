@@ -5,6 +5,8 @@ export enum MailClientProtocol {
   IMAP = "imap"
 }
 
+export const MAIL_CLIENT_LOCAL_SMTP_PORT = 1587;
+export const MAIL_CLIENT_LOCAL_IMAP_PORT = 1993;
 export const MAIL_CLIENT_SMTP_PORT = 465;
 export const MAIL_CLIENT_IMAP_PORT = 993;
 export const MAIL_CLIENT_MAX_RECIPIENTS = 20;
@@ -41,6 +43,8 @@ export interface MailClientConnectionSettings {
   imapSecure: boolean;
   usernameHint: string;
   allowedFromAddresses: string[];
+  localSmtpPort?: number;
+  localImapPort?: number;
 }
 
 export interface MailClientCreateCredentialRequest {

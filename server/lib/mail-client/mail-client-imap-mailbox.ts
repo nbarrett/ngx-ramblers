@@ -71,8 +71,8 @@ export async function mailboxUidState(role: CommitteeMember, mailbox: MailClient
   return execute(async () => imapUidState(mongoose.connection.db, uidMailboxFor(role, mailbox)));
 }
 
-export async function mailboxMessageUid(role: CommitteeMember, mailbox: MailClientMailbox, rfc822MessageId: string): Promise<number | null> {
-  const messages = await inboxMessageModel.find({messageId: rfc822MessageId}).select("_id").lean();
+export async function mailboxMessageUid(role: CommitteeMember, mailbox: MailClientMailbox, rfc822MessageId: string, documentId: string | null = null): Promise<number | null> {
+  const messages = await inboxMessageModel.find({messageId: rfc822MessageId, ...(documentId ? {_id: documentId} : {})}).select("_id").lean();
   const ids = messages.map(message => String(message._id));
   const memberships = ids.length ? await execute(async () => imapUidMemberships(mongoose.connection.db, uidMailboxFor(role, mailbox), ids)) : [];
   return memberships[0]?.uid ?? null;
