@@ -88,12 +88,39 @@ describe("mail client setup instructions", () => {
     await fixture.whenStable();
     fixture.detectChanges();
     const host = fixture.nativeElement.querySelector("app-secret-input[id='mail-setup-imap-host']");
-    expect(host.querySelector("input").readOnly).toBe(true);
+    expect(host.querySelector("input").readOnly).toBe(false);
     expect(host.querySelector("input").value).toBe(settings.host);
     host.querySelector("button").click();
     await fixture.whenStable();
     fixture.detectChanges();
     expect(copyToClipboard).toHaveBeenCalledWith(settings.host);
+  });
+
+  it("lets a host be edited and switches both ports and security between local and public settings", async () => {
+    const fixture = TestBed.createComponent(MailClientSetupComponent);
+    fixture.componentRef.setInput("settings", {...settings, localImapPort: 11993, localSmtpPort: 11587});
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const host = fixture.nativeElement.querySelector("input[id='mail-setup-imap-host']");
+    host.value = "localhost";
+    host.dispatchEvent(new Event("input"));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector("input[id='mail-setup-smtp-host']").value).toBe("localhost");
+    expect(fixture.nativeElement.querySelector("input[id='mail-setup-imap-port']").value).toBe("11993");
+    expect(fixture.nativeElement.querySelector("input[id='mail-setup-smtp-port']").value).toBe("11587");
+    expect(fixture.componentInstance.connection().imapSecure).toBe(false);
+    fixture.componentRef.setInput("settings", {...settings, localImapPort: 11993, localSmtpPort: 11587});
+    fixture.detectChanges();
+    expect(fixture.componentInstance.connection().host).toBe("localhost");
+    fixture.componentInstance.changeHost(settings.host);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.connection()).toMatchObject({host: settings.host, imapPort: 993, smtpPort: 465, imapSecure: true, smtpSecure: true});
+    expect(settings.host).toBe("mail.group.example.org.uk");
   });
 
   it("uses the supplied local ports and explains why a phone cannot use localhost", async () => {

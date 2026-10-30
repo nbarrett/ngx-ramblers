@@ -7,9 +7,9 @@ import { committeeRolesHeldByMemberId } from "../../../projects/ngx-ramblers/src
 import { normaliseEmail } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 import { systemConfig } from "../config/system-config";
 import { MAIL_CLIENT_IMAP_PORT, MAIL_CLIENT_SMTP_PORT, MailClientConnectionSettings } from "../../../projects/ngx-ramblers/src/app/models/mail-client.model";
-import { envConfig } from "../env-config/env-config";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
 import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
+import { isLocalMailClientHost } from "../../../projects/ngx-ramblers/src/app/functions/mail-client-connection";
 import { imapListenPort, smtpSubmissionPort } from "./mail-client-ports";
 
 export async function mailClientAccessEnabled(): Promise<boolean> {
@@ -37,15 +37,18 @@ export async function connectionSettingsFor(member: Member): Promise<MailClientC
   const roles = await committeeRolesForMember(member);
   const href = stripTrailingSlash(((await systemConfig())?.group?.href || "").trim());
   const flyAppName = process.env[Environment.FLY_APP_NAME]?.trim();
-  const host = envConfig.production ? (flyAppName ? `${flyAppName}.fly.dev` : hostFromHref(href)) : "localhost";
+  const host = hostFromHref(href) || (flyAppName ? `${flyAppName}.fly.dev` : "localhost");
+  const localConnection = isLocalMailClientHost(host);
   return {
     enabled,
     host,
-    smtpPort: envConfig.production ? MAIL_CLIENT_SMTP_PORT : smtpSubmissionPort(),
-    imapPort: envConfig.production ? MAIL_CLIENT_IMAP_PORT : imapListenPort(),
-    smtpSecure: envConfig.production,
-    imapSecure: envConfig.production,
+    smtpPort: localConnection ? smtpSubmissionPort() : MAIL_CLIENT_SMTP_PORT,
+    imapPort: localConnection ? imapListenPort() : MAIL_CLIENT_IMAP_PORT,
+    smtpSecure: !localConnection,
+    imapSecure: !localConnection,
     usernameHint: allowedFromAddresses(roles)[0] || member.userName || "",
+    localImapPort: imapListenPort(),
+    localSmtpPort: smtpSubmissionPort(),
     allowedFromAddresses: allowedFromAddresses(roles)
   };
 }

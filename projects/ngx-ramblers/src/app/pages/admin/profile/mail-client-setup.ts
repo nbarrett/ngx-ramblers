@@ -11,15 +11,16 @@ import {StoredValue} from "../../../models/ui-actions";
 import {SectionToggleTab} from "../../../models/section-toggle.model";
 import {SectionToggle} from "../../../shared/components/section-toggle";
 import {SecretInputComponent} from "../../../modules/common/secret-input/secret-input.component";
+import {mailClientConnectionForHost} from "../../../functions/mail-client-connection";
 import {browserCalendarClientHints, browserDeviceKind, outlookPlatformTabs} from "../../../functions/calendar-add";
 
 @Component({
   selector: "app-mail-client-setup",
   imports: [FormsModule, SectionToggle, SecretInputComponent],
   template: `
-    @if (settings) {
+    @if (connection(); as connection) {
       <p>Read and send committee email in your usual mail app. Inbox, Sent and your committee folders are shared with the website.</p>
-      @if (settings.allowedFromAddresses.length) {
+      @if (connection.allowedFromAddresses.length) {
         <app-section-toggle stackOnMobile [tabs]="platformTabs" [selectedTab]="platform()"
           (selectedTabChange)="selectPlatform($event)"/>
         <p class="fw-bold mt-3 mb-2">Which email app do you use?</p>
@@ -28,7 +29,7 @@ import {browserCalendarClientHints, browserDeviceKind, outlookPlatformTabs} from
         <div class="form-group mt-3 mb-3">
           <label for="mail-client-address">Which committee address would you like to use?</label>
           <select id="mail-client-address" class="form-select" [ngModel]="address()" (ngModelChange)="selectAddress($event)">
-            @for (email of settings.allowedFromAddresses; track email) {
+            @for (email of connection.allowedFromAddresses; track email) {
               <option [value]="email">{{ email }}</option>
             }
           </select>
@@ -76,27 +77,27 @@ import {browserCalendarClientHints, browserDeviceKind, outlookPlatformTabs} from
           </li>
           <li class="mb-4">
             <h3 class="h6">Fill in the account settings</h3>
-            <p>Choose <strong>IMAP</strong> for incoming mail and <strong>SMTP</strong> for outgoing mail. Use the clipboard icon inside each box to copy its value.</p>
+            <p>Choose <strong>IMAP</strong> for incoming mail and <strong>SMTP</strong> for outgoing mail. Use the clipboard icon inside each box to copy its value. You can edit either server name; entering localhost switches both servers to local testing settings.</p>
             <div class="row g-3">
               <div class="col-md-6">
                 <h4 class="h6">Incoming mail (IMAP)</h4>
                 <label for="mail-setup-imap-host">{{ serverLabel() }}</label>
-                <app-secret-input id="mail-setup-imap-host" [ngModel]="settings.host" [readOnly]="true" [reveal]="false" autocomplete="off"/>
+                <app-secret-input id="mail-setup-imap-host" [ngModel]="connection.host" (ngModelChange)="changeHost($event)" [reveal]="false" autocomplete="off"/>
                 <label class="mt-2" for="mail-setup-imap-port">Port — incoming server</label>
-                <app-secret-input id="mail-setup-imap-port" [ngModel]="'' + settings.imapPort" [readOnly]="true" [reveal]="false" autocomplete="off"/>
+                <app-secret-input id="mail-setup-imap-port" [ngModel]="'' + connection.imapPort" [readOnly]="true" [reveal]="false" autocomplete="off"/>
                 <label class="mt-2" for="mail-setup-imap-user">{{ usernameLabel() }}</label>
                 <app-secret-input id="mail-setup-imap-user" [ngModel]="address()" [readOnly]="true" [reveal]="false" autocomplete="off"/>
-                <p class="mt-2 mb-0">Connection security: <strong>{{ settings.imapSecure ? "SSL/TLS" : "None" }}</strong>.</p>
+                <p class="mt-2 mb-0">Connection security: <strong>{{ connection.imapSecure ? "SSL/TLS" : "None" }}</strong>.</p>
               </div>
               <div class="col-md-6">
                 <h4 class="h6">Outgoing mail (SMTP)</h4>
                 <label for="mail-setup-smtp-host">{{ serverLabel() }}</label>
-                <app-secret-input id="mail-setup-smtp-host" [ngModel]="settings.host" [readOnly]="true" [reveal]="false" autocomplete="off"/>
+                <app-secret-input id="mail-setup-smtp-host" [ngModel]="connection.host" (ngModelChange)="changeHost($event)" [reveal]="false" autocomplete="off"/>
                 <label class="mt-2" for="mail-setup-smtp-port">Port — outgoing server</label>
-                <app-secret-input id="mail-setup-smtp-port" [ngModel]="'' + settings.smtpPort" [readOnly]="true" [reveal]="false" autocomplete="off"/>
+                <app-secret-input id="mail-setup-smtp-port" [ngModel]="'' + connection.smtpPort" [readOnly]="true" [reveal]="false" autocomplete="off"/>
                 <label class="mt-2" for="mail-setup-smtp-user">{{ usernameLabel() }}</label>
                 <app-secret-input id="mail-setup-smtp-user" [ngModel]="address()" [readOnly]="true" [reveal]="false" autocomplete="off"/>
-                <p class="mt-2 mb-0">Connection security: <strong>{{ settings.smtpSecure ? "SSL/TLS" : "None" }}</strong>.</p>
+                <p class="mt-2 mb-0">Connection security: <strong>{{ connection.smtpSecure ? "SSL/TLS" : "None" }}</strong>.</p>
               </div>
             </div>
             <p class="mt-3">Paste the <strong>same application password</strong> from step 1 into both password boxes.
@@ -105,12 +106,12 @@ import {browserCalendarClientHints, browserDeviceKind, outlookPlatformTabs} from
               <p>For both servers, choose <strong>Authentication method → Normal password</strong>. Choose <strong>Re-test</strong>, then <strong>Done</strong>.</p>
             } @else if (selectedApp() === MailClientSetupApp.APPLE_MAIL || selectedApp() === MailClientSetupApp.IOS_MAIL) {
               <p>Use <strong>Password</strong> authentication. If automatic connection settings are enabled, turn them off to enter the ports above.
-                Set <strong>Use TLS/SSL</strong> {{ settings.imapSecure ? "on" : "off" }} for incoming mail and {{ settings.smtpSecure ? "on" : "off" }} for outgoing mail, then save the account.</p>
+                Set <strong>Use TLS/SSL</strong> {{ connection.imapSecure ? "on" : "off" }} for incoming mail and {{ connection.smtpSecure ? "on" : "off" }} for outgoing mail, then save the account.</p>
             } @else {
               <p>Use password authentication. Choose <strong>SSL/TLS</strong> where encryption is requested if shown above. Do not choose STARTTLS.
                 Choose <strong>Connect</strong> or <strong>Done</strong> to save the account.</p>
             }
-            @if (!settings.imapSecure || !settings.smtpSecure) {
+            @if (!connection.imapSecure || !connection.smtpSecure) {
               <p>This is a local test connection. Use a mail app on this computer; “localhost” on a phone refers to the phone itself. New Outlook may also be unable to reach a local-only server.</p>
             }
           </li>
@@ -136,6 +137,7 @@ export class MailClientSetupComponent implements OnInit, OnDestroy {
   protected readonly StoredValue = StoredValue;
   readonly selectedApp = signal<MailClientSetupApp | OutlookCalendarPlatform>(MailClientSetupApp.THUNDERBIRD);
   readonly address = signal("");
+  readonly connection = signal<MailClientConnectionSettings | null>(null);
   readonly platform = signal<MailClientSetupPlatform>(this.detectedPlatform());
   readonly platformTabs: SectionToggleTab[] = [
     {value: MailClientSetupPlatform.MAC, label: "Mac", icon: faApple},
@@ -151,7 +153,10 @@ export class MailClientSetupComponent implements OnInit, OnDestroy {
   ];
 
   @Input() set settings(value: MailClientConnectionSettings | null) {
+    const previousHost = this.connection()?.host ?? null;
+    const overridden = this.currentSettings && previousHost !== this.currentSettings.host;
     this.currentSettings = value;
+    this.connection.set(value ? mailClientConnectionForHost(value, overridden ? previousHost : value.host) : null);
     this.restoreAddress(this.route.snapshot.queryParams[StoredValue.MAIL_CLIENT_ADDRESS]);
   }
 
@@ -208,6 +213,12 @@ export class MailClientSetupComponent implements OnInit, OnDestroy {
         : requested === OutlookCalendarPlatform.MAC || requested === MailClientSetupApp.APPLE_MAIL ? MailClientSetupPlatform.MAC : this.detectedPlatform();
     this.platform.set(explicitPlatform ? explicitPlatform.value as MailClientSetupPlatform : inferred);
     this.selectApp(this.appTabs.some(tab => tab.value === requested) ? requested : this.appTabs[0].value);
+  }
+
+  changeHost(host: string): void {
+    if (this.settings) {
+      this.connection.set(mailClientConnectionForHost(this.settings, host));
+    }
   }
 
   selectApp(value: string): void {

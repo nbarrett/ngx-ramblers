@@ -299,4 +299,23 @@ describe("mail application IMAP commands", () => {
     expect(outputOf(write)).toContain("a1 OK FETCH completed");
   });
 
+  it("streams a large folder in bounded database reads without retaining full bodies in the session", async () => {
+    const write = sandbox.spy();
+    const session = sessionFor(write);
+    const template = session.messages[0];
+    session.messages = Array.from({length: 45}, (_unused, index) => ({...template, uid: index + 1, seq: index + 1, message: {...template.message, id: `message-${index}`, bodyHtml: null, bodyText: null}}));
+    const load = sandbox.stub(mailboxSource, "mailboxMessagesById").callsFake(async ids => {
+      if (ids[0] === "message-20") {
+        expect(outputOf(write)).toContain("* 20 FETCH");
+        expect(outputOf(write)).not.toContain("a1 OK FETCH completed");
+      }
+      return ids.map(id => ({...message, id, bodyHtml: "<p>Fictional message body</p>"}));
+    });
+    await handleMailClientImapCommand(session, "a1", "UID", "FETCH 1:* (UID RFC822.SIZE FLAGS BODY.PEEK[HEADER.FIELDS (SUBJECT)])");
+    expect(load.args.map(args => args[0].length)).toEqual([20, 20, 5]);
+    expect(outputOf(write)).toContain("* 45 FETCH");
+    expect(outputOf(write)).toContain("a1 OK FETCH completed");
+    expect(session.messages.every(entry => entry.message.bodyHtml === null)).toBe(true);
+  });
+
 });

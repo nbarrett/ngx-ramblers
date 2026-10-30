@@ -62,14 +62,30 @@ describe("mail client transport", () => {
     expect(imapListenPort()).toEqual(11993);
   });
 
-  it("advertises the Fly certificate hostname rather than a proxied website hostname", async () => {
+  it("prefers the configured public hostname over the Fly application hostname", async () => {
     sandbox.stub(envConfig, "production").value(true);
     process.env[Environment.FLY_APP_NAME] = "example-group";
+    expect((await connectionSettingsFor(member)).host).toEqual("group.example.org.uk");
+  });
+
+  it("falls back to the Fly hostname when no public site address is configured", async () => {
+    sandbox.stub(envConfig, "production").value(true);
+    process.env[Environment.FLY_APP_NAME] = "example-group";
+    (system.systemConfig as sinon.SinonStub).resolves({group: {href: ""}});
     expect((await connectionSettingsFor(member)).host).toEqual("example-group.fly.dev");
   });
 
-  it("keeps plaintext connections on local development ports and localhost", async () => {
+  it("shows the public mail server and TLS ports when the website runs locally", async () => {
     sandbox.stub(envConfig, "production").value(false);
+    process.env[Environment.FLY_APP_NAME] = "example-group";
+    process.env.SMTP_SUBMISSION_PORT = "11587";
+    process.env.IMAP_PORT = "11993";
+    expect(await connectionSettingsFor(member)).toMatchObject({host: "group.example.org.uk", smtpPort: 465, imapPort: 993, smtpSecure: true, imapSecure: true});
+  });
+
+  it("uses local listener settings only when the configured site itself is localhost", async () => {
+    sandbox.stub(envConfig, "production").value(false);
+    (system.systemConfig as sinon.SinonStub).resolves({group: {href: "http://localhost:4200"}});
     const settings = await connectionSettingsFor(member);
     expect(settings).toMatchObject({host: "localhost", smtpPort: 1587, imapPort: 1993, smtpSecure: false, imapSecure: false});
   });
