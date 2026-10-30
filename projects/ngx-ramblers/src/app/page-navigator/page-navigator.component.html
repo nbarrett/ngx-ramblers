@@ -8,6 +8,18 @@
   </li>
 }
 
+@if (showMobileInbox()) {
+  <li class="navigation d-lg-none">
+    <a (click)="unToggleMenu()" [ngClass]="{'active' : isOnPage(inboxLink)}"
+       [attr.aria-current]="isOnPage(inboxLink) ? 'page' : null"
+       [routerLink]="'/' + inboxLink.href"
+       [queryParams]="{}"
+       title="{{inboxLink.title}}">
+      <fa-icon [icon]="faInbox" class="me-2"/><span class="navigation-label">{{inboxLink.title}}</span>
+    </a>
+  </li>
+}
+
 @if (mobileAppAccess.allowed(MobileAppAction.ACCESS)) {
   <li class="navigation d-lg-none">
     <a (click)="unToggleMenu()" [routerLink]="['/', AppPath.ROOT]" [queryParams]="{}">

@@ -1,5 +1,5 @@
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faPersonHiking, faSliders } from "@fortawesome/free-solid-svg-icons";
+import { faInbox, faPersonHiking, faSliders } from "@fortawesome/free-solid-svg-icons";
 import { AdminPath } from "../models/admin-route-paths.model";
 import { AccessLevel } from "../models/member-resource.model";
 import { AppPath } from "../models/route-follow.model";
@@ -36,9 +36,8 @@ export class PageNavigatorComponent implements OnInit, OnDestroy {
   protected readonly appSettingsQuery = {[StoredValue.APP_SETTINGS]: true};
   protected readonly faPersonHiking = faPersonHiking;
   protected readonly faSliders = faSliders;
-
-
-  private readonly inboxLink: Link = {href: AdminPath.INBOX, title: "Inbox", accessLevel: AccessLevel.COMMITTEE};
+  protected readonly faInbox = faInbox;
+  readonly inboxLink: Link = {href: AdminPath.INBOX, title: "Inbox", accessLevel: AccessLevel.COMMITTEE};
 
   private logger: Logger = inject(LoggerFactory).createLogger("PageNavigatorComponent", NgxLoggerLevel.ERROR);
   private broadcastService = inject<BroadcastService<any>>(BroadcastService);
@@ -74,14 +73,32 @@ export class PageNavigatorComponent implements OnInit, OnDestroy {
   }
 
   isOnPage(link: Link): boolean {
-    const currentPath = this.router.url.split(/[?#]/)[0];
-    const matchingPages = this.pages().filter(page => {
-      const path = this.navigationPath(page);
-      return currentPath === path || (path !== "/" && currentPath.startsWith(`${path}/`));
-    });
-    const selectedPage = matchingPages.reduce<Link | null>((selected, page) =>
-      !selected || this.navigationPath(page).length > this.navigationPath(selected).length ? page : selected, null);
-    return !!selectedPage && this.navigationPath(selectedPage) === this.navigationPath(link);
+    const current = this.currentSegments();
+    if (this.linkCoversCurrent(this.inboxLink, current) && this.hasAccess(this.inboxLink)) {
+      return this.navigationPath(link) === this.navigationPath(this.inboxLink);
+    } else {
+      const matchingPages = this.pages().filter(page => this.linkCoversCurrent(page, current));
+      const selectedPage = matchingPages.reduce<Link | null>((selected, page) =>
+        !selected || this.linkSegments(page).length > this.linkSegments(selected).length ? page : selected, null);
+      return !!selectedPage && this.navigationPath(selectedPage) === this.navigationPath(link);
+    }
+  }
+
+  private currentSegments(): string[] {
+    return this.router.parseUrl(this.router.url)?.root?.children?.primary?.segments?.map(segment => segment.path) ?? [];
+  }
+
+  private linkSegments(link: Link): string[] {
+    return this.navigationPath(link).split("/").filter(Boolean);
+  }
+
+  private linkCoversCurrent(link: Link, current: string[]): boolean {
+    const target = this.linkSegments(link);
+    if (target.length === 0) {
+      return current.length === 0;
+    } else {
+      return target.every((segment, index) => current[index] === segment);
+    }
   }
 
   private navigationPath(link: Link): string {
@@ -89,9 +106,11 @@ export class PageNavigatorComponent implements OnInit, OnDestroy {
   }
 
   pages(): Link[] {
-    const configuredPages = (this.pageService?.group?.pages || [])
-      .filter(link => this.navigationPath(link) !== this.navigationPath(this.inboxLink));
-    return [...configuredPages, this.inboxLink].filter(link => this.hasAccess(link) && this.allowedInNgxLite(link));
+    return (this.pageService?.group?.pages || []).filter(link => this.hasAccess(link) && this.allowedInNgxLite(link));
+  }
+
+  showMobileInbox(): boolean {
+    return this.hasAccess(this.inboxLink) && !this.pages().some(link => this.navigationPath(link) === this.navigationPath(this.inboxLink));
   }
 
   private hasAccess(link: Link): boolean {

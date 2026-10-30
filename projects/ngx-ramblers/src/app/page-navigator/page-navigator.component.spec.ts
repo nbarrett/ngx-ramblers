@@ -32,23 +32,40 @@ describe("automatic inbox navigation", () => {
     });
   });
 
-  it("provides Inbox without a configured menu entry and removes manual duplicates", () => {
+  it("keeps the navbar to System Config pages and offers Inbox only in the mobile menu for committee members", () => {
     const component = TestBed.createComponent(PageNavigatorComponent).componentInstance;
-    expect(component.pages().filter(page => page.href === AdminPath.INBOX).length).toBe(1);
-    state.pages = [...state.pages, {href: "/admin/inbox/", title: "Old inbox", accessLevel: AccessLevel.PUBLIC}];
-    expect(component.pages().filter(page => page.href?.includes("inbox"))).toEqual([
-      {href: AdminPath.INBOX, title: "Inbox", accessLevel: AccessLevel.COMMITTEE}
-    ]);
-    state.committee = false;
     expect(component.pages().some(page => page.href?.includes("inbox"))).toBe(false);
+    expect(component.showMobileInbox()).toBe(true);
+    state.committee = false;
+    expect(component.showMobileInbox()).toBe(false);
   });
 
-  it("highlights Inbox alone for a bookmarked thread and Admin for other admin screens", () => {
+  it("does not add a mobile Inbox item when Inbox is already a navbar page", () => {
+    state.pages = [...state.pages, {href: AdminPath.INBOX, title: "Inbox", accessLevel: AccessLevel.COMMITTEE}];
+    const component = TestBed.createComponent(PageNavigatorComponent).componentInstance;
+    expect(component.pages().filter(page => page.href === AdminPath.INBOX).length).toBe(1);
+    expect(component.showMobileInbox()).toBe(false);
+  });
+
+  it("highlights a configured Inbox page for a bookmarked thread and Admin for other admin screens", () => {
+    state.pages = [...state.pages, {href: AdminPath.INBOX, title: "Inbox", accessLevel: AccessLevel.COMMITTEE}];
     const component = TestBed.createComponent(PageNavigatorComponent).componentInstance;
     const router = TestBed.inject(Router);
     vi.spyOn(router, "url", "get").mockReturnValue("/admin/inbox?thread=walk-enquiry&mailbox-view=sent");
     expect(component.pages().filter(page => component.isOnPage(page)).map(page => page.title)).toEqual(["Inbox"]);
     vi.spyOn(router, "url", "get").mockReturnValue("/admin/member-admin");
+    expect(component.pages().filter(page => component.isOnPage(page)).map(page => page.title)).toEqual(["Admin"]);
+  });
+
+  it("selects the mobile Inbox item instead of Admin while reading mail", () => {
+    const component = TestBed.createComponent(PageNavigatorComponent).componentInstance;
+    const router = TestBed.inject(Router);
+    vi.spyOn(router, "url", "get").mockReturnValue("/admin/inbox?thread=walk-enquiry");
+    expect(component.isOnPage(component.inboxLink)).toBe(true);
+    expect(component.isOnPage(component.pages().find(page => page.title === "Admin"))).toBe(false);
+    expect(component.pages().filter(page => component.isOnPage(page)).map(page => page.title)).toEqual([]);
+    vi.spyOn(router, "url", "get").mockReturnValue("/admin/member-admin");
+    expect(component.isOnPage(component.inboxLink)).toBe(false);
     expect(component.pages().filter(page => component.isOnPage(page)).map(page => page.title)).toEqual(["Admin"]);
   });
 });
