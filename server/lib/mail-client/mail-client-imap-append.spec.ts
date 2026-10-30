@@ -5,6 +5,7 @@ import {appendMailClientRfc822, copyMailClientMessage} from "./mail-client-imap-
 import * as aliases from "../inbox/inbox-aliases";
 import * as mailboxQueries from "./mail-client-imap-mailbox";
 import * as submission from "./mail-client-submit";
+import * as deleted from "../inbox/inbox-deleted";
 import {inboxThread} from "../mongo/models/inbox-thread";
 import {inboxMessage} from "../mongo/models/inbox-message";
 import {CommitteeMember} from "../../../projects/ngx-ramblers/src/app/models/committee.model";
@@ -40,22 +41,22 @@ describe("mail application saved copies", () => {
     expect(store.called).toBe(false);
   });
 
-  it("copies into Deleted with its own identifier and preserves the source and attachment references", async () => {
+  it("files a copy into Deleted on the existing conversation", async () => {
     const source = {id: "source-message", _id: "source-message", threadId: "source-thread", messageId, direction: InboxMessageDirection.INBOUND, attachments: [{filename: "notes.pdf", s3Key: "inbox-attachments/notes.pdf"}]} as unknown as InboxMessage;
     const destination = {name: "Deleted", folder: InboxThreadFolder.DELETED, userFolderId: null};
-    const threadCreate = sandbox.stub(inboxThread, "create").resolves({id: "copied-thread"} as any);
-    const messageCreate = sandbox.stub(inboxMessage, "create").resolves({id: "copied-message", toObject: () => ({id: "copied-message"})} as any);
-    const update = sandbox.stub(inboxThread, "updateOne");
+    (inboxThread.findById as sinon.SinonStub).returns({lean: async () => ({tenantSlug: "example", messageIds: [messageId]})} as any);
+    const record = sandbox.stub(deleted, "recordThreadDeletion").resolves();
+    const threadCreate = sandbox.stub(inboxThread, "create");
+    const messageFind = sandbox.stub(inboxMessage, "find").returns({lean: async () => [source]} as any);
     const uid = sandbox.stub(mailboxQueries, "mailboxMessageUid").resolves(15);
     const upload = sandbox.stub(submission, "storeMailClientAttachments");
     expect(await copyMailClientMessage(role, destination, source)).toEqual({uidValidity: 4, uid: 15});
-    expect(threadCreate.firstCall.args[0]).toMatchObject({roleType: "chair", folder: InboxThreadFolder.DELETED, lastDirection: InboxMessageDirection.INBOUND});
-    expect(messageCreate.firstCall.args[0]).toMatchObject({threadId: "copied-thread", messageId, direction: InboxMessageDirection.INBOUND, attachments: source.attachments});
-    expect(messageCreate.firstCall.args[0]).not.toHaveProperty("_id");
-    expect(messageCreate.firstCall.args[0]).not.toHaveProperty("id");
-    expect(uid.firstCall.args).toEqual([role, destination, messageId, "copied-message"]);
+    expect(record.calledOnce).toBe(true);
+    expect(record.firstCall.args[2]).toEqual("source-thread");
+    expect(messageFind.calledOnce).toBe(true);
+    expect(threadCreate.called).toBe(false);
+    expect(uid.firstCall.args).toEqual([role, destination, messageId, "source-message"]);
     expect(source.threadId).toBe("source-thread");
-    expect(update.called).toBe(false);
     expect(upload.called).toBe(false);
   });
 

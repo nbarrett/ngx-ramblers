@@ -7,8 +7,13 @@ import { authenticateMailClient } from "./mail-client-credentials";
 import { committeeRolesForMember, mailClientAccessEnabled } from "./mail-client-auth";
 import {
   createMailboxFolder,
+  renameMailboxFolder,
+  deleteMailboxFolder,
+  clientOnlyMailboxName,
+  renamedIntoDeleted,
   listMailboxes,
   mailboxByName,
+  normalisedMailboxName,
   mailboxMessageById,
   mailboxMessagesById,
   mailboxUidState,
@@ -23,7 +28,7 @@ import { mailClientMimeForMessage, mailClientBodyFetches, mailClientBodyStructur
 import { dateTimeFromMillis } from "../shared/dates";
 import { UIDateFormat } from "../../../projects/ngx-ramblers/src/app/models/date-format.model";
 import { InboxThreadFolder } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { ImapSearchCriterion, ImapSequenceRange, ImapSession, MailClientImapAuth, MailClientImapCapability, MailClientImapCommand, MailClientImapMessage, MailClientMailboxAttribute } from "./mail-client-imap.model";
+import { ImapSearchCriterion, ImapSequenceRange, ImapSession, MailClientImapAuth, MailClientImapCapability, MailClientImapCommand, MailClientImapMessage, MailClientMailbox, MailClientMailboxAttribute } from "./mail-client-imap.model";
 
 const debugLog = debug(envConfig.logNamespace("mail-client:imap"));
 debugLog.enabled = true;
@@ -63,7 +68,23 @@ function handleSocket(socket: Socket): void {
 }
 
 async function processBuffer(session: ImapSession): Promise<void> {
-  if (session.literal && session.literal.remaining > 0) {
+  if (session.commandLiteral && session.commandLiteral.remaining > 0) {
+    if (session.incoming.length === 0) {
+      return;
+    } else {
+      const take = session.incoming.subarray(0, session.commandLiteral.remaining);
+      session.commandLiteral.chunks.push(Buffer.from(Uint8Array.from(take)));
+      session.commandLiteral.remaining -= take.length;
+      session.incoming = session.incoming.subarray(take.length);
+      if (session.commandLiteral.remaining === 0) {
+        const literal = session.commandLiteral;
+        session.commandLiteral = null;
+        const text = Buffer.concat(literal.chunks.map(chunk => Uint8Array.from(chunk))).toString("utf8");
+        session.incoming = Buffer.concat([Uint8Array.from(Buffer.from(`${literal.line}${text}\r\n`)), Uint8Array.from(session.incoming)]);
+      }
+      await processBuffer(session);
+    }
+  } else if (session.literal && session.literal.remaining > 0) {
     debugLog("APPEND data", {tag: session.literal.tag, available: session.incoming.length, remaining: session.literal.remaining});
     const take = session.incoming.subarray(0, session.literal.remaining);
     session.literal.chunks.push(Buffer.from(Uint8Array.from(take)));
@@ -84,7 +105,14 @@ async function processBuffer(session: ImapSession): Promise<void> {
       const line = session.incoming.subarray(0, hasReturn ? newline - 1 : newline).toString("utf8");
       session.incoming = session.incoming.subarray(newline + 1);
       const trimmed = line.trim();
-      if (trimmed) {
+      const commandLiteral = trimmed.match(/^(.*)\{(\d+)(\+?)\}\s*$/);
+      const parsedLiteral = commandLiteral ? parseTagged(`${commandLiteral[1]} X`) : null;
+      if (commandLiteral && parsedLiteral && parsedLiteral.command.toUpperCase() !== MailClientImapCommand.APPEND) {
+        session.commandLiteral = {line: commandLiteral[1], remaining: Number(commandLiteral[2]), chunks: [], plus: commandLiteral[3] === "+"};
+        if (!session.commandLiteral.plus) {
+          write(session, "+ Ready for literal data");
+        }
+      } else if (trimmed) {
         await handleLine(session, trimmed);
       }
       await processBuffer(session);
@@ -131,7 +159,7 @@ export async function handleMailClientImapCommand(session: ImapSession, tag: str
   const upper = command.toUpperCase();
   debugLog("IMAP command", {connection: session.socket.remotePort, tag, command: upper, args: loggedImapArgs(upper, args)});
   if (upper === MailClientImapCommand.CAPABILITY) {
-    write(session, `* CAPABILITY ${MailClientImapCapability.IMAP4REV1} AUTH=${MailClientImapAuth.PLAIN} ${MailClientImapCommand.IDLE} ${MailClientImapCapability.UIDPLUS} ${MailClientImapCapability.SPECIAL_USE}`);
+    write(session, `* CAPABILITY ${MailClientImapCapability.IMAP4REV1} AUTH=${MailClientImapAuth.PLAIN} ${MailClientImapCommand.IDLE} ${MailClientImapCommand.MOVE} ${MailClientImapCapability.UIDPLUS} ${MailClientImapCapability.SPECIAL_USE}`);
     write(session, `${tag} OK ${MailClientImapCommand.CAPABILITY} completed`);
   } else if (upper === MailClientImapCommand.NOOP || upper === MailClientImapCommand.CHECK) {
     await refreshSelectedMailbox(session);
@@ -161,7 +189,12 @@ export async function handleMailClientImapCommand(session: ImapSession, tag: str
   } else if (upper === MailClientImapCommand.SELECT || upper === MailClientImapCommand.EXAMINE) {
     await selectMailbox(session, tag, unquote(args), upper === MailClientImapCommand.EXAMINE);
   } else if (upper === MailClientImapCommand.CREATE) {
-    await createMailbox(session, tag, unquote(args));
+    const [name] = splitQuoted(args);
+    await createMailbox(session, tag, name);
+  } else if (upper === MailClientImapCommand.RENAME) {
+    await renameMailbox(session, tag, args);
+  } else if (upper === MailClientImapCommand.DELETE) {
+    await deleteMailbox(session, tag, args);
   } else if (upper === MailClientImapCommand.SUBSCRIBE || upper === MailClientImapCommand.UNSUBSCRIBE) {
     write(session, `${tag} OK ${upper} completed`);
   } else if (upper === MailClientImapCommand.ID) {
@@ -194,8 +227,10 @@ export async function handleMailClientImapCommand(session: ImapSession, tag: str
     await storeFlags(session, tag, args, false);
   } else if (upper === MailClientImapCommand.UID && args.toUpperCase().startsWith(MailClientImapCommand.STORE)) {
     await storeFlags(session, tag, args.slice(MailClientImapCommand.STORE.length).trim(), true);
-  } else if (upper === MailClientImapCommand.COPY || (upper === MailClientImapCommand.UID && args.toUpperCase().startsWith(MailClientImapCommand.COPY))) {
-    await copyMessages(session, tag, upper === MailClientImapCommand.UID ? args.slice(MailClientImapCommand.COPY.length).trim() : args, upper === MailClientImapCommand.UID);
+  } else if (upper === MailClientImapCommand.COPY || upper === MailClientImapCommand.MOVE || (upper === MailClientImapCommand.UID && (args.toUpperCase().startsWith(MailClientImapCommand.COPY) || args.toUpperCase().startsWith(MailClientImapCommand.MOVE)))) {
+    const move = upper === MailClientImapCommand.MOVE || args.toUpperCase().startsWith(MailClientImapCommand.MOVE);
+    const command = move ? MailClientImapCommand.MOVE : MailClientImapCommand.COPY;
+    await transferMessages(session, tag, upper === MailClientImapCommand.UID ? args.slice(command.length).trim() : args, upper === MailClientImapCommand.UID, move);
   } else if (upper === MailClientImapCommand.SEARCH || (upper === MailClientImapCommand.UID && args.toUpperCase().startsWith(MailClientImapCommand.SEARCH))) {
     search(session, tag, upper === MailClientImapCommand.UID ? args.slice(MailClientImapCommand.SEARCH.length).trim() : args, upper === MailClientImapCommand.UID);
   } else if (upper === MailClientImapCommand.EXPUNGE || upper === MailClientImapCommand.CLOSE) {
@@ -315,7 +350,7 @@ async function selectMailbox(session: ImapSession, tag: string, name: string, re
   session.mailboxes = await listMailboxes();
   const mailbox = mailboxByName(session.mailboxes, name);
   if (!mailbox || !session.role || !session.member) {
-    write(session, `${tag} NO mailbox does not exist`);
+    write(session, `${tag} NO [TRYCREATE] mailbox does not exist`);
   } else {
     session.readOnly = readOnly;
     session.selected = mailbox;
@@ -340,7 +375,7 @@ async function statusMailbox(session: ImapSession, tag: string, args: string): P
   session.mailboxes = await listMailboxes();
   const mailbox = mailboxByName(session.mailboxes, name);
   if (!mailbox || !session.role || !session.member) {
-    write(session, `${tag} NO mailbox does not exist`);
+    write(session, `${tag} NO [TRYCREATE] mailbox does not exist`);
   } else {
     const messages = await messagesInMailbox(session.role, mailbox, session.member);
     const unseen = messages.filter(message => !message.seen).length;
@@ -404,10 +439,9 @@ function parseAppendArgs(args: string): {mailbox: string; flags: string[]; size:
 async function finishAppend(session: ImapSession, tag: string, mailboxName: string, raw: Buffer): Promise<void> {
   try {
     debugLog("APPEND storing", {tag, mailbox: mailboxName, octets: raw.length});
-    session.mailboxes = await listMailboxes();
-    const mailbox = mailboxByName(session.mailboxes, mailboxName);
+    const mailbox = await mailboxForWrite(session, mailboxName);
     if (!mailbox || !session.role || !session.member) {
-      write(session, `${tag} NO mailbox does not exist`);
+      write(session, `${tag} NO [TRYCREATE] mailbox does not exist`);
     } else {
       const appended = await appendMailClientRfc822(session.role, mailbox, raw, session.member);
       write(session, `${tag} OK [APPENDUID ${appended.uidValidity} ${appended.uid}] APPEND completed`);
@@ -419,25 +453,71 @@ async function finishAppend(session: ImapSession, tag: string, mailboxName: stri
   }
 }
 
+async function mailboxForWrite(session: ImapSession, name: string): Promise<MailClientMailbox | null> {
+  const wanted = normalisedMailboxName(name);
+  session.mailboxes = await listMailboxes();
+  const existing = mailboxByName(session.mailboxes, wanted);
+  if (existing || !wanted || !session.member?.id || clientOnlyMailboxName(wanted)) {
+    return existing;
+  } else {
+    await createMailboxFolder(wanted, session.member.id);
+    session.mailboxes = await listMailboxes();
+    return mailboxByName(session.mailboxes, wanted);
+  }
+}
+
+async function deleteMailbox(session: ImapSession, tag: string, args: string): Promise<void> {
+  const [name] = splitQuoted(args);
+  await deleteMailboxFolder(name);
+  session.mailboxes = await listMailboxes();
+  if (session.selected && normalisedMailboxName(session.selected.name).toLowerCase() === normalisedMailboxName(name).toLowerCase()) {
+    session.selected = null;
+    session.messages = [];
+  }
+  write(session, `${tag} OK DELETE completed`);
+}
+
+async function renameMailbox(session: ImapSession, tag: string, args: string): Promise<void> {
+  const [fromName, toName] = splitQuoted(args);
+  if (renamedIntoDeleted(toName)) {
+    await deleteMailboxFolder(fromName);
+    session.mailboxes = await listMailboxes();
+    if (session.selected && normalisedMailboxName(session.selected.name).toLowerCase() === normalisedMailboxName(fromName).toLowerCase()) {
+      session.selected = null;
+      session.messages = [];
+    }
+  } else {
+    const renamed = await renameMailboxFolder(fromName, toName);
+    session.mailboxes = await listMailboxes();
+    if (session.selected && normalisedMailboxName(session.selected.name).toLowerCase() === normalisedMailboxName(fromName).toLowerCase()) {
+      session.selected = renamed;
+    }
+  }
+  write(session, `${tag} OK RENAME completed`);
+}
+
 async function createMailbox(session: ImapSession, tag: string, name: string): Promise<void> {
-  const existing = mailboxByName(session.mailboxes.length ? session.mailboxes : await listMailboxes(), name);
-  if (existing) {
+  const wanted = normalisedMailboxName(name);
+  session.mailboxes = await listMailboxes();
+  const existing = mailboxByName(session.mailboxes, wanted);
+  if (!wanted || clientOnlyMailboxName(wanted)) {
+    write(session, `${tag} NO mailbox name is not allowed`);
+  } else if (existing) {
     write(session, `${tag} OK CREATE completed`);
   } else if (!session.member?.id) {
     write(session, `${tag} NO authenticate first`);
   } else {
-    await createMailboxFolder(name, session.member.id);
+    await createMailboxFolder(wanted, session.member.id);
     session.mailboxes = await listMailboxes();
     write(session, `${tag} OK CREATE completed`);
   }
 }
 
-async function copyMessages(session: ImapSession, tag: string, args: string, byUid: boolean): Promise<void> {
+async function transferMessages(session: ImapSession, tag: string, args: string, byUid: boolean, move: boolean): Promise<void> {
   const [setText, mailboxName] = splitSetAndItems(args);
-  session.mailboxes = await listMailboxes();
-  const mailbox = mailboxByName(session.mailboxes, unquote(mailboxName));
+  const mailbox = await mailboxForWrite(session, unquote(mailboxName));
   if (!mailbox || !session.role || !session.member) {
-    write(session, `${tag} NO mailbox does not exist`);
+    write(session, `${tag} NO [TRYCREATE] mailbox does not exist`);
   } else {
     const selected = messagesForSet(session.messages, setText, byUid);
     const role = session.role;
@@ -451,7 +531,10 @@ async function copyMessages(session: ImapSession, tag: string, args: string, byU
     const copyUid = copied.length
       ? ` [COPYUID ${state.uidValidity} ${copied.map(item => item.source).join(",")} ${copied.map(item => item.destination).join(",")}]`
       : "";
-    write(session, `${tag} OK${copyUid} COPY completed`);
+    if (move) {
+      await refreshSelectedMailbox(session);
+    }
+    write(session, `${tag} OK${copyUid} ${move ? "MOVE" : "COPY"} completed`);
   }
 }
 

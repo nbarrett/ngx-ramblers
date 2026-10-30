@@ -34,6 +34,9 @@ export enum MailClientImapCommand {
   APPEND = "APPEND",
   CREATE = "CREATE",
   COPY = "COPY",
+  MOVE = "MOVE",
+  RENAME = "RENAME",
+  DELETE = "DELETE",
   ID = "ID",
   SUBSCRIBE = "SUBSCRIBE",
   UNSUBSCRIBE = "UNSUBSCRIBE"
@@ -79,6 +82,7 @@ export interface ImapSession {
   idleTimer?: ReturnType<typeof setInterval> | null;
   pending?: Promise<void>;
   literal?: ImapLiteral | null;
+  commandLiteral?: {line: string; remaining: number; chunks: Buffer[]; plus: boolean} | null;
 }
 
 export interface ImapLiteral {

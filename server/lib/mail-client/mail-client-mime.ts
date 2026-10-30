@@ -42,7 +42,7 @@ export async function mailClientMimeForMessage(message: InboxMessage, metadataOn
       html: message.bodyHtml || null,
       text: message.bodyText || (!message.bodyHtml ? " " : null),
       attachments,
-      baseBoundary: createHash("sha256").update(message.id || message.messageId).digest("hex"),
+      baseBoundary: createHash("sha256").update(message.id || message.messageId).digest("hex").slice(0, 16),
       disableFileAccess: true,
       disableUrlAccess: true,
       newline: "windows"
