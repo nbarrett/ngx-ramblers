@@ -56,6 +56,8 @@ describe("mail client MIME fetch", () => {
     expect(parsed.attachments.find(attachment => attachment.filename === "route.png")?.content).toEqual(png);
     expect(parsed.attachments.find(attachment => attachment.filename === "route.png")?.contentId).toBe("<route-map>");
     expect(parsed.attachments.find(attachment => attachment.filename === "route.png")?.contentDisposition).toBe("inline");
+    expect(mime.raw.toString("utf8")).toContain("boundary=\"--_NmP-");
+    expect(mime.raw.toString("utf8")).not.toContain("boundary*0=");
   });
 
   it("keeps MIME boundaries and bytes stable between repeated FETCH requests", async () => {

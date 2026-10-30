@@ -4,11 +4,13 @@ import { CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/c
 import {
   InboxAddress,
   InboxMessage,
+  InboxThread,
   InboxMessageDirection,
   InboxReaderProvider,
   InboxThreadFolder
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { derivedAliasForEmail } from "../inbox/inbox-aliases";
+import { recordThreadDeletion, restoreDeletedThread } from "../inbox/inbox-deleted";
 import { recordOutboundMessage, storeInboundMessage } from "../inbox/inbox-message-import";
 import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message";
 import { inboxThread as inboxThreadModel } from "../mongo/models/inbox-thread";
@@ -87,8 +89,29 @@ export async function appendMailClientRfc822(
 }
 
 export async function copyMailClientMessage(role: CommitteeMember, mailbox: MailClientMailbox, message: InboxMessage): Promise<MailClientAppendResult> {
-  const stored = await persistWithoutRecipients(role.type, message, mailbox.folder ?? InboxThreadFolder.INBOX, mailbox.userFolderId);
-  return appendResult(role, mailbox, message.messageId, stored.id);
+  await fileThreadInMailbox(message.threadId, mailbox);
+  return appendResult(role, mailbox, message.messageId, message.id);
+}
+
+export async function fileThreadInMailbox(threadId: string, mailbox: MailClientMailbox): Promise<void> {
+  if (!threadId) {
+    throw new Error("Message has no conversation");
+  } else if (mailbox.folder === InboxThreadFolder.DELETED && !mailbox.userFolderId) {
+    const thread = await inboxThreadModel.findById(threadId).lean() as InboxThread | null;
+    const messages = thread ? await inboxMessageModel.find({threadId}).lean() as InboxMessage[] : [];
+    if (!thread) {
+      throw new Error("Message has no conversation");
+    } else {
+      await recordThreadDeletion(thread, messages, threadId);
+    }
+  } else {
+    await restoreDeletedThread(threadId);
+    if (mailbox.userFolderId) {
+      await inboxThreadModel.updateOne({_id: threadId}, {$set: {userFolderId: mailbox.userFolderId, folder: InboxThreadFolder.INBOX}});
+    } else if (mailbox.folder && mailbox.folder !== InboxThreadFolder.INBOX) {
+      await inboxThreadModel.updateOne({_id: threadId}, {$set: {folder: mailbox.folder}, $unset: {userFolderId: 1}});
+    }
+  }
 }
 
 async function appendResult(role: CommitteeMember, mailbox: MailClientMailbox, messageId: string, documentId: string | null = null): Promise<MailClientAppendResult> {

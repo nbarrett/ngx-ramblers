@@ -71,6 +71,67 @@ describe("mail application IMAP commands", () => {
     expect(outputOf(write)).not.toContain("BAD");
   });
 
+  it("does not store Outlook's own Archive folder", async () => {
+    sandbox.stub(mailboxSource, "listMailboxes").resolves(mailboxes);
+    const created = sandbox.stub(mailboxSource, "createMailboxFolder");
+    const write = sandbox.spy();
+    await handleMailClientImapCommand(sessionFor(write), "a1", "CREATE", "\"Archive\"");
+    expect(created.called).toBe(false);
+    expect(outputOf(write)).toContain("a1 NO mailbox name is not allowed");
+  });
+
+  it("stores a website folder when Outlook creates one", async () => {
+    sandbox.stub(mailboxSource, "listMailboxes").resolves(mailboxes);
+    const created = sandbox.stub(mailboxSource, "createMailboxFolder").resolves({name: "Mongo", folder: null, userFolderId: "folder-2"});
+    const write = sandbox.spy();
+    await handleMailClientImapCommand(sessionFor(write), "a1", "CREATE", "\"INBOX/Mongo/\"");
+    expect(created.calledOnce).toBe(true);
+    expect(created.firstCall.args).toEqual(["Mongo", "member-1"]);
+    expect(outputOf(write)).toContain("a1 OK CREATE completed");
+  });
+
+  it("renames a website folder and keeps it selected", async () => {
+    sandbox.stub(mailboxSource, "listMailboxes").resolves(mailboxes);
+    const renamed = sandbox.stub(mailboxSource, "renameMailboxFolder").resolves({name: "Route planning", folder: null, userFolderId: "folder-1"});
+    const write = sandbox.spy();
+    const session = sessionFor(write);
+    session.selected = mailboxes[3];
+    await handleMailClientImapCommand(session, "a1", "RENAME", "\"Walk planning\" \"Route planning\"");
+    expect(renamed.firstCall.args).toEqual(["Walk planning", "Route planning"]);
+    expect(session.selected?.name).toEqual("Route planning");
+    expect(outputOf(write)).toContain("a1 OK RENAME completed");
+  });
+
+  it("files a Thunderbird trash rename in Deleted and removes the folder", async () => {
+    sandbox.stub(mailboxSource, "listMailboxes").resolves(mailboxes.concat({name: "Mongo2", folder: null, userFolderId: "folder-2"}));
+    const removed = sandbox.stub(mailboxSource, "deleteMailboxFolder").resolves();
+    const renamed = sandbox.stub(mailboxSource, "renameMailboxFolder").resolves({name: "Deleted/Mongo2", folder: null, userFolderId: "folder-2"});
+    const write = sandbox.spy();
+    await handleMailClientImapCommand(sessionFor(write), "a1", "RENAME", "\"Mongo2\" \"Deleted/Mongo2\"");
+    expect(removed.firstCall.args).toEqual(["Mongo2"]);
+    expect(renamed.called).toBe(false);
+    expect(outputOf(write)).toContain("a1 OK RENAME completed");
+  });
+
+  it("deletes a website folder and closes it when selected", async () => {
+    sandbox.stub(mailboxSource, "listMailboxes").resolves(mailboxes);
+    const deleted = sandbox.stub(mailboxSource, "deleteMailboxFolder").resolves();
+    const write = sandbox.spy();
+    const session = sessionFor(write);
+    session.selected = mailboxes[3];
+    await handleMailClientImapCommand(session, "a1", "DELETE", "\"Walk planning\"");
+    expect(deleted.firstCall.args).toEqual(["Walk planning"]);
+    expect(session.selected).toEqual(null);
+    expect(outputOf(write)).toContain("a1 OK DELETE completed");
+  });
+
+  it("asks Outlook to create a mailbox it tried to open", async () => {
+    sandbox.stub(mailboxSource, "listMailboxes").resolves(mailboxes);
+    const write = sandbox.spy();
+    await handleMailClientImapCommand(sessionFor(write), "a1", "SELECT", "\"Mongo\"");
+    expect(outputOf(write)).toContain("a1 NO [TRYCREATE] mailbox does not exist");
+  });
+
   it("accepts Outlook folder names for Deleted Items and Junk Email", async () => {
     sandbox.stub(mailboxSource, "listMailboxes").resolves(mailboxes);
     const contents = sandbox.stub(mailboxSource, "messagesInMailbox").resolves([]);
