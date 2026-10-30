@@ -15,6 +15,8 @@ import { InboxNotificationBadgeComponent } from "../modules/common/inbox-notific
 import { AsyncPipe } from "@angular/common";
 import { ViewAsToggle } from "../modules/common/view-as-toggle/view-as-toggle";
 import { ViewAsService } from "../services/member/view-as.service";
+import { BroadcastService } from "../services/broadcast-service";
+import { NamedEvent, NamedEventType } from "../models/broadcast.model";
 
 @Component({
     selector: "app-login-panel",
@@ -29,6 +31,7 @@ export class LoginPanelComponent implements OnInit, OnDestroy {
   protected viewAs = inject(ViewAsService);
   private authService = inject(AuthService);
   private modalService = inject(BsModalService);
+  private broadcastService = inject(BroadcastService);
   private systemConfigService = inject(SystemConfigService);
   private routerHistoryService = inject(RouterHistoryService);
   private group: Organisation;
@@ -63,6 +66,7 @@ export class LoginPanelComponent implements OnInit, OnDestroy {
   }
 
   loginOrLogout() {
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MENU_TOGGLE, false));
     if (this.memberLoginService.memberLoggedIn()) {
       this.authService.logout();
     } else {
@@ -75,6 +79,7 @@ export class LoginPanelComponent implements OnInit, OnDestroy {
   }
 
   forgotPassword() {
+    this.broadcastService.broadcast(NamedEvent.withData(NamedEventType.MENU_TOGGLE, false));
     this.modalService.show(ForgotPasswordModalComponent, this.config);
   }
 
