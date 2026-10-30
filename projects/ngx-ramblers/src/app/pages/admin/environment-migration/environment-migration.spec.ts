@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { LoggerTestingModule } from "ngx-logger/testing";
 import { of } from "rxjs";
 import { EnvironmentMigrationComponent } from "./environment-migration";
+import { EnvironmentMigrationMode, EnvironmentMigrationPhase, EnvironmentMigrationStatus } from "../../../models/environment-migration.model";
 import { BackupAndRestoreService } from "../../../services/backup-and-restore.service";
 import { EnvironmentConfigService } from "../../../services/environment-config.service";
 import { EnvironmentMigrationService } from "../../../services/environment-migration.service";
@@ -71,6 +72,26 @@ describe("migration target credentials", () => {
     expect(state.page.request.targetMongo.username).toBe("hillside-user");
     expect(state.page.busy).toBe(false);
     expect(state.page.selectedMigration).toBeNull();
+  });
+
+  it("lets Rotate Credentials run again after a verified restore whose cutover failed", () => {
+    state.page.request.environment = "hillside";
+    state.page.request.confirmEnvironment = "hillside";
+    state.page.request.mode = EnvironmentMigrationMode.MONGO_ONLY;
+    state.page.request.targetMongo = {cluster: "ngx-demo.abc123", db: "hillside-database", username: "hillside-user", password: "fictional-password"};
+    state.page.selectedMigration = {
+      migrationId: "environment-migration-hillside",
+      environment: "hillside",
+      mode: EnvironmentMigrationMode.MONGO_ONLY,
+      status: EnvironmentMigrationStatus.FAILED,
+      phase: EnvironmentMigrationPhase.ROTATE_CREDENTIALS,
+      dryRun: false,
+      startTime: 0,
+      sourceMongo: {cluster: "old", db: "hillside-database", username: "old-user", uriSummary: "old-user@old/hillside-database"},
+      targetMongo: {cluster: "ngx-demo.abc123", db: "hillside-database", username: "hillside-user", uriSummary: "hillside-user@ngx-demo.abc123/hillside-database"},
+      verification: {collections: ["config"], totalDocumentCount: 1, keyCollectionCounts: []}
+    };
+    expect(state.page.canRotate()).toBe(true);
   });
 
   it("keeps the target fields and shows a provisioning failure", async () => {

@@ -155,6 +155,18 @@ export interface EnvironmentMigrationAudit {
   requestedBy?: string;
 }
 
+export function migrationAllowsCredentialRotation(migration: EnvironmentMigrationAudit | null): boolean {
+  if (!migration) {
+    return false;
+  } else if (migration.status === EnvironmentMigrationStatus.READY_FOR_CUTOVER) {
+    return true;
+  } else if (migration.status === EnvironmentMigrationStatus.FAILED && !!migration.verification && (migration.phase === EnvironmentMigrationPhase.ROTATE_CREDENTIALS || migration.phase === EnvironmentMigrationPhase.VERIFY_TARGET)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 export interface EnvironmentMigrationRotationRequest {
   migrationId: string;
   confirmEnvironment: string;

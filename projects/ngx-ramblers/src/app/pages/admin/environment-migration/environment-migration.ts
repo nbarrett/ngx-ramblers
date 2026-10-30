@@ -24,7 +24,8 @@ import {
   EnvironmentMigrationMode,
   EnvironmentMigrationRequest,
   EnvironmentMigrationStatus,
-  EnvironmentMigrationTab
+  EnvironmentMigrationTab,
+  migrationAllowsCredentialRotation
 } from "../../../models/environment-migration.model";
 import { SortableTableAlignment, SortableTableColumn } from "../../../modules/common/sortable-table/sortable-table.model";
 import { SortableTableCellDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
@@ -138,8 +139,9 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
               <div class="col-12">
                 <div class="row plan-columns">
               <div class="col-lg-6">
-                    <div class="row thumbnail-heading-frame">
+                    <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading">Source and Backup</div>
+                      <div class="row">
                       <div class="col-12 mb-3">
                         <app-environment-select
                           label="Environment"
@@ -204,14 +206,16 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
                           <label class="form-check-label" for="rotateS3Credentials">{{ liveCopyRequested() ? "Point this environment at the destination AWS credentials on cutover" : "Rotate AWS credentials to bucket-scoped access during cutover" }}</label>
                         </div>
                       </div>
+                      </div>
                     </div>
               </div>
               <div class="col-lg-6">
-                    <div class="row thumbnail-heading-frame">
+                    <div class="thumbnail-heading-frame">
                       <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
                         <app-vendor-brand-mark serviceId="mongodbAtlas" [sizePx]="26"/>
                         <span>Target MongoDB</span>
                       </div>
+                      <div class="row">
                       <div class="col-12">
                         <app-mongo-uri-input (parsedUri)="onMongoUriParsed($event)"/>
                       </div>
@@ -262,13 +266,14 @@ import { backupEnvironment, backupsForSourceAndEnvironment, restorableBackups } 
                         </button>
                         <p class="small mt-2 mb-0">Creates a user restricted to the selected environment's database on the target cluster. Existing users are kept. Save the target credentials before leaving this page. Restore and cutover are separate actions.</p>
                       </div>
+                      </div>
                     </div>
               </div>
                 </div>
               </div>
             @if (liveCopyRequested()) {
               <div class="col-12">
-                <div class="row thumbnail-heading-frame">
+                <div class="thumbnail-heading-frame">
                   <div class="thumbnail-heading with-vendor-logo d-flex align-items-center gap-2">
                     <app-vendor-brand-mark serviceId="aws" [sizePx]="26"/>
                     <span>Destination AWS</span>
@@ -741,7 +746,7 @@ export class EnvironmentMigrationComponent implements OnInit {
   }
 
   canRotate(): boolean {
-    return this.formReady() && this.confirmationReady() && this.selectedMigration?.status === EnvironmentMigrationStatus.READY_FOR_CUTOVER;
+    return this.formReady() && this.confirmationReady() && migrationAllowsCredentialRotation(this.selectedMigration);
   }
 
   async plan(): Promise<void> {

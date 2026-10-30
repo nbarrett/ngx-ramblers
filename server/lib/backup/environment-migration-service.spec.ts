@@ -194,6 +194,19 @@ describe("environment-migration-service", () => {
       expect(createOrUpdateKey.secondCall.args[1].environments[0]).toEqual(previousEnvironment);
     });
 
+    it("retries cutover after a failed secrets confirmation when the restore was verified", async () => {
+      const failed = {
+        ...readyMigration(null),
+        status: EnvironmentMigrationStatus.FAILED,
+        phase: EnvironmentMigrationPhase.ROTATE_CREDENTIALS,
+        verification: {collections: ["config"], totalDocumentCount: 1, keyCollectionCounts: []},
+        error: "Fly did not confirm a secrets release for cutover"
+      };
+      const {service, createOrUpdateKey} = stubRotation(failed);
+      await service.rotateCredentials({migrationId: "migration", confirmEnvironment: "staging", targetMongo});
+      expect(createOrUpdateKey.calledOnce).toBe(true);
+    });
+
     it("records an incomplete rollback as failed and retains the original rollback identity", async () => {
       const {service, updateOne} = stubRotation(readyMigration(null));
       (flyMachines.setCurrentMachineSecrets as sinon.SinonStub).resolves({ok: false, error: "Secrets unavailable"});

@@ -27,7 +27,8 @@ import {
   EnvironmentMigrationRollbackInfo,
   EnvironmentMigrationRotationRequest,
   EnvironmentMigrationStatus,
-  EnvironmentMigrationVerification
+  EnvironmentMigrationVerification,
+  migrationAllowsCredentialRotation
 } from "../../../projects/ngx-ramblers/src/app/models/environment-migration.model";
 import { AWS_DEFAULTS, AwsConfig, EnvironmentConfig, EnvironmentsConfig, MongoConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
 import { decryptEnvironmentsSecrets, encryptEnvironmentsSecrets } from "../environments/environments-secrets-cipher";
@@ -244,7 +245,7 @@ export class EnvironmentMigrationService {
       throw new Error(`Migration ${request.migrationId} not found`);
     }
 
-    if (migration.status !== EnvironmentMigrationStatus.READY_FOR_CUTOVER) {
+    if (!migrationAllowsCredentialRotation(migration)) {
       throw new Error(`Migration ${request.migrationId} is not ready for cutover`);
     }
 
@@ -297,7 +298,7 @@ export class EnvironmentMigrationService {
       if (!secretsResult.ok) {
         throw new Error(secretsResult.error || "Fly secrets were not updated for cutover");
       } else {
-        const restartResult = await restartCurrentMachine(FlyTargetApp.ENVIRONMENT, migration.environment);
+        const restartResult = await restartCurrentMachine(FlyTargetApp.ENVIRONMENT, migration.environment, secretsResult.secretsVersion || null);
         if (!restartResult.ok) {
           throw new Error(restartResult.error || "Fly machine did not restart after secrets update");
         } else {
@@ -347,7 +348,7 @@ export class EnvironmentMigrationService {
     if (!restored.ok) {
       throw new Error(restored.error || "Previous Fly secrets were not restored");
     } else {
-      const restarted = await restartCurrentMachine(FlyTargetApp.ENVIRONMENT, environment);
+      const restarted = await restartCurrentMachine(FlyTargetApp.ENVIRONMENT, environment, restored.secretsVersion || null);
       if (!restarted.ok) {
         throw new Error(restarted.error || "Fly did not restart with the previous credentials");
       } else if (config) {

@@ -1,5 +1,5 @@
 import debug from "debug";
-import { toPairs } from "es-toolkit/compat";
+import { keys, toPairs } from "es-toolkit/compat";
 import { envConfig } from "../env-config/env-config";
 import { FlyMachineSummary, FlyRestartResult } from "./fly.model";
 import { FlyMachineState, FlyTargetApp } from "../../../projects/ngx-ramblers/src/app/models/health.model";
@@ -7,6 +7,10 @@ import { flyRuntimeConfig } from "./fly-runtime-config";
 import { flyAuthorizationHeader, MACHINES_API_BASE, missingFlyConfig } from "./fly-env";
 
 const FLY_GRAPHQL_API = "https://api.fly.io/graphql";
+
+export function flySecretsUpdateConfirmed(body: { data?: { setSecrets?: unknown } } | null): boolean {
+  return !!body?.data?.setSecrets;
+}
 
 const debugLog = debug(envConfig.logNamespace("fly:machines"));
 debugLog.enabled = true;
@@ -105,11 +109,18 @@ export async function setCurrentMachineSecrets(
           const message = body.errors[0]?.message || "GraphQL error";
           debugLog(`Fly secrets update failed: ${message}`);
           return { ok: false, error: `Fly secrets update failed: ${message}` };
-        } else if (!body?.data?.setSecrets?.release?.version) {
-          return {ok: false, error: "Fly did not confirm a secrets release for cutover"};
+        } else if (!flySecretsUpdateConfirmed(body)) {
+          debugLog(`Fly secrets update returned no setSecrets payload for ${appName}: ${JSON.stringify(keys(body?.data || {}))}`);
+          return { ok: false, error: "Fly did not confirm a secrets update for cutover" };
         } else {
-          debugLog(`Fly secrets updated on ${appName}`);
-          return { ok: true };
+          const releaseVersion = body?.data?.setSecrets?.release?.version;
+          const published = await publishAppSecrets(apiToken, appName, secretList);
+          if (!published.ok) {
+            return published;
+          } else {
+            debugLog(`Fly secrets updated on ${appName}${releaseVersion ? ` (release ${releaseVersion})` : ""}${published.secretsVersion ? ` (secrets version ${published.secretsVersion})` : ""}`);
+            return { ok: true, secretsVersion: published.secretsVersion };
+          }
         }
       } catch (error) {
         debugLog("Fly secrets request failed:", error);
@@ -119,7 +130,32 @@ export async function setCurrentMachineSecrets(
   }
 }
 
-export async function restartCurrentMachine(target: FlyTargetApp = FlyTargetApp.ENVIRONMENT, environmentName: string | null = null): Promise<FlyRestartResult> {
+async function publishAppSecrets(apiToken: string, appName: string, secretList: {key: string; value: string}[]): Promise<FlyRestartResult> {
+  const values = secretList.reduce((record, entry) => ({...record, [entry.key]: entry.value}), {} as Record<string, string>);
+  try {
+    const response = await fetch(`${MACHINES_API_BASE}/apps/${appName}/secrets`, {
+      method: "POST",
+      headers: {
+        Authorization: flyAuthorizationHeader(apiToken),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({values})
+    });
+    const body = await response.json().catch(() => ({}));
+    const secretsVersion = body?.version || body?.Version;
+    if (!response.ok) {
+      return {ok: false, error: `Fly Machines secrets update failed: ${response.status}`};
+    } else if (!secretsVersion) {
+      return {ok: false, error: "Fly did not return a secrets version for cutover"};
+    } else {
+      return {ok: true, secretsVersion};
+    }
+  } catch (error) {
+    return {ok: false, error: error?.message || "Fly Machines secrets update failed"};
+  }
+}
+
+export async function restartCurrentMachine(target: FlyTargetApp = FlyTargetApp.ENVIRONMENT, environmentName: string | null = null, secretsVersion: number | null = null): Promise<FlyRestartResult> {
   const { apiToken, appName, machineId: configuredMachineId } = await flyRuntimeConfig(target, environmentName);
   const missing = missingFlyConfig({ FLY_API_TOKEN: apiToken, FLY_APP_NAME: appName });
   if (missing) {
@@ -129,20 +165,41 @@ export async function restartCurrentMachine(target: FlyTargetApp = FlyTargetApp.
   if (!machineId) {
     return { ok: false, error: `No machine found to restart for app ${appName}` };
   }
-  const url = `${MACHINES_API_BASE}/apps/${appName}/machines/${machineId}/restart`;
-  debugLog(`Restarting machine ${machineId} for app ${appName}`);
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { Authorization: flyAuthorizationHeader(apiToken) }
-    });
-    if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      debugLog(`Restart failed: ${response.status} ${text}`);
-      return { ok: false, error: `Fly restart failed: ${response.status} ${text}`.trim() };
+    if (secretsVersion) {
+      const machine = await queryMachine(apiToken, appName, machineId);
+      const response = await fetch(`${MACHINES_API_BASE}/apps/${appName}/machines/${machineId}`, {
+        method: "POST",
+        headers: {
+          Authorization: flyAuthorizationHeader(apiToken),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({config: machine.config || {}, min_secrets_version: secretsVersion})
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        debugLog(`Machine secrets refresh failed: ${response.status} ${text}`);
+        return { ok: false, error: `Fly machine secrets refresh failed: ${response.status} ${text}`.trim() };
+      } else {
+        debugLog(`Machine ${machineId} updated to secrets version ${secretsVersion} for ${appName}`);
+        return { ok: true, secretsVersion };
+      }
+    } else {
+      const url = `${MACHINES_API_BASE}/apps/${appName}/machines/${machineId}/restart`;
+      debugLog(`Restarting machine ${machineId} for app ${appName}`);
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: flyAuthorizationHeader(apiToken) }
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        debugLog(`Restart failed: ${response.status} ${text}`);
+        return { ok: false, error: `Fly restart failed: ${response.status} ${text}`.trim() };
+      } else {
+        debugLog(`Restart triggered for ${appName}/${machineId}`);
+        return { ok: true };
+      }
     }
-    debugLog(`Restart triggered for ${appName}/${machineId}`);
-    return { ok: true };
   } catch (error) {
     debugLog("Restart request failed:", error);
     return { ok: false, error: error?.message || "Fly restart request failed" };

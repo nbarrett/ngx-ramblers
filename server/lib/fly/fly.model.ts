@@ -29,6 +29,7 @@ export interface FlyMachineSummary {
   id: string;
   state: string;
   updated_at?: string;
+  config?: Record<string, unknown>;
 }
 
 export interface FlySecureConfig {
@@ -39,6 +40,7 @@ export interface FlySecureConfig {
 export interface FlyRestartResult {
   ok: boolean;
   error?: string;
+  secretsVersion?: number;
 }
 
 export interface PrometheusResult {
