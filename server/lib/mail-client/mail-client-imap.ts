@@ -119,7 +119,7 @@ export async function handleLine(session: ImapSession, line: string): Promise<vo
       }
     }
   } catch (error) {
-    debugLog("IMAP command failed", (error as Error).message, line);
+    debugLog("IMAP command failed", (error as Error).message, loggedImapLine(line));
     const parsed = parseTagged(line);
     if (parsed) {
       write(session, `${parsed.tag} NO ${(error as Error).message}`);
@@ -129,13 +129,13 @@ export async function handleLine(session: ImapSession, line: string): Promise<vo
 
 export async function handleMailClientImapCommand(session: ImapSession, tag: string, command: string, args: string): Promise<void> {
   const upper = command.toUpperCase();
-  debugLog("IMAP command", {connection: session.socket.remotePort, tag, command: upper});
+  debugLog("IMAP command", {connection: session.socket.remotePort, tag, command: upper, args: loggedImapArgs(upper, args)});
   if (upper === MailClientImapCommand.CAPABILITY) {
     write(session, `* CAPABILITY ${MailClientImapCapability.IMAP4REV1} AUTH=${MailClientImapAuth.PLAIN} ${MailClientImapCommand.IDLE} ${MailClientImapCapability.UIDPLUS} ${MailClientImapCapability.SPECIAL_USE}`);
     write(session, `${tag} OK ${MailClientImapCommand.CAPABILITY} completed`);
-  } else if (upper === MailClientImapCommand.NOOP) {
+  } else if (upper === MailClientImapCommand.NOOP || upper === MailClientImapCommand.CHECK) {
     await refreshSelectedMailbox(session);
-    write(session, `${tag} OK ${MailClientImapCommand.NOOP} completed`);
+    write(session, `${tag} OK ${upper} completed`);
   } else if (upper === MailClientImapCommand.LOGOUT) {
     stopIdle(session);
     write(session, "* BYE NGX IMAP logging out");
@@ -638,6 +638,23 @@ function splitSetAndItems(args: string): [string, string] {
     return [trimmed, ""];
   } else {
     return [trimmed.slice(0, space), trimmed.slice(space + 1)];
+  }
+}
+
+function loggedImapArgs(command: string, args: string): string | null {
+  if (command === MailClientImapCommand.LOGIN || command === MailClientImapCommand.AUTHENTICATE) {
+    return null;
+  } else {
+    return args.slice(0, 180);
+  }
+}
+
+function loggedImapLine(line: string): string {
+  const parsed = parseTagged(line);
+  if (parsed && (parsed.command.toUpperCase() === MailClientImapCommand.LOGIN || parsed.command.toUpperCase() === MailClientImapCommand.AUTHENTICATE)) {
+    return `${parsed.tag} ${parsed.command.toUpperCase()}`;
+  } else {
+    return line.slice(0, 180);
   }
 }
 

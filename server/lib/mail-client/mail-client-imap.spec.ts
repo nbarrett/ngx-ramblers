@@ -54,6 +54,15 @@ describe("mail application IMAP commands", () => {
   beforeEach(() => sandbox.stub(mailboxSource, "mailboxUidState").resolves({uidValidity: 2, uidNext: 301}));
   afterEach(() => sandbox.restore());
 
+  it("treats CHECK as a mailbox checkpoint like NOOP", async () => {
+    const write = sandbox.spy();
+    const contents = sandbox.stub(mailboxSource, "messagesInMailbox").resolves([]);
+    await handleMailClientImapCommand(sessionFor(write), "a1", "CHECK", "");
+    expect(contents.calledOnce).toBe(true);
+    expect(outputOf(write)).toContain("a1 OK CHECK completed");
+    expect(outputOf(write)).not.toContain("BAD");
+  });
+
   it("lists messages for Outlook UID SEARCH NOT DELETED instead of rejecting the search", async () => {
     const write = sandbox.spy();
     await handleMailClientImapCommand(sessionFor(write), "a1", "UID", "SEARCH NOT DELETED");
