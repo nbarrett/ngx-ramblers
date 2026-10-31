@@ -8,6 +8,7 @@ describe("dynamic content title lifting", () => {
     const component = Object.create(DynamicContentViewComponent.prototype) as DynamicContentViewComponent;
     component.liftPageTitle = liftPageTitle;
     component["pageService"] = {setContentPageTitle: vi.fn()} as unknown as typeof component["pageService"];
+    component["headingAnchors"] = {schedule: vi.fn()} as unknown as typeof component["headingAnchors"];
     component.actions = {isTextRow: row => row?.type === PageContentType.TEXT} as unknown as typeof component.actions;
     component["logger"] = {info: vi.fn()} as unknown as typeof component["logger"];
     component["loadSharedFragments"] = vi.fn();

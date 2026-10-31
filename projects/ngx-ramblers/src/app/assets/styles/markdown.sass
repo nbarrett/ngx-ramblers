@@ -56,6 +56,81 @@
   text-decoration: none
   color: $ramblers-colour-granite
 
+.page-heading .content-page-title,
+app-dynamic-content-view h1,
+app-dynamic-content-view h2,
+app-dynamic-content-view h3,
+app-dynamic-content-view h4,
+app-dynamic-content-view h5,
+app-dynamic-content-view h6
+  position: relative
+  scroll-margin-top: calc(var(--site-navbar-height, 0px) + 0.75rem)
+
+.heading-anchor-controls
+  display: inline-flex
+  align-items: center
+  gap: 0.2rem
+  vertical-align: middle
+  margin: 0 0 0 0.4rem
+  opacity: 0
+
+h1:hover > .heading-anchor-controls,
+h2:hover > .heading-anchor-controls,
+h3:hover > .heading-anchor-controls,
+h4:hover > .heading-anchor-controls,
+h5:hover > .heading-anchor-controls,
+h6:hover > .heading-anchor-controls,
+.heading-anchor-controls:has(:focus-visible)
+  opacity: 1
+
+@media (hover: none)
+  .heading-anchor-controls
+    opacity: 1
+
+.heading-permalink,
+.heading-copy
+  display: inline-flex
+  align-items: center
+  justify-content: center
+  width: 1.35rem
+  height: 1.35rem
+  min-width: 0
+  min-height: 0
+  padding: 0
+  border: 0
+  border-radius: 0
+  background: transparent
+  box-shadow: none
+  color: rgba($ramblers-colour-granite, 0.55)
+  line-height: 1
+  text-decoration: none
+
+.heading-permalink svg,
+.heading-copy svg
+  width: 0.9rem
+  height: 0.9rem
+
+.heading-permalink:hover,
+.heading-permalink:focus,
+.heading-copy:hover,
+.heading-copy:focus
+  background: transparent
+  color: $ramblers-colour-granite
+  text-decoration: none
+
+.heading-anchor-tooltip
+  position: fixed
+  z-index: 1080
+  transform: translate(-50%, -100%)
+  padding: 0.25rem 0.5rem
+  border-radius: 4px
+  background: $ramblers-colour-granite
+  color: #fff
+  font-size: 0.75rem
+  line-height: 1.3
+  pointer-events: none
+  white-space: nowrap
+
 blockquote
   border-left: 4px solid $ramblers-colour-mintcake
   margin: 1rem 0

@@ -14,7 +14,8 @@ import { DocumentationLinksService } from "../../../services/documentation-links
 import { DocumentationSite, DOCUMENTATION_SITE_PLACEHOLDER, DOCUMENTATION_SITE_SELECTOR_ID } from "../../../models/documentation-links.model";
 import { StoredValue } from "../../../models/ui-actions";
 import { EnvironmentInfo } from "../../../models/backup-session.model";
-import { documentationLinkTitle, documentationSiteOrigin, documentationWebsitePickerEnabled } from "../../../functions/documentation-links";
+import { documentationLinkTitle, documentationSiteMarked, documentationSiteOrigin, documentationWebsitePickerEnabled } from "../../../functions/documentation-links";
+import { DELAYED_TOOLTIP_PROVIDERS, TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
 import { EnvironmentSelectComponent } from "../selectors/environment-select";
 import { LoggerFactory } from "../../../services/logger-factory.service";
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
@@ -22,6 +23,7 @@ import { MemberResourcesReferenceDataService } from "../../../services/member/me
 @Component({
   selector: "app-documentation-links",
   imports: [EnvironmentSelectComponent, FontAwesomeModule, TooltipModule, NgTemplateOutlet],
+  providers: [...DELAYED_TOOLTIP_PROVIDERS],
   template: `
     <ng-template #websiteAction>
       @if (pickerEnabled && hasLinks && !editingWebsite) {
@@ -99,6 +101,7 @@ export class DocumentationLinksComponent implements AfterViewInit, OnDestroy {
   private destroyed = false;
   private subscriptions: Subscription[] = [];
   private linkTooltips = new Map<HTMLAnchorElement, TooltipDirective>();
+  private refresh = {busy: false};
 
   ngAfterViewInit(): void {
     this.subscriptions.push(this.links.selection.pipe(skip(1)).subscribe(name => {
@@ -200,6 +203,14 @@ export class DocumentationLinksComponent implements AfterViewInit, OnDestroy {
   }
 
   private refreshLinks(): void {
+    if (!this.refresh.busy) {
+      this.refresh.busy = true;
+      this.applyLinkRefresh();
+      this.refresh.busy = false;
+    }
+  }
+
+  private applyLinkRefresh(): void {
     if (this.pickerEnabled) {
       const anchors = Array.from(this.content.nativeElement.querySelectorAll<HTMLAnchorElement>("a[href]"));
       const siteUrl = this.sites.find(site => site.name === this.selectedName)?.url || null;
@@ -209,29 +220,17 @@ export class DocumentationLinksComponent implements AfterViewInit, OnDestroy {
         const current = anchor.getAttribute("href");
         if (current && !anchor.hasAttribute("data-documentation-original-href")) {
           anchor.setAttribute("data-documentation-original-href", current);
-          if (anchor.hasAttribute("title")) {
-            anchor.setAttribute("data-documentation-original-title", anchor.getAttribute("title"));
-          }
+          this.storeOriginalTitle(anchor);
         }
         const original = anchor.getAttribute("data-documentation-original-href");
-        const originalTitle = anchor.getAttribute("data-documentation-original-title");
         const path = this.links.destinationPath(original, origins);
-        if (path) {
+        if (path && this.siteLink(anchor, original)) {
           count.value++;
           const url = siteUrl ? this.links.destinationUrl(original, siteUrl, origins) || this.links.destinationUrl(DOCUMENTATION_SITE_PLACEHOLDER + path, siteUrl) : original;
           if (url && current !== url) {
             anchor.setAttribute("href", url);
           }
-          if (siteUrl) {
-            this.setLinkTooltip(anchor, documentationLinkTitle(this.selectedWebsiteLabel() || siteUrl));
-          } else {
-            this.setLinkTooltip(anchor, null);
-            if (originalTitle) {
-              anchor.setAttribute("title", originalTitle);
-            } else {
-              anchor.removeAttribute("title");
-            }
-          }
+          this.setLinkTooltip(anchor, documentationLinkTitle(this.selectedWebsiteLabel()));
         }
       });
       Array.from(this.linkTooltips.keys()).filter(anchor => !anchors.includes(anchor) || !anchor.hasAttribute("data-documentation-original-href")).forEach(anchor => this.setLinkTooltip(anchor, null));
@@ -241,6 +240,7 @@ export class DocumentationLinksComponent implements AfterViewInit, OnDestroy {
       }
     } else {
       this.hasLinks = false;
+      this.content.nativeElement.querySelectorAll<HTMLAnchorElement>("a[href][title]").forEach(anchor => this.storeOriginalTitle(anchor));
     }
     this.changeDetector.markForCheck();
   }
@@ -253,6 +253,29 @@ export class DocumentationLinksComponent implements AfterViewInit, OnDestroy {
     this.observer?.disconnect();
     Array.from(this.linkTooltips.keys()).forEach(anchor => this.setLinkTooltip(anchor, null));
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
+  }
+
+  private siteLink(anchor: HTMLAnchorElement, href: string | null): boolean {
+    return anchor.hasAttribute("data-documentation-site-link") || documentationSiteMarked(href, anchor.getAttribute("data-documentation-original-title") || anchor.getAttribute("title"));
+  }
+
+  private storeOriginalTitle(anchor: HTMLAnchorElement): void {
+    const title = anchor.getAttribute("title");
+    const href = anchor.getAttribute("data-documentation-original-href") || anchor.getAttribute("href");
+    if (documentationSiteMarked(href, title) || anchor.hasAttribute("data-documentation-site-link")) {
+      anchor.setAttribute("data-documentation-site-link", "1");
+      if (title === DOCUMENTATION_SITE_PLACEHOLDER) {
+        anchor.removeAttribute("title");
+      } else if (title?.startsWith(`${DOCUMENTATION_SITE_PLACEHOLDER} `)) {
+        const rest = title.slice(DOCUMENTATION_SITE_PLACEHOLDER.length).trim();
+        if (rest) {
+          anchor.setAttribute("data-documentation-original-title", rest);
+        }
+        anchor.removeAttribute("title");
+      } else if (title) {
+        anchor.removeAttribute("title");
+      }
+    }
   }
 
   private setLinkTooltip(anchor: HTMLAnchorElement, text: string | null): void {
@@ -268,6 +291,7 @@ export class DocumentationLinksComponent implements AfterViewInit, OnDestroy {
         directive.containerClass = "documentation-link-tooltip";
         directive.placement = "top";
         directive.adaptivePosition = true;
+        directive.delay = TOOLTIP_SHOW_DELAY_MS;
         directive.tooltip = this.linkTooltipTemplate;
         directive.ngOnInit();
         this.linkTooltips.set(anchor, directive);

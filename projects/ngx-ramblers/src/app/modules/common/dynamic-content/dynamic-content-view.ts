@@ -1,4 +1,4 @@
-import { booleanAttribute, Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
+import { AfterViewInit, booleanAttribute, Component, inject, Input, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { PageContent, PageContentColumn, PageContentRow } from "../../../models/content-text.model";
 import { AccessLevel } from "../../../models/member-resource.model";
@@ -6,6 +6,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberResourcesReferenceDataService } from "../../../services/member/member-resources-reference-data.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { PageContentActionsService } from "../../../services/page-content-actions.service";
+import { HeadingAnchorService } from "../../../services/heading-anchors.service";
 import { PageService } from "../../../services/page.service";
 import { UrlService } from "../../../services/url.service";
 import { leadingMarkdownHeading } from "../../../functions/strings";
@@ -113,7 +114,7 @@ import { DocumentationLinksComponent } from "../documentation-links/documentatio
     styleUrls: ["./dynamic-content.sass"],
   imports: [DocumentationLinksComponent, DynamicContentViewMigrationNote, ActionButtons, CommitteeDocumentsRow, DynamicContentViewTextRow, DynamicContentViewCarousel, DynamicContentViewIndex, DynamicContentViewAlbum, EventsRow, FontAwesomeModule, AreaMap, DynamicContentViewMap, DynamicContentViewRoute, DynamicContentViewLocation]
 })
-export class DynamicContentViewComponent implements OnInit, OnDestroy {
+export class DynamicContentViewComponent implements OnInit, AfterViewInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("DynamicContentViewComponent", NgxLoggerLevel.ERROR);
   private memberResourcesReferenceData = inject(MemberResourcesReferenceDataService);
   private urlService = inject(UrlService);
@@ -121,6 +122,7 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
   actions = inject(PageContentActionsService);
   siteEditService = inject(SiteEditService);
   private pageService = inject(PageService);
+  private headingAnchors = inject(HeadingAnchorService);
   private pageContentRawData: PageContent;
 
   @Input("pageContent") set acceptChangesFrom(pageContent: PageContent) {
@@ -159,6 +161,10 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
     return `${this.contentPath || ""}:${rowIndex}:${row?.type || ""}:${eventTypes}`;
   }
 
+  ngAfterViewInit(): void {
+    this.headingAnchors.schedule();
+  }
+
   ngOnDestroy(): void {
     this.subscriptions.forEach(subscription => subscription.unsubscribe());
     if (this.liftPageTitle) {
@@ -171,6 +177,7 @@ export class DynamicContentViewComponent implements OnInit, OnDestroy {
     this.viewablePageContent = this.withLiftedPageTitle(this.pageContentFilteredForAccessLevel(pageContent));
     this.logger.info("pageContent:", pageContent, "filteredPageContent:", this.viewablePageContent);
     this.loadSharedFragments(this.viewablePageContent);
+    this.headingAnchors.schedule();
   }
 
   private withLiftedPageTitle(pageContent: PageContent): PageContent {

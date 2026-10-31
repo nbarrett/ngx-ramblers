@@ -20,7 +20,7 @@ import { DocumentationSite } from "../../../models/documentation-links.model";
 })
 class DocumentationHost {
   screenshot = "{{siteUrl}}/admin/inbox";
-  markdown = signal("[Inbox](/admin/inbox \"{{siteUrl}}\") [Help](/how-to/example) [Direct]({{siteUrl}}/walks/routes)");
+  markdown = signal("[Inbox](/admin/inbox \"{{siteUrl}}\") [Help](/how-to/example \"Ordinary title\") [Direct]({{siteUrl}}/walks/routes) [Profile](/admin/profile/external-email-setup)");
 }
 
 const sites: DocumentationSite[] = [
@@ -56,13 +56,14 @@ describe("documentation website links", () => {
     const {fixture, links} = setup(null, null, false);
     await vi.waitFor(() => {
       fixture.detectChanges();
-      expect(fixture.nativeElement.querySelectorAll("div[markdown] a")).toHaveLength(3);
+      expect(fixture.nativeElement.querySelectorAll("div[markdown] a")).toHaveLength(4);
     });
     const component = fixture.debugElement.children[0].componentInstance as DocumentationLinksComponent;
     expect(component.pickerEnabled).toBe(false);
     expect(fixture.nativeElement.querySelector("button")).toBeNull();
     expect(links.sites).not.toHaveBeenCalled();
     expect(fixture.nativeElement.querySelector("a").getAttribute("href")).toBe("/admin/inbox");
+    expect(fixture.nativeElement.querySelectorAll("a")[1].getAttribute("title")).toBe("Ordinary title");
     fixture.destroy();
   });
 
@@ -166,7 +167,7 @@ describe("documentation website links", () => {
       const {fixture} = setup();
       await vi.waitFor(() => {
         fixture.detectChanges();
-        expect(fixture.nativeElement.querySelectorAll("div[markdown] a")).toHaveLength(3);
+        expect(fixture.nativeElement.querySelectorAll("div[markdown] a")).toHaveLength(4);
       });
       const component = fixture.debugElement.children[0].componentInstance as DocumentationLinksComponent;
       expect(component.suggestedName).toBeNull();
@@ -189,7 +190,7 @@ describe("documentation website links", () => {
     const {fixture, links} = setup("hillside");
     await vi.waitFor(() => {
       fixture.detectChanges();
-      expect(fixture.nativeElement.querySelectorAll("div[markdown] a")).toHaveLength(3);
+      expect(fixture.nativeElement.querySelectorAll("div[markdown] a")).toHaveLength(4);
     });
     fixture.detectChanges();
     const anchors = fixture.nativeElement.querySelectorAll("a");
@@ -197,7 +198,12 @@ describe("documentation website links", () => {
     expect(anchors[0].getAttribute("title")).toBeNull();
     expect(anchors[0].getAttribute("data-documentation-tooltip")).toBe("Opens on Hillside Walkers. Click the gear above to change this.");
     expect(anchors[1].getAttribute("href")).toBe("/how-to/example");
+    expect(anchors[1].getAttribute("title")).toBe("Ordinary title");
+    expect(anchors[1].getAttribute("data-documentation-tooltip")).toBeNull();
     expect(anchors[2].getAttribute("href")).toBe("https://group.example.org.uk/walks/routes");
+    expect(anchors[3].getAttribute("href")).toBe("/admin/profile/external-email-setup");
+    expect(anchors[3].getAttribute("title")).toBeNull();
+    expect(anchors[3].getAttribute("data-documentation-tooltip")).toBeNull();
     expect(fixture.nativeElement.querySelector(".screenshot").getAttribute("href")).toBe("https://group.example.org.uk/admin/inbox");
     expect(fixture.nativeElement.querySelector(".screenshot").getAttribute("title")).toBeNull();
     expect(fixture.nativeElement.querySelector(".screenshot").getAttribute("data-documentation-tooltip")).toBe("Opens on Hillside Walkers. Click the gear above to change this.");
@@ -208,6 +214,8 @@ describe("documentation website links", () => {
     links.select(null);
     fixture.detectChanges();
     expect(anchors[0].getAttribute("href")).toBe("/admin/inbox");
+    expect(anchors[0].getAttribute("title")).toBeNull();
+    expect(anchors[0].getAttribute("data-documentation-tooltip")).toBe("Choose which website these links open. Click the gear above to choose.");
     fixture.destroy();
   });
 
@@ -215,7 +223,7 @@ describe("documentation website links", () => {
     const {fixture, links} = setup("hillside");
     await vi.waitFor(() => {
       fixture.detectChanges();
-      expect(fixture.nativeElement.querySelectorAll("div[markdown] a")).toHaveLength(3);
+      expect(fixture.nativeElement.querySelectorAll("div[markdown] a")).toHaveLength(4);
     });
     fixture.componentInstance.markdown.set("[Lists](/admin/mail-settings?tab=lists#subscriptions \"{{siteUrl}}\")");
     await vi.waitFor(() => {

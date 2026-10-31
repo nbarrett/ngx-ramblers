@@ -1,6 +1,6 @@
 import { ENVIRONMENT_SUBDOMAIN_BASE } from "../models/environment-setup.model";
 import { firstLinkHref } from "./strings";
-import { documentationFeaturePath, documentationFeatureUrl, documentationLinkPath, documentationLinkTitle, documentationLinkUrl, documentationSiteOrigin, documentationWebsitePickerEnabled } from "./documentation-links";
+import { documentationFeaturePath, documentationFeatureUrl, documentationLinkPath, documentationLinkTitle, documentationLinkUrl, documentationSiteMarked, documentationSiteOrigin, documentationWebsitePickerEnabled } from "./documentation-links";
 
 describe("documentation links", () => {
   it("preserves queries and fragments on the chosen website", () => {
@@ -22,18 +22,21 @@ describe("documentation links", () => {
 });
 
 describe("documentation feature paths", () => {
-  it("rewrites application destinations and leaves documentation and GitHub links alone", () => {
-    expect(documentationFeaturePath("walks/my-walks")).toBe("/walks/my-walks");
-    expect(documentationFeaturePath("/walks/admin/routes")).toBe("/walks/admin/routes");
+  it("rewrites marked destinations and leaves documentation and GitHub links alone", () => {
+    expect(documentationFeaturePath("{{siteUrl}}/walks/my-walks")).toBe("/walks/my-walks");
     expect(documentationFeaturePath("/admin/inbox?tab=messages")).toBe("/admin/inbox?tab=messages");
     expect(documentationFeaturePath("/how-to/committee/routes")).toBeNull();
     expect(documentationFeaturePath("/how-to/committee/release-notes/2026-10-04-issue-403")).toBeNull();
-    expect(documentationFeaturePath("/contact-us")).toBeNull();
     expect(documentationFeaturePath("https://github.com/example/repo/issues/1")).toBeNull();
-    expect(documentationFeatureUrl("walks/my-walks", "https://group.example.org.uk"))
+    expect(documentationFeatureUrl("{{siteUrl}}/walks/my-walks", "https://group.example.org.uk"))
       .toBe("https://group.example.org.uk/walks/my-walks");
     expect(documentationLinkTitle("Hillside Walkers"))
       .toBe("Opens on Hillside Walkers. Click the gear above to change this.");
+    expect(documentationLinkTitle(""))
+      .toBe("Choose which website these links open. Click the gear above to choose.");
+    expect(documentationSiteMarked("/admin/inbox", "{{siteUrl}}")).toBe(true);
+    expect(documentationSiteMarked("{{siteUrl}}/admin/inbox", null)).toBe(true);
+    expect(documentationSiteMarked("/admin/profile/external-email-setup", null)).toBe(false);
   });
 });
 

@@ -125,13 +125,20 @@ describe("UrlService", () => {
             [`${destinationPath}?${StoredValue.TAB}=inbox#setup`, `${destinationPath}?${StoredValue.TAB}=inbox#setup`],
             [`https://www.example.co.uk${destinationPath}`, destinationPath],
             [`https://example.co.uk${destinationPath}`, destinationPath],
-            [`?${StoredValue.TAB}=inbox`, `/?${StoredValue.TAB}=inbox`],
-            ["#setup", "/#setup"]
+            [`?${StoredValue.TAB}=inbox`, `/?${StoredValue.TAB}=inbox`]
         ])("resolves %s against the document base URL", (href, expected) => {
             const service = TestBed.inject(UrlService);
             const event = new Event("click", {cancelable: true});
             expect(service.followOwnSiteHref(href, event)).toBe(true);
             expect(navigateByUrl).toHaveBeenCalledWith(expected);
+            expect(event.defaultPrevented).toBe(true);
+        });
+
+        it("keeps a hash-only link on the current page", () => {
+            const service = TestBed.inject(UrlService);
+            const event = new Event("click", {cancelable: true});
+            expect(service.followOwnSiteHref("#setup", event)).toBe(true);
+            expect(navigateByUrl).toHaveBeenCalledWith(`${articlePath}#setup`);
             expect(event.defaultPrevented).toBe(true);
         });
 

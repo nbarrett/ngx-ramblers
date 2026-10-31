@@ -1,6 +1,6 @@
 import { DOCUMENTATION_SITE_PLACEHOLDER } from "../models/documentation-links.model";
 import { ENVIRONMENT_SUBDOMAIN_BASE } from "../models/environment-setup.model";
-import { isApplicationContentPath, isDocumentationContentPath } from "./application-content-paths";
+import { isDocumentationContentPath } from "./application-content-paths";
 import { apexHost } from "./hosts";
 
 export function documentationSiteOrigin(value: string): string | null {
@@ -10,6 +10,12 @@ export function documentationSiteOrigin(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+export function documentationSiteMarked(href: string | null | undefined, title: string | null | undefined): boolean {
+  const decoded = (href || "").replace(/%7B/gi, "{").replace(/%7D/gi, "}");
+  const label = title || "";
+  return decoded.startsWith(DOCUMENTATION_SITE_PLACEHOLDER) || label === DOCUMENTATION_SITE_PLACEHOLDER || label.startsWith(`${DOCUMENTATION_SITE_PLACEHOLDER} `);
 }
 
 export function documentationLinkPath(value: string): string | null {
@@ -59,13 +65,13 @@ export function documentationHrefParts(value: string, pageOrigin?: string): {pat
 
 export function documentationFeaturePath(value: string, origins: string[] = [], pageOrigin?: string): string | null {
   const placeholder = documentationLinkPath(value);
-  const result = {path: placeholder && isApplicationContentPath(placeholder) ? placeholder : null};
+  const result = {path: placeholder || null};
   if (!result.path && value) {
     const parts = documentationHrefParts(value, pageOrigin);
     if (parts) {
       const known = origins.some(site => documentationSiteOrigin(site) === documentationSiteOrigin(parts.origin || ""));
       const local = !/^https?:/i.test(value) || (pageOrigin && parts.origin === documentationHrefParts(pageOrigin)?.origin) || known;
-      if (local && isApplicationContentPath(parts.pathname) && !isDocumentationContentPath(parts.pathname)) {
+      if (local && !isDocumentationContentPath(parts.pathname)) {
         result.path = `${parts.pathname}${parts.search}${parts.hash}`;
       }
     }
@@ -80,7 +86,11 @@ export function documentationFeatureUrl(value: string, siteUrl: string, origins:
 }
 
 export function documentationLinkTitle(label: string): string {
-  return `Opens on ${label}. Click the gear above to change this.`;
+  if (label) {
+    return `Opens on ${label}. Click the gear above to change this.`;
+  } else {
+    return "Choose which website these links open. Click the gear above to choose.";
+  }
 }
 
 export function documentationWebsitePickerEnabled(host: string, platformAdminEnabled: boolean): boolean {

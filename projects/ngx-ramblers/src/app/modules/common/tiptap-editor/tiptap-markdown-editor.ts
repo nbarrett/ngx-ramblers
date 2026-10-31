@@ -81,6 +81,8 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
 import { PAGE_BREAK_NODE_NAME, PageBreak } from "./page-break.extension";
 import { ImageCropperAndResizerComponent } from "../../../image-cropper-and-resizer/image-cropper-and-resizer";
 import { SiteLinkInputComponent } from "../site-link-input/site-link-input";
+import { documentationSiteMarked } from "../../../functions/documentation-links";
+import { DOCUMENTATION_SITE_PLACEHOLDER } from "../../../models/documentation-links.model";
 import { AwsFileData, AwsFileUploadResponse } from "../../../models/aws-object.model";
 import { RootFolder } from "../../../models/system.model";
 import { S3_BASE_URL } from "../../../models/content-metadata.model";
@@ -313,6 +315,11 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
         <input class="form-check-input" type="checkbox" id="tiptap-link-new-tab"
                [(ngModel)]="linkOpenInNewTab" name="tiptap-link-new-tab">
         <label class="form-check-label" for="tiptap-link-new-tab">Open in a new tab</label>
+      </div>
+      <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" id="tiptap-link-chosen-site"
+               [(ngModel)]="linkOpensOnChosenSite" name="tiptap-link-chosen-site">
+        <label class="form-check-label" for="tiptap-link-chosen-site">Opens on the website chosen with the gear at the top of the page</label>
       </div>
       <div class="d-flex flex-wrap align-items-center gap-2">
         <button type="button" class="btn btn-sm btn-primary" (click)="confirmLink()">Apply</button>
@@ -709,6 +716,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private readonly onTablePickerPointerUp = (event: PointerEvent) => this.finishTablePickerDrag(event);
   protected linkBarOpen: boolean = false;
   protected linkOpenInNewTab = false;
+  protected linkOpensOnChosenSite = false;
   protected imageCropperOpen: boolean = false;
   protected imageSelected: boolean = false;
   protected imageSettingsOpen = false;
@@ -1958,6 +1966,10 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       || domLink?.getAttribute("target")
       || "";
     this.linkOpenInNewTab = existingTarget === "_blank";
+    const existingTitle = (this.editor?.getAttributes("link")["title"] as string | undefined)
+      || domLink?.getAttribute("title")
+      || "";
+    this.linkOpensOnChosenSite = documentationSiteMarked(this.linkUrl, existingTitle) || domLink?.hasAttribute("data-documentation-site-link") === true;
     this.imageCropperOpen = false;
     this.linkBarOpen = true;
     this.zone.runOutsideAngular(() => {
@@ -2057,12 +2069,14 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
     this.linkText = "";
     this.linkHrefMissing = false;
     this.linkOpenInNewTab = false;
+    this.linkOpensOnChosenSite = false;
   }
 
-  private linkMarkAttrs(url: string): { href: string; target: string | null; rel: string | null } {
+  private linkMarkAttrs(url: string): { href: string; target: string | null; rel: string | null; title: string | null } {
+    const title = this.linkOpensOnChosenSite ? DOCUMENTATION_SITE_PLACEHOLDER : null;
     return this.linkOpenInNewTab
-      ? { href: url, target: "_blank", rel: "noopener noreferrer" }
-      : { href: url, target: null, rel: null };
+      ? { href: url, target: "_blank", rel: "noopener noreferrer", title }
+      : { href: url, target: null, rel: null, title };
   }
 
   private applyLinkTextAndHref(url: string, text: string): boolean {

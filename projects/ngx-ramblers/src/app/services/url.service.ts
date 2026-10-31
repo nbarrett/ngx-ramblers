@@ -163,7 +163,10 @@ export class UrlService {
       const baseHref = nativeSite
         ? new URL(`${documentBase.pathname}${documentBase.search}${documentBase.hash}`, nativeSite).href
         : documentBase.href;
-      const url = new URL(href, baseHref);
+      const hrefForBase = href.startsWith("#")
+        ? `${this.document.location.pathname}${this.document.location.search}${href}`
+        : href;
+      const url = new URL(hrefForBase, baseHref);
       if (!this.ownSite(url) || url.pathname.startsWith("/api/")) {
         return false;
       } else {
