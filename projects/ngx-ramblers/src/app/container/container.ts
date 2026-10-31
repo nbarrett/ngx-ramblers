@@ -11,6 +11,7 @@ import { VersionCheckService } from "../services/version-check.service";
 import { CanonicalLinkService } from "../services/canonical-link.service";
 import { NativeSiteService } from "../services/maps/native-site.service";
 import { AppShellService } from "../services/maps/app-shell.service";
+import { HeadingAnchorService } from "../services/heading-anchors.service";
 import { UrlService } from "../services/url.service";
 import { RejoinMeetingBannerComponent } from "../pages/video-meetings/rejoin-meeting-banner";
 import { NewVersionBannerComponent } from "../modules/common/new-version-banner/new-version-banner";
@@ -89,6 +90,7 @@ export class ContainerComponent implements OnInit, OnDestroy {
   protected appShell = inject(AppShellService);
   private nativeSite = inject(NativeSiteService);
   private urlService = inject(UrlService);
+  private headingAnchors = inject(HeadingAnchorService);
   private subscriptions: Subscription[] = [];
 
   @HostListener("document:click", ["$event"])
@@ -169,6 +171,7 @@ export class ContainerComponent implements OnInit, OnDestroy {
     this.dataPopulationService.clearLegacyLocalStorage();
     this.versionCheckService.initialise();
     this.canonicalLinkService.initialise();
+    this.headingAnchors.watchDocument();
     this.appShellActive = this.appShell.active();
     this.subscriptions.push(this.appShell.active$.subscribe(active => {
       this.appShellActive = active;

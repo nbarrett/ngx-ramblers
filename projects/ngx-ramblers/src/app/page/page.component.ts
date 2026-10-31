@@ -2,6 +2,7 @@ import { AfterViewInit, booleanAttribute, Component, effect, ElementRef, HostLis
 import { DOCUMENT, NgTemplateOutlet } from "@angular/common";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../services/logger-factory.service";
+import { HeadingAnchorService } from "../services/heading-anchors.service";
 import { PageService } from "../services/page.service";
 import { isEmpty } from "es-toolkit/compat";
 import { RouterLink } from "@angular/router";
@@ -31,7 +32,7 @@ import { MarkdownComponent } from "ngx-markdown";
             @if (pageTitle) {
               <h1>{{ pageTitle }}</h1>
             } @else {
-              <h1 markdown [data]="pageService.contentPageTitle()" [inline]="true"></h1>
+              <h1 class="content-page-title" markdown [data]="pageService.contentPageTitle()" [inline]="true"></h1>
             }
           </div>
         }
@@ -48,6 +49,7 @@ export class PageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private logger: Logger = inject(LoggerFactory).createLogger("PageComponent", NgxLoggerLevel.ERROR);
   pageService = inject(PageService);
+  private headingAnchors = inject(HeadingAnchorService);
   private document = inject(DOCUMENT);
   private host = inject(ElementRef<HTMLElement>);
   readonly breadcrumbActions = signal<TemplateRef<unknown> | null>(null);
@@ -90,6 +92,7 @@ export class PageComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit() {
+    this.headingAnchors.schedule();
     this.publishHeadingHeight();
     const ResizeObserverType = this.document.defaultView?.ResizeObserver;
     if (ResizeObserverType) {
