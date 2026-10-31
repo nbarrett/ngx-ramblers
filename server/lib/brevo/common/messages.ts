@@ -4,6 +4,7 @@ import debug from "debug";
 import {
   BrandingMode,
   CreateCampaignRequest,
+  EmailTemplateName,
   extractOverrideKeys,
   overrideKeyToLabel,
   SendSmtpEmailRequest,
@@ -343,13 +344,16 @@ const BODY_CONTENT_TOKEN = /\{\{\s*params\.messageMergeFields\.BODY_CONTENT\s*\}
 
 function useStoredNotificationBody(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest | TemplateRenderRequest): boolean {
   const stored = emailRequest.body;
-  if (!stored) {
+  const processContent = emailRequest.params?.messageMergeFields?.BODY_CONTENT;
+  const hasProcessContent = isString(processContent) && processContent.trim().length > 0;
+  const placesContent = BODY_CONTENT_TOKEN.test(stored ?? "");
+  const processOwnsBody = emailRequest.templateName === EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY && hasProcessContent && !placesContent;
+  if (!stored?.trim()) {
+    return false;
+  } else if (processOwnsBody) {
     return false;
   } else {
-    const processContent = emailRequest.params?.messageMergeFields?.BODY_CONTENT;
-    const hasProcessContent = isString(processContent) && processContent.trim().length > 0;
-    const placesContent = BODY_CONTENT_TOKEN.test(stored);
-    return !hasProcessContent || placesContent;
+    return true;
   }
 }
 

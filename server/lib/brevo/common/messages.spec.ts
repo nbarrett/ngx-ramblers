@@ -461,6 +461,34 @@ describe("brevo messages", () => {
       expect(payload.htmlContent).not.toContain("remove you from our mailing lists");
       expect(payload.htmlContent).not.toContain("membership expiry date");
     });
+
+    it("uses the saved email configuration body when the shared login template also has its own wording", async () => {
+      const payload: Brevo.SendTransacEmailRequest = {};
+      await performTemplateSubstitution({
+        templateName: EmailTemplateName.WEBSITE_AND_LOGIN_DETAILS,
+        body: "Thank you for helping me test the walking app.\n\nYour trial login is below.",
+        params: {
+          messageMergeFields: {
+            subject: "Mobile Trial — Your login details",
+            BANNER_IMAGE_SOURCE: "",
+            ADDRESS_LINE: "Hi Alex,",
+            BODY_CONTENT: "<p>Hi Alex,</p>",
+            BODY_CONTENT_TOP: "<p>Hi Alex,</p>",
+            BODY_CONTENT_BOTTOM: "",
+            ACCENT_COLOR: "#F9B104"
+          },
+          memberMergeFields: {FULL_NAME: "Alex Reed", EMAIL: "alex.reed@example.com", FNAME: "Alex", LNAME: "Reed", MEMBER_NUM: "", MEMBER_EXP: "", USERNAME: "alex", PW_RESET: ""},
+          systemMergeFields: {
+            APP_SHORTNAME: "GROUP", APP_LONGNAME: "Example Walking Group", APP_URL: "https://group.example.org.uk",
+            PW_RESET_LINK: "https://group.example.org.uk/admin/set-password/example", FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""
+          },
+          accountMergeFields: ramblersAccountMergeFields()
+        }
+      }, payload, debug("test:stored-login-body"));
+      expect(payload.htmlContent).toContain("Thank you for helping me test the walking app.");
+      expect(payload.htmlContent).toContain("Your trial login is below.");
+      expect(payload.htmlContent).not.toContain("the email automation system behind every");
+    });
   });
 
   describe("renderTemplateMarkdownToHtml", () => {
