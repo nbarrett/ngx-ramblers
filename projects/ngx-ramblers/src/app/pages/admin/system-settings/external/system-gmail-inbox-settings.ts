@@ -976,6 +976,9 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
         await this.systemConfigService.refresh();
         await this.refreshProviderSwitchStatus();
         this.pendingProvider = null;
+        if (provider === InboxReaderProvider.CLOUDFLARE_INGRESS && this.ownsZoneConfirmed()) {
+          void this.loadDirectInboxChecks();
+        }
       } catch (error) {
         this.errorMessage = (error as Error)?.message || "Could not switch the inbox provider - try again.";
       } finally {
