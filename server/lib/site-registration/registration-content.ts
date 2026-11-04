@@ -12,7 +12,7 @@ import { createAllImagesLayoutTransformationConfig, createContactTransformationC
 import { PageContent, PageContentRow, PageContentType } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
 import { MigratedAlbum } from "../../../projects/ngx-ramblers/src/app/models/migration-scraping.model";
 import { RootFolder } from "../../../projects/ngx-ramblers/src/app/models/system.model";
-import { fetchPublicSiteHtml, fetchPublicSitePage, publicSiteUrl, withoutQuery } from "./public-site-fetch";
+import { publicSiteRequests, publicSiteUrl, withoutQuery } from "./public-site-fetch";
 import { SourceSiteUnavailableError } from "./source-site-limiter";
 import { isDocumentUrl } from "./registration-documents";
 import { httpRequest, optionalParameter } from "../shared/message-handlers";
@@ -26,7 +26,9 @@ import { humaniseFileStemFromUrl, titleCase } from "../shared/string-utils";
 import { CONTACT_US_TYPE } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { assembleRegistrationPages, isRegistrationFeaturePath, proposedRegistrationNavigation, unusedRegistrationPath } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import { Link } from "../../../projects/ngx-ramblers/src/app/models/page.model";
-import { isEventGalleryListingUrl, isGalleryPaginationPath } from "../migration/event-gallery";
+import { isEventGalleryListingUrl, isGalleryPaginationPath, isQueryAlbumListingUrl } from "../migration/event-gallery";
+import { layoutImage } from "../migration/image-filter";
+import { withoutLeadingNavigationMarkdown } from "../migration/content-root";
 
 export { proposedRegistrationNavigation };
 
@@ -51,13 +53,16 @@ const menuSelectors: Record<RegistrationSiteFlavour, string> = {
   [RegistrationSiteFlavour.WORDPRESS]: ".wp-block-navigation a, .main-navigation a, nav a"
 };
 const contentSelectors: Record<RegistrationSiteFlavour, string> = {
-  [RegistrationSiteFlavour.GENERIC]: "#BContent, main, article, #content, [role=main]",
+  [RegistrationSiteFlavour.GENERIC]: "#BContent, #content, #mainContent, #main-content, .main-content, .page-content, .content, article, main, [role=main]",
   [RegistrationSiteFlavour.RAMBLERSWEBS]: "#BContent",
   [RegistrationSiteFlavour.RAMBLERS_HOSTED]: "main .type-group-hub .col-md-8 .bg-white, main .type-content .col-md-8, main .type-content .container",
   [RegistrationSiteFlavour.WORDPRESS]: ".entry-content, .wp-block-post-content, main, article, [role=main]"
 };
 
-const COMMON_EXCLUDE_SELECTORS = ["script", "style", "nav", "header", "footer", ".cookie-notice", ".wp-block-navigation", ".site-header", ".site-footer"];
+const COMMON_EXCLUDE_SELECTORS = [
+  "script", "style", "nav", "header", "footer", ".cookie-notice", ".wp-block-navigation", ".site-header", ".site-footer",
+  "#navContainer", "#masthead", "#logo", "#logoImage", "#menu", "#menubar", "#sidebar", "aside", ".navbar", ".nav-menu", ".site-nav", "#pageHeader", ".breadcrumb"
+];
 
 const flavourExcludeSelectors: Partial<Record<RegistrationSiteFlavour, string[]>> = {
   [RegistrationSiteFlavour.RAMBLERS_HOSTED]: [".breadcrumb", ".page-header", "aside", ".card-carousel", ".btn-container", ".sr-only"]
@@ -195,6 +200,35 @@ export function ramblersHostedGroupPath(url: URL): string {
   return url?.hostname?.endsWith("ramblers.org.uk") && match ? match[1] : null;
 }
 
+export function ramblersHostedDirectoryUrl(website: string): string | null {
+  const url = publicSiteUrl(website);
+  const hostedPath = ramblersHostedGroupPath(url);
+  const slug = (url.pathname || "").replace(/^\/+|\/+$/g, "");
+  if (hostedPath) {
+    return `${url.protocol}//${url.hostname}${hostedPath}`;
+  } else if (url.hostname.endsWith("ramblers.org.uk") && slug && !slug.includes("/")) {
+    const hubSlug = /-group$/i.test(slug) ? slug : `${slug}-group`;
+    return `${url.protocol}//${url.hostname}/go-walking/ramblers-groups/${hubSlug}`;
+  } else {
+    return null;
+  }
+}
+
+function ramblersCanonicalUrl(document: Document, base: URL): URL {
+  const raw = document.querySelector("link[rel='canonical']")?.getAttribute("href")
+    || document.querySelector("meta[property='og:url']")?.getAttribute("content")
+    || "";
+  if (!raw) {
+    return base;
+  } else {
+    try {
+      return new URL(raw, base);
+    } catch (error) {
+      return base;
+    }
+  }
+}
+
 function decodedPathname(pathname: string): string {
   try {
     return decodeURIComponent(pathname);
@@ -227,10 +261,11 @@ export function discoverRegistrationPages(html: string, website: string): {pages
   const document = new JSDOM(html, {url: website}).window.document;
   document.querySelectorAll("br").forEach(lineBreak => lineBreak.replaceWith(" "));
   const base = publicSiteUrl(website);
+  const hostedPath = ramblersHostedGroupPath(base) || ramblersHostedGroupPath(ramblersCanonicalUrl(document, base));
   const flavour = document.querySelector(".BMenu") ? RegistrationSiteFlavour.RAMBLERSWEBS
-    : document.querySelector("main .type-group-hub, main .type-content") && ramblersHostedGroupPath(base) ? RegistrationSiteFlavour.RAMBLERS_HOSTED
+    : document.querySelector("main .type-group-hub, main .type-content") && hostedPath ? RegistrationSiteFlavour.RAMBLERS_HOSTED
     : document.querySelector('meta[name="generator"][content*="WordPress"], link[href*="wp-content"]') ? RegistrationSiteFlavour.WORDPRESS : RegistrationSiteFlavour.GENERIC;
-  const groupPath = ramblersHostedGroupPath(base);
+  const groupPath = hostedPath;
   const discoveredLinks: {url: string; title: string; parentTitle: string; sourcePath: string}[] = [];
   document.querySelectorAll<HTMLAnchorElement>(menuSelectors[flavour]).forEach(link => {
     try {
@@ -294,7 +329,8 @@ export function discoverRegistrationPages(html: string, website: string): {pages
 function publicImageUrls(document: Document, base: URL): string[] {
   return [...document.querySelectorAll("img")].reduce((urls, image) => {
     try {
-      const href = new URL(image.src, base).href;
+      const raw = image.getAttribute("data-large") || image.getAttribute("data-src") || image.src;
+      const href = new URL(raw, base).href;
       if (/^https?:/i.test(href) && !urls.includes(href)) {
         return [...urls, href].slice(0, 12);
       } else {
@@ -344,8 +380,16 @@ export function isNgxRamblersSite(html: string, website: string): boolean {
 
 export async function discoverRegistrationWebsite(website: string, groupCode = "", onProgress: RegistrationDiscoveryReporter = async () => undefined) {
   const requestedUrl = publicSiteUrl(website).href;
+  const directoryUrl = ramblersHostedDirectoryUrl(requestedUrl);
   await onProgress({message: "Reading the home page", pagesRead: 0, pagesFound: 0});
-  const initialPage = await fetchPublicSitePage(requestedUrl);
+  const initialPage = await publicSiteRequests.fetchPage(requestedUrl).catch(async error => {
+    if (directoryUrl && directoryUrl !== requestedUrl) {
+      await onProgress({message: `The website redirects to ${withoutQuery(directoryUrl)}, so pages are read from there`, pagesRead: 0, pagesFound: 0});
+      return publicSiteRequests.fetchPage(directoryUrl);
+    } else {
+      throw error;
+    }
+  });
   const initialUrl = initialPage.url;
   const initialHtml = initialPage.html;
   if (initialUrl !== requestedUrl) {
@@ -380,7 +424,7 @@ async function crawlRegistrationPages(pages: RegistrationPage[], flavour: Regist
     const batch = candidates.slice(0, Math.min(CRAWL_BATCH_SIZE, MAX_CRAWLED_PAGES - visited.size));
     const remaining = candidates.slice(batch.length);
     const discoveries = await Promise.all(batch.map(async url => {
-      const html = await fetchPublicSiteHtml(url).catch(error => {
+      const html = await publicSiteRequests.fetchHtml(url).catch(error => {
         if (error instanceof SourceSiteUnavailableError) {
           throw error;
         } else {
@@ -592,6 +636,24 @@ export function withoutDuplicateHeadingImages(rows: PageContentRow[], albumImage
   }));
 }
 
+export function withoutSiteChromeRows(rows: PageContentRow[]): PageContentRow[] {
+  return withoutEmptyRows((rows || []).map(row => {
+    if (row.type !== PageContentType.TEXT) {
+      return row;
+    } else {
+      return {
+        ...row,
+        columns: (row.columns || []).map(column => ({
+          ...column,
+          contentText: column.contentText ? withoutLeadingNavigationMarkdown(column.contentText) : column.contentText,
+          imageSource: column.imageSource && layoutImage({src: column.imageSource, alt: column.alt || ""}) ? null : column.imageSource,
+          rows: column.rows ? withoutSiteChromeRows(column.rows) : column.rows
+        }))
+      };
+    }
+  }));
+}
+
 export function withoutEmptyRows(rows: PageContentRow[]): PageContentRow[] {
   return (rows || []).flatMap(row => {
     if (row.type !== PageContentType.TEXT) {
@@ -720,7 +782,7 @@ export function registrationMigrationConfig(registration: StoredSiteRegistration
 export function registrationContentType(page: RegistrationPage): RegistrationPageType {
   if (page.proposed && page.type === RegistrationPageType.INDEX) {
     return RegistrationPageType.INDEX;
-  } else if (isEventGalleryListingUrl(page.url || "") || isGalleryPaginationPath(page.path, page.url)) {
+  } else if (isEventGalleryListingUrl(page.url || "") || isGalleryPaginationPath(page.path, page.url) || isQueryAlbumListingUrl(page.url || "")) {
     return RegistrationPageType.INDEX;
   } else {
     return registrationPageType(page.path, page.title);

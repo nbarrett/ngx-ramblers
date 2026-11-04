@@ -83,7 +83,7 @@ function complexWalkPage(): ScrapedPage {
 }
 
 describe("page-transformation-engine.basic", () => {
-  it("ALL_CONTENT produces combined markdown with images", async () => {
+  it("ALL_CONTENT produces combined markdown with images as columns", async () => {
     const engine = new PageTransformationEngine();
     const page = samplePage();
     const config: PageTransformationConfig = {
@@ -108,8 +108,14 @@ describe("page-transformation-engine.basic", () => {
     const result: PageContent = await engine.transform(page, config, uploadMock);
     expect(result.rows?.length).toBe(1);
     const col = result.rows?.[0].columns[0];
-    expect(col.contentText?.includes("uploaded:banner.jpg")).toBeTruthy();
     expect(col.contentText?.includes("Intro text before images")).toBeTruthy();
+    expect(col.contentText).not.toMatch(/!\[/);
+    expect((col.rows || []).map(row => row.columns[0].imageSource)).toEqual([
+      "uploaded:banner.jpg",
+      "uploaded:route-map-123.jpg",
+      "uploaded:pic1.jpg",
+      "uploaded:pic2.jpg"
+    ]);
   });
 });
 
@@ -667,11 +673,10 @@ describe("page-transformation-engine.image patterns", () => {
       ]
     };
     const result = await engine.transform(page, config, uploadMock);
-    const left = result.rows?.[0].columns[0].contentText || "";
-    const right = result.rows?.[0].columns[1].contentText || "";
-    expect(left.includes("uploaded:banner.jpg")).toBeTruthy();
-    expect(left.includes("uploaded:pic2.jpg")).toBeTruthy();
-    expect(right.includes("uploaded:banner.jpg")).toBeTruthy();
+    const left = (result.rows?.[0].columns[0].rows || []).map(row => row.columns[0].imageSource);
+    const right = (result.rows?.[0].columns[1].rows || []).map(row => row.columns[0].imageSource);
+    expect(left).toEqual(["uploaded:banner.jpg", "uploaded:route-map-123.jpg", "uploaded:pic1.jpg", "uploaded:pic2.jpg"]);
+    expect(right).toEqual(["uploaded:banner.jpg", "uploaded:route-map-123.jpg", "uploaded:pic1.jpg", "uploaded:pic2.jpg"]);
   });
 
   it("REMAINING_IMAGES yields next unused image across columns", async () => {

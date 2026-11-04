@@ -108,8 +108,29 @@ export function publicSiteUrl(value: string): URL {
   }
 }
 
+export function redirectTarget(statusCode: number, locationHeader: string | string[] | undefined, currentUrl: string): string | null {
+  if (statusCode < 300 || statusCode >= 400) {
+    return null;
+  } else {
+    const location = (isArray(locationHeader) ? locationHeader[0] : locationHeader || "").trim();
+    if (!location) {
+      return null;
+    } else {
+      try {
+        return new URL(location, currentUrl).href;
+      } catch (error) {
+        return null;
+      }
+    }
+  }
+}
+
 export function shouldRelayPublicSiteFetch(error: unknown): boolean {
-  return error instanceof HttpError && (error.status === 401 || error.status === 403);
+  if (!(error instanceof HttpError)) {
+    return false;
+  } else {
+    return error.status === 401 || error.status === 403 || error.status === 406 || error.status === 415 || (error.status >= 300 && error.status < 400);
+  }
 }
 
 function fetchPublicSiteBody(value: string, redirects: number, accept: string, expectedContentType: string, maximumBytes: number): Promise<PublicSiteResponse> {
@@ -196,16 +217,17 @@ async function requestPublicSiteBody(value: string, redirects: number, accept: s
       },
       timeout: 20000
     }, response => {
-      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+      const nextUrl = redirectTarget(response.statusCode, response.headers.location, url.href);
+      if (nextUrl) {
         response.resume();
-        requestPublicSiteBody(new URL(response.headers.location, url).href, redirects + 1, accept, expectedContentType, maximumBytes).then(resolve, reject);
+        requestPublicSiteBody(nextUrl, redirects + 1, accept, expectedContentType, maximumBytes).then(resolve, reject);
       } else if (response.statusCode !== 200) {
         response.resume();
         reject(Object.assign(new HttpError(response.statusCode, publicSiteHttpErrorMessage(url.href, response.statusCode)), {retryAfterSeconds: retryAfterSeconds(response.headers["retry-after"])}));
       } else if (expectedContentType && response.headers["content-type"] && !response.headers["content-type"].includes(expectedContentType) && !response.headers["content-type"].includes("octet-stream") && !response.headers["content-type"].includes("binary")) {
         response.resume();
         debugLog("unexpected content type %s for %s", response.headers["content-type"], withoutQuery(url.href));
-        reject(new Error(publicSiteHttpErrorMessage(url.href, response.statusCode)));
+        reject(Object.assign(new HttpError(415, publicSiteHttpErrorMessage(url.href, response.statusCode)), {retryAfterSeconds: 0}));
       } else {
         const chunks: Uint8Array[] = [];
         const size = {bytes: 0};
@@ -250,3 +272,8 @@ export async function fetchPublicSiteImage(value: string): Promise<Buffer> {
 export async function fetchPublicSiteDocument(value: string): Promise<Buffer> {
   return (await fetchPublicSiteBody(value, 0, "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream,*/*", "", 30000000)).body;
 }
+
+export const publicSiteRequests = {
+  fetchPage: fetchPublicSitePage,
+  fetchHtml: fetchPublicSiteHtml
+};

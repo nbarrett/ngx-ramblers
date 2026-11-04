@@ -20,8 +20,9 @@ import {
   zoneForHostname
 } from "../../cloudflare/cloudflare-dns";
 import { ensureHostRedirectRule, removeHostRedirectRule } from "../../cloudflare/cloudflare-redirect-rules";
-import { AppIpAddresses, CertificateInfo, FlyConfig, IpAddressType } from "../../fly/fly.model";
-import { appIpAddresses, allocateIpAddress, addCertificate, deleteCertificate, queryCertificates } from "../../fly/fly-certificates";
+import { AppIpAddresses, CertificateInfo, FlyConfig } from "../../fly/fly.model";
+import { appIpAddresses, addCertificate, deleteCertificate, queryCertificates } from "../../fly/fly-certificates";
+import { ensureAppPublicIps } from "../../fly/fly-public-ips";
 import { findEnvironmentFromDatabase, environmentsConfigFromDatabase } from "../../environments/environments-config";
 import { connectToDatabase } from "../../environment-setup/database-initialiser";
 import { buildMongoUri } from "../../shared/mongodb-uri";
@@ -84,19 +85,13 @@ export async function setupSubdomainForEnvironment(environmentName: string): Pro
 
   log("\n2. Getting Fly.io IP addresses...");
   const flyConfig: FlyConfig = { apiToken: flyApiToken, appName };
-  const ips = await appIpAddresses(flyConfig);
-  if (!ips.ipv4 && !ips.ipv6) {
-    throw new Error(`No IP addresses allocated for app ${appName}. Ensure the app is deployed first.`);
-  }
-  if (!ips.ipv4) {
-    log("   ⚠ No IPv4 address found — allocating shared IPv4...");
-    const allocated = await allocateIpAddress(flyConfig, IpAddressType.SharedV4);
-    ips.ipv4 = allocated.address;
-    log(`   ✓ Allocated shared IPv4: ${ips.ipv4}`);
-  } else {
+  const ips = await ensureAppPublicIps(flyConfig);
+  if (ips.ipv4) {
     log(`   ✓ IPv4: ${ips.ipv4}`);
   }
-  if (ips.ipv6) log(`   ✓ IPv6: ${ips.ipv6}`);
+  if (ips.ipv6) {
+    log(`   ✓ IPv6: ${ips.ipv6}`);
+  }
 
   const cloudflareConfig: CloudflareDnsConfig = {
     apiToken: environmentsConfig.cloudflare.apiToken,
@@ -463,16 +458,13 @@ export async function addCustomDomainForEnvironment(
 
   step("Getting Fly.io IP addresses...");
   const flyConfig: FlyConfig = { apiToken: flyApiToken, appName };
-  const ips = await appIpAddresses(flyConfig);
-  if (!ips.ipv4) {
-    step("  ⚠ No IPv4 address found — allocating shared IPv4...");
-    const allocated = await allocateIpAddress(flyConfig, IpAddressType.SharedV4);
-    ips.ipv4 = allocated.address;
-    step(`  ✓ Allocated shared IPv4: ${ips.ipv4}`);
-  } else {
+  const ips = await ensureAppPublicIps(flyConfig);
+  if (ips.ipv4) {
     step(`  ✓ Fly IPv4: ${ips.ipv4}`);
   }
-  if (ips.ipv6) step(`  ✓ Fly IPv6: ${ips.ipv6}`);
+  if (ips.ipv6) {
+    step(`  ✓ Fly IPv6: ${ips.ipv6}`);
+  }
 
   const isApex = !!zone && hostname === zone.name;
   const flyCnameTarget = `${appName}.fly.dev`;

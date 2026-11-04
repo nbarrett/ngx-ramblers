@@ -1,6 +1,6 @@
 import debug from "debug";
 import {
-  BuiltInProcessMappings, EmailTemplateName, NotificationConfig, SendPurpose, SendSmtpEmailRequest
+  BuiltInProcessMappings, EmailAddress, EmailTemplateName, NotificationConfig, SendPurpose, SendSmtpEmailRequest
 } from "../../../../projects/ngx-ramblers/src/app/models/mail.model";
 import {
   RegistrationEmailParameters, RegistrationEmailType, RegistrationSettings
@@ -8,10 +8,13 @@ import {
 import { envConfig } from "../../env-config/env-config";
 import { notificationConfig } from "../../mongo/models/notification-config";
 import { configuredBrevo } from "../brevo-config";
-import { bannerImageSource, buildSubject } from "./send-member-bulk-load-digest-email";
+import { bannerImageSource, buildSubject, emailAddressForRole } from "./send-member-bulk-load-digest-email";
 import { banner } from "../../mongo/models/banner";
 import * as transforms from "../../mongo/controllers/transforms";
+import * as config from "../../mongo/controllers/config";
+import { ConfigKey } from "../../../../projects/ngx-ramblers/src/app/models/config.model";
 import { BannerConfig } from "../../../../projects/ngx-ramblers/src/app/models/banner-configuration.model";
+import { CommitteeConfig } from "../../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { sendTransactionalEmailRequest } from "./send-transactional-mail";
 import { stripTrailingSlash } from "../../../../projects/ngx-ramblers/src/app/functions/strings";
 
@@ -29,26 +32,44 @@ export async function sendRegistrationEmail(settings: RegistrationSettings, type
   if (!configured?.body) {
     throw new Error(`The built-in ${type} registration email configuration is not mapped.`);
   } else {
-    const allBanners: BannerConfig[] = await banner.find({}).lean().then(docs => docs.map(transforms.toObjectWithId));
-    const params = {
-      messageMergeFields: {
-        subject: "", BANNER_IMAGE_SOURCE: bannerImageSource(allBanners, configured.bannerId || allBanners[0]?.id, stripTrailingSlash((settings.publicUrl || ""))), ADDRESS_LINE: "Hello,", BODY_CONTENT: "", BODY_CONTENT_BOTTOM: "",
-        GROUP_NAME: values.groupName, ACTION_URL: values.actionUrl,
-        RETURN_URL: values.returnUrl || "", SITE_URL: values.siteUrl || ""
-      },
-      memberMergeFields: {FULL_NAME: "", EMAIL: recipient, FNAME: "", LNAME: "", MEMBER_NUM: "", USERNAME: "", PW_RESET: "", MEMBER_EXP: ""},
-      systemMergeFields: {APP_SHORTNAME: "NGX Ramblers", APP_LONGNAME: "NGX Ramblers", APP_URL: settings.publicUrl,
-        PW_RESET_LINK: "", FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""},
-      accountMergeFields: {STREET: "", POSTCODE: "", TOWN: "", REGISTERED_OFFICE: ""}
-    };
-    const subject = buildSubject(configured, params);
-    params.messageMergeFields.subject = subject;
-    const request: SendSmtpEmailRequest = {
-      subject, sender: {email: settings.senderEmail, name: "NGX Ramblers"},
-      to: [{email: recipient, name: values.groupName}], replyTo: {email: settings.senderEmail, name: "NGX Ramblers"},
-      params, body: configured.body, templateName: configured.templateName || EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY,
-      templateOverrides: configured.templateOverrides
-    };
-    await sendTransactionalEmailRequest(request, debugLog, settings.publicUrl, SendPurpose.TRANSACTIONAL);
+    const committeeCfg: CommitteeConfig = (await config.queryKey(ConfigKey.COMMITTEE))?.value;
+    const fromAddress = registrationFromAddress(configured, committeeCfg?.roles || [], settings);
+    if (!fromAddress?.email) {
+      throw new Error(`The built-in ${type} registration email has no sender. Choose a sender on the email configuration, or add a verified sender in Mail Settings.`);
+    } else {
+      const replyTo = emailAddressForRole(committeeCfg?.roles || [], configured.replyToRole?.trim() || "") || fromAddress;
+      const allBanners: BannerConfig[] = await banner.find({}).lean().then(docs => docs.map(transforms.toObjectWithId));
+      const params = {
+        messageMergeFields: {
+          subject: "", BANNER_IMAGE_SOURCE: bannerImageSource(allBanners, configured.bannerId || allBanners[0]?.id, stripTrailingSlash((settings.publicUrl || ""))), ADDRESS_LINE: "Hello,", BODY_CONTENT: "", BODY_CONTENT_BOTTOM: "",
+          GROUP_NAME: values.groupName, ACTION_URL: values.actionUrl,
+          RETURN_URL: values.returnUrl || "", SITE_URL: values.siteUrl || ""
+        },
+        memberMergeFields: {FULL_NAME: "", EMAIL: recipient, FNAME: "", LNAME: "", MEMBER_NUM: "", USERNAME: "", PW_RESET: "", MEMBER_EXP: ""},
+        systemMergeFields: {APP_SHORTNAME: "NGX Ramblers", APP_LONGNAME: "NGX Ramblers", APP_URL: settings.publicUrl,
+          PW_RESET_LINK: "", FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""},
+        accountMergeFields: {STREET: "", POSTCODE: "", TOWN: "", REGISTERED_OFFICE: ""}
+      };
+      const subject = buildSubject(configured, params);
+      params.messageMergeFields.subject = subject;
+      const request: SendSmtpEmailRequest = {
+        subject, sender: fromAddress,
+        to: [{email: recipient, name: values.groupName}], replyTo,
+        params, body: configured.body, templateName: configured.templateName || EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY,
+        templateOverrides: configured.templateOverrides
+      };
+      await sendTransactionalEmailRequest(request, debugLog, settings.publicUrl, SendPurpose.TRANSACTIONAL);
+    }
+  }
+}
+
+export function registrationFromAddress(configured: NotificationConfig, roles: CommitteeConfig["roles"], settings: RegistrationSettings): EmailAddress | null {
+  const fromConfig = emailAddressForRole(roles || [], configured?.senderRole);
+  if (fromConfig?.email) {
+    return fromConfig;
+  } else if (settings?.senderEmail) {
+    return {email: settings.senderEmail, name: "NGX Ramblers"};
+  } else {
+    return null;
   }
 }

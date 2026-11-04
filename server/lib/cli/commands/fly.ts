@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { flyTomlAbsolutePath, runCommand, runCommandAsync, runCommandStreaming } from "../../fly/fly-commands";
+import { ensureAppPublicIps } from "../../fly/fly-public-ips";
 import { loadSecretsWithFallback, REQUIRED_SECRETS, writeSecretsFile } from "../../shared/secrets";
 import { cleanDisallowedSecretsFromEnvironmentsConfig, pruneDisallowedFlySecrets } from "../../fly/fly-secrets-prune";
 import { filterSecretsForSiteFlyDeploy, SITE_FLY_SECRET_ALLOWLIST } from "../../fly/fly-secrets-policy";
@@ -206,6 +207,12 @@ export async function deployToFlyio(config: FlyDeployConfig, onProgressOrOptions
         `Redeploying ${config.appName}`
       );
     }
+
+    report("Ensuring public IPv4 and IPv6");
+    await ensureAppPublicIps({
+      apiToken: apiKey || config.apiKey || process.env.FLY_API_TOKEN || "",
+      appName: config.appName
+    });
 
     await upsertEnvironmentInDatabase({
       environment: config.name,

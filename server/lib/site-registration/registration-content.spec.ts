@@ -18,7 +18,7 @@ import {
 import { ParentPageMode } from "../../../projects/ngx-ramblers/src/app/models/migration-config.model";
 import { TransformationActionType } from "../../../projects/ngx-ramblers/src/app/models/page-transformation.model";
 import { PageContentType } from "../../../projects/ngx-ramblers/src/app/models/content-text.model";
-import { withContactUsLinks, discoverRegistrationWebsite, discoverRegistrationPages, isCrawlableRegistrationPageUrl, isNgxRamblersSite, joinSplitLinkText, mergeAdjacentSameHrefLinks, mergeRegistrationPages, pagesFoundOn, proposedRegistrationNavigation, registrationHeaderButtons, registrationMigrationConfig, registrationPageType, registrationContentType, registrationSourceUrl, registrationTitleFromLink, earlierImportFilters, importedPagePath, pairedImageRows, repeatedLayoutImagePaths, uniqueLinksByHref, withIntroductionPhotos, withoutButtonsTo, withoutDuplicateHeadingImages, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
+import { withContactUsLinks, discoverRegistrationWebsite, discoverRegistrationPages, isCrawlableRegistrationPageUrl, isNgxRamblersSite, joinSplitLinkText, mergeAdjacentSameHrefLinks, mergeRegistrationPages, pagesFoundOn, proposedRegistrationNavigation, ramblersHostedDirectoryUrl, registrationHeaderButtons, registrationMigrationConfig, registrationPageType, registrationContentType, registrationSourceUrl, registrationTitleFromLink, earlierImportFilters, importedPagePath, pairedImageRows, repeatedLayoutImagePaths, uniqueLinksByHref, withIntroductionPhotos, withoutButtonsTo, withoutDuplicateHeadingImages, withoutEmptyRows, withoutSiteChromeRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
 import { assembleRegistrationPages, registrationPageTree, registrationPagesMoved, registrationPagesWithSelection } from "../../../projects/ngx-ramblers/src/app/functions/registration-page-tree";
 import { SitemapMoveDirection } from "../../../projects/ngx-ramblers/src/app/models/sitemap.model";
 import { excludedImage, markdownSegments, migrateStaticSite, sourceFidelityGaps } from "../migration/migrate-static-site-engine";
@@ -118,6 +118,25 @@ describe("site registration content discovery", () => {
     expect(discovered.pages.find(page => page.path === "faqs").url).toContain("docs.google.com/document/d/abc123");
   });
 
+  it("maps a Ramblers short group address to the hosted group page", () => {
+    expect(ramblersHostedDirectoryUrl("https://www.ramblers.org.uk/hillside-district"))
+      .toEqual("https://www.ramblers.org.uk/go-walking/ramblers-groups/hillside-district-group");
+    expect(ramblersHostedDirectoryUrl("https://www.ramblers.org.uk/go-walking/ramblers-groups/hillside-district-group"))
+      .toEqual("https://www.ramblers.org.uk/go-walking/ramblers-groups/hillside-district-group");
+  });
+
+  it("reads a Ramblers-hosted group from the short address when the page names the hosted URL", () => {
+    const html = `<html><head>
+      <link rel="canonical" href="https://www.ramblers.org.uk/go-walking/ramblers-groups/hillside-district-group">
+    </head><body><main><div class="type-group-hub">
+      <div class="col-md-8"><div class="bg-white"><h1>Walking in the Hillside District</h1></div></div>
+      <a href="/go-walking/ramblers-groups/hillside-district-group/what-we-do">What we do</a>
+    </div></main></body></html>`;
+    const discovered = discoverRegistrationPages(html, "https://www.ramblers.org.uk/hillside-district");
+    expect(discovered.flavour).toBe(RegistrationSiteFlavour.RAMBLERS_HOSTED);
+    expect(discovered.pages.map(page => page.path).sort()).toEqual(["home", "what-we-do"]);
+  });
+
   it("discovers linked PDF and Word documents on a hosted group page", () => {
     const html = `<html><body><main><div class="type-group-hub">
       <a href="https://group.example.org.uk/faqs.pdf">FAQs</a>
@@ -147,6 +166,7 @@ describe("site registration content discovery", () => {
     expect(registrationPageType("scrapbook/gallery")).toBe(RegistrationPageType.GALLERY);
     expect(registrationContentType({url: "https://group.example.org.uk/index.php?option=com_eventgallery&view=events", path: "photos", title: "Photos", type: RegistrationPageType.GALLERY, selected: true, parentPath: null, proposed: false} as any)).toBe(RegistrationPageType.INDEX);
     expect(registrationContentType({url: "https://group.example.org.uk/photos.html?start=50", path: "photos/2", title: "Photos", type: RegistrationPageType.GALLERY, selected: true, parentPath: null, proposed: false} as any)).toBe(RegistrationPageType.INDEX);
+    expect(registrationContentType({url: "https://group.example.org.uk/gallery/eventdisplay.php", path: "photos", title: "Gallery Events", type: RegistrationPageType.GALLERY, selected: true, parentPath: null, proposed: false} as any)).toBe(RegistrationPageType.INDEX);
     expect(registrationPageType("about-us")).toBe(RegistrationPageType.TEXT);
   });
 
@@ -426,6 +446,13 @@ describe("site registration migration config", () => {
     expect(config.contentSelector).toContain(".entry-content");
   });
 
+  it("scopes generic sites to page content wrappers and drops masthead navigation", () => {
+    const config = registrationMigrationConfig(registration());
+    expect(config.contentSelector).toContain(".content");
+    expect(config.contentSelector).toContain("#mainContent");
+    expect(config.excludeSelectors).toEqual(expect.arrayContaining(["#navContainer", "#masthead", "#pageHeader"]));
+  });
+
   it("includes an entire source branch even when stale selection flags say otherwise", () => {
     const saved = {...registration(), pages: discoverRegistrationPages(`<nav><ul><li><a href="/about">About us</a><ul><li><a href="/scrapbook">Scrapbook</a></li></ul></li></ul></nav>`, "https://group.example").pages};
     saved.pages = [
@@ -446,9 +473,11 @@ describe("site registration migration config", () => {
     ]});
     config.templatePages = [{path: RegistrationMigrationTemplate.TEXT_WITH_IMAGES, rows: [{type: PageContentType.TEXT, maxColumns: 1, showSwiper: false,
       columns: [{columns: 12, contentText: ""}]}], migrationTemplate: {mappings: []}}];
+    const html = "<h1>Committee</h1><p>Chairman – <strong>VACANT</strong> (chair@example.com)</p><p>Publicity – Lisa Ord (publicity@example.com)</p>";
     const browser = {
       newPage: async () => ({route: async () => null, on: () => null, goto: async () => ({ok: () => true}),
-        evaluate: async () => ({html: "<h1>Committee</h1><p>Chairman – <strong>VACANT</strong> (chair@example.com)</p><p>Publicity – Lisa Ord (publicity@example.com)</p>", images: []}), close: async () => null}),
+        content: async () => html,
+        evaluate: async () => ({html, images: []}), close: async () => null}),
       close: async () => null
     } as any;
     const result = await migrateStaticSite(config, browser);
@@ -496,6 +525,14 @@ describe("site registration migration config", () => {
       {text: "Before"},
       {text: "Photo", image: photo},
       {text: "after"}
+    ]);
+  });
+
+  it("turns leftover markdown images into segments even when the scrape missed the file", () => {
+    expect(markdownSegments("Welcome\n\n![A group of walkers on a sunny hillside](https://cdn.example/walkers.jpg \"Walkers\")\n\nJoin us", [])).toEqual([
+      {text: "Welcome"},
+      {text: "A group of walkers on a sunny hillside", image: {src: "https://cdn.example/walkers.jpg", alt: "A group of walkers on a sunny hillside"}},
+      {text: "Join us"}
     ]);
   });
 });
@@ -589,6 +626,23 @@ describe("site registration page addresses and layout images", () => {
     ];
     expect(repeatedLayoutImagePaths(pages).sort()).toEqual(["images/banner.png", "images/logo.png"]);
     expect(repeatedLayoutImagePaths(pages.slice(0, 2))).toEqual([]);
+  });
+
+  it("drops masthead banners and old-site navigation lists from imported page rows", () => {
+    const rows = withoutSiteChromeRows([
+      {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: "# About Us"}]},
+      {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, imageSource: "https://group.example.org.uk/images/banner.jpg", alt: "Image"}]},
+      {type: PageContentType.TEXT, maxColumns: 1, showSwiper: false, columns: [{columns: 12, contentText: `* Home
+* Walks Programme
+* [Social Events](/information/social-events)
+* [Gallery](/photos)
+* [Contacts](/contact-us)
+
+The group walks every Sunday.`}]}
+    ]);
+    expect(JSON.stringify(rows)).not.toContain("banner.jpg");
+    expect(JSON.stringify(rows)).not.toContain("Walks Programme");
+    expect(rows.map(row => row.columns?.[0]?.contentText).join("\n")).toContain("The group walks every Sunday.");
   });
 
   it("keeps excluded layout images out of the imported page entirely", () => {
@@ -795,13 +849,13 @@ describe("registration website crawl failures", () => {
   const website = "https://group.example.org.uk/";
 
   beforeEach(() => {
-    sandbox.stub(publicSiteFetch, "fetchPublicSitePage").resolves({url: website, html: '<nav><a href="/missing">Missing page</a><a href="/about">About us</a></nav>'});
+    sandbox.stub(publicSiteFetch.publicSiteRequests, "fetchPage").resolves({url: website, html: '<nav><a href="/missing">Missing page</a><a href="/about">About us</a></nav>'});
   });
 
   afterEach(() => sandbox.restore());
 
   it("continues discovering other pages after a broken link", async () => {
-    const fetch = sandbox.stub(publicSiteFetch, "fetchPublicSiteHtml");
+    const fetch = sandbox.stub(publicSiteFetch.publicSiteRequests, "fetchHtml");
     fetch.withArgs(`${website}missing`).rejects(new HttpError(404, "Missing page"));
     fetch.withArgs(`${website}about`).resolves('<nav><a href="/contact">Contact</a></nav>');
     fetch.withArgs(`${website}contact`).resolves("<main>Contact us</main>");
@@ -810,13 +864,34 @@ describe("registration website crawl failures", () => {
   });
 
   it("stops when the source site limiter reports an unavailable host", async () => {
-    sandbox.stub(publicSiteFetch, "fetchPublicSiteHtml").rejects(new SourceSiteUnavailableError("group.example.org.uk", "Repeated failures"));
+    sandbox.stub(publicSiteFetch.publicSiteRequests, "fetchHtml").rejects(new SourceSiteUnavailableError("group.example.org.uk", "Repeated failures"));
     await expect(discoverRegistrationWebsite(website)).rejects.toBeInstanceOf(SourceSiteUnavailableError);
   });
 
   it("does not swallow discovery safety limits as broken links", async () => {
     const links = [...new Set([..."abcdefghijklmnopqrstuvwxyz"].flatMap(first => [..."abcdefghij"].map(second => `${first}${second}`)))];
-    sandbox.stub(publicSiteFetch, "fetchPublicSiteHtml").resolves(`<nav>${links.map(link => `<a href="/${link}">${link}</a>`).join("")}</nav>`);
+    sandbox.stub(publicSiteFetch.publicSiteRequests, "fetchHtml").resolves(`<nav>${links.map(link => `<a href="/${link}">${link}</a>`).join("")}</nav>`);
     await expect(discoverRegistrationWebsite(website)).rejects.toThrow("250 internal page links");
+  });
+
+  it("retries a Ramblers short group address on the hosted group page", async () => {
+    const shortUrl = "https://www.ramblers.org.uk/hillside-district";
+    const hubUrl = "https://www.ramblers.org.uk/go-walking/ramblers-groups/hillside-district-group";
+    const hubHtml = `<html><body><main><div class="type-group-hub">
+      <div class="col-md-8"><div class="bg-white"><h1>Walking in the Hillside District</h1></div></div>
+    </div></main></body></html>`;
+    (publicSiteFetch.publicSiteRequests.fetchPage as sinon.SinonStub).callsFake(async (url: string) => {
+      if (url === shortUrl) {
+        throw new HttpError(301, "The current website could not be read.");
+      } else if (url === hubUrl) {
+        return {url: hubUrl, html: hubHtml};
+      } else {
+        throw new Error(url);
+      }
+    });
+    sandbox.stub(publicSiteFetch.publicSiteRequests, "fetchHtml").resolves(hubHtml);
+    const result = await discoverRegistrationWebsite(shortUrl);
+    expect(result.flavour).toBe(RegistrationSiteFlavour.RAMBLERS_HOSTED);
+    expect(result.website).toEqual(hubUrl);
   });
 });

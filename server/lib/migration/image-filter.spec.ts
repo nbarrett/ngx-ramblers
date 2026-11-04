@@ -1,7 +1,7 @@
 import expect from "expect";
 import { describe, it } from "mocha";
 import { JSDOM } from "jsdom";
-import { albumContentImages, layoutImage, withoutLayoutImages } from "./image-filter";
+import { albumContentImages, contentImagesFromHtml, layoutImage, withoutLayoutImages } from "./image-filter";
 import { toKebabCase } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 describe("migration image filtering", () => {
@@ -14,7 +14,9 @@ describe("migration image filtering", () => {
     const filtered = withoutLayoutImages(html, "https://group.example.org.uk/gallery");
     const document = new JSDOM(filtered).window.document;
     expect([...document.querySelectorAll("img")].map(image => image.getAttribute("src"))).toEqual([
-      "/gallery/01-canal.jpg", "/gallery/02-bridge.jpg", "/gallery/03-display.jpg"
+      "https://group.example.org.uk/gallery/01-canal.jpg",
+      "https://group.example.org.uk/gallery/02-bridge.jpg",
+      "https://group.example.org.uk/gallery/03-display.jpg"
     ]);
   });
 
@@ -43,5 +45,39 @@ describe("migration image filtering", () => {
       photo
     ];
     expect(albumContentImages(images)).toEqual([photo]);
+  });
+
+  it("rewrites data-large onto img src and drops leftover thumbs from page html", () => {
+    const html = `<img src="/gallery/thumbs/park.jpg" data-large="/gallery/photos/park.jpg" alt="Park">
+      <img src="/images/banner.jpg"><img src="/gallery/photos/park.jpg" alt="Park">`;
+    const filtered = withoutLayoutImages(html, "https://group.example.org.uk/gallery/park");
+    const document = new JSDOM(filtered).window.document;
+    expect([...document.querySelectorAll("img")].map(image => image.getAttribute("src"))).toEqual([
+      "https://group.example.org.uk/gallery/photos/park.jpg",
+      "https://group.example.org.uk/gallery/photos/park.jpg"
+    ]);
+  });
+
+  it("uses data-large photos instead of thumbnail sources", () => {
+    const html = `<img id="logo" src="../images/banner.jpg"/>
+      <img src="./images/thumbnails/212.jpg" data-large="./images/photos/212.jpg" alt="image01"/>
+      <img src="./images/thumbnails/213.jpg" data-large="./images/photos/213.jpg" alt="image01"/>`;
+    expect(contentImagesFromHtml(html, "https://group.example.org.uk/gallery/photodisplay.php?event_id=34").map(image => image.src)).toEqual([
+      "https://group.example.org.uk/gallery/images/photos/212.jpg",
+      "https://group.example.org.uk/gallery/images/photos/213.jpg"
+    ]);
+  });
+
+  it("keeps site banners and back arrows out of photo albums", () => {
+    const photo = {src: "https://group.example.org.uk/gallery/images/photos/212.jpg", alt: "image01"};
+    expect(layoutImage({src: "https://group.example.org.uk/images/banner.jpg", alt: ""})).toEqual(true);
+    expect(layoutImage({src: "https://group.example.org.uk/gallery/images/banner-on-the-hill.jpg", alt: "Banner on the hill"})).toEqual(false);
+    expect(layoutImage({src: "https://group.example.org.uk/gallery/images/backarrow.gif", alt: "back to events"})).toEqual(true);
+    expect(albumContentImages([
+      {src: "https://group.example.org.uk/images/banner.jpg", alt: ""},
+      {src: "https://group.example.org.uk/gallery/images/backarrow.gif", alt: "back to events"},
+      {src: "https://group.example.org.uk/gallery/images/thumbnails/212.jpg", alt: "image01"},
+      photo
+    ])).toEqual([photo]);
   });
 });

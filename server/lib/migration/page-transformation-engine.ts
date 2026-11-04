@@ -1198,21 +1198,25 @@ export class PageTransformationEngine {
   private async segmentToMarkdown(ctx: TransformationContext, seg: ScrapedSegment, uploadImageFn: (img: ScrapedImage) => Promise<string>): Promise<string> {
     if (this.isTextOnlySegment(seg)) {
       return this.cleanAndExclude(ctx, seg.text);
+    } else {
+      return "";
     }
-    if (seg.image) {
-      const imageSource = await uploadImageFn(seg.image);
-      const alt = this.imageAltFrom(seg.image, seg.text);
-      return `![${alt}](${imageSource})`;
-    }
-    return "";
   }
 
   private async matchAll(ctx: TransformationContext, uploadImageFn: (img: ScrapedImage) => Promise<string>): Promise<Partial<PageContentColumn>> {
     const markdown = await Promise.all(ctx.segments.map(seg => this.segmentToMarkdown(ctx, seg, uploadImageFn)));
     const filtered = markdown.filter(Boolean);
     const contentText = filtered.join("\n\n");
-    debugLog(`   Matched all content: ${filtered.length} segments (including images)`);
-    return contentText ? {contentText} : null;
+    const imageRows = (await this.matchAllImages(ctx, uploadImageFn))?.rows;
+    debugLog(`   Matched all content: ${filtered.length} text segments and ${imageRows?.length || 0} image columns`);
+    if (!contentText && !imageRows?.length) {
+      return null;
+    } else {
+      return {
+        ...(contentText ? {contentText} : {}),
+        ...(imageRows?.length ? {rows: imageRows} : {})
+      };
+    }
   }
 
   private async lookupLocationDetails(searchValue: string): Promise<LocationDetails | null> {
@@ -1582,11 +1586,15 @@ export class PageTransformationEngine {
       .filter(({segment}) => Boolean(segment.image));
     if (images.length === 0) {
       return null;
+    } else {
+      const rows = await Promise.all(images.map(async ({segment, index}) => {
+        const imageSource = await uploadImageFn(segment.image);
+        this.markImageIndices(ctx, [index]);
+        return this.buildImageRow({type: PageContentType.TEXT, maxColumns: 1, showSwiper: false}, imageSource, this.imageAltFrom(segment.image, segment.text));
+      }));
+      debugLog(`   Returned ALL_IMAGES as ${rows.length} image columns`);
+      return {rows};
     }
-    const markdown = await Promise.all(images.map(({segment}) => this.segmentToMarkdown(ctx, segment, uploadImageFn)));
-    const contentText = markdown.join("\n\n");
-    debugLog(`   Returned ALL_IMAGES as markdown: ${markdown.length}`);
-    return contentText ? {contentText} : null;
   }
 
   private async matchLastImage(ctx: TransformationContext, matcher: ContentMatcher, uploadImageFn: (img: ScrapedImage) => Promise<string>): Promise<Partial<PageContentColumn>> {

@@ -1,5 +1,6 @@
 import { fetchPublicSiteHtml } from "../site-registration/public-site-fetch";
-import { albumContentImages, layoutImage, thumbnailImage, withoutLayoutImages } from "./image-filter";
+import { albumContentImages, contentImagesFromHtml, layoutImage, thumbnailImage, withoutLayoutImages } from "./image-filter";
+import { contentHtmlFromPage, withoutLeadingNavigationMarkdown } from "./content-root";
 import { withoutGalleryListing } from "../site-registration/registration-photos";
 import { HttpError } from "../shared/http-error";
 import { Browser, Page } from "playwright";
@@ -64,7 +65,9 @@ import {
   eventGalleryIndexImages,
   eventGalleryPaginationUrls,
   isEventGalleryAlbumUrl,
-  isEventGalleryListingHtml
+  isEventGalleryListingHtml,
+  isQueryAlbumListingHtml,
+  queryAlbumLinksFromHtml
 } from "./event-gallery";
 
 const debugLog = debug(envConfig.logNamespace("static-html-site-migrator"));
@@ -331,24 +334,41 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function imageMarkers(img: ScrapedImage): string[] {
-  const url = new URL(img.src);
-  return [
-    `![${img.alt}](${img.src})`,
-    `![${img.alt}](${url.pathname})`,
-    `![${img.alt}](${url.pathname.split("/").pop()})`
-  ];
+const MARKDOWN_IMAGE = /!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(?:\s+"[^"]*")?\)/;
+
+export function markdownImageParts(text: string): {contentText?: string; imageSource?: string; alt?: string}[] {
+  const source = text || "";
+  const matches = [...source.matchAll(new RegExp(MARKDOWN_IMAGE.source, "g"))];
+  if (matches.length === 0) {
+    return source.trim() ? [{contentText: source.trim()}] : [];
+  } else {
+    return matches.reduce((parts, match, index) => {
+      const start = index === 0 ? 0 : matches[index - 1].index + matches[index - 1][0].length;
+      const before = source.slice(start, match.index).trim();
+      const next = [...parts, ...(before ? [{contentText: before}] : []), {imageSource: match[2].replace(/^<|>$/g, ""), alt: match[1] || ""}];
+      if (index === matches.length - 1) {
+        const after = source.slice(match.index + match[0].length).trim();
+        return after ? [...next, {contentText: after}] : next;
+      } else {
+        return next;
+      }
+    }, [] as {contentText?: string; imageSource?: string; alt?: string}[]);
+  }
 }
 
 function imageMarkerIn(text: string, img: ScrapedImage): string | null {
-  return imageMarkers(img).reduce((found: string | null, marker) => {
-    if (found) {
-      return found;
-    } else {
-      const linked = text.match(new RegExp(`\\[${escapeRegex(marker)}\\]\\([^)]*\\)`));
-      return linked ? linked[0] : text.includes(marker) ? marker : null;
-    }
-  }, null);
+  const url = new URL(img.src);
+  const sources = [img.src, url.pathname, url.pathname.split("/").pop() || ""].filter(Boolean).map(escapeRegex);
+  const image = new RegExp(`!\\[[^\\]]*\\]\\((?:${sources.join("|")})(?:\\s+"[^"]*")?\\)`);
+  const linked = text.match(new RegExp(`\\[${image.source}\\]\\([^)]*\\)`));
+  const plain = text.match(image);
+  return linked ? linked[0] : plain ? plain[0] : null;
+}
+
+function segmentsFromMarkdownImages(markdown: string): ScrapedSegment[] {
+  return markdownImageParts(markdown).map(part => part.imageSource
+    ? {text: part.alt || "", image: {src: part.imageSource, alt: part.alt || ""}}
+    : {text: part.contentText || ""});
 }
 
 export function markdownSegments(markdown: string, images: ScrapedImage[]): ScrapedSegment[] {
@@ -366,82 +386,111 @@ export function markdownSegments(markdown: string, images: ScrapedImage[]): Scra
       return current;
     }
   }, {segments: [] as ScrapedSegment[], matched: [] as ScrapedImage[], remainingText: markdown});
+  const leftover = segmentsFromMarkdownImages(state.remainingText.trim());
+  const leftoverSources = leftover.filter(segment => segment.image).map(segment => segment.image.src);
   return [
     ...state.segments,
-    ...(state.remainingText.trim() ? [{text: state.remainingText.trim()}] : []),
-    ...images.filter(image => !state.matched.includes(image)).map(image => ({text: image.alt || "", image}))
+    ...leftover,
+    ...images.filter(image => !state.matched.includes(image) && !leftoverSources.some(source => image.src === source || image.src.endsWith(source))).map(image => ({text: image.alt || "", image}))
   ];
 }
 
+function imageColumn(imageSource: string, alt: string): PageContentColumn {
+  return {
+    columns: 12,
+    imageSource,
+    alt: alt || "",
+    imageBorderRadius: 6,
+    imageHeight: MIGRATED_IMAGE_HEIGHT,
+    accessLevel: AccessLevel.PUBLIC
+  };
+}
+
+export function withoutInlineMarkdownImages(rows: PageContentRow[]): PageContentRow[] {
+  return (rows || []).flatMap((row): PageContentRow[] => {
+    const columns = (row.columns || []).map(column => ({
+      ...column,
+      rows: column.rows ? withoutInlineMarkdownImages(column.rows) : column.rows
+    }));
+    if (columns.length !== 1) {
+      return [{...row, columns: columns.map(column => {
+        const parts = markdownImageParts(column.contentText || "");
+        return parts.some(part => part.imageSource) ? {
+          ...column,
+          contentText: null,
+          rows: [
+            ...parts.map(part => ({
+              type: PageContentType.TEXT,
+              maxColumns: 1,
+              showSwiper: false,
+              columns: [part.imageSource ? imageColumn(part.imageSource, part.alt || "") : {columns: 12, contentText: part.contentText}]
+            })),
+            ...(column.rows || [])
+          ]
+        } : column;
+      })}];
+    } else {
+      const column = columns[0];
+      const parts = markdownImageParts(column.contentText || "");
+      const leading = column.imageSource && parts.some(part => part.imageSource) ? [{imageSource: column.imageSource, alt: column.alt || ""}] : [];
+      const expanded = [...leading, ...parts];
+      if (!expanded.some(part => part.imageSource) || expanded.length === 0) {
+        return [{...row, columns}];
+      } else {
+        return expanded.map((part, index): PageContentRow => ({
+          ...row,
+          type: row.type || PageContentType.TEXT,
+          maxColumns: 1,
+          showSwiper: false,
+          columns: [{
+            ...(part.imageSource
+              ? imageColumn(part.imageSource, part.alt || "")
+              : {...column, contentText: "contentText" in part ? part.contentText : null, imageSource: null}),
+            rows: index === expanded.length - 1 ? column.rows : null
+          }]
+        }));
+      }
+    }
+  });
+}
+
+async function scrapedPageFromHtml(ctx: Ctx, pageLink: PageLink, html: string): Promise<ScrapedPage> {
+  const contentHtml = contentHtmlFromPage(html, pageLink.path, ctx.config.contentSelector, exclusions.coerceList(ctx.config.excludeSelectors));
+  const images = contentImagesFromHtml(contentHtml, pageLink.path).filter(image => !isExcludedImage(ctx, image.src));
+  let markdown = htmlToMarkdown(await normaliseTables(withoutLayoutImages(contentHtml, pageLink.path), true), pageLink.path, true);
+  markdown = withoutLeadingNavigationMarkdown(exclusions.applyTextExclusions(markdown, {
+    excludeTextPatterns: ctx.config.excludeTextPatterns,
+    excludeMarkdownBlocks: ctx.config.excludeMarkdownBlocks,
+    excludeImageUrls: ctx.config.excludeImageUrls
+  }));
+  const segments = markdownSegments(markdown, images);
+  debugLog(`✅ Created ${pluraliseWithCount(segments.length, "segment")} for ${pageLink.path}`);
+  return {path: pageLink.path, title: pageLink.title, segments, firstImage: images[0] || null};
+}
+
 async function scrapePageContent(ctx: Ctx, pageLink: PageLink): Promise<ScrapedPage> {
-  const page = await createPage(ctx);
   try {
     debugLog(`✅ Scraping ${pageLink.path}`);
-    const response = await page.goto(pageLink.path, {waitUntil: "networkidle", timeout: 30000});
-    if (response && !response.ok()) {
-      debugLog(`❌ Failed to load ${pageLink.path}: Status ${response.status()}`);
-      return {path: pageLink.path, title: pageLink.title, segments: []};
-    }
-    const {
-      html,
-      images
-    } = await page.evaluate(({contentSelector, excludeSelectors}: {contentSelector: string; excludeSelectors: string[]}): {html: string; images: ScrapedImage[]} => {
-      const node = document.querySelector(contentSelector) || document.body;
-      // eslint-disable-next-line no-restricted-syntax -- page.evaluate runs in the browser; es-toolkit is not available
-      const selectors = Array.isArray(excludeSelectors) ? excludeSelectors : [];
-      selectors.forEach(sel => {
-        try {
-          node.querySelectorAll(sel).forEach(n => n.remove());
-        } catch (e) {
-          console.warn("Invalid selector:", sel, e);
+    if (ctx.config.publicHtmlOnly && !ctx.browser) {
+      return scrapedPageFromHtml(ctx, pageLink, await listingHtml(ctx, pageLink.path));
+    } else {
+      const page = await createPage(ctx);
+      try {
+        const response = await page.goto(pageLink.path, {waitUntil: "networkidle", timeout: 30000});
+        if (response && !response.ok()) {
+          debugLog(`❌ Failed to load ${pageLink.path}: Status ${response.status()}`);
+          return {path: pageLink.path, title: pageLink.title, segments: []};
+        } else {
+          return scrapedPageFromHtml(ctx, pageLink, await page.content());
         }
-      });
-      Array.from(node.querySelectorAll("img")).forEach(img => {
-        const src = img.getAttribute("data-large") || img.getAttribute("src");
-        if (src) img.setAttribute("src", new URL(src, location.href).href);
-      });
-      Array.from(node.querySelectorAll("select")).forEach(select => {
-        const values = Array.from(select.querySelectorAll("option")).map(option => (option.textContent || "").trim()).filter(Boolean);
-        const list = document.createElement("ul");
-        values.forEach(value => {
-          const item = document.createElement("li");
-          item.textContent = value;
-          list.appendChild(item);
-        });
-        select.replaceWith(list);
-      });
-      Array.from(node.querySelectorAll("input, button, textarea")).forEach(element => element.remove());
-      const html = node.innerHTML;
-      const fromImg = Array.from(node.querySelectorAll("img, input[type=image]")).map(img => ({
-        src: (img as HTMLImageElement).src || new URL(img.getAttribute("src") || "", location.href).href,
-        alt: (img as HTMLImageElement).alt || img.getAttribute("alt") || ""
-      }));
-      const images = fromImg.filter(image => image.src && !image.src.startsWith("data:"));
-      return {html, images};
-    }, {contentSelector: ctx.config.contentSelector, excludeSelectors: exclusions.coerceList(ctx.config.excludeSelectors)});
-    const contentImages = images.filter(image => !layoutImage(image) && !isExcludedImage(ctx, image.src));
-    let markdown = htmlToMarkdown(await normaliseTables(withoutLayoutImages(html, pageLink.path), true), pageLink.path, true);
-    markdown = exclusions.applyTextExclusions(markdown, {
-      excludeTextPatterns: ctx.config.excludeTextPatterns,
-      excludeMarkdownBlocks: ctx.config.excludeMarkdownBlocks,
-      excludeImageUrls: ctx.config.excludeImageUrls
-    });
-    const segments = markdownSegments(markdown, contentImages);
-    debugLog(`✅ Created ${pluraliseWithCount(segments.length, "segment")} for ${pageLink.path}`);
-    debugLog(`   First segment preview:`, segments[0] ? {
-      hasText: !!segments[0].text,
-      hasImage: !!segments[0].image,
-      textPreview: segments[0].text ? segments[0].text.substring(0, 100) : null,
-      imageSrc: segments[0].image ? segments[0].image.src : null
-    } : "no segments");
-    const firstImage = contentImages[0] || null;
-    return {path: pageLink.path, title: pageLink.title, segments, firstImage};
+      } finally {
+        await page.close();
+      }
+    }
   } catch (error) {
     debugLog(`❌ Error scraping ${pageLink.path}:`, error);
     progress(`Error scraping ${pageLink.path}: ${error?.message || error}`);
     return {path: pageLink.path, title: pageLink.title, segments: [], firstImage: undefined};
-  } finally {
-    await page.close();
   }
 }
 
@@ -721,9 +770,14 @@ async function scrapeGalleryLinks(ctx: Ctx): Promise<PageLink[]> {
   }
 }
 
+function albumImagesFromHtml(ctx: Ctx, albumLink: PageLink, html: string): ScrapedImage[] {
+  const fromEventGallery = eventGalleryImagesFromHtml(html, albumLink.path);
+  return fromEventGallery.length ? fromEventGallery : contentImagesFromHtml(contentHtmlFromPage(html, albumLink.path, ctx.config.contentSelector, exclusions.coerceList(ctx.config.excludeSelectors)), albumLink.path);
+}
+
 async function scrapeAlbumImages(ctx: Ctx, albumLink: PageLink): Promise<ScrapedImage[]> {
   if (ctx.config.publicHtmlOnly || isEventGalleryAlbumUrl(albumLink.path)) {
-    return eventGalleryImagesFromHtml(await listingHtml(ctx, albumLink.path), albumLink.path);
+    return albumImagesFromHtml(ctx, albumLink, await listingHtml(ctx, albumLink.path));
   } else {
     const page = await createPage(ctx);
     try {
@@ -732,20 +786,7 @@ async function scrapeAlbumImages(ctx: Ctx, albumLink: PageLink): Promise<Scraped
         debugLog(`Failed to load ${albumLink.path}: Status ${response.status()}`);
         return [];
       } else {
-        const html = await page.content();
-        const fromEventGallery = eventGalleryImagesFromHtml(html, albumLink.path);
-        if (fromEventGallery.length) {
-          return fromEventGallery;
-        } else {
-          return page.evaluate((contentSelector: string): ScrapedImage[] => {
-            const contentNode = document.querySelector(contentSelector) || document.body;
-            const imageNodes = contentNode.querySelectorAll("img");
-            return Array.from(imageNodes).map((img) => ({
-              src: new URL(img.getAttribute("data-large") || img.src, location.href).href,
-              alt: img.alt
-            })).filter(item => item.alt !== "logo");
-          }, ctx.config.contentSelector);
-        }
+        return albumImagesFromHtml(ctx, albumLink, await page.content());
       }
     } finally {
       await page.close();
@@ -1055,9 +1096,7 @@ async function scrapeEventGalleryLinks(ctx: Ctx): Promise<PageLink[]> {
     const links = await previous;
     try {
       const html = await listingHtml(ctx, listingUrl);
-      if (!isEventGalleryListingHtml(html, listingUrl)) {
-        return links;
-      } else {
+      if (isEventGalleryListingHtml(html, listingUrl)) {
         const albums = eventGalleryAlbumLinksFromHtml(html, listingUrl);
         const pages = await eventGalleryPaginationUrls(html, listingUrl).reduce(async (inner, pageUrl) => {
           const found = await inner;
@@ -1069,6 +1108,10 @@ async function scrapeEventGalleryLinks(ctx: Ctx): Promise<PageLink[]> {
           }
         }, Promise.resolve([] as PageLink[]));
         return [...links, ...albums, ...pages];
+      } else if (isQueryAlbumListingHtml(html, listingUrl)) {
+        return [...links, ...queryAlbumLinksFromHtml(html, listingUrl)];
+      } else {
+        return links;
       }
     } catch (error) {
       progress(`Skipped Event Gallery listing ${listingUrl}: ${(error as Error).message}`);

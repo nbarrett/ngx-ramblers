@@ -118,3 +118,86 @@ export function eventGalleryIndexImages(images: {src: string}[]): boolean {
   const folders = [...new Set(images.map(image => eventGalleryFolderFromUrl(image.src)).filter(Boolean))];
   return folders.length >= 3;
 }
+
+const QUERY_ALBUM_KEYS = ["event_id", "eventid", "album", "albumid", "folder"];
+
+function queryAlbumPath(pathname: string): boolean {
+  return /(?:^|\/)(?:photo|gallery|album|event)(?:display|list|sdisplay)?(?:\.php)?$/i.test(pathname)
+    || /\/gallery\//i.test(pathname);
+}
+
+export function queryAlbumHref(href: string): boolean {
+  try {
+    const url = new URL(href);
+    if (!queryAlbumPath(url.pathname)) {
+      return false;
+    } else if (QUERY_ALBUM_KEYS.some(key => url.searchParams.has(key))) {
+      return true;
+    } else {
+      return url.searchParams.has("id") && /photo|gallery|album|event/i.test(url.pathname);
+    }
+  } catch (error) {
+    return false;
+  }
+}
+
+export function queryAlbumLinksFromHtml(html: string, pageUrl: string): PageLink[] {
+  const document = new JSDOM(html || "", {url: pageUrl || "https://group.example.org.uk/"}).window.document;
+  const items = [...document.querySelectorAll("a[href]")].map(node => {
+    try {
+      const href = new URL((node as HTMLAnchorElement).href, pageUrl).href;
+      const image = node.querySelector("img");
+      const parsed = new URL(href);
+      const queryTitle = QUERY_ALBUM_KEYS.map(key => parsed.searchParams.get(key)).find(Boolean);
+      const title = (node.textContent || "").replace(/\s+/g, " ").trim()
+        || (image?.getAttribute("alt") || "").trim()
+        || (queryTitle ? `Album ${queryTitle}` : "");
+      return href && title && queryAlbumHref(href) ? {path: href, title} : null;
+    } catch (error) {
+      return null;
+    }
+  }).filter((link): link is PageLink => !!link);
+  const unique = items.reduce((found, link) => {
+    const existing = found.find(item => item.path === link.path);
+    if (!existing) {
+      return [...found, link];
+    } else if ((link.title || "").length > (existing.title || "").length) {
+      return found.map(item => item.path === link.path ? link : item);
+    } else {
+      return found;
+    }
+  }, [] as PageLink[]);
+  const counts = unique.reduce((found, link) => {
+    try {
+      const pathname = new URL(link.path).pathname;
+      found.set(pathname, (found.get(pathname) || 0) + 1);
+      return found;
+    } catch (error) {
+      return found;
+    }
+  }, new Map<string, number>());
+  return unique.filter(link => {
+    try {
+      return (counts.get(new URL(link.path).pathname) || 0) >= 3;
+    } catch (error) {
+      return false;
+    }
+  });
+}
+
+export function isQueryAlbumListingHtml(html: string, pageUrl = ""): boolean {
+  return queryAlbumLinksFromHtml(html || "", pageUrl || "https://group.example.org.uk/").length >= 3;
+}
+
+export function isQueryAlbumListingUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (queryAlbumHref(url)) {
+      return false;
+    } else {
+      return /(?:^|\/)(?:eventdisplay|eventsdisplay|eventlist|photolist)(?:\.php)?$/i.test(parsed.pathname);
+    }
+  } catch (error) {
+    return false;
+  }
+}

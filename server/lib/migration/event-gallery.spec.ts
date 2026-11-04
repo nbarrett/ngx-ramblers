@@ -8,7 +8,10 @@ import {
   isEventGalleryAlbumUrl,
   isEventGalleryListingHtml,
   isEventGalleryListingUrl,
-  isGalleryPaginationPath
+  isGalleryPaginationPath,
+  isQueryAlbumListingHtml,
+  isQueryAlbumListingUrl,
+  queryAlbumLinksFromHtml
 } from "./event-gallery";
 
 const listing = `
@@ -63,5 +66,32 @@ describe("event-gallery", () => {
       {src: "https://group.example.org.uk/components/com_eventgallery/helpers/image.php?folder=B&file=1.jpg"},
       {src: "https://group.example.org.uk/components/com_eventgallery/helpers/image.php?folder=C&file=1.jpg"}
     ])).toBe(true);
+  });
+
+  it("reads query-parameter album listings used by PHP event galleries", () => {
+    const html = `
+      <a href="photodisplay.php?event_id=34"><img src="./images/events/34.jpg" alt=""/></a>
+      <a href="photodisplay.php?event_id=34">Hillside Park 5 Feb 2026</a>
+      <a href="photodisplay.php?event_id=35">Canal Path 8 Feb 26</a>
+      <a href="photodisplay.php?event_id=36">River Meadow 15 Feb 26</a>`;
+    const pageUrl = "https://group.example.org.uk/gallery/eventdisplay.php";
+    expect(isQueryAlbumListingUrl(pageUrl)).toBe(true);
+    expect(isQueryAlbumListingUrl("https://group.example.org.uk/gallery/photodisplay.php?event_id=34")).toBe(false);
+    expect(queryAlbumLinksFromHtml(`
+      <a href="walks.php?event_id=34">Sunday walk</a>
+      <a href="walks.php?event_id=35">Wednesday walk</a>
+      <a href="walks.php?event_id=36">Evening walk</a>`, "https://group.example.org.uk/walks.php")).toEqual([]);
+    expect(isQueryAlbumListingHtml(html, pageUrl)).toBe(true);
+    expect(queryAlbumLinksFromHtml(html, pageUrl).map(link => [link.title, new URL(link.path).searchParams.get("event_id")])).toEqual([
+      ["Hillside Park 5 Feb 2026", "34"],
+      ["Canal Path 8 Feb 26", "35"],
+      ["River Meadow 15 Feb 26", "36"]
+    ]);
+    expect(queryAlbumLinksFromHtml(`
+      <a href="photodisplay.php?event_id=34"><img src="./images/events/34.jpg"></a>
+      <a href="photodisplay.php?event_id=35"><img src="./images/events/35.jpg"></a>
+      <a href="photodisplay.php?event_id=36"><img src="./images/events/36.jpg"></a>`, pageUrl).map(link => link.title)).toEqual([
+      "Album 34", "Album 35", "Album 36"
+    ]);
   });
 });

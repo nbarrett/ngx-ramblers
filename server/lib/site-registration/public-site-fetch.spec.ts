@@ -2,7 +2,7 @@ import expect from "expect";
 import { describe, it } from "mocha";
 import { gzipSync } from "zlib";
 import { HttpError } from "../shared/http-error";
-import { decodedPublicSiteBody, PUBLIC_SITE_USER_AGENT, publicSiteHttpErrorMessage, shouldRelayPublicSiteFetch, sourceUnavailable, withoutQuery } from "./public-site-fetch";
+import { decodedPublicSiteBody, PUBLIC_SITE_USER_AGENT, publicSiteHttpErrorMessage, redirectTarget, shouldRelayPublicSiteFetch, sourceUnavailable, withoutQuery } from "./public-site-fetch";
 
 describe("public-site-fetch", () => {
   it("uses a browser user agent for sites that reject migration crawlers", () => {
@@ -37,8 +37,18 @@ describe("public-site-fetch", () => {
   it("relays a refused home page through Cloudflare", () => {
     expect(shouldRelayPublicSiteFetch(new HttpError(403, "refused"))).toBe(true);
     expect(shouldRelayPublicSiteFetch(new HttpError(401, "auth"))).toBe(true);
+    expect(shouldRelayPublicSiteFetch(new HttpError(301, "redirect"))).toBe(true);
+    expect(shouldRelayPublicSiteFetch(new HttpError(415, "not html"))).toBe(true);
     expect(shouldRelayPublicSiteFetch(new HttpError(404, "missing"))).toBe(false);
     expect(shouldRelayPublicSiteFetch(new Error("timeout"))).toBe(false);
+  });
+
+  it("follows a relative or repeated Location header", () => {
+    expect(redirectTarget(301, "/go-walking/ramblers-groups/hillside-district-group", "https://www.ramblers.org.uk/hillside-district"))
+      .toEqual("https://www.ramblers.org.uk/go-walking/ramblers-groups/hillside-district-group");
+    expect(redirectTarget(302, ["/go-walking/ramblers-groups/hillside-district-group", "/go-walking/ramblers-groups/hillside-district-group"], "https://www.ramblers.org.uk/hillside-district"))
+      .toEqual("https://www.ramblers.org.uk/go-walking/ramblers-groups/hillside-district-group");
+    expect(redirectTarget(301, undefined, "https://www.ramblers.org.uk/hillside-district")).toBe(null);
   });
 
   it("drops the query string so signed parameters never appear in messages", () => {

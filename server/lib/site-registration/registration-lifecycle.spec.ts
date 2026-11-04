@@ -122,7 +122,27 @@ describe("site registration lifecycle", () => {
     expect(state.registration.state).toBe(RegistrationState.DRAFT);
     expect(state.registration.currentStep).toBe(RegistrationStep.CONTENT);
     expect(state.registration.verifiedAt).toBeTruthy();
+    expect(state.registration.website).toBe("https://group.example");
     expect(sendEmail.callCount).toBe(0);
+  });
+
+  it("prefills the current website from the Ramblers directory page when the group also has a short address", async () => {
+    const hosted = {
+      ...group,
+      url: "https://www.ramblers.org.uk/go-walking/ramblers-groups/hillside-district-group",
+      external_url: "https://www.ramblers.org.uk/hillside-district"
+    };
+    const state: {registration: StoredSiteRegistration | null} = {registration: null};
+    sandboxState.sandbox.stub(registrationStore, "registrations").returns(inMemoryRegistrations(state));
+    sandboxState.sandbox.stub(registrationStore, "registrationSettings").resolves(settings);
+    sandboxState.sandbox.stub(registrationStore, "ensureRegistrationIndexes").resolves();
+    sandboxState.sandbox.stub(groupsApi, "fetchRamblersGroupsFromApi").resolves([hosted] as any);
+    sandboxState.sandbox.stub(registrationEmail, "sendRegistrationEmail").resolves();
+    sandboxState.sandbox.stub(environmentsConfig, "findEnvironmentFromDatabase").resolves(null);
+
+    await startRegistrationAsAdmin({areaCode: "AB", groupCode: "AB01", email: "", plan: RegistrationPlan.FULL}, "administrator@example.com");
+
+    expect(state.registration.website).toBe("https://www.ramblers.org.uk/go-walking/ramblers-groups/hillside-district-group");
   });
 
   it("takes a Lite registration from approved email through confirmation, review and invitation", async () => {

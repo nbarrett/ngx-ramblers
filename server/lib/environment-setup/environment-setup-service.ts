@@ -568,13 +568,12 @@ export async function createEnvironment(
       appUrl = `https://${customDomain.hostname}`;
       reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Completed, `Hostname configured: ${appUrl}`);
     } else if (request.options.setupSubdomain && !request.options.skipFlyDeployment) {
-      await runOptionalStep(SetupStep.SETUP_SUBDOMAIN, "Setting up subdomain (DNS + SSL certificate)", async () => {
-        await setupSubdomainForEnvironment(request.environmentBasics.environmentName);
-        const envConfigData = await configuredEnvironments();
-        subdomainHostname = `${request.environmentBasics.environmentName}.${baseDomainFrom(envConfigData)}`;
-        appUrl = `https://${subdomainHostname}`;
-        return `Subdomain configured: ${appUrl}`;
-      });
+      reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Running, "Setting up subdomain (DNS + SSL certificate)");
+      await setupSubdomainForEnvironment(request.environmentBasics.environmentName);
+      const envConfigData = await configuredEnvironments();
+      subdomainHostname = `${request.environmentBasics.environmentName}.${baseDomainFrom(envConfigData)}`;
+      appUrl = `https://${subdomainHostname}`;
+      reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Completed, `Subdomain configured: ${appUrl}`);
     } else {
       reportProgress(SetupStep.SETUP_SUBDOMAIN, SetupStepStatus.Completed, "Skipped subdomain setup");
     }

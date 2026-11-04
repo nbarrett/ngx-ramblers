@@ -65,7 +65,7 @@ async function createRegistration(request: RegistrationStartRequest, confirmedBy
   } else {
     const initial: StoredSiteRegistration = {
       id: randomUUID(), group, email, plan: request.plan, currentStep: confirmedByAdmin && request.plan === RegistrationPlan.LITE ? RegistrationStep.REVIEW : confirmedByAdmin ? RegistrationStep.CONTENT : RegistrationStep.EMAIL,
-      website: group.external_url || "", pages: [], proposedNavigation: [], state: confirmedByAdmin ? RegistrationState.DRAFT : RegistrationState.AWAITING_EMAIL,
+      website: group.url || group.external_url || "", pages: [], proposedNavigation: [], state: confirmedByAdmin ? RegistrationState.DRAFT : RegistrationState.AWAITING_EMAIL,
       verifiedAt: confirmedByAdmin ? now : null, createdAt: now, updatedAt: now,
       environmentName: group.group_code.toLowerCase(), siteUrl: null, flavour: RegistrationSiteFlavour.GENERIC,
       progress: [], error: null, resumeTokenHash: registrationTokenHash(resumeToken),

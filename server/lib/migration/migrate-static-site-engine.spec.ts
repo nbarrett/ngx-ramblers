@@ -1,6 +1,6 @@
 import expect from "expect";
 import { describe, it } from "mocha";
-import { discoverPhotoClusters, flickrAlbumLinks, flickrGroupLinks, pageImageRuns, skippedPageReason, weakHomeCarouselImage, withHomeCarouselFromGalleries, withoutRepeatedBlocks } from "./migrate-static-site-engine";
+import { discoverPhotoClusters, flickrAlbumLinks, flickrGroupLinks, pageImageRuns, skippedPageReason, weakHomeCarouselImage, withHomeCarouselFromGalleries, withoutInlineMarkdownImages, withoutRepeatedBlocks } from "./migrate-static-site-engine";
 import { HttpError } from "../shared/http-error";
 import sinon from "sinon";
 import * as mongooseClient from "../mongo/mongoose-client";
@@ -16,9 +16,9 @@ import { runInNewContext } from "vm";
 describe("migration reruns", () => {
   it("ignores layout backgrounds and imports the full-size gallery photo once", async () => {
     const sourceUrl = "https://group.example.org.uk/gallery/park";
-    const html = `<table background="/images/texture.jpg"><tr><td background="/images/texture.jpg">
+    const html = `<aside><img src="/images/unrelated-outing.jpg"></aside><main id="album"><table background="/images/texture.jpg"><tr><td background="/images/texture.jpg">
       <img src="/gallery/thumbs/park.jpg" data-large="/gallery/photos/park.jpg" alt="Park">
-      <img src="/gallery/photos/park.jpg" alt="Park"></td></tr></table>`;
+      <img src="/gallery/photos/park.jpg" alt="Park"><div class="excluded"><img src="/images/advertisement.jpg"></div></td></tr></table></main>`;
     const document = new JSDOM(html, {url: sourceUrl, runScripts: "outside-only"});
     const browser = {
       newPage: async () => ({on: () => null, goto: async () => ({ok: () => true}), content: async () => html,
@@ -31,7 +31,7 @@ describe("migration reruns", () => {
     } as any;
     const config: SiteMigrationConfig = {
       name: "Example", siteIdentifier: "example", baseUrl: "https://group.example.org.uk", expanded: false,
-      menuSelector: "a", contentSelector: "body", persistData: false, excludeSelectors: [], galleryPathPrefixes: ["photos/"],
+      menuSelector: "a", contentSelector: "#album", persistData: false, excludeSelectors: [".excluded"], galleryPathPrefixes: ["photos/"],
       specificAlbums: [{path: sourceUrl, title: "Park June 2026"}],
       parentPages: [{url: sourceUrl, pathPrefix: "photos/park", parentPageMode: ParentPageMode.AS_IS, migrateChildren: false}]
     };
@@ -55,6 +55,7 @@ describe("migration reruns", () => {
     ]};
     const browser = {
       newPage: async () => ({on: () => null, goto: async () => ({ok: () => true}),
+        content: async () => "<h1>Photos</h1>",
         evaluate: async (callback, options) => options.excludeSelectors ? {html: "<h1>Photos</h1>", images: []} : [], close: async () => null}),
       close: async () => null
     } as any;
@@ -252,6 +253,46 @@ describe("pageImageRuns", () => {
     expect(contentText).not.toContain(src("b"));
     expect(contentText).toContain("More text");
     expect(contentText).toContain("https://elsewhere.example/other.jpg");
+  });
+});
+
+describe("withoutInlineMarkdownImages", () => {
+  it("preserves images and existing nested content in multi-column layouts", () => {
+    const nested = {type: "text", maxColumns: 1, columns: [{columns: 12, contentText: "Existing detail"}]};
+    const rows = [{type: "text", maxColumns: 2, columns: [
+      {columns: 6, contentText: "Before\n\n![Hill](https://cdn.example/hill.jpg)\n\nAfter", rows: [nested]},
+      {columns: 6, contentText: "Other column"}
+    ]}] as any;
+    const result = withoutInlineMarkdownImages(rows);
+    expect(result[0].columns[0].rows.map(row => row.columns[0].contentText || row.columns[0].imageSource)).toEqual([
+      "Before", "https://cdn.example/hill.jpg", "After", "Existing detail"
+    ]);
+    expect(result[0].columns[1].contentText).toBe("Other column");
+  });
+
+  it("keeps nested content when splitting a single column around an image", () => {
+    const nested = {type: "text", maxColumns: 1, columns: [{columns: 12, contentText: "Nested detail"}]};
+    const rows = [{type: "text", maxColumns: 1, columns: [{columns: 12, contentText: "![Hill](https://cdn.example/hill.jpg)", rows: [nested]}]}] as any;
+    const result = withoutInlineMarkdownImages(rows);
+    expect(result[0].columns[0].imageSource).toBe("https://cdn.example/hill.jpg");
+    expect(result[0].columns[0].rows).toEqual([nested]);
+  });
+
+  it("moves a markdown image out of the text into an imageSource column", () => {
+    const rows = [{
+      type: "text",
+      maxColumns: 1,
+      showSwiper: false,
+      columns: [{columns: 12, contentText: "## Photos\n\nYou can see some of our past adventures on our Photo Album page.\n\n![A group of walkers on a sunny hillside](https://cdn.example/walkers.jpg)"}]
+    }] as any;
+    const rewritten = withoutInlineMarkdownImages(rows);
+    expect(rewritten.map(row => row.columns[0].contentText || row.columns[0].imageSource)).toEqual([
+      "## Photos\n\nYou can see some of our past adventures on our Photo Album page.",
+      "https://cdn.example/walkers.jpg"
+    ]);
+    expect(rewritten[1].columns[0].alt).toEqual("A group of walkers on a sunny hillside");
+    expect(rewritten[1].columns[0].imageSource).toEqual("https://cdn.example/walkers.jpg");
+    expect(rewritten[0].columns[0].contentText).not.toMatch(/!\[/);
   });
 });
 

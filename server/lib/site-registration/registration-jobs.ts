@@ -7,7 +7,8 @@ import { ADMIN_SET_PASSWORD_PATH, EventPopulation, SystemConfig } from "../../..
 import { ensureRegistrationIndexes, recordRegistrationHistory, registrations, registrationSettings } from "./registration-store";
 import { assertRegistrationEditable } from "./registration-policy";
 import { registrationForToken } from "./registration-service";
-import { earlierImportFilters, importedPagePath, withRowsUnderHeading, pairedImageRows, registrationMigrationConfig, withContactUsLinks, withIntroductionPhotos, withoutButtonsTo, withoutDuplicateHeadingImages, withoutEmptyRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
+import { earlierImportFilters, importedPagePath, withRowsUnderHeading, pairedImageRows, registrationMigrationConfig, withContactUsLinks, withIntroductionPhotos, withoutButtonsTo, withoutDuplicateHeadingImages, withoutEmptyRows, withoutSiteChromeRows, withPageHeading, withSourcePageAlbums } from "./registration-content";
+import { withoutInlineMarkdownImages } from "../migration/migrate-static-site-engine";
 import { contentMetadata } from "../mongo/models/content-metadata";
 import { member as memberModel } from "../mongo/models/member";
 import { pageContent } from "../mongo/models/page-content";
@@ -222,17 +223,27 @@ async function reviewSiteSystemConfig(connection: EnvironmentMongoConnection, wa
   try {
     const recaptcha = recaptchaFromEnvironmentsConfig(environmentsConfig);
     const system = await connection.db.collection("config").findOne({key: ConfigKey.SYSTEM});
+    const siteKey = system?.value?.recaptcha?.siteKey || recaptcha.siteKey;
+    const secretKey = system?.value?.recaptcha?.secretKey || recaptcha.secretKey;
+    const group = {
+      ...system?.value?.group,
+      ...(wantsEvents ? {socialEventPopulation: EventPopulation.WALKS_MANAGER} : {})
+    };
     const updates = {
       ...(wantsEvents ? {"value.group.socialEventPopulation": EventPopulation.WALKS_MANAGER} : {}),
       ...(!system?.value?.recaptcha?.siteKey && recaptcha.siteKey ? {"value.recaptcha.siteKey": recaptcha.siteKey} : {}),
       ...(!system?.value?.recaptcha?.secretKey && recaptcha.secretKey ? {"value.recaptcha.secretKey": recaptcha.secretKey} : {})
     };
     await connection.db.collection("config").updateOne({key: ConfigKey.SYSTEM}, {$set: updates});
-    return {...system?.value, recaptcha: {
-      ...system?.value?.recaptcha,
-      siteKey: system?.value?.recaptcha?.siteKey || recaptcha.siteKey,
-      secretKey: system?.value?.recaptcha?.secretKey || recaptcha.secretKey
-    }};
+    return {
+      ...system?.value,
+      group,
+      recaptcha: {
+        ...system?.value?.recaptcha,
+        siteKey,
+        secretKey
+      }
+    };
   } finally {
     await connection.client.close();
   }
@@ -364,9 +375,9 @@ async function importRegistration(savedRegistration: StoredSiteRegistration): Pr
     const childCount = assembled.filter(sourcePage => sourcePage.parentPath === targetPath).length;
     const pageWithNavigation = childCount > 0 ? withChildNavigation(titledPage, childCount) : titledPage;
     const hasAlbum = result.albums.some(album => album.sourcePagePath === page.path);
-    const flattenedPage = {...pageWithNavigation, rows: pairedImageRows(cleanPageRows(pageWithNavigation.rows, targetPath))};
+    const flattenedPage = {...pageWithNavigation, rows: pairedImageRows(cleanPageRows(pageWithNavigation.rows, targetPath, result.albums.length > 0))};
     const landingPage = !hasAlbum && targetPath !== RegistrationNavbarPath.PHOTOS && assembled.some(item => !item.parentPath && item.path === targetPath) ? withLandingVisual(flattenedPage) : flattenedPage;
-    return {...landingPage, rows: await tidyPageRows(landingPage.rows)};
+    return {...landingPage, rows: withoutInlineMarkdownImages(await tidyPageRows(landingPage.rows))};
   }));
   const uploadBucket = context.envConfigData.aws?.bucket;
   if (!uploadBucket) {
@@ -483,19 +494,27 @@ async function withSourceContactDetails(connection: EnvironmentMongoConnection, 
   }
 }
 
-function cleanMigratedText(text: string): string {
-  return collapseExcessBlankLines(applyTextExclusions(text || "", {})).replace(/^\s*\[\s*$/gm, "").trim();
+function cleanMigratedText(text: string, hasAlbums: boolean): string {
+  return collapseExcessBlankLines(applyTextExclusions(withoutMissingAlbumMentions(text || "", hasAlbums), {})).replace(/^\s*\[\s*$/gm, "").trim();
 }
 
-function cleanPageRows(rows: PageContentRow[], path: string): PageContentRow[] {
-  return (rows || []).map(row => ({
+function withoutMissingAlbumMentions(text: string, hasAlbums: boolean): string {
+  if (hasAlbums) {
+    return text;
+  } else {
+    return text.split(/\n/).filter(line => !/\bphoto albums?\b|\balbum page\b|\bour albums?\b|\blook at .{0,60}\balbums?\b/i.test(line)).join("\n");
+  }
+}
+
+function cleanPageRows(rows: PageContentRow[], path: string, hasAlbums = false): PageContentRow[] {
+  return withoutInlineMarkdownImages(withoutSiteChromeRows((rows || []).map(row => ({
     ...row,
     columns: (row.columns || []).map(column => ({
       ...column,
-      contentText: column.contentText ? withContactUsLinks(cleanMigratedText(column.contentText), path) : column.contentText,
-      rows: column.rows ? cleanPageRows(column.rows, path) : column.rows
+      contentText: column.contentText ? withContactUsLinks(cleanMigratedText(column.contentText, hasAlbums), path) : column.contentText,
+      rows: column.rows ? cleanPageRows(column.rows, path, hasAlbums) : column.rows
     }))
-  }));
+  }))));
 }
 
 const CHARACTERS_PER_TOKEN = 4;
