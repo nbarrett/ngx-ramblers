@@ -14,7 +14,7 @@ import {
   InboxUserFoldersResponse,
   InboxUserFolderView
 } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { inboxFolderSlug, uniqueInboxFolderSlug } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
+import { inboxFolderSlug, inboxFolderMovedToTrash, uniqueInboxFolderSlug } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 import { permittedInboxRoleTypes, requestingMemberId } from "./inbox-access";
 import { defaultTenantSlug } from "./inbox-aliases";
 import { conversationCount, unreadConditionForMember } from "./inbox-unread-counts";
@@ -54,7 +54,8 @@ async function uniqueFolderSlugForTenant(tenantSlug: string, name: string, exclu
 export async function listInboxFolders(req: Request, res: Response): Promise<void> {
   try {
     const allowedRoleTypes = await permittedInboxRoleTypes(req);
-    const folders = await inboxFolderModel.find({tenantSlug: defaultTenantSlug()}).sort({sortIndex: 1, name: 1}).lean() as InboxUserFolder[];
+    const folders = (await inboxFolderModel.find({tenantSlug: defaultTenantSlug()}).sort({sortIndex: 1, name: 1}).lean() as InboxUserFolder[])
+      .filter(folder => !inboxFolderMovedToTrash(folder.name));
     const memberId = requestingMemberId(req);
     const views = await Promise.all(folders.map(async folder => {
       const unreadCount = allowedRoleTypes.length === 0
@@ -81,6 +82,8 @@ export async function createInboxFolder(req: Request, res: Response): Promise<vo
     const name = trimmedFolderName(req.body?.name);
     if (!name) {
       res.status(400).json({request: {messageType}, error: "A folder name is required"});
+    } else if (inboxFolderMovedToTrash(name)) {
+      res.status(400).json({request: {messageType}, error: "A folder cannot be created in Deleted"});
     } else {
       const tenantSlug = defaultTenantSlug();
       const highest = await inboxFolderModel.findOne({tenantSlug}).sort({sortIndex: -1}).select("sortIndex").lean() as {sortIndex?: number} | null;
@@ -105,6 +108,8 @@ export async function renameInboxFolder(req: Request, res: Response): Promise<vo
     const name = trimmedFolderName(req.body?.name);
     if (!name) {
       res.status(400).json({request: {messageType}, error: "A folder name is required"});
+    } else if (inboxFolderMovedToTrash(name)) {
+      res.status(400).json({request: {messageType}, error: "A folder cannot be moved into Deleted by renaming"});
     } else {
       const tenantSlug = defaultTenantSlug();
       const slug = await uniqueFolderSlugForTenant(tenantSlug, name, req.params.id);

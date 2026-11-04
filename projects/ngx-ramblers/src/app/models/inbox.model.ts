@@ -126,6 +126,24 @@ export enum InboxThreadFolder {
   DELETED = "deleted"
 }
 
+export enum InboxTrashMailboxParent {
+  DELETED = "deleted",
+  DELETED_ITEMS = "deleted items",
+  TRASH = "trash"
+}
+
+export enum InboxMailboxStateField {
+  AUTO_REPLY = "autoReply",
+  DIRECTION = "direction",
+  FOLDER = "folder",
+  READ_BY_MEMBER_IDS = "readByMemberIds",
+  ROLE_TYPE = "roleType",
+  TENANT_SLUG = "tenantSlug",
+  THREAD_ID = "threadId",
+  UNREAD = "unread",
+  USER_FOLDER_ID = "userFolderId"
+}
+
 export enum InboxMailboxLabelMode {
   ROLE = "role",
   PERSON = "person"

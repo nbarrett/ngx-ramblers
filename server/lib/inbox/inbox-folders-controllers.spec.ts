@@ -25,6 +25,19 @@ describe("inbox folder controllers", () => {
     ]);
   });
 
+  it("omits leftover folders that mail clients renamed into Deleted", async () => {
+    sandbox.stub(access, "permittedInboxRoleTypes").resolves(["webmaster"]);
+    sandbox.stub(access, "requestingMemberId").returns("member-1");
+    sandbox.stub(inboxFolder, "find").returns({sort: () => ({lean: async () => [
+      {_id: "folder-1", name: "Walks", sortIndex: 0},
+      {_id: "folder-2", name: "Deleted/Mongo2", slug: "deleted-mongo-2", sortIndex: 1}
+    ]})} as any);
+    sandbox.stub(counts, "conversationCount").resolves(0);
+    const response = {json: sandbox.spy(), status: sandbox.stub().returnsThis()};
+    await listInboxFolders({user: {memberId: "member-1"}} as any, response as any);
+    expect(response.json.firstCall.args[0].response.folders.map(folder => folder.name)).toEqual(["Walks"]);
+  });
+
   it("creates a folder with the next sort index", async () => {
     sandbox.stub(access, "requestingMemberId").returns("member-1");
     sandbox.stub(inboxFolder, "findOne").returns({sort: () => ({select: () => ({lean: async () => ({sortIndex: 3})})})} as any);
@@ -33,6 +46,13 @@ describe("inbox folder controllers", () => {
     const response = {json: sandbox.spy(), status: sandbox.stub().returnsThis()};
     await createInboxFolder({body: {name: "  Minutes  "}} as any, response as any);
     expect(response.json.firstCall.args[0].response).toMatchObject({id: "folder-2", name: "Minutes", slug: "minutes", sortIndex: 4, unreadCount: 0});
+  });
+
+  it("refuses to create a folder under Deleted", async () => {
+    const response = {json: sandbox.spy(), status: sandbox.stub().returnsThis()};
+    await createInboxFolder({body: {name: "Deleted/Mongo2"}} as any, response as any);
+    expect(response.status.calledWith(400)).toBe(true);
+    expect(response.json.firstCall.args[0].error).toBe("A folder cannot be created in Deleted");
   });
 
   it("files conversations into a folder and leaves junk and sent alone", async () => {

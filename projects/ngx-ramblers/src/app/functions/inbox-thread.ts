@@ -1,5 +1,6 @@
 import { kebabCase } from "es-toolkit/compat";
-import { InboxAddress, InboxAliasConfig, InboxColumnShare, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, InboxUserFolderView, INBOX_USER_FOLDER_VIEW_PREFIX, isInboxGeneralRoleType } from "../models/inbox.model";
+import { InboxAddress, InboxAliasConfig, InboxColumnShare, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, InboxTrashMailboxParent, InboxUserFolderView, INBOX_USER_FOLDER_VIEW_PREFIX, isInboxGeneralRoleType } from "../models/inbox.model";
+import { enumValues } from "./enums";
 import { normaliseEmail, transliterated } from "./strings";
 
 export const INBOX_SEND_COLLAPSE_WINDOW_MS = 5 * 60 * 1000;
@@ -50,6 +51,15 @@ export function isInboxThreadMongoId(value: string): boolean {
 
 export function inboxFolderSlug(name: string | null | undefined): string {
   return kebabCase(transliterated(name || "")) || "folder";
+}
+
+export function inboxFolderMovedToTrash(name: string | null | undefined): boolean {
+  const slash = (name || "").indexOf("/");
+  if (slash <= 0) {
+    return false;
+  } else {
+    return enumValues(InboxTrashMailboxParent).includes((name || "").slice(0, slash).trim().toLowerCase());
+  }
 }
 
 export function uniqueInboxFolderSlug(preferred: string, takenSlugs: string[]): string {

@@ -6,7 +6,7 @@ import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.
 import { InboxMessage, InboxMessageDirection, InboxThread, InboxThreadFolder } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { inboxMessage } from "../mongo/models/inbox-message";
 import { inboxThread } from "../mongo/models/inbox-thread";
-import { bootstrapImapUids, imapMailboxKey, imapMessageMailboxes, imapUidMemberships, imapUidState, IMAP_UID_MEMBERSHIPS_COLLECTION, synchroniseImapThreadUids, userFolderMailboxKeyIsStale } from "./mail-client-imap-uid-store";
+import { bootstrapImapUids, imapMailboxKey, imapMessageMailboxes, imapUidMemberships, imapUidState, IMAP_UID_MEMBERSHIPS_COLLECTION, imapUidWriteConflict, synchroniseImapThreadUids, userFolderMailboxKeyIsStale } from "./mail-client-imap-uid-store";
 import { IMAP_SHARED_FOLDER_ROLE, MailClientUidMailbox } from "./mail-client-imap-uid.model";
 import { withImapUidBulkWrites } from "./mail-client-imap-uid-hooks";
 
@@ -34,6 +34,14 @@ const message: InboxMessage = {
   externalSource: "test",
   receivedAt: 1
 } as unknown as InboxMessage;
+
+describe("IMAP UID write conflict detection", () => {
+  it("recognises a Mongo write conflict from the message and code name", () => {
+    expect(imapUidWriteConflict({codeName: "WriteConflict", message: "transient"})).toBe(true);
+    expect(imapUidWriteConflict(new Error("Write conflict during plan execution and yielding is disabled."))).toBe(true);
+    expect(imapUidWriteConflict(new Error("connection timed out"))).toBe(false);
+  });
+});
 
 describe("IMAP mailbox membership", () => {
   it("places outbound replies in Sent as well as their conversation folder", () => {

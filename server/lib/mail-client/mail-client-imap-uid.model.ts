@@ -1,6 +1,25 @@
 import { AnyBulkWriteOperation, Document } from "mongodb";
 import { InboxThreadFolder } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 
+export enum ImapUidQueryMutation {
+  DELETE_MANY = "deleteMany",
+  DELETE_ONE = "deleteOne",
+  FIND_ONE_AND_DELETE = "findOneAndDelete",
+  FIND_ONE_AND_REPLACE = "findOneAndReplace",
+  FIND_ONE_AND_UPDATE = "findOneAndUpdate",
+  REPLACE_ONE = "replaceOne",
+  UPDATE_MANY = "updateMany",
+  UPDATE_ONE = "updateOne"
+}
+
+export enum ImapUidStructuralQueryMutation {
+  DELETE_MANY = "deleteMany",
+  DELETE_ONE = "deleteOne",
+  FIND_ONE_AND_DELETE = "findOneAndDelete",
+  FIND_ONE_AND_REPLACE = "findOneAndReplace",
+  REPLACE_ONE = "replaceOne"
+}
+
 export interface MailClientUidState {
   uidValidity: number;
   uidNext: number;

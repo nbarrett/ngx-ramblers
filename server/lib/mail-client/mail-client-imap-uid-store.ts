@@ -15,6 +15,9 @@ export const IMAP_UID_MAILBOXES_COLLECTION = "mailClientImapMailboxes";
 export const IMAP_UID_MEMBERSHIPS_COLLECTION = "mailClientImapMemberships";
 export const IMAP_UID_COUNTERS_COLLECTION = "mailClientImapCounters";
 const MAX_IMAP_UID = 4294967295;
+const IMAP_UID_WRITE_CONFLICT_ATTEMPTS = 3;
+const IMAP_UID_THREAD_PROJECTION = {tenantSlug: 1, roleType: 1, folder: 1, userFolderId: 1};
+const IMAP_UID_MESSAGE_PROJECTION = {direction: 1, autoReply: 1, threadId: 1};
 
 export function imapMailboxKey(mailbox: MailClientUidMailbox): string {
   return JSON.stringify([mailbox.tenantSlug, mailbox.roleType, mailbox.userFolderId ? null : mailbox.folder, mailbox.userFolderId]);
@@ -86,9 +89,9 @@ async function synchroniseThread(db: Db, session: ClientSession, threadId: strin
     {_id: `thread:${threadId}`}, {$inc: {value: 1}}, {session, upsert: true}
   );
   const identities = threadIdValues(threadId);
-  const thread = await db.collection(INBOX_THREADS_COLLECTION).findOne({_id: {$in: identities}} as never, {session}) as unknown as InboxThread | null;
+  const thread = await db.collection(INBOX_THREADS_COLLECTION).findOne({_id: {$in: identities}} as never, {session, projection: IMAP_UID_THREAD_PROJECTION}) as unknown as InboxThread | null;
   const messages = thread
-    ? await db.collection(INBOX_MESSAGES_COLLECTION).find({threadId: {$in: identities}}, {session}).sort({receivedAt: 1, sentAt: 1, _id: 1}).toArray() as unknown as InboxMessage[]
+    ? await db.collection(INBOX_MESSAGES_COLLECTION).find({threadId: {$in: identities}}, {session, projection: IMAP_UID_MESSAGE_PROJECTION}).sort({receivedAt: 1, sentAt: 1, _id: 1}).toArray() as unknown as InboxMessage[]
     : [];
   const memberships = db.collection<MailClientUidMembership>(IMAP_UID_MEMBERSHIPS_COLLECTION);
   const threadMemberships = await memberships.find({threadId: {$in: [threadId, ...identities.map(String)]}}, {session}).toArray();
@@ -131,16 +134,41 @@ async function synchroniseThread(db: Db, session: ClientSession, threadId: strin
   }
 }
 
+export function imapUidWriteConflict(error: unknown): boolean {
+  const codeName = (error as {codeName?: string})?.codeName ?? "";
+  const message = (error as Error)?.message ?? "";
+  return codeName === "WriteConflict" || message.includes("Write conflict");
+}
+
+async function synchroniseThreadWithRetry(db: Db, client: MongoClient, threadId: string): Promise<void> {
+  const progress = {attempt: 0, completed: false};
+  const attempts = Array.from({length: IMAP_UID_WRITE_CONFLICT_ATTEMPTS}, (_, index) => index);
+  await attempts.reduce(async (previous, index) => {
+    await previous;
+    if (progress.completed) {
+      return;
+    } else {
+      progress.attempt = index + 1;
+      const session = client.startSession();
+      try {
+        await session.withTransaction(async () => synchroniseThread(db, session, threadId));
+        progress.completed = true;
+      } catch (error) {
+        const lastAttempt = progress.attempt === IMAP_UID_WRITE_CONFLICT_ATTEMPTS;
+        if (lastAttempt || !imapUidWriteConflict(error)) {
+          debugLog("failed to synchronise IMAP UIDs for thread", threadId, (error as Error).message);
+          progress.completed = true;
+        }
+      } finally {
+        await session.endSession();
+      }
+    }
+  }, Promise.resolve());
+}
+
 export async function synchroniseImapThreadUids(db: Db, client: MongoClient, threadIds: string[]): Promise<void> {
   for (const threadId of [...new Set(threadIds)].filter(Boolean).sort()) {
-    const session = client.startSession();
-    try {
-      await session.withTransaction(async () => synchroniseThread(db, session, threadId));
-    } catch (error) {
-      debugLog("failed to synchronise IMAP UIDs for thread", threadId, (error as Error).message);
-    } finally {
-      await session.endSession();
-    }
+    await synchroniseThreadWithRetry(db, client, threadId);
   }
 }
 

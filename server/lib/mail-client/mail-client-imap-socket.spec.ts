@@ -193,6 +193,16 @@ describe("mail application IMAP loopback protocol", function () {
     expect(append.firstCall.args[2]).toEqual(Buffer.from(raw));
   });
 
+  it("acknowledges a redirected APPEND without inventing a mailbox UID", async () => {
+    await authenticateAndSelect();
+    sandbox.stub(appendSource, "appendMailClientRfc822").resolves({uidValidity: 44, uid: null});
+    const raw = "From: chair@group.example.org.uk\r\nSubject: Local check\r\n\r\nSent body\r\n";
+    sockets.client.write(`a3 APPEND INBOX {${Buffer.byteLength(raw)}+}\r\n${raw}\r\n`);
+    const response = (await sockets.probe.response("a3")).toString("utf8");
+    expect(response).toContain("a3 OK APPEND completed");
+    expect(response).not.toContain("APPENDUID");
+  });
+
   it("returns multipart attachment literals and stores APPEND over the real socket", async () => {
     await authenticateAndSelect();
     sandbox.stub(appendSource, "appendMailClientRfc822").resolves({uidValidity: 44, uid: 301});

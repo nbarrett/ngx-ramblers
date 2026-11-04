@@ -135,7 +135,18 @@ describe("mail application mailbox contents", () => {
     expect(mailboxes.map(mailbox => mailbox.name)).toEqual(["INBOX", "Sent", "Drafts", "Junk", "Deleted", "Walk planning"]);
     expect(mailboxByName(mailboxes, "Deleted Items")?.name).toEqual("Deleted");
     expect(mailboxByName(mailboxes, "Junk Email")?.name).toEqual("Junk");
+    expect(mailboxByName(mailboxes, "Sent Messages")?.name).toEqual("Sent");
+    expect(mailboxByName(mailboxes, "Sent Mail")?.name).toEqual("Sent");
     expect(mailboxes[5].userFolderId).toBe("folder-1");
+  });
+
+  it("omits leftover folders that mail clients renamed into Deleted", async () => {
+    sandbox.stub(inboxFolder, "find").returns({sort: () => ({lean: async () => [
+      {_id: "folder-1", name: "Walk planning"},
+      {_id: "folder-2", name: "Deleted/Mongo2"}
+    ]})} as any);
+    const mailboxes = await listMailboxes();
+    expect(mailboxes.map(mailbox => mailbox.name)).toEqual(["INBOX", "Sent", "Drafts", "Junk", "Deleted", "Walk planning"]);
   });
 
   it("shows sent replies even when their conversation is still in Inbox or a custom folder", async () => {

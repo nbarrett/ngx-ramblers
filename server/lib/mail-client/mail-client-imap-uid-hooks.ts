@@ -2,9 +2,21 @@ import mongoose, { Model, Query, Schema } from "mongoose";
 import { AnyBulkWriteOperation, Document } from "mongodb";
 import { isArray, isObject, keys, values } from "es-toolkit/compat";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
+import { InboxMailboxStateField } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
+import { enumKeyValues } from "../../../projects/ngx-ramblers/src/app/functions/enums";
 import { CONFIG_COLLECTION, INBOX_MESSAGES_COLLECTION } from "../mongo/migrations/shared/collection-names";
-import { MailClientUidDocument, MailClientUidWriteContext } from "./mail-client-imap-uid.model";
+import {
+  ImapUidQueryMutation,
+  ImapUidStructuralQueryMutation,
+  MailClientUidDocument,
+  MailClientUidWriteContext
+} from "./mail-client-imap-uid.model";
 import { synchroniseImapThreadUids } from "./mail-client-imap-uid-store";
+
+const mailboxStateFields = enumKeyValues(InboxMailboxStateField).map(item => item.value);
+type ImapUidQueryHookName = Parameters<Schema["pre"]>[0];
+const queryMutations = enumKeyValues(ImapUidQueryMutation).map(item => item.value) as ImapUidQueryHookName[];
+const structuralQueryMutations = enumKeyValues(ImapUidStructuralQueryMutation).map(item => item.value) as ImapUidQueryHookName[];
 
 const writes = new WeakMap<object, MailClientUidWriteContext>();
 
@@ -43,13 +55,12 @@ async function imapUidTrackingEnabled<T>(model: Model<T>): Promise<boolean> {
   }
 }
 
-function membershipChanged(update: unknown): boolean {
-  const membershipFields = ["threadId", "direction", "autoReply", "folder", "userFolderId", "tenantSlug", "roleType"];
+function mailboxStateChanged(update: unknown): boolean {
   if (isArray(update) || !isObject(update)) {
     return true;
   } else {
     const fields = keys(update).flatMap(key => key.startsWith("$") ? keys(update[key]) : [key]);
-    return fields.some(key => membershipFields.includes(key.split(".")[0]));
+    return fields.some(key => mailboxStateFields.includes(key.split(".")[0]));
   }
 }
 
@@ -65,10 +76,9 @@ export function maintainImapUids(schema: Schema): void {
       await completeWrite(this, {threadIds: [], documentIds: [], filters: [], operations: []}, documents);
     }
   });
-  const mutations = ["updateOne", "updateMany", "findOneAndUpdate", "replaceOne", "findOneAndReplace", "deleteOne", "deleteMany", "findOneAndDelete"] as const;
-  for (const mutation of mutations) {
+  for (const mutation of queryMutations) {
     schema.pre(mutation, async function(this: Query<unknown, unknown>) {
-      if ((["deleteOne", "deleteMany", "findOneAndDelete", "replaceOne", "findOneAndReplace"].includes(mutation) || membershipChanged(this.getUpdate())) && await imapUidTrackingEnabled(this.model)) {
+      if ((structuralQueryMutations.includes(mutation) || mailboxStateChanged(this.getUpdate())) && await imapUidTrackingEnabled(this.model)) {
         writes.set(this, await captureWrite(this.model, [this.getFilter()]));
       }
     });

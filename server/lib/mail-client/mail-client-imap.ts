@@ -334,6 +334,9 @@ export async function handleMailClientImapCommand(session: ImapSession, tag: str
     await transferMessages(session, tag, upper === MailClientImapCommand.UID ? args.slice(command.length).trim() : args, upper === MailClientImapCommand.UID, move);
   } else if (upper === MailClientImapCommand.SEARCH || (upper === MailClientImapCommand.UID && args.toUpperCase().startsWith(MailClientImapCommand.SEARCH))) {
     search(session, tag, upper === MailClientImapCommand.UID ? args.slice(MailClientImapCommand.SEARCH.length).trim() : args, upper === MailClientImapCommand.UID);
+  } else if (upper === MailClientImapCommand.UID && args.toUpperCase().startsWith(`${MailClientImapCommand.EXPUNGE} `)) {
+    await expungeMessages(session, args.slice(MailClientImapCommand.EXPUNGE.length).trim());
+    write(session, `${tag} OK UID EXPUNGE completed`);
   } else if (upper === MailClientImapCommand.EXPUNGE || upper === MailClientImapCommand.CLOSE) {
     await expungeMessages(session);
     write(session, `${tag} OK ${upper} completed`);
@@ -379,9 +382,9 @@ async function refreshSelectedMailbox(session: ImapSession): Promise<void> {
   }
 }
 
-async function expungeMessages(session: ImapSession): Promise<void> {
+async function expungeMessages(session: ImapSession, uidSet: string | null = null): Promise<void> {
   if (!session.readOnly && session.role && session.selected) {
-    const deleted = session.messages.filter(message => message.deleted);
+    const deleted = (uidSet ? messagesForSet(session.messages, uidSet, true) : session.messages).filter(message => message.deleted);
     for (const message of deleted) {
       await expungeImapMessage(session.role, session.selected, message.message, message.thread);
     }
@@ -548,7 +551,7 @@ async function finishAppend(session: ImapSession, tag: string, mailboxName: stri
       write(session, `${tag} NO [TRYCREATE] mailbox does not exist`);
     } else {
       const appended = await appendMailClientRfc822(session.role, mailbox, raw, session.member);
-      write(session, `${tag} OK [APPENDUID ${appended.uidValidity} ${appended.uid}] APPEND completed`);
+      write(session, `${tag} OK ${appended.uid ? `[APPENDUID ${appended.uidValidity} ${appended.uid}] ` : ""}APPEND completed`);
       sessionLog(session, "APPEND completed", {tag, mailbox: mailboxName, octets: raw.length, uid: appended.uid});
     }
   } catch (error) {

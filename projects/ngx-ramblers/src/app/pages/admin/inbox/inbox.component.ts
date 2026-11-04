@@ -19,7 +19,7 @@ import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { InboxService } from "../../../services/inbox/inbox.service";
 import { InboxReplyHandoffService } from "../../../services/inbox/inbox-reply-handoff.service";
-import { addressLabel, aliasMailboxAddresses, aliasMailboxExtraCaption, aliasMailboxHeading, aliasMailboxLabel, collapseInboxSends, formatInboxAddress, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadLocationLabel, inboxThreadRoleLine, inboxThreadRowFrom, inboxThreadRowPreview, inboxThreadRowTo, inboxThreadUrlSlug, inboxUserFolderIdFromView, inboxUserFolderView, isInboxUserFolderView, replyAllRecipients, validatedInboxColumnShare } from "../../../functions/inbox-thread";
+import { addressLabel, aliasMailboxAddresses, aliasMailboxExtraCaption, aliasMailboxHeading, aliasMailboxLabel, collapseInboxSends, formatInboxAddress, inboxFolderMovedToTrash, inboxThreadHeaderFrom, inboxThreadHeaderTo, inboxThreadId, inboxThreadLocationLabel, inboxThreadRoleLine, inboxThreadRowFrom, inboxThreadRowPreview, inboxThreadRowTo, inboxThreadUrlSlug, inboxUserFolderIdFromView, inboxUserFolderView, isInboxUserFolderView, replyAllRecipients, validatedInboxColumnShare } from "../../../functions/inbox-thread";
 import { InboxPushSubscriptionService } from "../../../services/inbox/inbox-push-subscription.service";
 import { InboxNotificationService } from "../../../services/inbox/inbox-notification.service";
 import { WebSocketClientService } from "../../../services/websockets/websocket-client.service";
@@ -1141,7 +1141,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private async loadUserFolders(): Promise<void> {
     try {
-      this.userFolders = (await this.inboxService.listFolders()).folders;
+      this.userFolders = (await this.inboxService.listFolders()).folders.filter(folder => !inboxFolderMovedToTrash(folder.name));
     } catch (error) {
       this.logger.warn("loadUserFolders failed", error);
       this.userFolders = [];

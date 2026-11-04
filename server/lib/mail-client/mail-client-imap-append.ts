@@ -18,7 +18,7 @@ import { dateTimeNow } from "../shared/dates";
 import { defaultTenantSlug } from "../inbox/inbox-aliases";
 import { MailClientAppendResult, MailClientMailbox } from "./mail-client-imap.model";
 import { storeMailClientAttachments } from "./mail-client-submit";
-import { mailboxUidState, mailboxMessageUid } from "./mail-client-imap-mailbox";
+import { mailboxUidState, mailboxMessageUid, mailboxByName } from "./mail-client-imap-mailbox";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 
 export async function appendMailClientRfc822(
@@ -34,9 +34,9 @@ export async function appendMailClientRfc822(
   const messageId = parsed.messageId || `<imap-append-${dateTimeNow().toMillis()}@mail-client.example.invalid>`;
   const existingById = await inboxMessageModel.findOne({messageId}).lean() as InboxMessage | null;
   const existingThread = existingById?.threadId
-    ? await inboxThreadModel.findById(existingById.threadId).select("roleType").lean() as {roleType?: string} | null
+    ? await inboxThreadModel.findById(existingById.threadId).select("roleType folder").lean() as InboxThread | null
     : null;
-  const existing = existingThread?.roleType === role.type ? existingById : null;
+  const existing = existingThread?.roleType === role.type && existingThread.folder !== InboxThreadFolder.DELETED ? existingById : null;
   const alias = await derivedAliasForEmail(role.email);
   if (!alias) {
     throw new Error("That role address is not mapped in the committee inbox");
@@ -59,35 +59,46 @@ export async function appendMailClientRfc822(
       sentAt: dateTimeNow().toMillis(),
       externalSource: InboxReaderProvider.MAIL_CLIENT,
       externalId: null,
-      attachments: existing?.attachments ?? await storeMailClientAttachments(parsed.attachments ?? [])
+      attachments: mailbox.folder !== InboxThreadFolder.DRAFTS && existingThread?.folder !== InboxThreadFolder.DRAFTS && existing ? existing.attachments : await storeMailClientAttachments(parsed.attachments ?? [])
     };
-    if (existing) {
-      if (mailbox.folder === InboxThreadFolder.DRAFTS) {
-        await replaceDraftContent(existing, outbound);
+    if (mailbox.folder === InboxThreadFolder.DRAFTS) {
+      const stored = await persistWithoutRecipients(alias.roleType, outbound, InboxThreadFolder.DRAFTS, null);
+      if (existing?.threadId && existing.threadId !== stored.threadId) {
+        await inboxMessageModel.deleteMany({threadId: existing.threadId});
+        await inboxThreadModel.deleteMany({_id: existing.threadId});
       }
-      await placeExistingInMailbox(existing, mailbox);
-    } else if (mailbox.folder === InboxThreadFolder.SENT || mailbox.name.toLowerCase() === "sent") {
-      if (outbound.deliveryRecipients?.length) {
-        await recordOutboundMessage(alias, outbound);
-      } else {
-        await persistWithoutRecipients(alias.roleType, outbound, InboxThreadFolder.SENT, mailbox.userFolderId);
-      }
-    } else if (mailbox.folder === InboxThreadFolder.DRAFTS) {
-      await persistWithoutRecipients(alias.roleType, outbound, InboxThreadFolder.DRAFTS, mailbox.userFolderId);
-    } else if (mailbox.folder === InboxThreadFolder.INBOX) {
-      await storeInboundMessage(alias, {...outbound, direction: InboxMessageDirection.INBOUND, receivedAt: dateTimeNow().toMillis()});
-    } else if (mailbox.userFolderId) {
-      const stored = outbound.deliveryRecipients?.length
-        ? await recordOutboundMessage(alias, outbound)
-        : await persistWithoutRecipients(alias.roleType, outbound, InboxThreadFolder.INBOX, mailbox.userFolderId);
-      const threadId = stored?.threadId || stored?.id;
-      if (threadId) {
-        await inboxThreadModel.updateOne({_id: stored.threadId || threadId}, {$set: {userFolderId: mailbox.userFolderId}});
-      }
+      return appendResult(role, mailbox, messageId, stored.id);
     } else {
-      await persistWithoutRecipients(alias.roleType, outbound, mailbox.folder ?? InboxThreadFolder.INBOX, mailbox.userFolderId);
+      if (existing) {
+        if (existingThread?.folder === InboxThreadFolder.DRAFTS
+          || (existing.direction === InboxMessageDirection.INBOUND && sentCopyOnInbox(mailbox, outbound, role))) {
+          await inboxMessageModel.updateOne(
+            {threadId: existing.threadId, messageId},
+            {$set: omit(outbound, ["id", "_id", "threadId"])}
+          );
+        }
+        await placeExistingInMailbox(existing, mailbox, outbound, role);
+      } else if (sentMailbox(mailbox) || sentCopyOnInbox(mailbox, outbound, role)) {
+        if (outbound.deliveryRecipients?.length) {
+          await recordOutboundMessage(alias, outbound);
+        } else {
+          await persistWithoutRecipients(alias.roleType, outbound, InboxThreadFolder.SENT, null);
+        }
+      } else if (mailbox.folder === InboxThreadFolder.INBOX) {
+        await storeInboundMessage(alias, {...outbound, direction: InboxMessageDirection.INBOUND, receivedAt: dateTimeNow().toMillis()});
+      } else if (mailbox.userFolderId) {
+        const stored = outbound.deliveryRecipients?.length
+          ? await recordOutboundMessage(alias, outbound)
+          : await persistWithoutRecipients(alias.roleType, outbound, InboxThreadFolder.INBOX, mailbox.userFolderId);
+        const threadId = stored?.threadId || stored?.id;
+        if (threadId) {
+          await inboxThreadModel.updateOne({_id: stored.threadId || threadId}, {$set: {userFolderId: mailbox.userFolderId}});
+        }
+      } else {
+        await persistWithoutRecipients(alias.roleType, outbound, mailbox.folder ?? InboxThreadFolder.INBOX, mailbox.userFolderId);
+      }
+      return appendResult(role, mailbox, messageId, null, sentCopyOnInbox(mailbox, outbound, role));
     }
-    return appendResult(role, mailbox, messageId);
   }
 }
 
@@ -117,49 +128,45 @@ export async function fileThreadInMailbox(threadId: string, mailbox: MailClientM
   }
 }
 
-async function appendResult(role: CommitteeMember, mailbox: MailClientMailbox, messageId: string, documentId: string | null = null): Promise<MailClientAppendResult> {
+async function appendResult(role: CommitteeMember, mailbox: MailClientMailbox, messageId: string, documentId: string | null = null, redirectedToSent = false): Promise<MailClientAppendResult> {
   const uid = await mailboxMessageUid(role, mailbox, messageId, documentId);
   const state = await mailboxUidState(role, mailbox);
-  if (!uid) {
+  if (!uid && !redirectedToSent) {
     throw new Error("Message was stored without an IMAP identifier");
   } else {
     return {uidValidity: state.uidValidity, uid};
   }
 }
 
-async function placeExistingInMailbox(existing: InboxMessage, mailbox: MailClientMailbox): Promise<void> {
-  if (mailbox.userFolderId && existing.threadId) {
+async function placeExistingInMailbox(existing: InboxMessage, mailbox: MailClientMailbox, outbound: InboxMessage, role: CommitteeMember): Promise<void> {
+  if ((sentMailbox(mailbox) || sentCopyOnInbox(mailbox, outbound, role)) && existing.threadId) {
+    const inboundCount = await inboxMessageModel.countDocuments({threadId: existing.threadId, direction: InboxMessageDirection.INBOUND});
+    if (inboundCount === 0) {
+      await inboxThreadModel.updateOne(
+        {_id: existing.threadId, folder: {$in: [InboxThreadFolder.INBOX, InboxThreadFolder.DRAFTS]}, userFolderId: null},
+        {$set: {folder: InboxThreadFolder.SENT}, $unset: {userFolderId: 1}}
+      );
+    }
+  } else if (mailbox.userFolderId && existing.threadId) {
     await inboxThreadModel.updateOne({_id: existing.threadId}, {$set: {userFolderId: mailbox.userFolderId, folder: InboxThreadFolder.INBOX}});
   } else if (mailbox.folder === InboxThreadFolder.DRAFTS && existing.threadId) {
     await inboxThreadModel.updateOne({_id: existing.threadId}, {$set: {folder: InboxThreadFolder.DRAFTS}});
   }
 }
 
-async function replaceDraftContent(existing: InboxMessage, outbound: InboxMessage): Promise<void> {
-  const identity = existing.id ?? (existing as unknown as {_id?: {toString(): string}})._id?.toString();
-  if (identity) {
-    await inboxMessageModel.updateOne({_id: identity}, {$set: {
-      subject: outbound.subject,
-      bodyHtml: outbound.bodyHtml,
-      bodyText: outbound.bodyText,
-      to: outbound.to,
-      cc: outbound.cc,
-      deliveryRecipients: outbound.deliveryRecipients,
-      inReplyTo: outbound.inReplyTo,
-      references: outbound.references,
-      sentAt: outbound.sentAt,
-      attachments: outbound.attachments
-    }});
-  }
-  if (existing.threadId) {
-    await inboxThreadModel.updateOne({_id: existing.threadId}, {$set: {
-      subject: outbound.subject,
-      normalisedSubject: (outbound.subject || "").trim().toLowerCase(),
-      lastSeenAt: outbound.sentAt,
-      sentFrom: outbound.from,
-      externalAddress: outbound.to?.[0] || outbound.from
-    }});
-  }
+function sentMailbox(mailbox: MailClientMailbox): boolean {
+  return mailbox.folder === InboxThreadFolder.SENT
+    || mailboxByName([{name: "Sent", folder: InboxThreadFolder.SENT, userFolderId: null}], mailbox.name) !== null;
+}
+
+function sentCopyOnInbox(mailbox: MailClientMailbox, outbound: InboxMessage, role: CommitteeMember): boolean {
+  const from = (outbound.from?.email || "").trim().toLowerCase();
+  const roleEmail = (role.email || "").trim().toLowerCase();
+  return mailbox.folder === InboxThreadFolder.INBOX
+    && !mailbox.userFolderId
+    && Boolean(from)
+    && from === roleEmail
+    && (outbound.deliveryRecipients?.length ?? 0) > 0;
 }
 
 async function persistWithoutRecipients(roleType: string, outbound: InboxMessage, folder: InboxThreadFolder, userFolderId: string | null): Promise<InboxMessage> {

@@ -12,7 +12,7 @@ import { inboxMessage as inboxMessageModel } from "../mongo/models/inbox-message
 import { inboxFolder as inboxFolderModel } from "../mongo/models/inbox-folder";
 import { defaultTenantSlug } from "../inbox/inbox-aliases";
 import { threadUnreadForMember } from "../inbox/inbox-unread-counts";
-import { inboxThreadId, inboxFolderSlug, uniqueInboxFolderSlug } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
+import { inboxThreadId, inboxFolderSlug, inboxFolderMovedToTrash, uniqueInboxFolderSlug } from "../../../projects/ngx-ramblers/src/app/functions/inbox-thread";
 import mongoose from "mongoose";
 import { execute } from "../mongo/mongoose-client";
 import { imapMailboxKey, imapUidMailboxState, imapUidMemberships, imapUidState, IMAP_UID_MAILBOXES_COLLECTION, IMAP_UID_MEMBERSHIPS_COLLECTION, synchroniseImapThreadUids } from "./mail-client-imap-uid-store";
@@ -47,7 +47,7 @@ export function selectedRoleForUsername(roles: CommitteeMember[], username: stri
 
 export async function listMailboxes(): Promise<MailClientMailbox[]> {
   const userFolders = await inboxFolderModel.find({tenantSlug: defaultTenantSlug()}).sort({sortIndex: 1, name: 1}).lean() as InboxUserFolder[];
-  return SYSTEM_MAILBOXES.concat(userFolders.map(folder => ({
+  return SYSTEM_MAILBOXES.concat(userFolders.filter(folder => !inboxFolderMovedToTrash(folder.name)).map(folder => ({
     name: folder.name,
     folder: null,
     userFolderId: folder.id ?? (folder as unknown as {_id: {toString(): string}})._id?.toString() ?? null
@@ -58,10 +58,11 @@ const MAILBOX_NAME_ALIASES: Record<string, string> = {
   "deleted items": "Deleted",
   "junk email": "Junk",
   "sent items": "Sent",
+  "sent messages": "Sent",
+  "sent mail": "Sent",
   inbox: "INBOX"
 };
 
-const TRASH_PARENTS = ["deleted", "deleted items", "trash"];
 const CLIENT_ONLY_MAILBOXES = ["archive", "conversation history", "outbox", "snoozed", "sync issues", "conflicts", "local failures", "server failures"];
 
 export function clientOnlyMailboxName(name: string): boolean {
@@ -70,13 +71,7 @@ export function clientOnlyMailboxName(name: string): boolean {
 }
 
 export function renamedIntoDeleted(name: string): boolean {
-  const normalised = normalisedMailboxName(name);
-  const slash = normalised.indexOf("/");
-  if (slash <= 0) {
-    return false;
-  } else {
-    return TRASH_PARENTS.includes(normalised.slice(0, slash).toLowerCase());
-  }
+  return inboxFolderMovedToTrash(normalisedMailboxName(name));
 }
 
 export function normalisedMailboxName(name: string): string {
@@ -259,22 +254,25 @@ export async function createMailboxFolder(name: string, memberId: string): Promi
   const trimmed = normalisedMailboxName(name);
   if (!trimmed) {
     throw new Error("Mailbox name is empty");
-  }
-  const existing = await listMailboxes();
-  const match = existing.find(mailbox => mailbox.name.toLowerCase() === trimmed.toLowerCase());
-  if (match) {
-    return match;
+  } else if (inboxFolderMovedToTrash(trimmed)) {
+    throw new Error("Mailbox cannot be created in Deleted");
   } else {
-    const folders = await inboxFolderModel.find({tenantSlug}).select("slug name sortIndex").lean() as InboxUserFolder[];
-    const highest = folders.reduce((max, folder) => Math.max(max, folder.sortIndex ?? 0), -1);
-    const created = await inboxFolderModel.create({
-      tenantSlug,
-      name: trimmed,
-      slug: uniqueInboxFolderSlug(inboxFolderSlug(trimmed), folders.map(folder => folder.slug || inboxFolderSlug(folder.name))),
-      sortIndex: highest + 1,
-      createdByMemberId: memberId
-    });
-    return {name: created.name, folder: null, userFolderId: created.id ?? created._id?.toString() ?? null};
+    const existing = await listMailboxes();
+    const match = existing.find(mailbox => mailbox.name.toLowerCase() === trimmed.toLowerCase());
+    if (match) {
+      return match;
+    } else {
+      const folders = await inboxFolderModel.find({tenantSlug}).select("slug name sortIndex").lean() as InboxUserFolder[];
+      const highest = folders.reduce((max, folder) => Math.max(max, folder.sortIndex ?? 0), -1);
+      const created = await inboxFolderModel.create({
+        tenantSlug,
+        name: trimmed,
+        slug: uniqueInboxFolderSlug(inboxFolderSlug(trimmed), folders.map(folder => folder.slug || inboxFolderSlug(folder.name))),
+        sortIndex: highest + 1,
+        createdByMemberId: memberId
+      });
+      return {name: created.name, folder: null, userFolderId: created.id ?? created._id?.toString() ?? null};
+    }
   }
 }
 

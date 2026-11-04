@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { foldersExcludedFromInboxList, hiddenInboxFolders, InboxMessage, InboxMessageDirection, InboxReplyComposeResponse, InboxThread, InboxThreadFolder } from "../models/inbox.model";
 import {
   collapseInboxSends,
+  inboxFolderMovedToTrash,
   inboxFolderSlug,
   inboxMessageAt,
   inboxMessageMatchingId,
@@ -479,6 +480,14 @@ describe("inbox user folder views", () => {
   it("kebab-cases a folder name for the slug", () => {
     expect(inboxFolderSlug("Walk reports")).toBe("walk-reports");
     expect(uniqueInboxFolderSlug("walk-reports", ["walk-reports"])).toBe("walk-reports-2");
+  });
+
+  it("treats folders named under Deleted or Trash as mail-client trash moves", () => {
+    expect(inboxFolderMovedToTrash("Deleted/Mongo2")).toBe(true);
+    expect(inboxFolderMovedToTrash("Trash/Walks")).toBe(true);
+    expect(inboxFolderMovedToTrash("Deleted Items/Walks")).toBe(true);
+    expect(inboxFolderMovedToTrash("Mongo")).toBe(false);
+    expect(inboxFolderMovedToTrash("Cloudflare")).toBe(false);
   });
 
   it("returns null when the mailbox view is not a user folder", () => {

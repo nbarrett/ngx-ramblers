@@ -136,5 +136,5 @@ export interface ImapSequenceRange {
 
 export interface MailClientAppendResult {
   uidValidity: number;
-  uid: number;
+  uid: number | null;
 }

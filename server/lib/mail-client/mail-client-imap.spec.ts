@@ -376,6 +376,21 @@ describe("mail application IMAP commands", () => {
     expect(outputOf(write)).toContain("EXPUNGE");
   });
 
+  it("expunges only requested UIDs when several messages are flagged for deletion", async () => {
+    const write = sandbox.spy();
+    const session = sessionFor(write);
+    session.messages[0].deleted = true;
+    session.messages[0].message = {...message, id: "message-1"};
+    session.messages[1].message = {...message, id: "message-2"};
+    session.messages[1].deleted = true;
+    const expunge = sandbox.stub(mailboxSource, "expungeImapMessage");
+    sandbox.stub(mailboxSource, "messagesInMailbox").resolves([session.messages[1]]);
+    await handleMailClientImapCommand(session, "a1", "UID", `EXPUNGE ${session.messages[0].uid}`);
+    expect(expunge.calledOnce).toBe(true);
+    expect(expunge.firstCall.args[2].id).toEqual("message-1");
+    expect(outputOf(write)).toContain("EXPUNGE");
+  });
+
   it("removes a deletion flag without filing or deleting a conversation", async () => {
     const write = sandbox.spy();
     const session = sessionFor(write);
