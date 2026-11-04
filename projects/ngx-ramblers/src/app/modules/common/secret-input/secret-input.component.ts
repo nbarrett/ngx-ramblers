@@ -23,6 +23,11 @@ import { InputSize } from "../../../models/ui-size.model";
       width: 100%
       min-width: 0
 
+    :host.button-only
+      display: inline-flex
+      width: auto
+      min-width: 0
+
     .secret-input-wrapper
       position: relative
       display: flex
@@ -75,52 +80,71 @@ import { InputSize } from "../../../models/ui-size.model";
       cursor: not-allowed
       opacity: 0.5
   `],
+  host: {
+    "[class.button-only]": "buttonOnly"
+  },
   template: `
-    <div class="secret-input-wrapper">
-      <input
-        type="text"
-        class="form-control secret-input"
-        [class.masked]="reveal && !isVisible"
-        [class.copy-only]="!reveal"
-        [class.input-sm]="size === InputSize.SM"
+    @if (buttonOnly) {
+      <button
+        type="button"
+        class="secret-btn"
         [id]="id"
-        [value]="value"
-        (input)="onInputChange($event)"
-        (blur)="onTouched()"
-        [placeholder]="placeholder"
-        [disabled]="disabled"
-        [readonly]="readOnly"
-        [attr.autocomplete]="autocomplete"
-        [attr.data-form-type]="ignorePasswordManagers ? 'other' : null"
-      />
-      <div class="secret-input-actions">
-        @if (reveal) {
+        [class.copied]="justCopied"
+        (click)="copyToClipboard()"
+        [disabled]="disabled || !value"
+        [tooltip]="justCopied ? 'Copied!' : copyTooltip"
+        [attr.aria-label]="justCopied ? 'Copied to clipboard' : copyTooltip"
+        delay="500"
+        container="body">
+        <fa-icon [icon]="justCopied ? faCheck : faCopy"></fa-icon>
+      </button>
+    } @else {
+      <div class="secret-input-wrapper">
+        <input
+          type="text"
+          class="form-control secret-input"
+          [class.masked]="reveal && !isVisible"
+          [class.copy-only]="!reveal"
+          [class.input-sm]="size === InputSize.SM"
+          [id]="id"
+          [value]="value"
+          (input)="onInputChange($event)"
+          (blur)="onTouched()"
+          [placeholder]="placeholder"
+          [disabled]="disabled"
+          [readonly]="readOnly"
+          [attr.autocomplete]="autocomplete"
+          [attr.data-form-type]="ignorePasswordManagers ? 'other' : null"
+        />
+        <div class="secret-input-actions">
+          @if (reveal) {
+            <button
+              type="button"
+              class="secret-btn"
+              (click)="toggleVisibility()"
+              [disabled]="disabled"
+              [tooltip]="isVisible ? 'Hide' : 'Show'"
+              [attr.aria-label]="isVisible ? 'Hide value' : 'Show value'"
+              delay="500"
+              container="body">
+              <fa-icon [icon]="isVisible ? faEyeSlash : faEye"></fa-icon>
+            </button>
+          }
           <button
             type="button"
             class="secret-btn"
-            (click)="toggleVisibility()"
-            [disabled]="disabled"
-            [tooltip]="isVisible ? 'Hide' : 'Show'"
-            [attr.aria-label]="isVisible ? 'Hide value' : 'Show value'"
+            [class.copied]="justCopied"
+            (click)="copyToClipboard()"
+            [disabled]="disabled || !value"
+            [tooltip]="justCopied ? 'Copied!' : copyTooltip"
+            [attr.aria-label]="justCopied ? 'Copied to clipboard' : copyTooltip"
             delay="500"
             container="body">
-            <fa-icon [icon]="isVisible ? faEyeSlash : faEye"></fa-icon>
+            <fa-icon [icon]="justCopied ? faCheck : faCopy"></fa-icon>
           </button>
-        }
-        <button
-          type="button"
-          class="secret-btn"
-          [class.copied]="justCopied"
-          (click)="copyToClipboard()"
-          [disabled]="disabled || !value"
-          [tooltip]="justCopied ? 'Copied!' : 'Copy to clipboard'"
-          [attr.aria-label]="justCopied ? 'Copied to clipboard' : 'Copy to clipboard'"
-          delay="500"
-          container="body">
-          <fa-icon [icon]="justCopied ? faCheck : faCopy"></fa-icon>
-        </button>
+        </div>
       </div>
-    </div>
+    }
   `
 })
 export class SecretInputComponent implements ControlValueAccessor, OnDestroy {
@@ -129,6 +153,10 @@ export class SecretInputComponent implements ControlValueAccessor, OnDestroy {
 
   @Input() id = "";
   @Input() placeholder = "";
+  @Input() copyTooltip = "Copy to clipboard";
+  @Input() set copyText(value: string) {
+    this.value = value || "";
+  }
   @Input() size: InputSize = InputSize.MD;
   @Input() autocomplete = "new-password";
   @Input() ignorePasswordManagers = false;
@@ -147,6 +175,12 @@ export class SecretInputComponent implements ControlValueAccessor, OnDestroy {
   get readOnly(): boolean {
     return this.readOnlyValue;
   }
+  @Input() set buttonOnly(value: boolean) {
+    this.buttonOnlyValue = coerceBooleanProperty(value);
+  }
+  get buttonOnly(): boolean {
+    return this.buttonOnlyValue;
+  }
 
   faEye = faEye;
   faEyeSlash = faEyeSlash;
@@ -159,6 +193,7 @@ export class SecretInputComponent implements ControlValueAccessor, OnDestroy {
   justCopied = false;
   private revealValue = true;
   private readOnlyValue = false;
+  private buttonOnlyValue = false;
 
   private copyTimeout: any;
 

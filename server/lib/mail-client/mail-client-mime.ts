@@ -1,17 +1,30 @@
 import { createHash } from "crypto";
 import MailComposer from "nodemailer/lib/mail-composer";
 import { parseHeaderValue } from "nodemailer/lib/mime-funcs";
-import { toPairs } from "es-toolkit/compat";
+import { isNumber, toPairs } from "es-toolkit/compat";
 import { InboxAddress, InboxMessage } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { objectBufferForKey } from "../aws/aws-controllers";
+import { objectBufferForKey, objectSizeForKey } from "../aws/aws-controllers";
 import { dateTimeFromMillis } from "../shared/dates";
-import { rfc822ForMessage } from "./mail-client-rfc822";
-import { MailClientMimeFetch, MailClientMimeHeader, MailClientMimeMessage, MailClientMimePart } from "./mail-client-mime.model";
+import { rfc822ForMessage, rfc822MessageId } from "./mail-client-rfc822";
+import { MailClientMessageMetadata, MailClientMimeFetch, MailClientMimeHeader, MailClientMimeMessage, MailClientMimePart } from "./mail-client-mime.model";
 
-export async function mailClientMimeForMessage(message: InboxMessage, metadataOnly = false): Promise<MailClientMimeMessage> {
+export function mailClientListingMime(message: MailClientMessageMetadata): MailClientMimeMessage {
+  const mime = mailClientMimeFromBuffer(Buffer.from(rfc822ForMessage({...message, bodyHtml: null, bodyText: null}), "utf8"));
+  const bodyBytes = isNumber(message.bodySizeBytes) ? message.bodySizeBytes : 0;
+  const encodedBodySize = bodyBytes > 0 ? encodedBase64Bytes(bodyBytes) + 2 : 0;
+  return {...mime, size: mime.raw.length + encodedBodySize,
+    root: {...mime.root, bodySize: encodedBodySize, bodyLines: bodyBytes > 0 ? Math.ceil(Math.ceil(bodyBytes / 3) * 4 / 76) : 0}};
+}
+
+export async function mailClientMimeForMessage(message: MailClientMessageMetadata, metadataOnly = false): Promise<MailClientMimeMessage> {
   if (!(message.attachments ?? []).length) {
-    return mailClientMimeFromBuffer(Buffer.from(rfc822ForMessage(message), "utf8"));
+    const virtualBody = metadataOnly && isNumber(message.bodySizeBytes);
+    const mime = virtualBody ? mailClientListingMime(message) : mailClientMimeFromBuffer(Buffer.from(rfc822ForMessage(message), "utf8"));
+    return mime;
   } else {
+    const attachmentSizes = metadataOnly ? await Promise.all(message.attachments.map(attachment => attachment.s3Key
+      ? attachment.sizeBytes > 0 ? attachment.sizeBytes : objectSizeForKey(attachment.s3Key)
+      : null)) : [];
     const attachments = await Promise.all(message.attachments.map(async attachment => {
       if (!attachment.s3Key) {
         return {
@@ -24,7 +37,7 @@ export async function mailClientMimeForMessage(message: InboxMessage, metadataOn
         return {
           filename: attachment.filename || "attachment",
           contentType: attachment.contentType || "application/octet-stream",
-          content: metadataOnly && attachment.sizeBytes > 0 ? Buffer.alloc(attachment.sizeBytes) : await objectBufferForKey(attachment.s3Key),
+          content: metadataOnly ? Buffer.alloc(0) : await objectBufferForKey(attachment.s3Key),
           ...(attachment.contentId ? {cid: attachment.contentId.replace(/^<|>$/g, ""), contentDisposition: "inline"} : {contentDisposition: "attachment"})
         };
       }
@@ -35,7 +48,7 @@ export async function mailClientMimeForMessage(message: InboxMessage, metadataOn
       cc: (message.cc ?? []).map(mailAddress),
       replyTo: mailAddress(message.replyTo ?? message.from),
       subject: message.subject || "",
-      messageId: message.messageId,
+      messageId: rfc822MessageId(message),
       inReplyTo: message.inReplyTo || null,
       references: message.references ?? [],
       date: dateTimeFromMillis(message.sentAt ?? message.receivedAt ?? 0).toJSDate(),
@@ -48,8 +61,49 @@ export async function mailClientMimeForMessage(message: InboxMessage, metadataOn
       newline: "windows"
     };
     const raw = await new MailComposer(options).compile().build();
-    return mailClientMimeFromBuffer(raw);
+    const mime = mailClientMimeFromBuffer(raw);
+    return metadataOnly ? withAttachmentSizes(mime, message, attachmentSizes) : mime;
   }
+}
+
+function withAttachmentSizes(mime: MailClientMimeMessage, message: InboxMessage, sizes: (number | null)[]): MailClientMimeMessage {
+  const remaining = {indices: message.attachments.map((_attachment, index) => index)};
+  const extraBytes = leafParts(mime.root).reduce((extra, part) => {
+    const disposition = parseHeaderValue(headerValue(part.headers, "content-disposition") || "").value;
+    const contentId = (headerValue(part.headers, "content-id") || "").replace(/^<|>$/g, "") || null;
+    const filename = parseHeaderValue(headerValue(part.headers, "content-disposition") || "").params.filename || null;
+    const index = remaining.indices.find(candidate => {
+      const attachment = message.attachments[candidate];
+      const attachmentId = attachment.s3Key ? (attachment.contentId?.replace(/^<|>$/g, "") || null) : null;
+      const sameContent = attachmentId !== null && contentId !== null && attachmentId === contentId;
+      const sameFile = (disposition === "attachment" || disposition === "inline") && filename !== null && attachment.filename === filename;
+      return sameContent || sameFile;
+    });
+    if ((disposition === "attachment" || disposition === "inline") && index !== null && index !== undefined) {
+      remaining.indices = remaining.indices.filter(candidate => candidate !== index);
+      const size = sizes[index];
+      if (size !== null) {
+        part.bodySize = encodedBase64Bytes(size);
+        part.bodyLines = part.bodySize > 0 ? Math.floor((Math.ceil(size / 3) * 4 - 1) / 76) + 1 : 0;
+        return extra + part.bodySize - part.body.length;
+      } else {
+        return extra;
+      }
+    } else {
+      return extra;
+    }
+  }, 0);
+  return {...mime, size: mime.raw.length + extraBytes};
+}
+
+function encodedBase64Bytes(size: number): number {
+  const characters = Math.ceil(size / 3) * 4;
+  const breaks = characters > 0 ? Math.floor((characters - 1) / 76) : 0;
+  return characters + breaks * 2;
+}
+
+function leafParts(part: MailClientMimePart): MailClientMimePart[] {
+  return part.children.length ? part.children.flatMap(leafParts) : [part];
 }
 
 export function mailClientMimeFromBuffer(raw: Buffer): MailClientMimeMessage {
@@ -96,9 +150,11 @@ export function mailClientBodyFetches(message: MailClientMimeMessage, items: str
       const content = mailClientBodySection(message, section);
       const partial = bodySection && match[2] != null;
       const offset = partial ? Number(match[2]) : 0;
+      const requested = partial ? Number(match[3]) : 0;
+      const slice = content && partial ? content.subarray(offset, offset + requested) : content;
       return {
         label: bodySection ? `BODY[${section}]${partial ? `<${offset}>` : ""}` : rfc822,
-        content: content && partial ? content.subarray(offset, offset + Number(match[3])) : content
+        content: slice
       };
     });
 }
@@ -137,8 +193,8 @@ function bodyStructureForPart(part: MailClientMimePart, extended: boolean): stri
     return `(${children} ${imapString(part.subtype)}${extensions})`;
   } else {
     const encoding = headerValue(part.headers, "content-transfer-encoding") || "7BIT";
-    const fields = [imapString(part.type), imapString(part.subtype), imapParameters(part.parameters), imapString(headerValue(part.headers, "content-id")), imapString(headerValue(part.headers, "content-description")), imapString(encoding.toUpperCase()), part.body.length];
-    const textLines = part.type === "TEXT" ? ` ${lineCount(part.body)}` : "";
+    const fields = [imapString(part.type), imapString(part.subtype), imapParameters(part.parameters), imapString(headerValue(part.headers, "content-id")), imapString(headerValue(part.headers, "content-description")), imapString(encoding.toUpperCase()), part.bodySize ?? part.body.length];
+    const textLines = part.type === "TEXT" ? ` ${part.bodyLines ?? lineCount(part.body)}` : "";
     const extensions = extended ? ` NIL ${imapDisposition(part)} NIL NIL` : "";
     return `(${fields.join(" ")}${textLines}${extensions})`;
   }

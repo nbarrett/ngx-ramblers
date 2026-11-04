@@ -98,7 +98,7 @@ describe("mail client submit", () => {
     expect(delivered).toContain("<title>Walk planning</title>");
     const stored = record.firstCall.args[1];
     expect(stored.bodyHtml).toBe(delivered);
-    expect(rfc822ForMessage(stored).split("\r\n\r\n").slice(1).join("\r\n\r\n")).toBe(delivered);
+    expect(Buffer.from(rfc822ForMessage(stored).split("\r\n\r\n").slice(1).join("\r\n\r\n"), "base64").toString("utf8")).toBe(delivered);
   });
 
   function rawMessage(bccOnly = false): Buffer {

@@ -12,6 +12,7 @@ import { InboxMessage, InboxMessageDirection, InboxThread, InboxThreadFolder } f
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { CommitteeMember } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { rfc822ForMessage } from "./mail-client-rfc822";
+import { dateTimeFromObject } from "../shared/dates";
 
 const mailboxes: MailClientMailbox[] = [
   {name: "INBOX", folder: InboxThreadFolder.INBOX, userFolderId: null},
@@ -41,12 +42,18 @@ function sessionFor(write: sinon.SinonSpy): ImapSession {
     mailboxes: [],
     selected: mailboxes[0],
     messages: [101, 205].map((uid, index) => ({uid, seq: index + 1, message, thread: {} as InboxThread, seen: false, deleted: false})),
-    idleTag: null
+    idleTag: null,
+    commands: []
   };
 }
 
 function outputOf(write: sinon.SinonSpy): string {
   return write.args.map(args => args[0] instanceof Uint8Array ? Buffer.from(args[0]).toString("utf8") : args[0]).join("");
+}
+
+function dateMillis(isoDate: string): number {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return dateTimeFromObject({year, month, day}).toMillis();
 }
 
 describe("mail application IMAP commands", () => {
@@ -69,6 +76,94 @@ describe("mail application IMAP commands", () => {
     expect(outputOf(write)).toContain("* SEARCH 101 205");
     expect(outputOf(write)).toContain("a1 OK SEARCH completed");
     expect(outputOf(write)).not.toContain("BAD");
+  });
+
+  it("limits Apple Mail UID SEARCH SINCE to messages on or after that day", async () => {
+    const write = sandbox.spy();
+    const session = sessionFor(write);
+    session.messages = [
+      {...session.messages[0], uid: 101, seq: 1, message: {...message, receivedAt: dateMillis("2026-10-01")}},
+      {...session.messages[1], uid: 205, seq: 2, message: {...message, receivedAt: dateMillis("2026-11-03")}}
+    ];
+    await handleMailClientImapCommand(session, "a1", "UID", "SEARCH 1:* SINCE 02-Nov-2026");
+    expect(outputOf(write)).toContain("* SEARCH 205");
+    expect(outputOf(write)).not.toContain("101");
+    expect(outputOf(write)).toContain("a1 OK SEARCH completed");
+  });
+
+  it("answers the UID SEARCH RETURN form Apple Mail on iPhone uses to list existing mail", async () => {
+    const write = sandbox.spy();
+    await handleMailClientImapCommand(sessionFor(write), "1.123", "UID", "SEARCH RETURN (ALL) 1:*");
+    expect(outputOf(write)).toContain("* ESEARCH (TAG \"1.123\") UID ALL 101,205");
+    expect(outputOf(write)).toContain("1.123 OK SEARCH completed");
+    expect(outputOf(write)).not.toContain("* SEARCH");
+  });
+
+  it("returns the readable messages and reports failure when a historical message cannot be rendered", async () => {
+    const write = sandbox.spy();
+    const session = sessionFor(write);
+    sandbox.stub(mimeSource, "mailClientMimeForMessage")
+      .onFirstCall().rejects(new Error("broken historical message"))
+      .onSecondCall().resolves({raw: Buffer.from("Subject: Next walk\r\n\r\n"), size: 20, root: {raw: Buffer.alloc(0), body: Buffer.alloc(0), headers: [], type: "TEXT", subtype: "PLAIN", parameters: {}, children: []}});
+    await handleMailClientImapCommand(session, "a1", "UID", "FETCH 1:* (UID RFC822.SIZE FLAGS BODY.PEEK[])");
+    expect(outputOf(write)).toContain("UID 205");
+    expect(outputOf(write)).toContain("RFC822.SIZE 0");
+    expect(outputOf(write)).toContain("a1 OK FETCH completed");
+    expect(outputOf(write)).not.toContain("a1 NO FETCH");
+  });
+
+  it("downloads an opened message before finishing a listing FETCH", async () => {
+    const write = sandbox.spy();
+    const session = sessionFor(write);
+    session.commands = ["a2 UID FETCH 205 (UID RFC822.SIZE FLAGS BODY.PEEK[])"];
+    await handleMailClientImapCommand(session, "a1", "UID", "FETCH 1:* (UID RFC822.SIZE FLAGS BODY.PEEK[HEADER.FIELDS (Message-ID)])");
+    const output = outputOf(write);
+    expect(output.indexOf("a2 OK FETCH completed")).toBeGreaterThan(-1);
+    expect(output.indexOf("a2 OK FETCH completed")).toBeLessThan(output.indexOf("a1 OK FETCH completed"));
+    expect(output).toContain("BODY[] {");
+  });
+
+  it("answers a pipelined later body window after the first window", async () => {
+    const write = sandbox.spy();
+    const session = sessionFor(write);
+    session.commands = ["b UID FETCH 205 (UID BODY.PEEK[]<393216.393216>)"];
+    await handleMailClientImapCommand(session, "a", "UID", "FETCH 205 (UID BODY.PEEK[]<0.393216>)");
+    const output = outputOf(write);
+    expect(output).toContain("a OK FETCH completed");
+    expect(output).not.toContain("b OK FETCH completed");
+    expect(session.commands).toEqual(["b UID FETCH 205 (UID BODY.PEEK[]<393216.393216>)"]);
+  });
+
+  it("answers the iPhone body window without unsolicited message metadata", async () => {
+    const write = sandbox.spy();
+    const session = sessionFor(write);
+    await handleMailClientImapCommand(session, "a1", "UID", "FETCH 205 (UID BODY.PEEK[]<0.393216>)");
+    const output = outputOf(write);
+    const raw = Buffer.from(rfc822ForMessage(message));
+    expect(output).not.toContain("RFC822.SIZE");
+    expect(output).not.toContain("FLAGS (");
+    expect(output).toContain(`BODY[]<0> {${raw.length}}`);
+    expect(output).not.toContain(`BODY[] {${raw.length}}`);
+    expect(output).toContain("a1 OK FETCH completed");
+    expect(raw.length).toBeLessThan(393216);
+  });
+
+  it("includes message size and flags when requested alongside the body window", async () => {
+    const write = sandbox.spy();
+    await handleMailClientImapCommand(sessionFor(write), "a1", "UID", "FETCH 205 (UID FLAGS RFC822.SIZE BODY.PEEK[]<0.393216>)");
+    expect(outputOf(write)).toContain(`RFC822.SIZE ${Buffer.byteLength(rfc822ForMessage(message))}`);
+    expect(outputOf(write)).toContain("FLAGS (");
+  });
+
+  it("reports the Seen flag when a non-PEEK body fetch changes read state", async () => {
+    const write = sandbox.spy();
+    const session = sessionFor(write);
+    const seen = sandbox.stub(mailboxSource, "markThreadSeen").resolves();
+    await handleMailClientImapCommand(session, "a1", "UID", "FETCH 205 (UID BODY[])");
+    expect(outputOf(write)).toContain("FLAGS (\\Seen)");
+    expect(outputOf(write)).not.toContain("RFC822.SIZE");
+    expect(session.messages.find(entry => entry.uid === 205).seen).toBe(true);
+    expect(seen.calledOnce).toBe(true);
   });
 
   it("does not store Outlook's own Archive folder", async () => {
@@ -140,6 +235,7 @@ describe("mail application IMAP commands", () => {
     expect(contents.calledOnce).toBe(true);
     expect(contents.firstCall.args[1].name).toEqual("Deleted");
     expect(outputOf(write)).toContain("a1 OK [READ-WRITE] SELECT completed");
+    expect(outputOf(write)).toContain("* OK [PERMANENTFLAGS (\\Seen \\Deleted \\Draft \\*)]");
   });
 
   it("identifies Sent and Deleted and returns subscribed folder names for LSUB", async () => {
@@ -150,6 +246,16 @@ describe("mail application IMAP commands", () => {
     expect(outputOf(write)).toContain("* LSUB (\\HasNoChildren \\Trash) \"/\" \"Deleted\"");
     expect(outputOf(write)).toContain("\"Walk planning\"");
     expect(outputOf(write)).toContain("a1 OK LSUB completed");
+  });
+
+  it("lists Inbox for the folder command Apple Mail on iPhone sends", async () => {
+    sandbox.stub(mailboxSource, "listMailboxes").resolves(mailboxes);
+    const write = sandbox.spy();
+    await handleMailClientImapCommand(sessionFor(write), "a1", "LIST", "(SPECIAL-USE) \"\" \"*\"");
+    expect(outputOf(write)).toContain("* LIST (\\HasNoChildren \\Inbox) \"/\" \"INBOX\"");
+    expect(outputOf(write)).toContain("* LIST (\\HasNoChildren \\Sent) \"/\" \"Sent\"");
+    expect(outputOf(write)).not.toContain("(\\Noselect)");
+    expect(outputOf(write)).toContain("a1 OK LIST completed");
   });
 
   it("honours folder discovery patterns", async () => {
@@ -321,6 +427,25 @@ describe("mail application IMAP commands", () => {
     expect(contents.callCount).toBe(calls);
   });
 
+  it("keeps only one background refresh pending while an idle mailbox is slow", async () => {
+    const clock = sandbox.useFakeTimers();
+    const session = sessionFor(sandbox.spy());
+    const contents = sandbox.stub(mailboxSource, "messagesInMailbox").resolves(session.messages);
+    await handleMailClientImapCommand(session, "a1", "IDLE", "");
+    const completion = {finish: null as ((messages: typeof session.messages) => void) | null};
+    const refresh = new Promise<typeof session.messages>(resolve => completion.finish = resolve);
+    contents.callsFake(() => refresh);
+    clock.tick(5000);
+    await Promise.resolve();
+    const pending = session.pending;
+    clock.tick(30000);
+    expect(session.pending).toBe(pending);
+    expect(contents.callCount).toBe(2);
+    completion.finish(session.messages);
+    await session.pending;
+    await handleLine(session, "DONE");
+  });
+
   it("authenticates a PLAIN continuation without parsing it as a tagged command", async () => {
     const write = sandbox.spy();
     const session = sessionFor(write);
@@ -362,10 +487,27 @@ describe("mail application IMAP commands", () => {
   it("loads header source messages in one batch for a folder refresh", async () => {
     const write = sandbox.spy();
     const session = sessionFor(write);
-    session.messages = session.messages.map((entry, index) => ({...entry, message: {...entry.message, id: `message-${index}`, bodyHtml: null, bodyText: null}}));
-    const load = sandbox.stub(mailboxSource, "mailboxMessagesById").resolves(session.messages.map(entry => ({...entry.message, bodyHtml: "<p>Hello</p>"})));
+    session.messages = session.messages.map((entry, index) => ({...entry, message: {id: `message-${index}`, threadId: "thread-1", sentAt: 1710000000000, receivedAt: 1710000000000, bodyHtml: null, bodyText: null} as InboxMessage}));
+    const load = sandbox.stub(mailboxSource, "mailboxMessagesById").resolves(session.messages.map(entry => ({...message, id: entry.message.id})));
     await handleMailClientImapCommand(session, "a1", "UID", "FETCH 1:* (UID RFC822.SIZE FLAGS BODY.PEEK[HEADER.FIELDS (SUBJECT)])");
-    expect(load.calledOnceWithExactly(["message-0", "message-1"])).toBe(true);
+    expect(load.calledOnceWithExactly(["message-0", "message-1"], true)).toBe(true);
+    expect(outputOf(write)).toContain("Subject: Next walk");
+    expect(outputOf(write)).toContain("a1 OK FETCH completed");
+  });
+
+  it("answers a header FETCH from listing fields without a second message load", async () => {
+    const write = sandbox.spy();
+    const session = sessionFor(write);
+    session.messages = session.messages.map(entry => ({...entry, message: {...entry.message, bodyHtml: null, bodyText: null, bodySizeBytes: Buffer.byteLength(message.bodyHtml), bodyLines: 1}}));
+    const load = sandbox.stub(mailboxSource, "mailboxMessagesById").rejects(new Error("listing already has headers"));
+    const render = sandbox.stub(mimeSource, "mailClientMimeForMessage").rejects(new Error("listing must not build MIME"));
+    await handleMailClientImapCommand(session, "a1", "UID", "FETCH 1:* (UID RFC822.SIZE FLAGS BODY.PEEK[HEADER.FIELDS (date subject from to cc message-id)])");
+    expect(load.called).toBe(false);
+    expect(render.called).toBe(false);
+    expect(outputOf(write)).toContain("Subject: Next walk");
+    expect(outputOf(write)).toContain(`RFC822.SIZE ${Buffer.byteLength(rfc822ForMessage(message))}`);
+    expect(outputOf(write)).toContain("ENVELOPE");
+    expect(outputOf(write)).toContain("INTERNALDATE");
     expect(outputOf(write)).toContain("a1 OK FETCH completed");
   });
 
@@ -373,7 +515,7 @@ describe("mail application IMAP commands", () => {
     const write = sandbox.spy();
     const session = sessionFor(write);
     const template = session.messages[0];
-    session.messages = Array.from({length: 45}, (_unused, index) => ({...template, uid: index + 1, seq: index + 1, message: {...template.message, id: `message-${index}`, bodyHtml: null, bodyText: null}}));
+    session.messages = Array.from({length: 45}, (_unused, index) => ({...template, uid: index + 1, seq: index + 1, message: {id: `message-${index}`, threadId: "thread-1", sentAt: 1710000000000, receivedAt: 1710000000000, bodyHtml: null, bodyText: null} as InboxMessage}));
     const load = sandbox.stub(mailboxSource, "mailboxMessagesById").callsFake(async ids => {
       if (ids[0] === "message-20") {
         expect(outputOf(write)).toContain("* 20 FETCH");

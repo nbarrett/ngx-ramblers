@@ -1,3 +1,4 @@
+import { SecureContextOptions } from "tls";
 import { SMTPServer, SMTPServerAuthentication, SMTPServerAuthenticationResponse, SMTPServerSession } from "smtp-server";
 import { Readable } from "stream";
 import debug from "debug";
@@ -10,12 +11,13 @@ import { smtpSubmissionPort } from "./mail-client-ports";
 const debugLog = debug(envConfig.logNamespace("mail-client:smtp"));
 debugLog.enabled = true;
 
-export function startMailClientSmtp(): SMTPServer {
+export function startMailClientSmtp(options: SecureContextOptions | null = null): SMTPServer {
   const port = smtpSubmissionPort();
   const server = new SMTPServer({
     banner: "NGX committee mail",
     authOptional: false,
-    secure: false,
+    ...options,
+    secure: !!options,
     allowInsecureAuth: true,
     disabledCommands: ["STARTTLS"],
     hideSTARTTLS: true,

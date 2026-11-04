@@ -85,18 +85,22 @@ function clientModelPaths(): Set<string> {
   return paths;
 }
 
-describe("extended group event schema", () => {
+const CLIENT_MODEL_PATHS = clientModelPaths();
+
+describe("extended group event schema", function () {
+  this.timeout(20000);
+
   it("declares every property of the client ExtendedGroupEvent model, so nothing is silently dropped on save", () => {
     const schema = new Map<string, string>();
     schemaPaths(extendedGroupEvent.schema, "", schema);
-    const undeclared = [...clientModelPaths()]
+    const undeclared = [...CLIENT_MODEL_PATHS]
       .filter(tsPath => !IGNORED_PATHS.has(tsPath) && !coveredBySchema(tsPath, schema))
       .sort();
     expect(undeclared).toEqual([]);
   });
 
   it("audits every walk field for change detection unless it is deliberately listed as unaudited", () => {
-    const topLevel = [...clientModelPaths()]
+    const topLevel = [...CLIENT_MODEL_PATHS]
       .filter(tsPath => /^(groupEvent|fields)\.[^.]+$/.test(tsPath))
       .sort();
     const unaccounted = topLevel.filter(field => !AUDITED_FIELDS.includes(field) && !UNAUDITED_FIELDS.includes(field));

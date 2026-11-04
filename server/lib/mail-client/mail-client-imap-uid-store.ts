@@ -47,8 +47,12 @@ export function imapMessageMailboxes(thread: InboxThread, message: InboxMessage)
 }
 
 export async function imapUidState(db: Db, mailbox: MailClientUidMailbox): Promise<MailClientUidState> {
-  const state = await db.collection<MailClientUidMailboxRecord>(IMAP_UID_MAILBOXES_COLLECTION).findOne({_id: imapMailboxKey(mailbox)});
+  const state = await imapUidMailboxState(db, mailbox);
   return {uidValidity: state?.uidValidity ?? 1, uidNext: state?.uidNext ?? 1};
+}
+
+export async function imapUidMailboxState(db: Db, mailbox: MailClientUidMailbox): Promise<MailClientUidMailboxRecord | null> {
+  return db.collection<MailClientUidMailboxRecord>(IMAP_UID_MAILBOXES_COLLECTION).findOne({_id: imapMailboxKey(mailbox)});
 }
 
 export async function imapUidMemberships(db: Db, mailbox: MailClientUidMailbox, messageIds: string[] | null = null): Promise<MailClientUidMembership[]> {

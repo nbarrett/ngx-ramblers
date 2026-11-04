@@ -62,6 +62,9 @@ export async function appendMailClientRfc822(
       attachments: existing?.attachments ?? await storeMailClientAttachments(parsed.attachments ?? [])
     };
     if (existing) {
+      if (mailbox.folder === InboxThreadFolder.DRAFTS) {
+        await replaceDraftContent(existing, outbound);
+      }
       await placeExistingInMailbox(existing, mailbox);
     } else if (mailbox.folder === InboxThreadFolder.SENT || mailbox.name.toLowerCase() === "sent") {
       if (outbound.deliveryRecipients?.length) {
@@ -129,6 +132,33 @@ async function placeExistingInMailbox(existing: InboxMessage, mailbox: MailClien
     await inboxThreadModel.updateOne({_id: existing.threadId}, {$set: {userFolderId: mailbox.userFolderId, folder: InboxThreadFolder.INBOX}});
   } else if (mailbox.folder === InboxThreadFolder.DRAFTS && existing.threadId) {
     await inboxThreadModel.updateOne({_id: existing.threadId}, {$set: {folder: InboxThreadFolder.DRAFTS}});
+  }
+}
+
+async function replaceDraftContent(existing: InboxMessage, outbound: InboxMessage): Promise<void> {
+  const identity = existing.id ?? (existing as unknown as {_id?: {toString(): string}})._id?.toString();
+  if (identity) {
+    await inboxMessageModel.updateOne({_id: identity}, {$set: {
+      subject: outbound.subject,
+      bodyHtml: outbound.bodyHtml,
+      bodyText: outbound.bodyText,
+      to: outbound.to,
+      cc: outbound.cc,
+      deliveryRecipients: outbound.deliveryRecipients,
+      inReplyTo: outbound.inReplyTo,
+      references: outbound.references,
+      sentAt: outbound.sentAt,
+      attachments: outbound.attachments
+    }});
+  }
+  if (existing.threadId) {
+    await inboxThreadModel.updateOne({_id: existing.threadId}, {$set: {
+      subject: outbound.subject,
+      normalisedSubject: (outbound.subject || "").trim().toLowerCase(),
+      lastSeenAt: outbound.sentAt,
+      sentFrom: outbound.from,
+      externalAddress: outbound.to?.[0] || outbound.from
+    }});
   }
 }
 

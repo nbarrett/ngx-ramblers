@@ -3,6 +3,7 @@ import { Environment } from "../../../projects/ngx-ramblers/src/app/models/envir
 
 export const SITE_FLY_SECRET_ALLOWLIST: readonly string[] = [
   Environment.AUTH_SECRET,
+  Environment.MAIL_CLIENT_NATIVE_TLS,
   Environment.AWS_ACCESS_KEY_ID,
   Environment.AWS_SECRET_ACCESS_KEY,
   Environment.AWS_REGION,

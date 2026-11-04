@@ -367,7 +367,7 @@ export const EXTERNAL_EMAIL_SETUP_MENU_ITEM: ActionButtonColumn = {
   title: "External Email Setup",
   icon: "faMobileScreen",
   href: AdminProfilePath.EXTERNAL_EMAIL_SETUP,
-  contentText: "Set up Apple Mail, Outlook or Thunderbird with a committee role address. Create and revoke application passwords for each device."
+  contentText: "Set up Apple Mail, Outlook or Thunderbird with a committee role address. Create and revoke application passwords."
 };
 
 export const PROFILE_MENU_ITEMS: ActionButtonColumn[] = [

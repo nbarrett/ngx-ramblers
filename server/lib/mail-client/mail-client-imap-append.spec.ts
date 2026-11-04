@@ -66,6 +66,43 @@ describe("mail application saved copies", () => {
     await expect(appendMailClientRfc822(role, sent, raw, member)).rejects.toThrow("without an IMAP identifier");
   });
 
+  it("preserves independent Drafts with the same subject", async () => {
+    const drafts = {name: "Drafts", folder: InboxThreadFolder.DRAFTS, userFolderId: null};
+    sandbox.stub(inboxMessage, "findOne").returns({lean: async () => null} as any);
+    sandbox.stub(submission, "storeMailClientAttachments").resolves([]);
+    sandbox.stub(inboxThread, "create").resolves({id: "draft-thread-new", _id: "draft-thread-new"} as any);
+    sandbox.stub(inboxMessage, "create").resolves({
+      toObject: () => ({threadId: "draft-thread-new", messageId, subject: "Local check", inReplyTo: null}),
+      id: "draft-message-new",
+      _id: "draft-message-new"
+    } as any);
+    sandbox.stub(inboxThread, "find").returns({select: () => ({lean: async () => [{_id: "draft-thread-old"}, {_id: "draft-thread-new"}]})} as any);
+    sandbox.stub(inboxMessage, "find").returns({select: () => ({lean: async () => [
+      {threadId: "draft-thread-old", messageId: "<older-draft@group.example.org.uk>", inReplyTo: null},
+      {threadId: "draft-thread-new", messageId, inReplyTo: null}
+    ]})} as any);
+    const removedMessages = sandbox.stub(inboxMessage, "deleteMany").resolves({} as any);
+    const removedThreads = sandbox.stub(inboxThread, "deleteMany").resolves({} as any);
+    sandbox.stub(mailboxQueries, "mailboxMessageUid").resolves(8);
+    expect(await appendMailClientRfc822(role, drafts, raw, member)).toEqual({uidValidity: 4, uid: 8});
+    expect(removedMessages.called).toBe(false);
+    expect(removedThreads.called).toBe(false);
+  });
+
+  it("updates a Draft with the same Message-ID without deleting other letters", async () => {
+    const drafts = {name: "Drafts", folder: InboxThreadFolder.DRAFTS, userFolderId: null};
+    sandbox.stub(inboxMessage, "findOne").returns({lean: async () => ({_id: "draft-message", threadId: "draft-thread", messageId, attachments: []})} as any);
+    const update = sandbox.stub(inboxMessage, "updateOne").resolves({} as any);
+    sandbox.stub(inboxThread, "updateOne").resolves({} as any);
+    const create = sandbox.stub(inboxMessage, "create");
+    const remove = sandbox.stub(inboxMessage, "deleteMany");
+    sandbox.stub(mailboxQueries, "mailboxMessageUid").resolves(8);
+    expect(await appendMailClientRfc822(role, drafts, raw, member)).toEqual({uidValidity: 4, uid: 8});
+    expect(update.firstCall.args).toEqual([{_id: "draft-message"}, {$set: expect.objectContaining({subject: "Local check", bodyText: "Test body\n"})}]);
+    expect(create.called).toBe(false);
+    expect(remove.called).toBe(false);
+  });
+
   it("rejects a new copy when its attachment cannot be stored", async () => {
     sandbox.stub(inboxMessage, "findOne").returns({lean: async () => null} as any);
     const store = sandbox.stub(submission, "storeMailClientAttachments").rejects(new Error("An attachment could not be stored"));

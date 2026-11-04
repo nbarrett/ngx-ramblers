@@ -4,7 +4,7 @@ import sinon from "sinon";
 import { simpleParser } from "mailparser";
 import * as aws from "../aws/aws-controllers";
 import { InboxMessage, InboxMessageDirection, InboxReaderProvider } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
-import { mailClientBodyFetches, mailClientBodySection, mailClientBodyStructure, mailClientMimeForMessage, mailClientMimeFromBuffer } from "./mail-client-mime";
+import { mailClientBodyFetches, mailClientBodySection, mailClientBodyStructure, mailClientListingMime, mailClientMimeForMessage, mailClientMimeFromBuffer } from "./mail-client-mime";
 
 describe("mail client MIME fetch", () => {
   const sandbox = sinon.createSandbox();
@@ -107,6 +107,12 @@ describe("mail client MIME fetch", () => {
     expect(mailClientBodyFetches(mime, "BODY.PEEK[2]<9999.10>")[0].content).toHaveLength(0);
     expect(mailClientBodyFetches(mime, "RFC822")[0].content).toEqual(mime.raw);
     expect(mailClientBodyFetches(mime, "RFC822.TEXT")[0].content).toEqual(mime.root.body);
+    const part = mailClientBodySection(mime, "2");
+    const fitted = mailClientBodyFetches(mime, "BODY.PEEK[2]<0.393216>")[0];
+    expect(part.length).toBeLessThan(393216);
+    expect(fitted.label).toBe("BODY[2]<0>");
+    expect(fitted.content).toEqual(part);
+    expect(mailClientBodyFetches(mime, "BODY.PEEK[2]<0.4>")[0].label).toBe("BODY[2]<0>");
   });
 
   it("preserves folded selected headers and omits unrequested fields", () => {
@@ -135,6 +141,15 @@ describe("mail client MIME fetch", () => {
     expect(parsed.attachments[0].filename).toBe("café-notes.pdf");
   });
 
+  it("sizes a header-only listing from body bytes without building the body", async () => {
+    const source = {...message, attachments: [], bodyHtml: null, bodyText: null, bodySizeBytes: Buffer.byteLength(message.bodyHtml)};
+    const listing = mailClientListingMime(source);
+    const complete = await mailClientMimeForMessage({...message, attachments: []});
+    expect(listing.size).toBe(complete.raw.length);
+    expect(listing.raw.toString("utf8")).toContain("Subject: Walk next week");
+    expect(listing.raw.toString("utf8")).not.toContain("Hello");
+  });
+
   it("does not download storage when the message has no attachments", async () => {
     const download = downloads();
     const mime = await mailClientMimeForMessage({...message, attachments: []});
@@ -159,9 +174,59 @@ describe("mail client MIME fetch", () => {
     download.resetHistory();
     const metadata = await mailClientMimeForMessage(message, true);
     expect(download.called).toBe(false);
-    expect(metadata.raw.length).toBe(complete.raw.length);
+    expect(metadata.size).toBe(complete.raw.length);
     expect(mailClientBodyStructure(metadata)).toBe(mailClientBodyStructure(complete));
     expect(mailClientBodySection(metadata, "HEADER")).toEqual(mailClientBodySection(complete, "HEADER"));
   });
+
+  for (const size of [0, 1, 2, 3, 56, 57, 58, 114, 115, 1024]) {
+    it(`reports exact attachment sizes and line counts for ${size} bytes without building attachment content`, async () => {
+      const content = Buffer.from(Array.from({length: size}, (_value, index) => index % 256));
+      const download = sandbox.stub(aws, "objectBufferForKey").resolves(content);
+      sandbox.stub(aws, "objectSizeForKey").resolves(size);
+      const source = {...message, attachments: [{filename: "notes.txt", contentType: "text/plain", sizeBytes: size, s3Key: "inbox-attachments/notes.txt"}]};
+      const complete = await mailClientMimeForMessage(source);
+      download.resetHistory();
+      const metadata = await mailClientMimeForMessage(source, true);
+      expect(metadata.size).toBe(complete.raw.length);
+      expect(mailClientBodyStructure(metadata)).toBe(mailClientBodyStructure(complete));
+      expect(mailClientBodySection(metadata, "HEADER")).toEqual(mailClientBodySection(complete, "HEADER"));
+      expect(download.called).toBe(false);
+    });
+  }
+
+  it("keeps inline and ordinary attachment sizes matched when MIME nests them in a different order", async () => {
+    const sizes = [58, 1024, 5];
+    const source = {...message, attachments: sizes.map((sizeBytes, index) => ({filename: `notes-${index}.bin`, contentType: "application/octet-stream", sizeBytes,
+      s3Key: `inbox-attachments/notes-${index}.bin`, contentId: index === 1 ? "<inline-map>" : null}))};
+    sandbox.stub(aws, "objectBufferForKey").callsFake(async key => Buffer.alloc(sizes[Number(key.match(/notes-(\d)/)[1])]));
+    const complete = await mailClientMimeForMessage(source);
+    const metadata = await mailClientMimeForMessage(source, true);
+    expect(metadata.size).toBe(complete.raw.length);
+    expect(mailClientBodyStructure(metadata)).toBe(mailClientBodyStructure(complete));
+  });
+
+  it("keeps a large attachment out of memory when only its headers and size are requested", async () => {
+    const download = sandbox.stub(aws, "objectBufferForKey");
+    const allocate = sandbox.spy(Buffer, "alloc");
+    const sizeBytes = 100 * 1024 * 1024;
+    const metadata = await mailClientMimeForMessage({...message, attachments: [{filename: "large.pdf", contentType: "application/pdf", sizeBytes, s3Key: "inbox-attachments/large.pdf"}]}, true);
+    expect(metadata.raw.length).toBeLessThan(10000);
+    expect(metadata.size).toBeGreaterThan(sizeBytes);
+    expect(allocate.calledWith(sizeBytes)).toBe(false);
+    expect(download.called).toBe(false);
+  });
+
+  for (const body of ["", "A short message", "<p>Café &amp; route notes</p>", "First line\r\nSecond line", "First line\r\n", "x".repeat(57), "x".repeat(58), "<p>Café route notes</p>\n".repeat(100)]) {
+    it(`preserves headers, sizes and body structure using computed body metadata for ${JSON.stringify(body.slice(0, 40))} (${Buffer.byteLength(body)} bytes)`, async () => {
+      const source = {...message, attachments: [], bodyHtml: body, bodyText: null};
+      const complete = await mailClientMimeForMessage(source);
+      const metadata = await mailClientMimeForMessage({...source, bodyHtml: null, bodySizeBytes: Buffer.byteLength(body)}, true);
+      expect(metadata.size).toBe(complete.raw.length);
+      expect(mailClientBodyStructure(metadata)).toBe(mailClientBodyStructure(complete));
+      expect(mailClientBodySection(metadata, "HEADER")).toEqual(mailClientBodySection(complete, "HEADER"));
+      expect(metadata.root.body.length).toBe(0);
+    });
+  }
 
 });

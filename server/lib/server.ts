@@ -1,3 +1,4 @@
+import { serveMailClientAcmeChallenge } from "./mail-client/mail-client-tls";
 import { startMemberSessionWatcher } from "./auth/member-session-watcher";
 import { versionReleases } from "./release-notes/version-releases";
 import { registrationRoutes } from "./site-registration/registration-routes";
@@ -178,6 +179,7 @@ async function scheduleInboxBackgroundWork(): Promise<void> {
   debugLog("📬 Inbox scheduled tasks registered; poller enabled:", pollerEnabled);
 }
 
+app.get("/.well-known/acme-challenge/:token", serveMailClientAcmeChallenge);
 app.use(compression());
 app.set("trust proxy", 1);
 app.set("port", port);

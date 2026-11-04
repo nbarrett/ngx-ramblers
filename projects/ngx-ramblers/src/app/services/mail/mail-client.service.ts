@@ -6,8 +6,7 @@ import { ApiResponse } from "../../models/api-response.model";
 import {
   MailClientConnectionSettings,
   MailClientCredentialCreated,
-  MailClientCredentialView,
-  MailClientCreateCredentialRequest
+  MailClientCredentialView
 } from "../../models/mail-client.model";
 import { CommonDataService } from "../common-data-service";
 import { Logger, LoggerFactory } from "../logger-factory.service";
@@ -29,8 +28,8 @@ export class MailClientService {
     return this.response<MailClientCredentialView[]>(this.http.get<ApiResponse>(`${this.baseUrl}/credentials`));
   }
 
-  createCredential(body: MailClientCreateCredentialRequest): Promise<MailClientCredentialCreated> {
-    return this.response<MailClientCredentialCreated>(this.http.post<ApiResponse>(`${this.baseUrl}/credentials`, body));
+  createCredential(): Promise<MailClientCredentialCreated> {
+    return this.response<MailClientCredentialCreated>(this.http.post<ApiResponse>(`${this.baseUrl}/credentials`, {}));
   }
 
   revokeCredential(id: string): Promise<{revoked: boolean}> {

@@ -26,6 +26,7 @@ export interface EnvironmentConfig {
   memory: string;
   scaleCount: number;
   organisation: string;
+  nativeMailTls?: boolean;
   mongo?: MongoConfig;
 }
 

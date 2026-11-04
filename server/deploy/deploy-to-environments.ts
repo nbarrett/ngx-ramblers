@@ -1,3 +1,5 @@
+import { withMailClientTlsConfiguration } from "../lib/fly/mail-client-tls-config";
+import { Environment } from "../../projects/ngx-ramblers/src/app/models/environment.model";
 import { dateTimeNowAsValue } from "../lib/shared/dates";
 import debug from "debug";
 import {
@@ -15,7 +17,7 @@ import os from "os";
 import path from "path";
 import { keys } from "es-toolkit/compat";
 import { DeploymentConfig, EnvironmentConfig, FLYIO_DEFAULTS, RuntimeConfig } from "./types";
-import { pluraliseWithCount } from "../lib/shared/string-utils";
+import { booleanOf, pluraliseWithCount } from "../lib/shared/string-utils";
 import { envConfig } from "../lib/env-config/env-config";
 import { buildSecretsContent, loadSecretsForEnvironmentFromDatabase, parseSecretsFile } from "../lib/shared/secrets";
 import { configuredEnvironments } from "../lib/environments/environments-config";
@@ -41,6 +43,7 @@ deployToEnvironments(config.targetEnvironments).then(() => process.exit(0)).catc
 function buildDeploymentConfig(dbConfig: EnvironmentsConfig): DeploymentConfig {
   const environments = (dbConfig?.environments || []).filter(env => env.estateDeploy !== false).map(env => ({
     name: env.environment,
+    nativeMailTls: booleanOf(env.secrets?.[Environment.MAIL_CLIENT_NATIVE_TLS]),
     apiKey: env.flyio?.apiKey || "",
     appName: env.flyio?.appName || `ngx-ramblers-${env.environment}`,
     memory: env.flyio?.memory || FLYIO_DEFAULTS.MEMORY,
@@ -195,20 +198,22 @@ async function deployToEnvironments(environmentsFilter: string[]): Promise<void>
     debugLog("Deploying to", pluraliseWithCount(environmentsToDeploy.length, "environment") + ":", environmentNamesFrom(environmentsToDeploy));
   }
   for (const environmentConfig of environmentsToDeploy) {
-    configureEnvironment(environmentConfig, config);
-    debugLog(`Deploying ${config.dockerImage} to ${environmentConfig.appName}`);
-    deleteVolumeIfExists(environmentConfig.appName, config.region);
-    runCommand(`flyctl config validate --config ${flyTomlPath} --app ${environmentConfig.appName}`);
-    await importSecrets(environmentConfig.name, environmentConfig.appName);
-    const pruneResult = await pruneDisallowedFlySecrets(environmentConfig.appName, true, {stage: true});
-    if (pruneResult.removed.length > 0) {
-      debugLog("Pruned disallowed Fly secrets from %s: %s", environmentConfig.appName, pruneResult.removed.join(", "));
-    }
-    await waitForImageAvailable(environmentConfig.appName, config.dockerImage);
-    await runCommandWithRetry(`flyctl deploy --app ${environmentConfig.appName} --config ${flyTomlPath} --image ${config.dockerImage} --strategy rolling --wait-timeout 600`);
-    await ensureScale(environmentConfig.appName, environmentConfig.scaleCount, environmentConfig.memory);
-    if (imageTag && /^\d+$/.test(imageTag)) {
-      await verifyDeployedBuildNumber(environmentConfig.appName, imageTag);
-    }
+    await withMailClientTlsConfiguration(flyTomlPath, environmentConfig.nativeMailTls, async environmentFlyTomlPath => {
+      configureEnvironment(environmentConfig, config);
+      debugLog(`Deploying ${config.dockerImage} to ${environmentConfig.appName}`);
+      deleteVolumeIfExists(environmentConfig.appName, config.region);
+      runCommand(`flyctl config validate --config ${environmentFlyTomlPath} --app ${environmentConfig.appName}`);
+      await importSecrets(environmentConfig.name, environmentConfig.appName);
+      const pruneResult = await pruneDisallowedFlySecrets(environmentConfig.appName, true, {stage: true});
+      if (pruneResult.removed.length > 0) {
+        debugLog("Pruned disallowed Fly secrets from %s: %s", environmentConfig.appName, pruneResult.removed.join(", "));
+      }
+      await waitForImageAvailable(environmentConfig.appName, config.dockerImage);
+      await runCommandWithRetry(`flyctl deploy --app ${environmentConfig.appName} --config ${environmentFlyTomlPath} --image ${config.dockerImage} --strategy rolling --wait-timeout 600`);
+      await ensureScale(environmentConfig.appName, environmentConfig.scaleCount, environmentConfig.memory);
+      if (imageTag && /^\d+$/.test(imageTag)) {
+        await verifyDeployedBuildNumber(environmentConfig.appName, imageTag);
+      }
+    });
   }
 }

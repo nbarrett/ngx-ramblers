@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, OnInit } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit, signal } from "@angular/core";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCircleCheck, faCircleExclamation, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
@@ -51,36 +51,34 @@ import { SecretInputComponent } from "../../../modules/common/secret-input/secre
             </div>
           </div>
         } @else {
-          <app-mail-client-setup [settings]="settings">
-            @if (createdSecret) {
+          <app-mail-client-setup [settings]="settings" [applicationPassword]="createdSecret()" [hasStoredPasswords]="credentials.length > 0">
+            @if (createdSecret()) {
               <div class="alert alert-success d-flex align-items-start">
                 <fa-icon [icon]="faCircleCheck" class="me-2 mt-1"/>
                 <div>
                   <strong>Application password created</strong>
-                  <div>Copy this into your mail app. It will not be shown again after you leave this page.</div>
+                  <div>Copy this into your mail app. Use the same password on every device. It will not be shown again after you leave this page.</div>
                   <label for="mail-client-created-password">Application password</label>
-                  <app-secret-input id="mail-client-created-password" [ngModel]="createdSecret" [readOnly]="true" [showValue]="true"/>
+                  <app-secret-input id="mail-client-created-password" [ngModel]="createdSecret()" [readOnly]="true" [showValue]="true"/>
                 </div>
               </div>
             }
-            <div class="d-flex flex-wrap align-items-end gap-2 mb-3">
-              <div class="form-group mb-0">
-                <label for="mail-client-password-label">Device or app</label>
-                <input id="mail-client-password-label" class="form-control" [(ngModel)]="newLabel" required placeholder="Laptop">
+            @if (credentials.length === 0) {
+              <div class="mb-3">
+                <button type="button" class="btn btn-primary" (click)="create()" [disabled]="!canCreate()">
+                  <fa-icon [icon]="faPlus" class="me-2"/>Create application password
+                </button>
               </div>
-              <button type="button" class="btn btn-primary" (click)="create()" [disabled]="!canCreate()">
-                <fa-icon [icon]="faPlus" class="me-2"/>Create application password
-              </button>
-            </div>
+            }
           </app-mail-client-setup>
-          <h3 class="h6">Your application passwords</h3>
-          <p>These passwords let your email apps connect without using your website password. Create a separate one for each device so you can revoke its access if it is lost or no longer used. The list shows when each password was created and last used; the password itself is only shown when you create it.</p>
+          <h3 class="h6">Your application password</h3>
+          <p>This password lets your email apps connect without using your website password. Create one and use it on every device. The password itself is only shown when you create it. Revoke it if you need a new one, then create it again and update your mail apps.</p>
           <app-sortable-table
             [columns]="columns"
             [rows]="credentials"
             [defaultSortKey]="sortKey"
             [defaultSortDirection]="sortDirection"
-            emptyMessage="No application passwords yet."
+            emptyMessage="No application password yet."
             (sortChange)="onSortChange($event)">
             <ng-template [appSortableTableCell]="MailClientCredentialColumn.CREATED_AT" let-row>
               {{ row.createdAt | displayDateAndTime }}
@@ -115,13 +113,11 @@ export class MailClientPasswordsComponent implements OnInit, OnDestroy {
   protected readonly MailClientCredentialColumn = MailClientCredentialColumn;
   protected settings: MailClientConnectionSettings | null = null;
   protected credentials: MailClientCredentialView[] = [];
-  protected newLabel = "";
-  protected createdSecret: string | null = null;
+  protected createdSecret = signal<string | null>(null);
   protected creating = false;
   protected sortKey: string = MailClientCredentialColumn.CREATED_AT;
   protected sortDirection: string = DESCENDING;
   protected readonly columns: SortableTableColumn<MailClientCredentialView>[] = [
-    {key: MailClientCredentialColumn.LABEL, label: "Device or app", sortKey: MailClientCredentialColumn.LABEL, cellGetter: row => row.label},
     {key: MailClientCredentialColumn.CREATED_AT, label: "Created", sortKey: MailClientCredentialColumn.CREATED_AT},
     {key: MailClientCredentialColumn.LAST_USED_AT, label: "Last used", sortKey: MailClientCredentialColumn.LAST_USED_AT},
     {key: MailClientCredentialColumn.ACTIONS, label: ""}
@@ -149,16 +145,15 @@ export class MailClientPasswordsComponent implements OnInit, OnDestroy {
   }
 
   canCreate(): boolean {
-    return !this.creating && this.newLabel.trim().length > 0;
+    return !this.creating && this.credentials.length === 0;
   }
 
   async create(): Promise<void> {
     if (this.canCreate()) {
       this.creating = true;
       try {
-        const created = await this.mailClientService.createCredential({label: this.newLabel.trim()});
-        this.createdSecret = created.secret;
-        this.newLabel = "";
+        const created = await this.mailClientService.createCredential();
+        this.createdSecret.set(created.secret);
         await this.refresh();
       } catch (error) {
         this.logger.error("failed to create application password", error);
@@ -169,8 +164,8 @@ export class MailClientPasswordsComponent implements OnInit, OnDestroy {
 
   async revoke(row: MailClientCredentialView): Promise<void> {
     await this.mailClientService.revokeCredential(row.id);
-    if (this.createdSecret) {
-      this.createdSecret = null;
+    if (this.createdSecret()) {
+      this.createdSecret.set(null);
     }
     await this.refresh();
   }

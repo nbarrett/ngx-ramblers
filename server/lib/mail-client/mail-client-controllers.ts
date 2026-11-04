@@ -7,7 +7,6 @@ import { committeeRolesForMember, connectionSettingsFor, mailClientAccessEnabled
 import { member as memberModel } from "../mongo/models/member";
 import * as transforms from "../mongo/controllers/transforms";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
-import { MailClientCreateCredentialRequest } from "../../../projects/ngx-ramblers/src/app/models/mail-client.model";
 
 const messageType = "mail-client";
 const errorDebugLog = createErrorDebugLog(messageType);
@@ -55,13 +54,16 @@ export async function createMailClientCredential(req: Request, res: Response): P
       if (!(await mailClientAccessEnabled())) {
         res.status(403).json({request: {messageType}, error: "Mail application access is switched off in Mail Settings"});
       } else {
-        const body = req.body as MailClientCreateCredentialRequest;
-        const label = (body?.label || "").trim();
-        if (!label) {
-          res.status(400).json({request: {messageType}, error: "Enter a name for this device or app"});
-        } else {
-          const created = await createCredential(member.id ?? "", label);
+        try {
+          const created = await createCredential(member.id ?? "");
           res.json({request: {messageType}, response: created});
+        } catch (error) {
+          const message = (error as Error).message;
+          if (message.includes("already exists")) {
+            res.status(409).json({request: {messageType}, error: message});
+          } else {
+            throw error;
+          }
         }
       }
     }

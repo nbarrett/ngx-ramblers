@@ -1,5 +1,5 @@
 import {DeviceKind} from "../../../models/inbox.model";
-import {Component, inject, Input, OnDestroy, OnInit, signal} from "@angular/core";
+import {Component, computed, inject, Input, OnDestroy, OnInit, input, signal} from "@angular/core";
 import {ActivatedRoute, Router} from "@angular/router";
 import {FormsModule} from "@angular/forms";
 import {faApple, faWindows, faLinux} from "@fortawesome/free-brands-svg-icons";
@@ -11,7 +11,7 @@ import {StoredValue} from "../../../models/ui-actions";
 import {SectionToggleTab} from "../../../models/section-toggle.model";
 import {SectionToggle} from "../../../shared/components/section-toggle";
 import {SecretInputComponent} from "../../../modules/common/secret-input/secret-input.component";
-import {mailClientConnectionForHost} from "../../../functions/mail-client-connection";
+import {mailClientConnectionForHost, mailClientSetupCopyText} from "../../../functions/mail-client-connection";
 import {browserCalendarClientHints, browserDeviceKind, outlookPlatformTabs} from "../../../functions/calendar-add";
 
 @Component({
@@ -21,23 +21,32 @@ import {browserCalendarClientHints, browserDeviceKind, outlookPlatformTabs} from
     @if (connection(); as connection) {
       <p>Read and send committee email in your usual mail app. Inbox, Sent and your committee folders are shared with the website.</p>
       @if (connection.allowedFromAddresses.length) {
-        <app-section-toggle stackOnMobile [tabs]="platformTabs" [selectedTab]="platform()"
-          (selectedTabChange)="selectPlatform($event)"/>
-        <p class="fw-bold mt-3 mb-2">Which email app do you use?</p>
-        <app-section-toggle stackOnMobile [tabs]="appTabs" [selectedTab]="selectedApp()"
-          [queryParamKey]="StoredValue.MAIL_CLIENT_APP" (selectedTabChange)="selectApp($event)"/>
         <div class="form-group mt-3 mb-3">
           <label for="mail-client-address">Which committee address would you like to use?</label>
-          <select id="mail-client-address" class="form-select" [ngModel]="address()" (ngModelChange)="selectAddress($event)">
-            @for (email of connection.allowedFromAddresses; track email) {
-              <option [value]="email">{{ email }}</option>
-            }
-          </select>
+          <div class="d-flex align-items-center gap-2">
+            <div class="flex-grow-1">
+              <select id="mail-client-address" class="form-select" [ngModel]="address()" (ngModelChange)="selectAddress($event)">
+                @for (email of connection.allowedFromAddresses; track email) {
+                  <option [value]="email">{{ email }}</option>
+                }
+              </select>
+            </div>
+            <app-secret-input id="mail-setup-copy-all" class="flex-shrink-0" buttonOnly [copyText]="copyAllText()" [reveal]="false"
+                             copyTooltip="Copy everything for this address: email, application password, incoming IMAP and outgoing SMTP hostname, port, username and connection security, as a labelled note"/>
+          </div>
         </div>
-        <ol class="ps-4">
+        <div class="thumbnail-heading-frame mb-4">
+          <div class="thumbnail-heading">Set up this device</div>
+          <div>
+          <app-section-toggle stackOnMobile [tabs]="platformTabs" [selectedTab]="platform()"
+            (selectedTabChange)="selectPlatform($event)"/>
+          <p class="fw-bold mt-3 mb-2">Which email app do you use?</p>
+          <app-section-toggle stackOnMobile [tabs]="appTabs" [selectedTab]="selectedApp()"
+            [queryParamKey]="StoredValue.MAIL_CLIENT_APP" (selectedTabChange)="selectApp($event)"/>
+        <ol class="ps-4 mt-3">
           <li class="mb-4">
             <h3 class="h6">Create an application password</h3>
-            <p>Give it a name you will recognise, such as “Laptop”. Use this password in your email app, rather than your website password.</p>
+            <p>Create one password and use it in your email app, rather than your website password. Use that same password on every device.</p>
             <ng-content/>
           </li>
           <li class="mb-4">
@@ -54,8 +63,13 @@ import {browserCalendarClientHints, browserDeviceKind, outlookPlatformTabs} from
               }
               @case (MailClientSetupApp.IOS_MAIL) {
                 <p>On your iPhone or iPad, open <strong>Settings → Apps → Mail → Mail Accounts → Add Account → Other → Add Mail Account</strong>.
+                  Do not choose <strong>Mail Account</strong> on the first Add Account list: that path guesses the website as the mail server and never shows IMAP host or SSL settings.
                   On older versions, start at <strong>Settings → Mail → Accounts</strong>.
-                  Enter your name, the email address below and the application password above, then choose <strong>Next → IMAP</strong>.</p>
+                  Enter your name, the email address below and the application password above, then choose <strong>Next → IMAP</strong>.
+                  iOS fills both Host Name fields from the part after &#64; in the email address. That is the website, not the mail server.
+                  Replace Incoming and Outgoing Host Name with the Hostname value in step 3 before you choose Next again.
+                  There is no SSL switch on this screen: iOS uses SSL when the ports are 993 and 465.
+                  If a dialog says <strong>Cannot Connect Using SSL</strong>, choose <strong>No</strong>. Do not set the account up without SSL. Correct the host names, then try Next again.</p>
               }
               @case (OutlookCalendarPlatform.MAC) {
                 <p>In Outlook on your Mac, open <strong>Outlook → Settings → Accounts → Add Account</strong>.
@@ -106,7 +120,8 @@ import {browserCalendarClientHints, browserDeviceKind, outlookPlatformTabs} from
               <p>For both servers, choose <strong>Authentication method → Normal password</strong>. Choose <strong>Re-test</strong>, then <strong>Done</strong>.</p>
             } @else if (selectedApp() === MailClientSetupApp.APPLE_MAIL || selectedApp() === MailClientSetupApp.IOS_MAIL) {
               <p>Use <strong>Password</strong> authentication. If automatic connection settings are enabled, turn them off to enter the ports above.
-                Set <strong>Use TLS/SSL</strong> {{ connection.imapSecure ? "on" : "off" }} for incoming mail and {{ connection.smtpSecure ? "on" : "off" }} for outgoing mail, then save the account.</p>
+                Incoming port {{ connection.imapPort }}, outgoing port {{ connection.smtpPort }}.
+                Set <strong>Use TLS/SSL</strong> {{ connection.imapSecure ? "on" : "off" }} for incoming mail and {{ connection.smtpSecure ? "on" : "off" }} for outgoing mail (Mail → account → Incoming Mail Server / Outgoing Mail Server → Advanced, after the account is added if that switch is not on the first screen), then save the account.</p>
             } @else {
               <p>Use password authentication. Choose <strong>SSL/TLS</strong> where encryption is requested if shown above. Do not choose STARTTLS.
                 Choose <strong>Connect</strong> or <strong>Done</strong> to save the account.</p>
@@ -121,6 +136,8 @@ import {browserCalendarClientHints, browserDeviceKind, outlookPlatformTabs} from
               Your existing committee folders should also appear in the account.</p>
           </li>
         </ol>
+          </div>
+        </div>
       } @else {
         <p>No committee email address is assigned to you yet. Ask a site administrator to check your committee role before setting up a mail app.</p>
       }
@@ -151,6 +168,9 @@ export class MailClientSetupComponent implements OnInit, OnDestroy {
     {value: MailClientSetupApp.IOS_MAIL, label: "iPhone or iPad Mail", icon: faApple},
     ...outlookPlatformTabs()
   ];
+
+  applicationPassword = input<string | null>(null);
+  hasStoredPasswords = input(false);
 
   @Input() set settings(value: MailClientConnectionSettings | null) {
     const previousHost = this.connection()?.host ?? null;
@@ -227,6 +247,11 @@ export class MailClientSetupComponent implements OnInit, OnDestroy {
       this.selectedApp.set(tab.value as MailClientSetupApp | OutlookCalendarPlatform);
     }
   }
+
+  copyAllText = computed(() => {
+    const connection = this.connection();
+    return connection && this.address() ? mailClientSetupCopyText(connection, this.address(), this.applicationPassword(), this.hasStoredPasswords()) : "";
+  });
 
   selectAddress(value: string): void {
     this.restoreAddress(value);

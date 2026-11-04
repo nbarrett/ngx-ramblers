@@ -2,7 +2,7 @@ import { canViewImportedRoute } from "../os-maps/os-maps-route-access";
 import { importedRoutesWithGpxFiles } from "../walks/walk-gpx-records";
 import { MemberCookie } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import * as AWS from "@aws-sdk/client-s3";
-import { CopyObjectCommand, GetObjectCommand, GetObjectRequest, S3 } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, GetObjectCommand, GetObjectRequest, HeadObjectCommand, S3 } from "@aws-sdk/client-s3";
 import { Upload, Progress } from "@aws-sdk/lib-storage";
 import { ListObjectsV2CommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsV2Command";
 import { ListObjectsCommandOutput } from "@aws-sdk/client-s3/dist-types/commands/ListObjectsCommand";
@@ -366,6 +366,11 @@ async function downloadReportArchive(bucket: string, key: string, archivePath: s
 export async function objectBufferForKey(key: string): Promise<Buffer> {
   const response: any = await s3().send(new GetObjectCommand({Bucket: s3Config().bucket, Key: key}));
   return streamToBuffer(response.Body);
+}
+
+export async function objectSizeForKey(key: string): Promise<number> {
+  const response = await s3().send(new HeadObjectCommand({Bucket: s3Config().bucket, Key: key}));
+  return response.ContentLength ?? 0;
 }
 
 async function streamToBuffer(body: any): Promise<Buffer> {

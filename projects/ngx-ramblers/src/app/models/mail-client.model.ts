@@ -47,9 +47,7 @@ export interface MailClientConnectionSettings {
   localImapPort?: number;
 }
 
-export interface MailClientCreateCredentialRequest {
-  label?: string;
-}
+export const MAIL_CLIENT_CREDENTIAL_DEFAULT_LABEL = "Application password";
 
 export enum MailClientSetupApp {
   APPLE_MAIL = "apple-mail",
@@ -58,7 +56,6 @@ export enum MailClientSetupApp {
 }
 
 export enum MailClientCredentialColumn {
-  LABEL = "label",
   CREATED_AT = "createdAt",
   LAST_USED_AT = "lastUsedAt",
   ACTIONS = "actions"

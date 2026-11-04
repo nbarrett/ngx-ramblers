@@ -97,7 +97,7 @@ describe("mail client transport", () => {
     expect(listen.firstCall.args[0]).toEqual(1587);
   });
 
-  it("exposes only TLS mail ports through the shared Fly deployment configuration", () => {
+  it("retains proxy TLS on mail ports in the default deployment configuration", () => {
     const configuration = readFileSync(resolveClientPath("fly.toml"), "utf8");
     const services = configuration.split("[[services]]").slice(1);
     expect(services).toHaveLength(2);

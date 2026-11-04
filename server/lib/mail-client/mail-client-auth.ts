@@ -35,9 +35,7 @@ export function roleMatchingFrom(roles: CommitteeMember[], fromEmail: string): C
 export async function connectionSettingsFor(member: Member): Promise<MailClientConnectionSettings> {
   const enabled = await mailClientAccessEnabled();
   const roles = await committeeRolesForMember(member);
-  const href = stripTrailingSlash(((await systemConfig())?.group?.href || "").trim());
-  const flyAppName = process.env[Environment.FLY_APP_NAME]?.trim();
-  const host = hostFromHref(href) || (flyAppName ? `${flyAppName}.fly.dev` : "localhost");
+  const host = await mailClientHostname();
   const localConnection = isLocalMailClientHost(host);
   return {
     enabled,
@@ -51,6 +49,12 @@ export async function connectionSettingsFor(member: Member): Promise<MailClientC
     localSmtpPort: smtpSubmissionPort(),
     allowedFromAddresses: allowedFromAddresses(roles)
   };
+}
+
+export async function mailClientHostname(): Promise<string> {
+  const href = stripTrailingSlash(((await systemConfig())?.group?.href || "").trim());
+  const flyAppName = process.env[Environment.FLY_APP_NAME]?.trim();
+  return hostFromHref(href) || (flyAppName ? `${flyAppName}.fly.dev` : "localhost");
 }
 
 function hostFromHref(href: string): string {

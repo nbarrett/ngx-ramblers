@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import { compareValue, hashValue } from "../auth/auth-config";
 import { dateTimeNow } from "../shared/dates";
 import { mailClientCredential as mailClientCredentialModel } from "../mongo/models/mail-client-credential";
-import { MailClientCredential, MailClientCredentialCreated, MailClientCredentialView } from "../../../projects/ngx-ramblers/src/app/models/mail-client.model";
+import { MAIL_CLIENT_CREDENTIAL_DEFAULT_LABEL, MailClientCredential, MailClientCredentialCreated, MailClientCredentialView } from "../../../projects/ngx-ramblers/src/app/models/mail-client.model";
 import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { member as memberModel } from "../mongo/models/member";
 import { isString } from "es-toolkit/compat";
@@ -41,16 +41,16 @@ export async function listActiveCredentials(memberId: string): Promise<MailClien
   return documents.map(document => credentialView({...document, id: (document as unknown as {_id: {toString(): string}})._id?.toString()}));
 }
 
-export async function createCredential(memberId: string, label: string | null): Promise<MailClientCredentialCreated> {
-  const trimmedLabel = (label || "").trim();
-  if (!trimmedLabel) {
-    throw new Error("Enter a name for this device or app");
+export async function createCredential(memberId: string): Promise<MailClientCredentialCreated> {
+  const existing = await listActiveCredentials(memberId);
+  if (existing.length > 0) {
+    throw new Error("An application password already exists. Revoke it before creating a new one.");
   } else {
     const secret = generateMailClientSecret();
     const createdAt = dateTimeNow().toMillis();
     const document = await mailClientCredentialModel.create({
       memberId,
-      label: trimmedLabel,
+      label: MAIL_CLIENT_CREDENTIAL_DEFAULT_LABEL,
       secretHash: await hashValue(normaliseMailClientSecret(secret)),
       createdAt,
       lastUsedAt: null,

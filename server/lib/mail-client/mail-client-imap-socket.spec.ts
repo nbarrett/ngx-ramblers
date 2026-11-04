@@ -1,3 +1,4 @@
+import { simpleParser } from "mailparser";
 import expect from "expect";
 import sinon from "sinon";
 import { afterEach, beforeEach, describe, it } from "mocha";
@@ -58,7 +59,8 @@ class ImapSocketProbe {
   }
 }
 
-describe("mail application IMAP loopback protocol", () => {
+describe("mail application IMAP loopback protocol", function () {
+  this.timeout(20000);
   const sandbox = sinon.createSandbox();
   const sockets = {server: null as Server, client: null as Socket, accepted: null as Socket, probe: null as ImapSocketProbe};
   const mailbox: MailClientMailbox = {name: "INBOX", folder: InboxThreadFolder.INBOX, userFolderId: null};
@@ -145,6 +147,50 @@ describe("mail application IMAP loopback protocol", () => {
     expect(response.indexOf("a1 OK")).toBeLessThan(response.indexOf("a2 OK"));
     expect(response).not.toContain(" BAD ");
     expect((credentials.authenticateMailClient as sinon.SinonStub).calledOnceWithExactly("chair@group.example.org.uk", "fictional-test-password")).toBe(true);
+  });
+
+  for (const attached of [false, true]) {
+    it(`keeps listing headers and size consistent with downloaded Unicode mail with attachments=${attached}`, async () => {
+      const source = {...message, subject: "Café walk – route notes", from: {...message.from, name: "Alex Réed"}, attachments: attached ? message.attachments : []};
+      (mailboxSource.messagesInMailbox as sinon.SinonStub).resolves([{...initial, message: {...source, bodyHtml: null, bodyText: null, bodySizeBytes: Buffer.byteLength(source.bodyHtml), bodyLines: 1}}]);
+      const load = sandbox.stub(mailboxSource, "mailboxMessagesById").resolves([source]);
+      await authenticateAndSelect();
+      sockets.client.write("a3 UID FETCH 101 (UID FLAGS RFC822.SIZE ENVELOPE BODY.PEEK[HEADER])\r\n");
+      const listing = await sockets.probe.response("a3");
+      sockets.client.write("a4 UID FETCH 101 (RFC822.SIZE BODYSTRUCTURE BODY.PEEK[])\r\n");
+      const response = await sockets.probe.response("a4");
+      const text = response.toString("latin1");
+      const literal = text.match(/BODY\[\] \{(\d+)\}\r\n/);
+      expect(literal).not.toBeNull();
+      const start = literal.index + literal[0].length;
+      const raw = response.subarray(start, start + Number(literal[1]));
+      const parsed = await simpleParser(raw);
+      const sizes = Array.from(text.matchAll(/RFC822.SIZE (\d+)/g)).map(match => Number(match[1]));
+      expect(sizes).toEqual([raw.length, raw.length]);
+      const header = listing.toString("latin1").match(/BODY\[HEADER\] \{(\d+)\}\r\n/);
+      const headerStart = header.index + header[0].length;
+      const headerBytes = listing.subarray(headerStart, headerStart + Number(header[1]));
+      expect(headerBytes).toEqual(raw.subarray(0, raw.indexOf("\r\n\r\n") + 4));
+      expect(headerBytes.toString("latin1")).not.toMatch(/[\u0080-\uffff]/);
+      expect(parsed.subject).toBe(source.subject);
+      expect(parsed.from.value[0].name).toBe(source.from.name);
+      expect(parsed.attachments).toHaveLength(attached ? 1 : 0);
+      sockets.client.write("a5 UID FETCH 101 (RFC822.SIZE BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])\r\n");
+      const partial = (await sockets.probe.response("a5")).toString("latin1");
+      expect(Array.from(partial.matchAll(/RFC822.SIZE (\d+)/g)).map(match => Number(match[1]))).toEqual([raw.length, raw.length, raw.length]);
+      expect(load.args.map(args => args[1])).toEqual(attached ? [true, false, true] : [false]);
+      expect((mailboxSource.markThreadSeen as sinon.SinonStub).called).toBe(false);
+    });
+  }
+
+  it("accepts an APPEND literal and following command in the same packet", async () => {
+    await authenticateAndSelect();
+    const append = sandbox.stub(appendSource, "appendMailClientRfc822").resolves({uidValidity: 44, uid: 301});
+    const raw = "From: alex.reed@example.com\r\nSubject: Local check\r\n\r\nDraft body\r\n";
+    sockets.client.write(`a3 APPEND Drafts {${Buffer.byteLength(raw)}+}\r\n${raw}\r\na4 NOOP\r\n`);
+    expect((await sockets.probe.response("a3")).toString("utf8")).toContain("a3 OK");
+    expect((await sockets.probe.response("a4")).toString("utf8")).toContain("a4 OK");
+    expect(append.firstCall.args[2]).toEqual(Buffer.from(raw));
   });
 
   it("returns multipart attachment literals and stores APPEND over the real socket", async () => {

@@ -23,17 +23,19 @@ describe("mail client setup instructions", () => {
   const queryParams = new BehaviorSubject<Record<string, string>>({});
   const navigate = vi.fn();
   const copyToClipboard = vi.fn();
+  const clipboardText = vi.fn();
 
   beforeEach(() => {
     queryParams.next({});
     navigate.mockReset().mockResolvedValue(true);
     copyToClipboard.mockReset().mockResolvedValue(null);
+    clipboardText.mockReset().mockReturnValue(null);
     TestBed.configureTestingModule({
       imports: [MailClientSetupComponent],
       providers: [
         {provide: Router, useValue: {navigate}},
         {provide: ActivatedRoute, useValue: {queryParams, snapshot: {queryParams: queryParams.value}}},
-        {provide: ClipboardService, useValue: {copyToClipboard}}
+        {provide: ClipboardService, useValue: {copyToClipboard, clipboardText}}
       ]
     });
   });
@@ -79,6 +81,29 @@ describe("mail client setup instructions", () => {
       expect(fixture.nativeElement.querySelector(`input[id='${id}']`).value).toBe(settings.allowedFromAddresses[1]);
     });
     expect(navigate).toHaveBeenCalledWith([], expect.objectContaining({queryParams: {[StoredValue.MAIL_CLIENT_ADDRESS]: settings.allowedFromAddresses[1]}, queryParamsHandling: "merge"}));
+  });
+
+  it("copies the selected address, servers and generated password as labelled lines", async () => {
+    const fixture = TestBed.createComponent(MailClientSetupComponent);
+    fixture.componentRef.setInput("settings", settings);
+    fixture.componentRef.setInput("applicationPassword", "app-password-example");
+    fixture.componentRef.setInput("hasStoredPasswords", true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    fixture.componentInstance.selectAddress(settings.allowedFromAddresses[1]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const copyAll = fixture.nativeElement.querySelector("app-secret-input[id='mail-setup-copy-all']");
+    expect(copyAll.querySelector("input")).toBeNull();
+    expect(copyAll.querySelector("textarea")).toBeNull();
+    copyAll.querySelector("button").click();
+    await fixture.whenStable();
+    expect(copyToClipboard).toHaveBeenCalledWith(expect.stringContaining("Email address: secretary@group.example.org.uk"));
+    expect(copyToClipboard).toHaveBeenCalledWith(expect.stringContaining("Port: 993"));
+    expect(copyToClipboard).toHaveBeenCalledWith(expect.stringContaining("Port: 465"));
+    expect(copyToClipboard).toHaveBeenCalledWith(expect.stringContaining("Password: app-password-example"));
   });
 
   it("copies the displayed server value through the existing secret input component", async () => {
