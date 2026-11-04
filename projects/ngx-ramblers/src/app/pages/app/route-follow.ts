@@ -40,6 +40,7 @@ import {
   faCompass,
   faCircleHalfStroke,
   faCompress,
+  faEllipsis,
   faEraser,
   faFlagCheckered,
   faFloppyDisk,
@@ -730,9 +731,6 @@ import { SystemConfigService } from "../../services/system/system-config.service
           @if (persistMessage) {
             <p class="follow-offline-status">{{ persistMessage }}</p>
           }
-          @if (nativeCompass.supported() && !drawingFromBlank && progress?.mode !== RouteFollowMode.EDITING) {
-            <button type="button" class="btn btn-quiet follow-secondary-btn mb-2" (click)="openCompassHelpFromSettings()"><fa-icon [icon]="faCompass"/>Compass calibration help</button>
-          }
           @if (sessionStorageError) {
             <div class="alert alert-warning d-flex align-items-start gap-2">
               <fa-icon [icon]="faCircleExclamation"/>
@@ -895,9 +893,17 @@ import { SystemConfigService } from "../../services/system/system-config.service
               </button>
             } @else {
             @if (!followPanelWide && payload && hasLine && !recordingSession) {
-              <button class="btn btn-primary follow-main-btn" [class.follow-actions-span]="progress?.mode === RouteFollowMode.EDITING" type="button" (click)="toggleFollowExtraSettings()">
-                {{ followExtraSettings ? "Hide additional settings" : "Additional settings" }}
+              <button class="btn btn-primary follow-main-btn" [class.follow-actions-span]="progress?.mode === RouteFollowMode.EDITING" type="button" (click)="toggleFollowExtraSettings()" [attr.aria-expanded]="followExtraSettings">
+                <fa-icon [icon]="faEllipsis"/>
+                More
               </button>
+              @if (nativeCompass.supported() && !drawingFromBlank && progress?.mode !== RouteFollowMode.EDITING) {
+                <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="openCompassHelpFromSettings()"
+                        aria-label="Compass calibration help" tooltip="Compass calibration help" [isDisabled]="!tooltipsEnabled">
+                  <fa-icon [icon]="faCompass"/>
+                  Compass
+                </button>
+              }
             }
             @if (progress?.mode === RouteFollowMode.EDITING && (hasLine || plottingRoute())) {
               @if (thinningPrompt) {
@@ -984,10 +990,6 @@ import { SystemConfigService } from "../../services/system/system-config.service
                 {{ startControlLabel() }}
               </button>
             } @else if (!thinningPrompt && !plottingRoute() && progress?.mode === RouteFollowMode.IDLE && payload?.source !== RouteFollowSource.RECORDING) {
-              <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)" [disabled]="startingFollow">
-                <fa-icon [icon]="startControlIcon()"/>
-                {{ startControlLabel() }}
-              </button>
               @if (offlineStatus !== RouteFollowOfflineStatus.AVAILABLE && offlineStatus !== RouteFollowOfflineStatus.SAVING) {
                 <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="saveOffline()" [disabled]="!!saveProgress">
                   <fa-icon [icon]="faFloppyDisk"/>
@@ -1012,6 +1014,10 @@ import { SystemConfigService } from "../../services/system/system-config.service
                   Delete
                 </button>
               }
+              <button class="btn btn-primary follow-main-btn" type="button" (click)="onPeekAction($event)" [disabled]="startingFollow">
+                <fa-icon [icon]="startControlIcon()"/>
+                {{ startControlLabel() }}
+              </button>
             }
             <button class="btn btn-quiet follow-secondary-btn" type="button" (click)="closeFollow()" [disabled]="savingRoute">
               <fa-icon [icon]="faHouse"/>
@@ -1250,6 +1256,7 @@ export class RouteFollowComponent implements OnInit, OnDestroy {
   protected readonly faTrash = faTrash;
   protected readonly faHouse = faHouse;
   protected readonly faChevronDown = faChevronDown;
+  protected readonly faEllipsis = faEllipsis;
   protected mapScale: FollowMapScaleBar = {label: "", midLabel: "", widthPx: 0};
   protected gridReference = "";
   protected compassHeadingText = "";

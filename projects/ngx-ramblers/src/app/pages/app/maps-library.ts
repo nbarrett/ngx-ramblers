@@ -17,7 +17,7 @@ import { NgSelectModule } from "@ng-select/ng-select";
 import { FormsModule } from "@angular/forms";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription, take } from "rxjs";
-import { faArrowLeft, faArrowUpRightFromSquare, faPeopleGroup, faCompass, faCalendarDay, faCheck, faDownload, faRoute, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faSliders, faShareNodes, faSpinner, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faArrowUpRightFromSquare, faPeopleGroup, faCompass, faCalendarDay, faCheck, faDownload, faRoute, faCircleExclamation, faCircleHalfStroke, faCircleInfo, faEyeSlash, faFileImport, faLocationDot, faMagnifyingGlass, faMap, faMoon, faPersonWalking, faArrowsRotate, faSliders, faSpinner, faStar, faSun, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { TooltipModule } from "ngx-bootstrap/tooltip";
 import { PageContentType } from "../../models/content-text.model";
@@ -28,7 +28,6 @@ import {
   APP_NEARBY_MILES_MAX,
   AppAppearance,
   AppHomeView,
-  AppInstallPlatform,
   AppPath,
   walkingAppName,
   firstCompleted,
@@ -396,34 +395,6 @@ const MAP_LIST_BATCH_SIZE = 20;
               </div>
               <span class="btn btn-primary app-home-card-btn">Resume</span>
             </a>
-          </section>
-        }
-
-        @if (!customising && showInstallHint) {
-          <section class="app-home-install">
-            <fa-icon [icon]="faCircleExclamation"/>
-            <div>
-              <strong>Add {{ groupName }} to your Home Screen</strong>
-              @if (platform === AppInstallPlatform.IOS) {
-                <p>Tap
-                  <fa-icon [icon]="faShareNodes"/>
-                  Share, then Add to Home Screen. It then opens like an app, with no website header.
-                </p>
-              } @else if (platform === AppInstallPlatform.ANDROID) {
-                <p>Tap Add to Home Screen, or open the browser menu and choose Add to Home screen / Install app.</p>
-              } @else {
-                <p>Open this page on your phone, then add it to your Home Screen for the full-screen app.</p>
-              }
-              @if (canInstall) {
-                <button class="btn btn-primary app-home-install-btn" type="button" (click)="install()">Add to Home
-                  Screen
-                </button>
-              }
-            </div>
-            <button class="btn btn-icon app-home-install-dismiss" type="button" (click)="dismissInstallHint()"
-                    aria-label="Dismiss" tooltip="Dismiss" [isDisabled]="!tooltipsEnabled">
-              <fa-icon [icon]="faXmark"/>
-            </button>
           </section>
         }
 
@@ -798,9 +769,6 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
 
   protected walks: ExtendedGroupEvent[] = [];
   protected loading = true;
-  protected showInstallHint = false;
-  protected canInstall = false;
-  protected platform: AppInstallPlatform = AppInstallPlatform.OTHER;
   protected groupName = walkingAppName();
   protected logoUrl: string | null = null;
   protected offlineByKey: Record<string, RouteFollowOfflineStatus> = {};
@@ -820,7 +788,6 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
   protected readonly faMap = faMap;
   protected readonly faMoon = faMoon;
   protected readonly faPersonWalking = faPersonWalking;
-  protected readonly faShareNodes = faShareNodes;
   protected readonly faCompass = faCompass;
   protected readonly faArrowsRotate = faArrowsRotate;
   protected readonly faSliders = faSliders;
@@ -833,7 +800,6 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
   protected readonly faArrowUpRightFromSquare = faArrowUpRightFromSquare;
   protected readonly RouteVisibility = RouteVisibility;
   protected readonly AppPath = AppPath;
-  protected readonly AppInstallPlatform = AppInstallPlatform;
   protected readonly AppAppearance = AppAppearance;
   protected appearance: AppAppearance = AppAppearance.LIGHT;
   protected readonly nativeBuildLabel = nativeBuildLabel();
@@ -967,17 +933,7 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
     } else if (this.nearbyOnly) {
       void this.refreshLocation();
     }
-    this.platform = this.appShell.platform();
     this.appearance = this.appShell.appearance();
-    this.showInstallHint = !this.appShell.installed() && this.appShell.mobilePlatform()
-      && !this.uiActions.initialBooleanValueFor(StoredValue.APP_INSTALL_HINT_DISMISSED, false);
-    this.canInstall = this.appShell.canPromptInstall();
-    this.subscriptions.push(this.appShell.installAvailable$.subscribe(available => {
-      this.canInstall = available;
-      if (this.appShell.installed()) {
-        this.showInstallHint = false;
-      }
-    }));
     this.subscriptions.push(this.appShell.appearance$.subscribe(appearance => {
       this.appearance = appearance;
     }));
@@ -1112,19 +1068,6 @@ export class MapsLibraryComponent implements OnInit, OnDestroy {
     } else {
       action();
     }
-  }
-
-  install(): void {
-    void this.appShell.promptInstall().then(outcome => {
-      if (outcome === "accepted") {
-        this.dismissInstallHint();
-      }
-    });
-  }
-
-  dismissInstallHint(): void {
-    this.showInstallHint = false;
-    this.uiActions.saveValueFor(StoredValue.APP_INSTALL_HINT_DISMISSED, true);
   }
 
   chooseAppearance(appearance: AppAppearance): void {

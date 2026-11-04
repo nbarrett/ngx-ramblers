@@ -40,7 +40,6 @@ export enum StoredValue {
   APP_FAVOURITE_ROUTES = "app-favourite-routes",
   APP_HIDDEN_ROUTES = "app-hidden-routes",
   APP_HOME_LIST_CACHE = "app-home-list-cache",
-  APP_INSTALL_HINT_DISMISSED = "app-install-hint-dismissed",
   APP_LAST_URL = "app-last-url",
   APP_LEGACY_RECOVERY = "app-legacy-recovery",
   APP_MOBILE_CONFIG = "app-mobile-config",

@@ -10,11 +10,6 @@ import { StoredValue } from "../../models/ui-actions";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{outcome: string}>;
-}
-
 @Injectable({
   providedIn: "root"
 })
@@ -24,9 +19,6 @@ export class AppShellService {
   private logger: Logger = inject(LoggerFactory).createLogger("AppShellService", NgxLoggerLevel.ERROR);
   private activeSubject = new BehaviorSubject<boolean>(this.isAppUrl(this.document.defaultView?.location.pathname || this.router.url));
   readonly active$ = this.activeSubject.asObservable();
-  private installPrompt: BeforeInstallPromptEvent | null = null;
-  private installAvailableSubject = new BehaviorSubject<boolean>(false);
-  readonly installAvailable$ = this.installAvailableSubject.asObservable();
   private appearanceSubject = new BehaviorSubject<AppAppearance>(this.storedAppearance());
   readonly appearance$ = this.appearanceSubject.asObservable();
   private followWorkerRegistration: ServiceWorkerRegistration | null = null;
@@ -50,15 +42,6 @@ export class AppShellService {
           this.cacheLoadedFollowResources(this.followWorkerRegistration);
         }
       }
-    });
-    this.document.defaultView?.addEventListener("beforeinstallprompt", (event: Event) => {
-      event.preventDefault();
-      this.installPrompt = event as BeforeInstallPromptEvent;
-      this.installAvailableSubject.next(true);
-    });
-    this.document.defaultView?.addEventListener("appinstalled", () => {
-      this.installPrompt = null;
-      this.installAvailableSubject.next(false);
     });
     this.registerFollowWorker();
   }
@@ -150,10 +133,6 @@ export class AppShellService {
     return Capacitor.isNativePlatform() || !!(standalone || iosStandalone);
   }
 
-  canPromptInstall(): boolean {
-    return !!this.installPrompt;
-  }
-
   applyHomeScreenIdentity(shortName: string): void {
     const name = shortName || NGX_RAMBLERS_APP_NAME;
     this.setMetaContent("application-name", name);
@@ -178,19 +157,6 @@ export class AppShellService {
   cycleAppearance(): void {
     const systemIsDark = !!this.document.defaultView?.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
     this.setAppearance(nextAppAppearance(this.appearance(), systemIsDark));
-  }
-
-  async promptInstall(): Promise<string> {
-    if (this.installPrompt) {
-      const promptEvent = this.installPrompt;
-      await promptEvent.prompt();
-      const choice = await promptEvent.userChoice;
-      this.installPrompt = null;
-      this.installAvailableSubject.next(false);
-      return choice?.outcome || null;
-    } else {
-      return null;
-    }
   }
 
   private isIosDesktopSafari(agent: string): boolean {
