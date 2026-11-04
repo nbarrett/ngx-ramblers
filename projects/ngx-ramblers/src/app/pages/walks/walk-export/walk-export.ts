@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { faCheckCircle, faEnvelope, faExclamationCircle, faRemove } from "@fortawesome/free-solid-svg-icons";
-import { isString, map, values } from "es-toolkit/compat";
+import { isString, values } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -892,9 +892,7 @@ export class WalkExport implements OnInit, OnDestroy {
   }
 
   private headers(): string[] {
-    const headers = map(this.walksDownloadFileContents[0], (column, row) => row);
-    this.logger.debug("headers:", headers);
-    return headers;
+    return this.ramblersWalksAndEventsService.walkUploadHeadings();
   }
 
   async showAllAudits() {

@@ -957,12 +957,12 @@ export class RamblersWalksAndEventsService {
     return transformed;
   }
 
-  public walkUploadHeadings(includeWalkId = false, includeGroup = false) {
+  public walkUploadHeadings(includeWalkId = false) {
     return enumValues(WalkUploadColumnHeading).filter(heading => {
       if (heading === WalkUploadColumnHeading.WALK_ID) {
         return includeWalkId;
       } else if (heading === WalkUploadColumnHeading.GROUP_CODE || heading === WalkUploadColumnHeading.GROUP_NAME) {
-        return includeGroup;
+        return false;
       } else {
         return true;
       }

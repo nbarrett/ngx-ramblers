@@ -27,7 +27,8 @@ import { MemberLoginService } from "../member/member-login.service";
 import {
   WALK_PUBLISHED_AND_MATCHING,
   WALK_PUBLISHED_WITH_PROBLEMS,
-  WalkEditField
+  WalkEditField,
+  WalkUploadColumnHeading
 } from "../../models/ramblers-walks-manager";
 import { vi } from "vitest";
 
@@ -1053,6 +1054,25 @@ describe("RamblersWalksAndEventsService", () => {
       expect(message).not.toContain("&lt;p&gt;");
       expect(message).toContain("car");
       expect(walkExport.publishStatus.publish).toBe(true);
+    });
+  });
+
+  describe("walkUploadHeadings", () => {
+    it("omits Walk ID, group code and group name so the CSV matches Walks Manager", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const headings = service.walkUploadHeadings();
+      expect(headings[0]).toEqual(WalkUploadColumnHeading.DATE);
+      expect(headings).not.toContain(WalkUploadColumnHeading.WALK_ID);
+      expect(headings).not.toContain(WalkUploadColumnHeading.GROUP_CODE);
+      expect(headings).not.toContain(WalkUploadColumnHeading.GROUP_NAME);
+    });
+
+    it("adds Walk ID only when asked, and never adds group columns", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const headings = service.walkUploadHeadings(true);
+      expect(headings[0]).toEqual(WalkUploadColumnHeading.WALK_ID);
+      expect(headings).not.toContain(WalkUploadColumnHeading.GROUP_CODE);
+      expect(headings).not.toContain(WalkUploadColumnHeading.GROUP_NAME);
     });
   });
 });
