@@ -59,6 +59,21 @@ describe("applyHeadingAnchors", () => {
     expect(root.querySelectorAll("#intro").length).toBe(1);
   });
 
+  it("does not put heading links on the home page or inside a carousel", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `
+      <app-dynamic-content-view>
+        <h1>Welcome to the group</h1>
+        <app-carousel><h4>Sunday walk</h4></app-carousel>
+      </app-dynamic-content-view>
+    `;
+    applyHeadingAnchors(root, "/");
+    expect(root.querySelectorAll(".heading-anchor-controls").length).toBe(0);
+    applyHeadingAnchors(root, "/walks/example");
+    expect(root.querySelector("h1 .heading-anchor-controls")).toBeTruthy();
+    expect(root.querySelector("app-carousel .heading-anchor-controls")).toBeNull();
+  });
+
   it("updates in-page hashes when the page path changes", () => {
     const root = page();
     applyHeadingAnchors(root, "/how-to/article");

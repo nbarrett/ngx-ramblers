@@ -3,6 +3,16 @@ import { headingAnchorId } from "./heading-slug";
 const HEADING_SELECTOR = ".content-page-title, app-dynamic-content-view h1, app-dynamic-content-view h2, app-dynamic-content-view h3, app-dynamic-content-view h4, app-dynamic-content-view h5, app-dynamic-content-view h6";
 const LINK_REGION_SELECTOR = ".page-heading, app-dynamic-content-view";
 
+function headingControlsAllowed(heading: HTMLElement, path: string): boolean {
+  const pathname = path.split("?")[0].replace(/\/$/, "") || "/";
+  const home = pathname === "/" || pathname === "/home";
+  if (home || heading.closest("app-carousel")) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
 export function applyHeadingAnchors(root: ParentNode, path: string): void {
   const seen = new Map<string, number>();
   root.querySelectorAll<HTMLElement>(HEADING_SELECTOR).forEach(heading => {
@@ -10,18 +20,22 @@ export function applyHeadingAnchors(root: ParentNode, path: string): void {
     if (heading.id !== id) {
       heading.id = id;
     }
-    const controls = ensureControls(heading);
-    const permalink = controls.querySelector<HTMLAnchorElement>("a.heading-permalink");
-    const href = `${path}#${id}`;
-    if (permalink && permalink.getAttribute("href") !== href) {
-      permalink.setAttribute("href", href);
-    }
-    if (permalink) {
-      permalink.dataset.headingUrl = href;
-    }
-    const copy = controls.querySelector<HTMLButtonElement>("button.heading-copy");
-    if (copy) {
-      copy.dataset.headingUrl = href;
+    if (headingControlsAllowed(heading, path)) {
+      const controls = ensureControls(heading);
+      const permalink = controls.querySelector<HTMLAnchorElement>("a.heading-permalink");
+      const href = `${path}#${id}`;
+      if (permalink && permalink.getAttribute("href") !== href) {
+        permalink.setAttribute("href", href);
+      }
+      if (permalink) {
+        permalink.dataset.headingUrl = href;
+      }
+      const copy = controls.querySelector<HTMLButtonElement>("button.heading-copy");
+      if (copy) {
+        copy.dataset.headingUrl = href;
+      }
+    } else {
+      heading.querySelector(":scope > .heading-anchor-controls")?.remove();
     }
   });
   root.querySelectorAll<HTMLAnchorElement>(`${LINK_REGION_SELECTOR} a[href]`).forEach(anchor => {
