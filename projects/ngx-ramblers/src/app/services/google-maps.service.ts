@@ -40,7 +40,7 @@ export class GoogleMapsService {
   }
 
   public urlForPostcode(postcode: string) {
-    return `https://maps.google.co.uk/maps?q=${postcode}`;
+    return `https://maps.google.co.uk/maps?q=${encodeURIComponent(postcode || "")}`;
   }
 
   public directionsEmbedUrl(origin: string, destination: string): SafeResourceUrl | null {

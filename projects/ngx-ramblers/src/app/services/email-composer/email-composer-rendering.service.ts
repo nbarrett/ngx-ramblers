@@ -6,6 +6,7 @@ import {
   ArticleBlockImageAlignment,
   ArticleBlockPosition,
   EmailImageLayout,
+  EVENT_EMAIL_IMAGE_HEIGHT,
   SectionDividerStyle,
   SideImagePlacement
 } from "../../models/email-composer.model";
@@ -20,8 +21,8 @@ export class EmailComposerRenderingService {
   private logger: Logger = inject(LoggerFactory).createLogger("EmailComposerRenderingService", NgxLoggerLevel.ERROR);
   private urlService = inject(UrlService);
 
-  markdownToHtml(markdown: string, imageLayout = EmailImageLayout.NATURAL): string {
-    const rendered = renderEmailComposerMarkdown(markdown, imageLayout).replace(/(<img\b[^>]*\bsrc=["'])(\/?api\/aws\/s3\/[^"']+)(["'])/gi,
+  markdownToHtml(markdown: string, imageLayout = EmailImageLayout.NATURAL, imageHeight?: number): string {
+    const rendered = renderEmailComposerMarkdown(markdown, imageLayout, imageHeight ?? EVENT_EMAIL_IMAGE_HEIGHT).replace(/(<img\b[^>]*\bsrc=["'])(\/?api\/aws\/s3\/[^"']+)(["'])/gi,
       (_match, before, path, after) => `${before}${this.urlService.absoluteUrlFor(path)}${after}`);
     this.logger.off("markdownToHtml input length:", markdown.length, "output length:", rendered.length);
     return rendered;
@@ -61,7 +62,7 @@ export class EmailComposerRenderingService {
     return `<table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse;mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;width:100%;" width="100%"><tbody><tr><td align="center" style="padding-top: 0;padding-bottom: 18px;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;" valign="top"><table border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate !important;border-radius: 0px;background-color: #F9B104;mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;" width="100%"><tbody><tr><td align="center" style="font-family: Arial;font-size: 16px;padding: 12px;mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;" valign="middle"><a target="_blank" style="font-weight:bold;letter-spacing:normal;line-height:100%;text-align:center;text-decoration:none;color:#222222;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;display:block;" title="${safeText}" href="${safeUrl}">${safeText}</a></td></tr></tbody></table></td></tr></tbody></table>`;
   }
 
-  private tableSection(innerHtml: string): string {
+  tableSection(innerHtml: string): string {
     return `<table align="center" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;" width="100%"><tbody><tr><td valign="top" style="font-family:Helvetica,Arial,sans-serif;font-size:16px;line-height:150%;color:#222222;word-break:break-word;">${innerHtml}</td></tr></tbody></table>`;
   }
 

@@ -17,7 +17,8 @@ import { MediaQueryService } from "../../services/committee/media-query.service"
 import { CommitteeDisplayService } from "../../pages/committee/committee-display.service";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventType } from "../../models/walk.model";
-import { displayedWalkProgrammeStatus } from "../../models/walk-programme.model";
+import { displayedWalkProgrammeStatus, eventHasWalkWorkflow } from "../../models/walk-programme.model";
+import { NewsletterIntroPurpose } from "../../models/ai.model";
 import { composerIncludesEvent, introPurposeFrom } from "../../functions/newsletter-purpose";
 import { GroupEventService } from "../walks-and-events/group-event.service";
 import { eventSlug } from "../../functions/walks/event-slug";
@@ -97,6 +98,13 @@ export class EmailComposerEventSelectionService {
       eventTime: event?.groupEvent?.start_date_time
         ? this.dateUtils.asString(event.groupEvent.start_date_time, undefined, this.dateUtils.formats.displayTime)
         : null,
+      eventEndTime: event?.groupEvent?.end_date_time
+        ? this.dateUtils.asString(event.groupEvent.end_date_time, undefined, this.dateUtils.formats.displayTime)
+        : null,
+      grade: eventHasWalkWorkflow(event?.groupEvent?.item_type) ? event?.groupEvent?.difficulty?.description || null : null,
+      ascent: this.committeeQueryService.walkAscentForSummary(event),
+      shape: event?.groupEvent?.shape || null,
+      eventUrl: event?.groupEvent?.url || null,
       location: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.description,
       postcode: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.postcode,
       ...programmeLocation(event?.groupEvent?.start_location || event?.groupEvent?.location),
@@ -297,9 +305,19 @@ export class EmailComposerEventSelectionService {
   }
 
   onGroupEventSelectionChanged(): void {
+    if (this.session.state.groupEventsFilter) {
+      this.session.state.groupEventsFilter.selectAll = this.session.state.groupEvents.length > 0
+        && this.selectedGroupEventCount() === this.session.state.groupEvents.length;
+    }
     if (this.selectedGroupEventCount() > 0) {
       this.addEventsFragment(true);
     }
+  }
+
+  autoIncludesReadyEventsOnly(): boolean {
+    const drafting = this.session.state.notificationConfig?.composerDrafting;
+    return introPurposeFrom(drafting) !== NewsletterIntroPurpose.WALK_LEADER_REQUEST
+      && (drafting?.onlyApprovedWalks ?? true);
   }
 
   selectedGroupEventCount(): number {
@@ -319,7 +337,9 @@ export class EmailComposerEventSelectionService {
   mergePriorSelection(event: GroupEventSummary, prior?: GroupEventSummary): GroupEventSummary {
     const merged: GroupEventSummary = {
       ...event,
-      selected: prior ? prior.selected : this.selectedByDefault(event)
+      selected: this.session.state.groupEventsFilter?.selectAll
+        ? this.selectedByDefault(event)
+        : prior ? prior.selected : this.selectedByDefault(event)
     };
     applyMediaSelection(merged, clampMediaIndex(merged, prior?.selectedMediaIndex));
     return merged;

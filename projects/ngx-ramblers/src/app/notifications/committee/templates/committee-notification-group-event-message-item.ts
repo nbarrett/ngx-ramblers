@@ -9,7 +9,6 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { Subscription } from "rxjs";
 import { Organisation } from "../../../models/system.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
-import { NgStyle } from "@angular/common";
 import { MarkdownComponent } from "ngx-markdown";
 import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
 
@@ -39,14 +38,14 @@ import { DisplayDatePipe } from "../../../pipes/display-date.pipe";
       @if (notification?.groupEventsFilter?.includeLocation && event?.postcode) {
         <span>
         <span> • </span>Location: @if (event?.location) {
-          <span [ngStyle]="{'margin-right': '6px'}">{{ event.location }}</span>
-        }  <a [href]="googleMapsService.urlForPostcode(event.postcode)"
+          <span>{{ event.location }} </span>
+        }<a [href]="googleMapsService.urlForPostcode(event.postcode)"
               target="_blank">{{ event.postcode }}</a></span>
       }
       @if (notification?.groupEventsFilter?.includeDescription) {
         <div markdown [data]="event.description"></div>
       }`,
-    imports: [NgStyle, MarkdownComponent, DisplayDatePipe]
+    imports: [MarkdownComponent, DisplayDatePipe]
 })
 export class CommitteeNotificationGroupEventMessageItemComponent implements OnInit, OnDestroy {
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeNotificationGroupEventMessageItemComponent", NgxLoggerLevel.ERROR);

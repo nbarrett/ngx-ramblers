@@ -1,3 +1,4 @@
+import {MailMessagingService} from "../mail/mail-messaging.service";
 import {TestBed} from "@angular/core/testing";
 import {provideHttpClient} from "@angular/common/http";
 import {provideHttpClientTesting} from "@angular/common/http/testing";
@@ -14,7 +15,7 @@ import {LoggerTestingModule} from "ngx-logger/testing";
 import {UrlService} from "../url.service";
 import {PageContentService} from "../page-content.service";
 import {PageContentActionsService} from "../page-content-actions.service";
-import {ContentTemplateType, PageContentType} from "../../models/content-text.model";
+import {PageContentType} from "../../models/content-text.model";
 import {ProgrammeEventFormat, PROGRAMME_EVENT_TEMPLATE_PATH_PREFIX} from "../../models/email-composer.model";
 import {GroupEventSummary} from "../../models/committee.model";
 
@@ -31,8 +32,10 @@ describe("programme draft and output", () => {
         {provide: PageContentService, useValue: pages},
         {provide: PageContentActionsService, useValue: {defaultRowFor: () => ({type: PageContentType.TEXT, columns: [{}]})}},
         {provide: DateUtilsService, useValue: {displayDate: () => "Monday"}},
-        {provide: EmailComposerRenderingService, useValue: {markdownToHtml: (value: string) => value}}]
+        {provide: MailMessagingService, useValue: {currentConfig: () => ({notificationConfigs: []}), createSendSmtpEmailParams: (_member, _config, html) => ({messageMergeFields: {BODY_CONTENT: html}})}},
+        {provide: EmailComposerRenderingService, useValue: {tableSection: value => value, markdownToHtml: (value: string) => value}}]
     });
+    TestBed.inject(EmailComposerProgrammeService).settings().format = ProgrammeEventFormat.LISTING;
     return {state, pages, programme: TestBed.inject(EmailComposerProgrammeService), storage: TestBed.inject(EmailCompositionsService)};
   }
 
@@ -80,20 +83,56 @@ describe("programme draft and output", () => {
     expect(state.groupEvents[0].mapUrl).toBe("/locate?lat=51&lon=-1");
   });
 
-  it("customises the supplied listing and saves and loads it through the existing content template library", async () => {
-    const {programme, pages} = setup();
-    programme.customiseFormat();
+  it("uses saved edits when selecting a supplied format in the composer", async () => {
+    const {programme, state, pages} = setup();
+    pages.all.mockResolvedValue([{id: "saved-format", path: PROGRAMME_EVENT_TEMPLATE_PATH_PREFIX + "detailed", rows: [{columns: [{contentText: "Revised {{title}}"}]}]}]);
+    state.groupEvents = [{id: "walk-1", selected: true, title: "Hillside Park", eventDate: 1000} as GroupEventSummary];
+    programme.settings().format = ProgrammeEventFormat.DETAILED;
+    await programme.selectFormat();
+    expect(programme.settings().format).toBe(ProgrammeEventFormat.DETAILED);
+    expect(programme.emailHtml()).toContain("Revised Hillside Park");
+    expect(programme.document().document.markdown).toContain("Revised Hillside Park");
+  });
+
+  it("loads a saved event format without generating a snapshot", () => {
+    const {programme, state} = setup();
+    programme.applyTemplate({id: "event-template-1", rows: [{columns: [{contentText: "## {{title}}\n\n{{image}}"}]}]} as any);
     expect(programme.settings().format).toBe(ProgrammeEventFormat.CUSTOM);
-    expect(programme.settings().customTemplate).toContain("{{grid-reference}}");
-    expect(await programme.saveTemplate("Compact walk programme")).toBe(true);
-    const saved = pages.create.mock.calls[0][0];
-    expect(saved.path).toBe(PROGRAMME_EVENT_TEMPLATE_PATH_PREFIX + "compact-walk-programme");
-    expect(saved.migrationTemplate.templateType).toBe(ContentTemplateType.USER_TEMPLATE);
-    programme.settings().customTemplate = "Different format";
-    programme.applyTemplate(saved);
-    expect(programme.settings().customTemplate).toContain("{{grid-reference}}");
-    pages.all.mockResolvedValue([saved]);
-    expect(await programme.saveTemplate("Compact walk programme")).toBe(false);
-    expect(pages.create).toHaveBeenCalledOnce();
+    expect(programme.settings().customTemplate).toContain("{{image}}");
+    expect(state.programme.markdown).toBeNull();
+    expect(TestBed.inject(EmailCompositionsService).serialiseStateForStorage(state).programme.templateId).toBe("event-template-1");
+  });
+
+  it("updates live email and PDF content when event data changes", () => {
+    const {programme, state} = setup();
+    state.groupEvents = [{id: "walk-1", selected: true, title: "Hillside Park", eventDate: 1000,
+      image: "site-content/walk.jpg"} as GroupEventSummary];
+    state.groupEventsFilter = {includeImage: true} as any;
+    programme.applyTemplate({rows: [{columns: [{contentText: "## {{title}}\n\n{{image}}"}]}]} as any);
+    expect(programme.previewHtml()).toContain("Hillside Park");
+    expect(programme.emailHtml()).toContain("walk.jpg");
+    expect(programme.document().document.markdown).toContain("walk.jpg");
+    state.groupEvents[0].title = "Meadow walk";
+    expect(programme.previewHtml()).toContain("Meadow walk");
+    expect(programme.emailHtml()).toContain("Meadow walk");
+    expect(programme.document().document.markdown).toContain("Meadow walk");
+    expect(programme.generated()).toBe(false);
+    state.groupEventsFilter.includeImage = false;
+    expect(programme.previewHtml()).not.toContain("walk.jpg");
+    expect(programme.emailHtml()).not.toContain("walk.jpg");
+    expect(programme.document().document.markdown).not.toContain("walk.jpg");
+  });
+
+  it("previews the first selected event but includes every selected event in the output", () => {
+    const {programme, state} = setup();
+    state.groupEvents = [
+      {id: "walk-1", selected: true, title: "First walk", eventDate: 1000},
+      {id: "walk-2", selected: true, title: "Second walk", eventDate: 2000}
+    ] as GroupEventSummary[];
+    programme.settings().format = ProgrammeEventFormat.DETAILED;
+    expect(programme.previewHtml()).toContain("First walk");
+    expect(programme.previewHtml()).not.toContain("Second walk");
+    expect(programme.emailHtml()).toContain("Second walk");
+    expect(programme.document().document.markdown).toContain("Second walk");
   });
 });

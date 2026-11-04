@@ -34,7 +34,7 @@ import {EmailComposerUpdateSettingsMode} from "../../models/email-composer.model
           @if (settings.releaseNoteUpdateConfiguration.profiles.length > 1) {
             <div class="mb-3">
               <label for="release-note-update-profile">Saved configuration</label>
-              <ng-select id="release-note-update-profile" [items]="settings.releaseNoteUpdateConfiguration.profiles" bindLabel="name" bindValue="id"
+              <ng-select dropdownPosition="bottom" id="release-note-update-profile" [items]="settings.releaseNoteUpdateConfiguration.profiles" bindLabel="name" bindValue="id"
                          [clearable]="false" [searchable]="false" [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
                          [ngModel]="settings.selectedReleaseNoteUpdateProfileId" (ngModelChange)="settings.applyReleaseNoteUpdateProfile(state, currentDraftId, $event)"/>
             </div>
@@ -137,7 +137,7 @@ import {EmailComposerUpdateSettingsMode} from "../../models/email-composer.model
           </div>
           <div class="col-md-6 mt-3 mt-md-0">
             <label for="release-note-update-coverage">Coverage</label>
-            <ng-select id="release-note-update-coverage" [items]="settings.releaseNoteUpdateCoverageOptions" bindLabel="label" bindValue="value"
+            <ng-select dropdownPosition="bottom" id="release-note-update-coverage" [items]="settings.releaseNoteUpdateCoverageOptions" bindLabel="label" bindValue="value"
                        [clearable]="false" [searchable]="false" [disabled]="creatingReleaseNoteUpdate || draftingReleaseNoteUpdate"
                        [(ngModel)]="settings.releaseNoteUpdateSettings(state, currentDraftId).coverage"/>
             <div class="text-muted small mt-1">{{ settings.releaseNoteUpdateCoverageHint(state, currentDraftId) }}</div>

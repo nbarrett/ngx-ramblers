@@ -25,6 +25,7 @@ import { WalkGradingComponent } from "./walk-grading";
 import { MarkdownComponent } from "ngx-markdown";
 import { enumValueForKey } from "../../../functions/enums";
 import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
+import { eventHasWalkWorkflow } from "../../../models/walk-programme.model";
 
 @Component({
     selector: "app-walk-details",
@@ -135,7 +136,7 @@ import { NormaliseMarkdownPipe } from "../../../pipes/normalise-markdown.pipe";
               </div>
             </div>
           }
-          @if (displayedWalk.walk?.groupEvent?.difficulty) {
+          @if (eventHasWalkWorkflow(displayedWalk.walk?.groupEvent?.item_type) && displayedWalk.walk?.groupEvent?.difficulty) {
             <div app-related-link [mediaWidth]="walkDetailsMediaWidth" class="col-sm-6">
               <div title>
                 <app-walk-grading [grading]="displayedWalk.walk?.groupEvent?.difficulty.code"/>
@@ -202,6 +203,7 @@ export class WalkDetailsComponent implements OnInit, OnDestroy {
   protected readonly faPersonWalkingDashedLineArrowRight = faPersonWalkingDashedLineArrowRight;
   protected readonly faPersonWalkingArrowLoopLeft = faPersonWalkingArrowLoopLeft;
   protected readonly faRulerHorizontal = faRulerHorizontal;
+  protected readonly eventHasWalkWorkflow = eventHasWalkWorkflow;
   protected readonly faRulerVertical = faRulerVertical;
   protected readonly faPeopleGroup = faPeopleGroup;
   protected readonly faMapMarkerAlt = faMapMarkerAlt;

@@ -50,6 +50,7 @@ import {
   ComposerSaveAction,
   ComposerShowAction,
   EventInclusionMode,
+  EventListingPreview,
   MERGE_FIELD_CATALOGUE,
   MergeFieldGroup,
   NewsletterWindow,
@@ -124,6 +125,8 @@ import {
   faCheckCircle,
   faChevronDown,
   faChevronRight,
+  faEnvelope,
+  faFilePdf,
   faCircleInfo,
   faCompress,
   faExpand,
@@ -259,6 +262,9 @@ import { ReleaseNoteUpdateConfigService } from "../../services/email-composer/re
 import { NotificationConfigSelectorComponent } from "../admin/system-settings/mail/notification-config-selector";
 import { SenderRepliesAndSignoff } from "../admin/send-emails/sender-replies-and-signoff";
 import { EmailPreviewComponent } from "../../modules/common/email-preview/email-preview.component";
+import { CommitteeDocumentEditor } from "../committee/document/committee-document-editor";
+import { SectionToggle } from "../../shared/components/section-toggle";
+import { SectionToggleTab } from "../../models/section-toggle.model";
 import {EmailComposerProgrammeService} from "../../services/email-composer/email-composer-programme.service";
 import {EmailComposerProgrammeComponent} from "./email-composer-programme.component";
 import { NotificationDirective } from "../../notifications/common/notification.directive";
@@ -358,6 +364,8 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
     NotificationConfigSelectorComponent,
     SenderRepliesAndSignoff,
     EmailPreviewComponent,
+    CommitteeDocumentEditor,
+    SectionToggle,
     NotificationDirective,
     CommitteeNotificationDetailsComponent,
     DisplayDatePipe,
@@ -894,7 +902,14 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             }
             </div>
             @if (draftsPanelOpen || sentEmailsPanelOpen || !(stepperActiveTab === EmailComposerStepKey.SEND && campaignSendComplete)) {
-              <h3 class="email-composer-step-title">{{ draftsPanelOpen ? "Drafts" : sentEmailsPanelOpen ? "Sent" : currentStepTitle() }}</h3>
+              <div class="email-composer-step-title-row">
+                <h3 class="email-composer-step-title">{{ draftsPanelOpen ? "Drafts" : sentEmailsPanelOpen ? "Sent" : currentStepTitle() }}</h3>
+                @if (!draftsPanelOpen && !sentEmailsPanelOpen && stepperActiveTab === EmailComposerStepKey.REVIEW) {
+                  <app-section-toggle class="ms-auto" [tabs]="listingPreviewTabs" [selectedTab]="listingPreview"
+                                      [queryParamKey]="StoredValue.EVENT_PREVIEW"
+                                      (selectedTabChange)="onListingPreviewChange($event)"/>
+                }
+              </div>
             }
             @if (draftsPanelOpen || sentEmailsPanelOpen) {
               <app-email-composition-list [records]="draftsPanelOpen ? drafts : sentEmails" [members]="recipientSources.members" [busy]="sendInProgress"
@@ -1019,24 +1034,24 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
               <fieldset class="email-composer-fieldset">
                 <legend>Send from which committee role?</legend>
                 <p class="text-muted small mb-2">You are linked to more than one role - pick which identity recipients should see.</p>
-                <select class="form-control" [ngModel]="sender.resolvedUnbrandedRole()?.type"
+                <ng-select dropdownPosition="bottom" [clearable]="false" [searchable]="false" appendTo="body" [ngModel]="sender.resolvedUnbrandedRole()?.type"
                         (ngModelChange)="sender.onUnbrandedSenderRoleChange($event)">
                   @for (role of roleOptions; track role.type) {
-                    <option [ngValue]="role.type">{{ role.description }} - {{ role.fullName || '—' }} &lt;{{ role.email }}&gt;</option>
+                    <ng-option [value]="role.type">{{ role.description }} - {{ role.fullName || '—' }} &lt;{{ role.email }}&gt;</ng-option>
                   }
-                </select>
+                </ng-select>
               </fieldset>
             }
             @if (sender.unbrandedSenderAddressOptions().length > 1) {
               <fieldset class="email-composer-fieldset">
                 <legend>Send from which address?</legend>
                 <p class="text-muted small mb-2">This role has more than one email address - pick which one recipients should see.</p>
-                <select class="form-control" [ngModel]="sender.resolvedUnbrandedSenderEmail()"
+                <ng-select dropdownPosition="bottom" [clearable]="false" [searchable]="false" appendTo="body" [ngModel]="sender.resolvedUnbrandedSenderEmail()"
                         (ngModelChange)="sender.onUnbrandedSenderEmailChange($event)">
                   @for (choice of sender.unbrandedSenderAddressChoices(); track choice.email) {
-                    <option [ngValue]="choice.email">{{ choice.label }}</option>
+                    <ng-option [value]="choice.email">{{ choice.label }}</ng-option>
                   }
-                </select>
+                </ng-select>
               </fieldset>
             }
           }
@@ -1255,37 +1270,42 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
             <li>Estimated send time: <strong>{{ estimatedSendTime() }}</strong></li>
           }
         </ul>
-        <div class="d-flex flex-wrap align-items-center mb-3" style="gap: 0.5rem;">
-          <button type="button" class="btn btn-primary" (click)="refreshPreview()">Refresh preview</button>
-          <div class="btn-group" role="group" aria-label="Step through recipients">
-            <button type="button" class="btn btn-primary"
-                    [disabled]="!canStepPreview(PreviewStepDirection.First)"
-                    (click)="stepPreview(PreviewStepDirection.First)" title="First recipient">
-              <fa-icon [icon]="faAngleDoubleLeft"/>
-            </button>
-            <button type="button" class="btn btn-primary"
-                    [disabled]="!canStepPreview(PreviewStepDirection.Prev)"
-                    (click)="stepPreview(PreviewStepDirection.Prev)" title="Previous recipient">
-              <fa-icon [icon]="faAngleLeft"/>
-            </button>
-            <button type="button" class="btn btn-primary"
-                    [disabled]="!canStepPreview(PreviewStepDirection.Next)"
-                    (click)="stepPreview(PreviewStepDirection.Next)" title="Next recipient">
-              <fa-icon [icon]="faAngleRight"/>
-            </button>
-            <button type="button" class="btn btn-primary"
-                    [disabled]="!canStepPreview(PreviewStepDirection.Last)"
-                    (click)="stepPreview(PreviewStepDirection.Last)" title="Last recipient">
-              <fa-icon [icon]="faAngleDoubleRight"/>
-            </button>
+        <p class="text-muted small">Email is the message as recipients will see it. PDF is the same content as a printable programme, including your introduction, events and sign-off.</p>
+        @if (listingPreview === EventListingPreview.EMAIL) {
+          <div class="d-flex flex-wrap align-items-center mb-3" style="gap: 0.5rem;">
+            <button type="button" class="btn btn-primary" (click)="refreshPreview()">Refresh preview</button>
+            <div class="btn-group" role="group" aria-label="Step through recipients">
+              <button type="button" class="btn btn-primary"
+                      [disabled]="!canStepPreview(PreviewStepDirection.First)"
+                      (click)="stepPreview(PreviewStepDirection.First)" title="First recipient">
+                <fa-icon [icon]="faAngleDoubleLeft"/>
+              </button>
+              <button type="button" class="btn btn-primary"
+                      [disabled]="!canStepPreview(PreviewStepDirection.Prev)"
+                      (click)="stepPreview(PreviewStepDirection.Prev)" title="Previous recipient">
+                <fa-icon [icon]="faAngleLeft"/>
+              </button>
+              <button type="button" class="btn btn-primary"
+                      [disabled]="!canStepPreview(PreviewStepDirection.Next)"
+                      (click)="stepPreview(PreviewStepDirection.Next)" title="Next recipient">
+                <fa-icon [icon]="faAngleRight"/>
+              </button>
+              <button type="button" class="btn btn-primary"
+                      [disabled]="!canStepPreview(PreviewStepDirection.Last)"
+                      (click)="stepPreview(PreviewStepDirection.Last)" title="Last recipient">
+                <fa-icon [icon]="faAngleDoubleRight"/>
+              </button>
+            </div>
+            <span class="text-muted small">{{ previewRecipientLabel() }}</span>
           </div>
-          <span class="text-muted small">{{ previewRecipientLabel() }}</span>
-        </div>
-        <div class="row">
-          <div class="col-sm-12">
-            <app-email-preview #emailPreview/>
+          <div class="row">
+            <div class="col-sm-12">
+              <app-email-preview #emailPreview/>
+            </div>
           </div>
-        </div>
+        } @else {
+          <app-committee-document-editor [committeeFile]="programme.document()" [editable]="false"/>
+        }
       </div>
     </ng-template>
 
@@ -1475,6 +1495,13 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   notificationDirective!: NotificationDirective;
   protected stepperActiveTab: EmailComposerStepKey = EmailComposerStepKey.TEMPLATE;
   protected previewRecipientIndex = 0;
+  protected listingPreview = EventListingPreview.EMAIL;
+  protected readonly listingPreviewTabs: SectionToggleTab[] = [
+    {value: EventListingPreview.EMAIL, label: "Email", icon: faEnvelope},
+    {value: EventListingPreview.PDF, label: "PDF", icon: faFilePdf}
+  ];
+  protected readonly EventListingPreview = EventListingPreview;
+  protected readonly StoredValue = StoredValue;
   private autoPreviewPending = false;
   protected stepperSteps = EMAIL_COMPOSER_STEPS;
   protected addresseeOptions = ADDRESSEE_OPTIONS;
@@ -1534,6 +1561,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   protected readonly faAngleLeft = faAngleLeft;
   protected readonly faAngleRight = faAngleRight;
   protected readonly faAngleDoubleRight = faAngleDoubleRight;
+  protected readonly faEnvelope = faEnvelope;
+  protected readonly faFilePdf = faFilePdf;
   protected readonly faPaperPlane = faPaperPlane;
   protected readonly faXmark = faXmark;
   protected readonly faExpand = faExpand;
@@ -1992,7 +2021,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   private renderedEventsHtml(): string {
     if (this.eventsStepOmitted() || this.session.state.eventInclusion === EventInclusionMode.NONE) {
       return "";
-    } else if (this.programme.generated()) {
+    } else if (this.programme.generated() || this.programme.formatted()) {
       return this.programme.emailHtml();
     } else {
       return this.eventsContent?.nativeElement?.innerHTML ?? "";
@@ -4294,6 +4323,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   private maybeAutoRefreshPreview(): void {
     if (!(!this.autoPreviewPending)) {
       if (this.stepperActiveTab !== EmailComposerStepKey.REVIEW) {
+      } else if (this.listingPreview !== EventListingPreview.EMAIL) {
       } else {
         if (!this.session.state.notificationConfig?.templateName) {
         } else {
@@ -4344,6 +4374,14 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       const entry = entries[this.previewRecipientIndex] ?? null;
       const name = entry?.name ?? "";
       return name ? `${current} of ${count} - ${name}` : `${current} of ${count}`;
+    }
+  }
+
+  protected onListingPreviewChange(preview: EventListingPreview): void {
+    this.listingPreview = preview;
+    if (preview === EventListingPreview.EMAIL) {
+      this.autoPreviewPending = true;
+      this.maybeAutoRefreshPreview();
     }
   }
 
@@ -4768,7 +4806,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
         htmlContent: campaignCombined,
         attachmentUrl: this.session.state.attachments?.[0]?.url,
         inlineImageActivation: false,
-        mirrorActive: false,
+        mirrorActive: true,
         name: this.session.state.subject,
         tag: NGX_BREVO_CAMPAIGN_TAG,
         params,

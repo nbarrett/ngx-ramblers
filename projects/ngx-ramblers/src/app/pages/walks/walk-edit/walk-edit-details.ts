@@ -36,6 +36,7 @@ import { AppPath, RouteFollowPoint, RouteFollowWaypoint } from "../../../models/
 import { MapEditComponent } from "./map-edit";
 import { RouteDirectionsEditor } from "../../../shared/components/route-directions-editor";
 import { WalkGradeSelect } from "../../../shared/components/walk-grade-select";
+import { eventHasWalkWorkflow } from "../../../models/walk-programme.model";
 import { MaximisableMapComponent, MaximisableMapState } from "../../../modules/common/maximisable-map/maximisable-map";
 import { MapMarkerStyleService } from "../../../services/maps/map-marker-style.service";
 import { MapTilesService } from "../../../services/maps/map-tiles.service";
@@ -100,6 +101,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
             }
             <div class="col-sm-12">
               <div class="row">
+                @if (eventHasWalkWorkflow(displayedWalk.walk?.groupEvent?.item_type)) {
                 <div class="col-sm-4">
                   <div class="form-group">
                     <label for="grade">Grade</label>
@@ -111,6 +113,7 @@ import { TooltipDirective } from "ngx-bootstrap/tooltip";
                     }
                   </div>
                 </div>
+                }
                 <div class="col-sm-4">
                   <div class="form-group">
                     <label for="walkType">Walk Type</label>
@@ -412,6 +415,7 @@ export class WalkEditDetailsComponent implements OnInit, AfterViewInit, OnDestro
   private markerStyle = inject(MapMarkerStyleService);
   private mapTiles = inject(MapTilesService);
   protected readonly faWandMagicSparkles = faWandMagicSparkles;
+  protected readonly eventHasWalkWorkflow = eventHasWalkWorkflow;
 
   @Input("inputDisabled") set inputDisabledValue(inputDisabled: boolean) {
     this.inputDisabled = coerceBooleanProperty(inputDisabled);

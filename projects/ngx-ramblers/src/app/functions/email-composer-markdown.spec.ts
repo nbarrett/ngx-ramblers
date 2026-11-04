@@ -10,12 +10,29 @@ describe("renderEmailComposerMarkdown", () => {
     expect(html).toContain(`height="${EVENT_EMAIL_IMAGE_HEIGHT}" valign="middle"`);
     expect(html).not.toContain("height:auto");
   });
+
+  it("uses the chosen programme image height", () => {
+    const html = renderEmailComposerMarkdown("![Walk](https://example.com/walk.jpg)", EmailImageLayout.EVENT, 160);
+    expect(html).toContain("height:160px");
+    expect(html).toContain("height=\"160\"");
+    expect(html).not.toContain(`height:${EVENT_EMAIL_IMAGE_HEIGHT}px`);
+  });
   it("renders tables with self-contained email-safe styling", () => {
     const html = renderEmailComposerMarkdown("| Heading | Value |\n| --- | --- |\n| One | Two |");
 
-    expect(html).toContain("<table style=\"border-collapse:collapse;");
-    expect(html).toContain("<th style=\"border:1px solid #ced4da;");
-    expect(html).toContain("<td style=\"border:1px solid #ced4da;");
+    expect(html).toContain("<table width=\"100%\" style=\"border-collapse:collapse;");
+    expect(html).toContain("table-layout:fixed;");
+    expect(html).toContain("border:1px solid #ced4da;");
+    expect(html).toContain("width:50%;");
+  });
+
+  it("keeps a three-column listing readable in the email width", () => {
+    const html = renderEmailComposerMarkdown("| Date, start and distance | Walk and leader | Description |\n| --- | --- | --- |\n| Sunday | Hillside Park | A long walk description that would otherwise steal the width. |");
+    expect(html).toContain("table-layout:fixed;");
+    expect(html).toContain("width=\"30%\"");
+    expect(html).toContain("width=\"28%\"");
+    expect(html).toContain("width=\"42%\"");
+    expect(html).toContain("word-break:normal;");
   });
 
   it("renders quoted content with self-contained styling", () => {

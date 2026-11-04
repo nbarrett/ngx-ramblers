@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, Input, OnDestroy, ViewChild } from "@angular/core";
+import { ChangeDetectorRef, Component, ElementRef, inject, Input, OnDestroy, ViewChild } from "@angular/core";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { isUndefined } from "es-toolkit/compat";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -34,6 +34,7 @@ import { MailService } from "../../../services/mail/mail.service";
   `
 })
 export class EmailPreviewComponent implements OnDestroy {
+  private changes = inject(ChangeDetectorRef);
   private sanitizer = inject(DomSanitizer);
   private mailService = inject(MailService);
   private logger: Logger = inject(LoggerFactory).createLogger("EmailPreviewComponent", NgxLoggerLevel.ERROR);
@@ -48,18 +49,37 @@ export class EmailPreviewComponent implements OnDestroy {
   previewUrl: SafeResourceUrl | null = null;
 
   private objectUrl: string | null = null;
+  private requestSignature = "";
+  private renderRevision = 0;
   private resizeObserver: ResizeObserver | null = null;
   private mutationObserver: MutationObserver | null = null;
 
   @Input() set html(value: string | null) {
-    if (value) {
-      this.renderHtml(value);
-    } else {
-      this.clear();
+    const signature = value || "";
+    if (signature !== this.requestSignature) {
+      this.requestSignature = signature;
+      if (value) {
+        this.renderHtml(value);
+      } else {
+        this.clear();
+      }
+    }
+  }
+
+  @Input() set request(value: TemplateRenderRequest | null) {
+    const signature = JSON.stringify(value);
+    if (signature !== this.requestSignature) {
+      this.requestSignature = signature;
+      if (value) {
+        void this.render(value);
+      } else {
+        this.clear();
+      }
     }
   }
 
   renderHtml(html: string): void {
+    this.renderRevision += 1;
     this.clearObservers();
     this.loading = false;
     this.error = null;
@@ -68,25 +88,35 @@ export class EmailPreviewComponent implements OnDestroy {
   }
 
   async render(request: TemplateRenderRequest): Promise<void> {
+    this.renderRevision += 1;
+    const revision = this.renderRevision;
     this.loading = true;
     this.error = null;
     try {
       const response = await this.mailService.renderTemplate(request);
-      this.clearObservers();
-      this.previewHtml = response.htmlContent;
-      this.previewUrl = this.toPreviewUrl(this.withBaseHref(this.rewriteDevHostUrls(response.htmlContent)));
+      if (revision === this.renderRevision) {
+        this.clearObservers();
+        this.previewHtml = response.htmlContent;
+        this.previewUrl = this.toPreviewUrl(this.withBaseHref(this.rewriteDevHostUrls(response.htmlContent)));
+      }
     } catch (error) {
-      this.previewHtml = null;
-      this.previewUrl = null;
-      this.error = "Preview could not be rendered.";
-      this.errorTitle = "Preview problem";
-      this.logger.error("render failed", error);
+      if (revision === this.renderRevision) {
+        this.previewHtml = null;
+        this.previewUrl = null;
+        this.error = "Preview could not be rendered.";
+        this.errorTitle = "Preview problem";
+        this.logger.error("render failed", error);
+      }
     } finally {
-      this.loading = false;
+      if (revision === this.renderRevision) {
+        this.loading = false;
+        this.changes.markForCheck();
+      }
     }
   }
 
   clear(): void {
+    this.renderRevision += 1;
     this.clearObservers();
     this.clearObjectUrl();
     this.previewHtml = null;
@@ -102,6 +132,7 @@ export class EmailPreviewComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.renderRevision += 1;
     this.clearObservers();
     this.clearObjectUrl();
   }

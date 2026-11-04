@@ -4,17 +4,48 @@ import {
   LINK_DESTINATIONS,
   MemberMergeFieldHint,
   MERGE_FIELD_CATALOGUE,
+  MergeFieldAppearance,
+  MergeFieldGroup,
+  PROGRAMME_EVENT_MERGE_FIELDS,
   VOLUNTEER_MERGE_FIELD_CATALOGUE
 } from "../models/email-composer.model";
 
 const FIELD_LABEL_BY_TOKEN: Record<string, string> = {};
-MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(field => FIELD_LABEL_BY_TOKEN[field.token] = field.label));
-BOOKING_MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(field => FIELD_LABEL_BY_TOKEN[field.token] = field.label));
-VOLUNTEER_MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(field => FIELD_LABEL_BY_TOKEN[field.token] = field.label));
-LINK_DESTINATIONS.forEach(destination => FIELD_LABEL_BY_TOKEN[destination.token] = destination.label);
+const APPEARANCE_BY_TOKEN: Record<string, MergeFieldAppearance> = {};
+const EXAMPLE_VALUE_BY_TOKEN: Record<string, string> = {};
+
+function rememberField(field: MemberMergeFieldHint): void {
+  FIELD_LABEL_BY_TOKEN[field.token] = field.label;
+  if (field.appearance) {
+    APPEARANCE_BY_TOKEN[field.token] = field.appearance;
+  }
+  if (field.example) {
+    EXAMPLE_VALUE_BY_TOKEN[field.token] = field.example;
+  }
+}
+
+MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(rememberField));
+BOOKING_MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(rememberField));
+VOLUNTEER_MERGE_FIELD_CATALOGUE.forEach(group => group.fields.forEach(rememberField));
+LINK_DESTINATIONS.forEach(rememberField);
+PROGRAMME_EVENT_MERGE_FIELDS.forEach(rememberField);
 
 export function registerLinkDestinations(extras: MemberMergeFieldHint[]): void {
-  extras.forEach(extra => FIELD_LABEL_BY_TOKEN[extra.token] = extra.label);
+  extras.forEach(rememberField);
+}
+
+export function registerMergeFieldCatalogue(groups: MergeFieldGroup[]): void {
+  groups.forEach(group => group.fields.forEach(rememberField));
+}
+
+function catalogueKey(token: string): string {
+  const inner = stripMergeFieldBraces(token);
+  const imageHeight = /^(image):\d+$/.exec(inner);
+  return `{{${imageHeight ? imageHeight[1] : inner}}}`;
+}
+
+export function appearanceForToken(token: string): MergeFieldAppearance {
+  return APPEARANCE_BY_TOKEN[catalogueKey(token)] || MergeFieldAppearance.TEXT;
 }
 
 function humanizeToken(inner: string): string {
@@ -27,8 +58,7 @@ export function stripMergeFieldBraces(raw: string): string {
 }
 
 export function friendlyFieldLabel(token: string): string {
-  const normalised = (token || "").trim();
-  const withBraces = normalised.startsWith("{{") ? normalised : `{{${normalised}}}`;
+  const withBraces = catalogueKey(token);
   let result = withBraces;
   if (FIELD_LABEL_BY_TOKEN[withBraces]) {
     result = FIELD_LABEL_BY_TOKEN[withBraces];
@@ -47,8 +77,6 @@ export function friendlyText(text: string): string {
   return (text || "").replace(/\{\{[^}]+\}\}/g, match => friendlyFieldLabel(match));
 }
 
-const EXAMPLE_VALUE_BY_TOKEN: Record<string, string> = {};
-
 export function registerExampleValues(params: unknown): void {
   const walk = (node: unknown, path: string): void => {
     if (isObject(node)) {
@@ -66,8 +94,7 @@ export function registerExampleValues(params: unknown): void {
 }
 
 export function exampleValueForToken(token: string): string {
-  const normalised = (token || "").trim();
-  const withBraces = normalised.startsWith("{{") ? normalised : `{{${normalised}}}`;
+  const withBraces = catalogueKey(token);
   let result = "";
   if (EXAMPLE_VALUE_BY_TOKEN[withBraces] != null) {
     result = EXAMPLE_VALUE_BY_TOKEN[withBraces];

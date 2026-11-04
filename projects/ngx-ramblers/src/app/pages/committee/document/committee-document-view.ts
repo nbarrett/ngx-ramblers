@@ -12,6 +12,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { SystemConfigService } from "../../../services/system/system-config.service";
 import { UrlService } from "../../../services/url.service";
 import { stripTrailingSlash } from "../../../functions/strings";
+import { encodeMarkdownLinkUrls } from "../../../functions/markdown";
 
 @Component({
   selector: "app-committee-document-view",
@@ -192,7 +193,7 @@ export class CommitteeDocumentView implements OnInit, AfterViewInit, OnDestroy {
   }
 
   renderableMarkdown(): string {
-    return (this.committeeFile?.document?.markdown || "").replace(/^[ \t]*PAGEBREAK[ \t]*$/gmi, "\n<div class=\"committee-document-page-break\"></div>\n");
+    return encodeMarkdownLinkUrls((this.committeeFile?.document?.markdown || "").replace(/^[ \t]*PAGEBREAK[ \t]*$/gmi, "\n<div class=\"committee-document-page-break\"></div>\n"));
   }
 
   bodyProvidesTitle(): boolean {

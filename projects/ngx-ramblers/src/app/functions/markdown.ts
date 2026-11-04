@@ -16,9 +16,14 @@ export function normaliseMarkdownText(value: string | null): string | null {
       return null;
     } else {
       const markdown = /<\s*[a-z][^>]*>/i.test(trimmed) ? turndownService.turndown(trimmed).trim() : trimmed;
-      return restoreFlattenedMarkdownLinks(unescapeMarkdownLinks(markdown));
+      return encodeMarkdownLinkUrls(restoreFlattenedMarkdownLinks(unescapeMarkdownLinks(markdown)));
     }
   }
+}
+
+export function encodeMarkdownLinkUrls(value: string): string {
+  return (value || "").replace(/(!?\[[^\]]*])\(([^)\n]*)\)/g, (match, label, url) =>
+    `${label}(${url.replace(/\s/g, character => encodeURIComponent(character))})`);
 }
 
 const FLATTENED_LEAD_INS = new Set(["a", "an", "and", "at", "by", "for", "from", "in", "meet", "of", "on", "the", "to", "via", "we"]);

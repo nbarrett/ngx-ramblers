@@ -11,6 +11,7 @@ import { DateUtilsService } from "../date-utils.service";
 import { WalkChangeIntroField } from "../../models/walk-notification-field.model";
 import { EventField, EventType, GroupEventField, LinkSource } from "../../models/walk.model";
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
+import { RamblersEventType } from "../../models/ramblers-walks-manager";
 import { WalksConfigService } from "../system/walks-config.service";
 import { createExtendedGroupEvent } from "../../testing/create-extended-group-event";
 import { AUDITED_FIELDS } from "../../models/walk-event.model";
@@ -511,6 +512,15 @@ describe("GroupEventService", () => {
             walk.events = [];
             walk.fields.inputSource = InputSource.MANUALLY_CREATED;
             expect(service.statusFor(walk)).toBe(EventType.AWAITING_WALK_DETAILS);
+        });
+
+        it("does not apply the walk details workflow to a group event", () => {
+            const service = TestBed.inject(GroupEventService);
+            const event = walkWithContact(null);
+            event.events = [];
+            event.fields.inputSource = InputSource.MANUALLY_CREATED;
+            event.groupEvent.item_type = RamblersEventType.GROUP_EVENT;
+            expect(service.statusFor(event)).toBe(EventType.APPROVED);
         });
 
         it("prefers event history over the imported walk fallback", () => {

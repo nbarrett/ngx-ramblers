@@ -1,3 +1,4 @@
+import {EventTemplateSettingsComponent} from "./event-template-settings";
 import { Component, inject, OnDestroy, OnInit } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { AlertLevel, AlertMessageAndType, AlertTarget } from "../../../../models/alert-target.model";
@@ -51,7 +52,6 @@ import { InputSize } from "../../../../models/ui-size.model";
 import { brevoEmailsSentToday, brevoRemainingDailyEmailCredits } from "../../../../functions/brevo-campaigns";
 import { SystemConfig } from "../../../../models/system.model";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
-import { MailProviderSettingsComponent } from "../mail-provider/mail-provider-settings";
 import { SystemGmailInboxSettingsComponent } from "../external/system-gmail-inbox-settings";
 import { FormSaveActionsComponent } from "../../../../modules/common/form-save-actions/form-save-actions";
 import { FormSaveActions } from "../../../../models/form-save-actions.model";
@@ -87,6 +87,12 @@ import { ramblersRegisteredOfficeAddress } from "../../../../models/ramblers-leg
                     <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
                   }
                 </div>
+              </tab>
+              <tab [active]="tabActive(MailSettingsTab.EVENT_TEMPLATES)"
+                   (selectTab)="selectTab(MailSettingsTab.EVENT_TEMPLATES)" [heading]="MailSettingsTab.EVENT_TEMPLATES">
+                @if (tabActive(MailSettingsTab.EVENT_TEMPLATES)) {
+                  <div class="img-thumbnail thumbnail-admin-edit"><app-event-template-settings/></div>
+                }
               </tab>
               <tab [active]="tabActive(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)"
                 (selectTab)="selectTab(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS)"
@@ -185,18 +191,6 @@ import { ramblersRegisteredOfficeAddress } from "../../../../models/ramblers-leg
                                                              [notifyTarget]="notifyTarget"/>
                       </div>
                     </div>
-                  } @else {
-                    <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
-                  }
-                </div>
-              </tab>
-              <tab [active]="tabActive(MailSettingsTab.MAIL_PROVIDER)"
-                (selectTab)="selectTab(MailSettingsTab.MAIL_PROVIDER)"
-                [heading]="MailSettingsTab.MAIL_PROVIDER">
-                <div class="img-thumbnail thumbnail-admin-edit">
-                  @if (systemConfig) {
-                    <app-mail-provider-settings [config]="systemConfig"
-                                                (membersPendingSave)="membersPendingSave = $event"/>
                   } @else {
                     <div class="text-center py-4"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"></fa-icon>Loading...</div>
                   }
@@ -547,15 +541,17 @@ import { ramblersRegisteredOfficeAddress } from "../../../../models/ramblers-leg
               </tab>
             </tabset>
           </div>
+          @if (!tabActive(MailSettingsTab.EVENT_TEMPLATES)) {
           <div class="col-sm-12">
             <app-form-save-actions
               [disabled]="notReady()"
               [actions]="formSaveActions"/>
           </div>
+          }
         </div>
       </app-page>
     `,
-    imports: [PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, ContentTextEditor, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, MailSendRefusalsComponent, FontAwesomeModule, SecretInputComponent, MailProviderSettingsComponent, SystemGmailInboxSettingsComponent, ListSubscriptionImportExportComponent, FormSaveActionsComponent]
+    imports: [EventTemplateSettingsComponent, PageComponent, TabsetComponent, TabDirective, MailNotificationTemplateEditor, NotificationConfigToProcessMappingComponent, ContentTextEditor, FormsModule, BrevoButtonComponent, NgStyle, MailListEditorComponent, MailListSettingsComponent, MailSendersListComponent, MailDomainsListComponent, MailUnsubscribesListComponent, MailSendRefusalsComponent, FontAwesomeModule, SecretInputComponent, SystemGmailInboxSettingsComponent, ListSubscriptionImportExportComponent, FormSaveActionsComponent]
 })
 export class MailSettingsComponent implements OnInit, OnDestroy {
   public deletedConfigs: string[] = [];
@@ -583,7 +579,6 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   private memberService: MemberService = inject(MemberService);
   private memberDefaultsService: MemberDefaultsService = inject(MemberDefaultsService);
   protected members: Member[] = [];
-  protected membersPendingSave: Member[] = [];
   private activatedRoute: ActivatedRoute = inject(ActivatedRoute);
   private router: Router = inject(Router);
   loggerFactory: LoggerFactory = inject(LoggerFactory);
@@ -603,13 +598,6 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
   respectHeadOfficeConsent(): boolean {
     return booleanOf(this.mailMessagingConfig?.mailConfig?.respectHeadOfficeConsent, true);
   }
-  private readonly tabRedirects: Record<string, string> = {
-    "built-in-process-mappings": kebabCase(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS),
-    "mail-api-settings": kebabCase(MailSettingsTab.MAIL_API_SETTINGS),
-    "mail-list-settings": kebabCase(MailSettingsTab.MAIL_LIST_SETTINGS),
-    "notifications": kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS)
-  };
-
   public systemConfig: SystemConfig;
   public syncingLists = false;
   private systemConfigService = inject(SystemConfigService);
@@ -624,7 +612,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
       let tabParameter = params[StoredValue.TAB];
       this.logger.info("received tab value of:", tabParameter, "defaultValue:", defaultValue);
       if (tabParameter) {
-        const redirect = this.tabRedirects[tabParameter];
+        const redirect = MAIL_SETTINGS_TAB_REDIRECTS[tabParameter];
         if (redirect) {
           this.logger.info("redirecting old tab value:", tabParameter, "to:", redirect);
           tabParameter = redirect;
@@ -756,8 +744,7 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
     this.logger.info("saving config", this.mailMessagingConfig?.mailConfig);
     this.acceptNextConfigEmission = true;
     this.notify.setBusy();
-    return this.savePendingMembers()
-      .then(() => this.systemConfig ? this.systemConfigService.saveConfig(this.systemConfig) : undefined)
+    return (this.systemConfig ? this.systemConfigService.saveConfig(this.systemConfig) : Promise.resolve())
       .then(() => this.mailMessagingService.saveConfig(this.mailMessagingConfig, this.deletedConfigs))
       .then(response => {
         this.pendingApiKeyValidation = false;
@@ -769,14 +756,6 @@ export class MailSettingsComponent implements OnInit, OnDestroy {
         return Promise.reject(error);
       })
       .finally(() => this.notify.clearBusy());
-  }
-
-  private async savePendingMembers(): Promise<void> {
-    if (this.membersPendingSave.length > 0) {
-      this.logger.info("saving", this.stringUtilsService.pluraliseWithCount(this.membersPendingSave.length, "pending member"));
-      await this.memberService.createOrUpdateAll(this.membersPendingSave);
-      this.membersPendingSave = [];
-    }
   }
 
   saveAndExit() {

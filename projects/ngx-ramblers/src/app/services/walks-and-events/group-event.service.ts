@@ -6,6 +6,8 @@ import { CurrentPreviousData } from "../../models/walk-notification.model";
 import { DateUtilsService } from "../date-utils.service";
 import { EventField, EventType, GroupEventField } from "../../models/walk.model";
 import { ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
+import { RamblersEventType } from "../../models/ramblers-walks-manager";
+import { eventHasWalkWorkflow } from "../../models/walk-programme.model";
 import { Logger, LoggerFactory } from "../logger-factory.service";
 import { MemberLoginService } from "../member/member-login.service";
 import { NgxLoggerLevel } from "ngx-logger";
@@ -48,7 +50,11 @@ export class GroupEventService {
       return latestEventWithStatusChange.eventType;
     }
     const importedWalk = [InputSource.WALKS_MANAGER_CACHE, InputSource.FILE_IMPORT].includes(extendedGroupEvent?.fields?.inputSource);
-    return importedWalk ? EventType.APPROVED : EventType.AWAITING_WALK_DETAILS;
+    if (!eventHasWalkWorkflow(extendedGroupEvent?.groupEvent?.item_type)) {
+      return EventType.APPROVED;
+    } else {
+      return importedWalk ? EventType.APPROVED : EventType.AWAITING_WALK_DETAILS;
+    }
   }
 
   public walkDataAuditFor(extendedGroupEvent: ExtendedGroupEvent, status: EventType, basedOnUnsavedData: boolean): WalkDataAudit {

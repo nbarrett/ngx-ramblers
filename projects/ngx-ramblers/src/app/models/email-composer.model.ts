@@ -91,6 +91,11 @@ export enum EventInclusionMode {
   SINGLE_EVENT = "single-event"
 }
 
+export enum EventListingPreview {
+  EMAIL = "email",
+  PDF = "pdf"
+}
+
 export enum ProgrammeEventFormat {
   EMAIL = "email-layout",
   LISTING = "programme-listing",
@@ -101,7 +106,12 @@ export enum ProgrammeEventFormat {
 
 export const EVENT_EMAIL_IMAGE_HEIGHT = 240;
 export const PROGRAMME_EVENT_TEMPLATE_PATH_PREFIX = "fragments/templates/event-programme/";
-export const EVENT_EMAIL_IMAGE_STYLE = `width:100%;max-width:100%;height:${EVENT_EMAIL_IMAGE_HEIGHT}px;object-fit:cover;object-position:center;display:block;border:0;`;
+
+export function eventEmailImageStyle(height = EVENT_EMAIL_IMAGE_HEIGHT): string {
+  return `width:100%;max-width:100%;height:${height}px;object-fit:cover;object-position:center;display:block;border:0;`;
+}
+
+export const EVENT_EMAIL_IMAGE_STYLE = eventEmailImageStyle();
 
 export enum EmailImageLayout {
   NATURAL = "natural",
@@ -112,20 +122,37 @@ export enum ProgrammeEventToken {
   TITLE = "title",
   DATE = "date",
   TIME = "time",
+  END_TIME = "end-time",
   DISTANCE = "distance",
+  GRADE = "grade",
+  ASCENT = "ascent",
+  SHAPE = "shape",
   LOCATION = "location",
   GRID_REFERENCE = "grid-reference",
   POSTCODE = "postcode",
+  MAP = "map",
   CONTACT = "contact",
+  CONTACT_NAME = "contact-name",
+  CONTACT_PHONE = "contact-phone",
+  CONTACT_EMAIL = "contact-email",
+  EVENT_URL = "event-url",
   DESCRIPTION = "description",
   IMAGE = "image"
 }
 
+export enum MergeFieldAppearance {
+  TEXT = "text",
+  LINK = "link",
+  IMAGE = "image"
+}
+
 export interface EmailComposerProgramme {
+  templateId?: string | null;
   format: ProgrammeEventFormat;
   customTemplate: string;
   eventFormats: Record<string, ProgrammeEventFormat | null>;
   markdown: string | null;
+  imageHeight?: number;
 }
 
 export interface ProgrammeEventSection {
@@ -134,7 +161,7 @@ export interface ProgrammeEventSection {
 }
 
 export const PROGRAMME_EVENT_FORMATS = [
-  {value: ProgrammeEventFormat.EMAIL, label: "Existing email layout"},
+  {value: ProgrammeEventFormat.EMAIL, label: "Default layout"},
   {value: ProgrammeEventFormat.LISTING, label: "Programme listing (three columns)"},
   {value: ProgrammeEventFormat.DETAILED, label: "Detailed"},
   {value: ProgrammeEventFormat.COMPACT, label: "Compact"},
@@ -143,10 +170,10 @@ export const PROGRAMME_EVENT_FORMATS = [
 
 export const PROGRAMME_EVENT_TEMPLATES: Record<ProgrammeEventFormat, string> = {
   [ProgrammeEventFormat.EMAIL]: "",
-  [ProgrammeEventFormat.LISTING]: "| Date, start and distance | Walk and leader | Description |\n| --- | --- | --- |\n| {{date}}<br>{{time}}<br>{{grid-reference}}<br>{{distance}} | **{{title}}**<br>{{contact}} | {{description}} |",
-  [ProgrammeEventFormat.DETAILED]: "## {{title}}\n\n**{{date}} · {{time}} · {{distance}}**\n\n{{location}}\n\n{{grid-reference}} {{postcode}}\n\n{{contact}}\n\n{{description}}\n\n{{image}}",
-  [ProgrammeEventFormat.COMPACT]: "### {{title}}\n\n{{date}} · {{time}} · {{distance}}\n\n{{grid-reference}} {{postcode}} · {{contact}}",
-  [ProgrammeEventFormat.CUSTOM]: "## {{title}}\n\n{{date}} · {{time}} · {{distance}}\n\n{{location}}\n\n{{grid-reference}} {{postcode}}\n\n{{contact}}\n\n{{description}}"
+  [ProgrammeEventFormat.LISTING]: "| Date, start and distance | Walk and leader | Description |\n| --- | --- | --- |\n| {{date}}<br>{{time}}<br>{{grid-reference}}<br>{{distance}} | **{{title}}**<br>{{contact-name}} · {{contact-phone}} · {{contact-email}} | {{description}} |",
+  [ProgrammeEventFormat.DETAILED]: "## {{title}}\n\n**{{date}} · {{time}} · {{distance}}**\n\n{{location}}\n\n{{grid-reference}} {{postcode}}\n\n{{contact-name}} · {{contact-phone}} · {{contact-email}}\n\n{{description}}\n\n{{image}}",
+  [ProgrammeEventFormat.COMPACT]: "### {{title}}\n\n{{date}} · {{time}} · {{distance}}\n\n{{grid-reference}} {{postcode}} · {{contact-name}} · {{contact-phone}} · {{contact-email}}",
+  [ProgrammeEventFormat.CUSTOM]: "## {{title}}\n\n{{date}} · {{time}} · {{distance}}\n\n{{location}}\n\n{{grid-reference}} {{postcode}}\n\n{{contact-name}} · {{contact-phone}} · {{contact-email}}\n\n{{description}}"
 };
 
 export enum EmailCompositionKind {
@@ -727,7 +754,30 @@ export interface ComposerPreviewRequest {
 export interface MemberMergeFieldHint {
   token: string;
   label: string;
+  example?: string;
+  appearance?: MergeFieldAppearance;
 }
+
+export const PROGRAMME_EVENT_MERGE_FIELDS: MemberMergeFieldHint[] = [
+  {token: `{{${ProgrammeEventToken.TITLE}}}`, label: "Title", example: "Hillside Park"},
+  {token: `{{${ProgrammeEventToken.DATE}}}`, label: "Date", example: "Sunday, 8 November 2026"},
+  {token: `{{${ProgrammeEventToken.TIME}}}`, label: "Time", example: "10:00 am"},
+  {token: `{{${ProgrammeEventToken.END_TIME}}}`, label: "End time", example: "4:00 pm"},
+  {token: `{{${ProgrammeEventToken.DISTANCE}}}`, label: "Distance", example: "11.5 mi / 18.51 km"},
+  {token: `{{${ProgrammeEventToken.GRADE}}}`, label: "Grade", example: "Moderate"},
+  {token: `{{${ProgrammeEventToken.ASCENT}}}`, label: "Ascent", example: "450 ft / 137 m"},
+  {token: `{{${ProgrammeEventToken.SHAPE}}}`, label: "Shape", example: "Circular"},
+  {token: `{{${ProgrammeEventToken.LOCATION}}}`, label: "Location", example: "Hillside Park car park"},
+  {token: `{{${ProgrammeEventToken.GRID_REFERENCE}}}`, label: "Grid reference", example: "TQ123456", appearance: MergeFieldAppearance.LINK},
+  {token: `{{${ProgrammeEventToken.POSTCODE}}}`, label: "Postcode", example: "TN30 6LA", appearance: MergeFieldAppearance.LINK},
+  {token: `{{${ProgrammeEventToken.MAP}}}`, label: "Map", example: "Map", appearance: MergeFieldAppearance.LINK},
+  {token: `{{${ProgrammeEventToken.CONTACT_NAME}}}`, label: "Contact name", example: "Alex Reed"},
+  {token: `{{${ProgrammeEventToken.CONTACT_PHONE}}}`, label: "Contact phone", example: "01234 567890"},
+  {token: `{{${ProgrammeEventToken.CONTACT_EMAIL}}}`, label: "Contact email", example: "alex.reed@example.com", appearance: MergeFieldAppearance.LINK},
+  {token: `{{${ProgrammeEventToken.EVENT_URL}}}`, label: "Event page", example: "Event page", appearance: MergeFieldAppearance.LINK},
+  {token: `{{${ProgrammeEventToken.DESCRIPTION}}}`, label: "Description", example: "A circular walk through woodland and farmland."},
+  {token: `{{${ProgrammeEventToken.IMAGE}}}`, label: "Image", appearance: MergeFieldAppearance.IMAGE}
+];
 
 export const MERGE_FIELD_HINTS: MemberMergeFieldHint[] = [
   { token: mergeFieldToken(MergeFieldParamsGroup.MEMBER, MemberMergeField.FNAME), label: "First name" },
@@ -832,7 +882,7 @@ export const EMAIL_COMPOSER_STEPS: EmailComposerStep[] = [
   { key: EmailComposerStepKey.RECIPIENTS, label: "Recipients", hint: "Choose who receives this email" },
   { key: EmailComposerStepKey.COMPOSE, label: "Compose", hint: "Write the message and add article blocks" },
   { key: EmailComposerStepKey.EVENTS, label: "Events", hint: "Attach upcoming events or a single event" },
-  { key: EmailComposerStepKey.REVIEW, label: "Preview & Review", hint: "Check the email before sending" },
+  { key: EmailComposerStepKey.REVIEW, label: "Preview & Review", hint: "Check the email or printable PDF before sending" },
   { key: EmailComposerStepKey.SEND, label: "Send", hint: "Send and track delivery progress" }
 ];
 

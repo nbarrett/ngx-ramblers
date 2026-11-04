@@ -19,6 +19,7 @@ import { StringUtilsService } from "./string-utils.service";
 import { has, isNull, isUndefined } from "es-toolkit/compat";
 import { DeepPartial } from "../models/utility-types";
 import { assignDeep } from "../functions/object-utils";
+import { eventHasWalkWorkflow } from "../models/walk-programme.model";
 
 @Injectable({
   providedIn: "root"
@@ -175,7 +176,7 @@ export class EventDefaultsService {
         distance_miles: 0,
         ascent_feet: 0,
         ascent_metres: 0,
-        difficulty: MODERATE,
+        difficulty: eventHasWalkWorkflow(itemType) ? MODERATE : null,
         shape: !overridingGroupEvent?.shape ? WalkType.CIRCULAR.toLowerCase() : overridingGroupEvent?.shape,
         duration: 0,
         walk_leader: null,

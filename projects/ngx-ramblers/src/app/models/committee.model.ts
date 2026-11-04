@@ -145,7 +145,12 @@ export interface GroupEventSummary extends Identifiable {
   eventType: GroupEventType;
   eventDate: number;
   eventTime?: string;
+  eventEndTime?: string;
   distance?: string;
+  grade?: string;
+  ascent?: string;
+  shape?: string;
+  eventUrl?: string;
   location: string;
   postcode: string;
   title: string;

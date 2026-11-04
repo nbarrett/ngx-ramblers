@@ -5,7 +5,6 @@ import {
   NewsletterIntroPurpose,
   WalkTimeOfDay
 } from "../models/ai.model";
-import { RamblersEventType } from "../models/ramblers-walks-manager";
 import { ProgrammeOverviewStatus, walkIsMemberFacing } from "../models/walk-programme.model";
 
 export function walkTimeOfDayFromHour(hour: number | null | undefined): WalkTimeOfDay | null {
@@ -31,11 +30,13 @@ export function composerIncludesEvent(
   onlyApprovedWalks: boolean,
   purpose?: NewsletterIntroPurpose
 ): boolean {
-  const isWalk = event.ramblersEventType === RamblersEventType.GROUP_WALK
-    || event.ramblersEventType === RamblersEventType.WELLBEING_WALK;
-  return purpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST || !onlyApprovedWalks
-    ? true
-    : walkIsMemberFacing(event.programmeStatus, isWalk, !!event.deleted);
+  if (purpose === NewsletterIntroPurpose.WALK_LEADER_REQUEST || !onlyApprovedWalks) {
+    return true;
+  } else if (!event.programmeStatus) {
+    return !event.deleted;
+  } else {
+    return walkIsMemberFacing(event.programmeStatus, true, !!event.deleted);
+  }
 }
 
 export function eventsMatchingDraftPurpose(

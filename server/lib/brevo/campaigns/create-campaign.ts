@@ -110,7 +110,7 @@ export async function createCampaign(req: Request, res: Response): Promise<void>
     createEmailCampaign.header = "If you are not able to see this mail, click {here}";
     createEmailCampaign.footer = "<!--[if !mso]><!--><span style=\"display:none;visibility:hidden;font-size:0;line-height:0;color:transparent;height:0;width:0;overflow:hidden\" aria-hidden=\"true\">{unsubscribe}</span><!--<![endif]-->";
     createEmailCampaign.inlineImageActivation = createCampaignRequest.inlineImageActivation;
-    createEmailCampaign.mirrorActive = createCampaignRequest.mirrorActive;
+    createEmailCampaign.mirrorActive = createCampaignRequest.mirrorActive !== false;
     createEmailCampaign.recipients = createCampaignRequest.recipients;
     const replyToEmail = campaignReplyToAddress({email: createCampaignRequest.replyTo, name: ""}, createCampaignRequest.sender);
     if (replyToEmail) {

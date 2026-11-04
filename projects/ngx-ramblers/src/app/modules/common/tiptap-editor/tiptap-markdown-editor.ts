@@ -72,6 +72,7 @@ import {
 import {
   friendlyFieldLabel,
   friendlyText,
+  registerMergeFieldCatalogue,
   stripMergeFieldBraces
 } from "../../../functions/merge-fields";
 import { EditorFocusPosition, TiptapPasteEvent, TiptapMark, TiptapTableCommand, TokenPopupType } from "../../../models/tiptap-editor.model";
@@ -104,11 +105,14 @@ import { isString, isUndefined } from "es-toolkit/compat";
 import { dataImagesFromHtml, htmlHasRichFormatting, htmlReferencesLocalImages, imagesFromRtf, isInternalPaste, isWordClipboardHtml, sanitiseHtmlForPaste, sanitiseMarkdownForPaste, shouldPastePlainTextAsMarkdown, stripIncompatibleTextMarks } from "./tiptap-paste";
 import { EmojiShortcodeMatch } from "../../../models/emoji.model";
 import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.service";
+import { ResizerComponent, ResizerOrientation, ResizerVariant } from "../resizer/resizer";
+import { ProgrammeEventToken } from "../../../models/email-composer.model";
+import { programmeImageMergeToken } from "../../../functions/email-composer-programme";
 
 @Component({
   selector: "app-tiptap-markdown-editor",
   encapsulation: ViewEncapsulation.None,
-  imports: [NgClass, TiptapEditorDirective, FontAwesomeModule, ImageCropperAndResizerComponent, SiteLinkInputComponent, FormsModule, NgSelectComponent, NgOptionTemplateDirective, TooltipDirective],
+  imports: [NgClass, TiptapEditorDirective, FontAwesomeModule, ImageCropperAndResizerComponent, SiteLinkInputComponent, FormsModule, NgSelectComponent, NgOptionTemplateDirective, TooltipDirective, ResizerComponent],
   template: `
 <div class="tiptap-editor-shell"
      [class.tiptap-editor-shell-disabled]="!editable"
@@ -437,6 +441,8 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
        [class.tiptap-content-hidden]="sourceMode"
        [class.show-examples]="showExampleValues"
        [class.email-width]="constrainToEmailWidth && !editable"
+       [class.merge-field-image-sized]="eventImageHeight != null"
+       [style.--event-image-height.px]="eventImageHeight"
        [ngClass]="contentClass">
     @if (editor) {
       <tiptap-editor [editor]="editor"></tiptap-editor>
@@ -458,6 +464,15 @@ import { EmojiShortcodeService } from "../../../services/emoji/emoji-shortcode.s
            tooltip="Drag the corner to resize. The shape stays the same." container="body" delay=500
            (mousedown)="onImageResizeStart($event, corner.corner)"></div>
     }
+  }
+  @if (editable && eventImageHeight != null && eventImageResizerWidth && !sourceMode && !imageCropperOpen) {
+    <app-resizer class="event-image-height-resizer" [orientation]="ResizerOrientation.VERTICAL"
+                 [variant]="ResizerVariant.TAB" compact
+                 [style.top.px]="eventImageResizerTop" [style.left.px]="eventImageResizerLeft"
+                 [style.width.px]="eventImageResizerWidth"
+                 [size]="eventImageHeight" [minSize]="50" [maxSize]="800"
+                 resizeHint="Drag to change the image height"
+                 (sizeChange)="onEventImageHeightChange($event)"/>
   }
   @if (editable && emojiSuggestions.length > 0) {
     <ul class="emoji-shortcode-suggestions" role="listbox"
@@ -630,6 +645,9 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   @Input() redoTooltip: string = "Redo";
   @Input() contentClass: string | string[] | Set<string> | {[klass: string]: unknown} = "";
   @Input() showMergeFields: boolean = false;
+  @Input({transform: booleanAttribute}) exampleValuesByDefault = false;
+  @Input() eventImageHeight: number | null = null;
+  @Output() eventImageHeightChange = new EventEmitter<number>();
   @Input({transform: booleanAttribute}) showPageBreak = false;
   @Input() constrainToEmailWidth: boolean = false;
   @Input({transform: booleanAttribute}) stickyToolbar = true;
@@ -687,6 +705,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   @Input() set mergeFieldCatalogue(value: MergeFieldGroup[] | undefined) {
     this._mergeFieldCatalogue = value ?? MERGE_FIELD_CATALOGUE;
     this.allMergeFields = this._mergeFieldCatalogue.flatMap(group => group.fields);
+    registerMergeFieldCatalogue(this._mergeFieldCatalogue);
   }
   get mergeFieldCatalogue(): MergeFieldGroup[] {
     return this._mergeFieldCatalogue;
@@ -727,6 +746,11 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   protected imageSpacing: ImageSpacing = ImageSpacing.Small;
   protected imageAlign: ImageAlign = ImageAlign.Center;
   protected readonly ImageAlign = ImageAlign;
+  protected readonly ResizerOrientation = ResizerOrientation;
+  protected readonly ResizerVariant = ResizerVariant;
+  protected eventImageResizerTop = 0;
+  protected eventImageResizerLeft = 0;
+  protected eventImageResizerWidth = 0;
   protected imageResizeCorners: { corner: ImageResizeCorner; top: number; left: number; handleClass: string }[] = [
     {corner: ImageResizeCorner.NorthWest, top: 0, left: 0, handleClass: "image-resize-handle-nw"},
     {corner: ImageResizeCorner.NorthEast, top: 0, left: 0, handleClass: "image-resize-handle-ne"},
@@ -819,6 +843,9 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
   private clickToEditHintTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
+    if (this.exampleValuesByDefault) {
+      this.showExampleValues = true;
+    }
     this.committeeSubscription = this.committeeConfigService.committeeReferenceDataEvents().subscribe(data => {
       this.contactRoles = (data?.mailCommitteeMembers() || [])
         .filter(member => this.contactButtonRoleAllowed(member))
@@ -951,6 +978,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
       onCreate: () => {
         this.clearEditorHistory();
         this.queueMermaidPreviewRefresh();
+        this.positionEventImageResizer();
         if (this.pendingFocusPosition) {
           const position = this.pendingFocusPosition;
           this.pendingFocusPosition = null;
@@ -994,6 +1022,7 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
         this.refreshEmojiSuggestions();
       }
       this.refreshHistoryState();
+      this.positionEventImageResizer();
     });
     this.editor.on("selectionUpdate", () => {
       this.refreshHistoryState();
@@ -1218,8 +1247,58 @@ export class TiptapMarkdownEditor implements OnInit, OnDestroy {
           this.positionTokenEditor();
           this.positionImageHandle();
         }
+        this.positionEventImageResizer();
         this.changeDetector.markForCheck();
       });
+    } else {
+      this.positionEventImageResizer();
+    }
+  }
+
+  protected onEventImageHeightChange(height: number): void {
+    this.eventImageHeight = height;
+    this.eventImageHeightChange.emit(height);
+    this.applyEventImageHeightToDesign(height);
+    this.positionEventImageResizer();
+  }
+
+  private applyEventImageHeightToDesign(height: number): void {
+    if (this.editor) {
+      const token = programmeImageMergeToken(height);
+      const positions: number[] = [];
+      this.editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === MERGE_FIELD_NODE_NAME && /^image(?::\d+)?$/.test(node.attrs["token"] || "")) {
+          positions.push(pos);
+        }
+      });
+      if (positions.length) {
+        this.editor.chain().command(({tr}) => {
+          positions.forEach(pos => {
+            const node = tr.doc.nodeAt(pos);
+            if (node) {
+              tr.setNodeMarkup(pos, undefined, {...node.attrs, token});
+            }
+          });
+          return true;
+        }).run();
+        this.flushMarkdownEmit();
+      }
+    }
+  }
+
+  private positionEventImageResizer(): void {
+    const shell = this.editor?.view?.dom.closest(".tiptap-editor-shell") as HTMLElement;
+    const imageField = this.editor?.view?.dom.querySelector(`merge-field[data-token^="${ProgrammeEventToken.IMAGE}"]`) as HTMLElement;
+    if (shell && imageField) {
+      const shellRect = shell.getBoundingClientRect();
+      const imageRect = imageField.getBoundingClientRect();
+      this.eventImageResizerTop = imageRect.bottom - shellRect.top;
+      this.eventImageResizerLeft = imageRect.left - shellRect.left;
+      this.eventImageResizerWidth = imageRect.width;
+    } else {
+      this.eventImageResizerTop = 0;
+      this.eventImageResizerLeft = 0;
+      this.eventImageResizerWidth = 0;
     }
   }
 

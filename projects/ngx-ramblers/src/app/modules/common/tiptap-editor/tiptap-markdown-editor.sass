@@ -516,6 +516,39 @@
 .tiptap-content merge-field.ProseMirror-selectednode
   box-shadow: 0 0 0 2px rgba(249, 177, 4, 0.55)
 
+.tiptap-content .merge-field-chip-link
+  color: #c05711
+  text-decoration: underline
+  background-color: rgba(192, 87, 17, 0.08)
+  border-color: #c05711
+
+.tiptap-content .merge-field-chip-image
+  padding: 2px 4px
+  vertical-align: middle
+
+.tiptap-content.merge-field-image-sized .merge-field-chip-image
+  display: block
+  width: 100%
+  height: var(--event-image-height, 240px)
+  box-sizing: border-box
+  padding: 8px
+  white-space: normal
+
+.event-image-height-resizer
+  position: absolute
+  z-index: 12
+
+.tiptap-content .merge-field-image-example
+  display: none
+  width: 4.5rem
+  height: 3rem
+  vertical-align: middle
+  background: linear-gradient(180deg, #dee2e6 0%, #ced4da 100%)
+  border-radius: 2px
+
+.tiptap-content.show-examples .merge-field-image-example
+  display: inline-block
+
 .tiptap-content page-break,
 .tiptap-content .page-break-chip
   display: flex

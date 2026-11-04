@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import { exampleValueForToken, friendlyFieldLabel } from "../../../functions/merge-fields";
+import { appearanceForToken, exampleValueForToken, friendlyFieldLabel } from "../../../functions/merge-fields";
+import { MergeFieldAppearance } from "../../../models/email-composer.model";
 
 export const MERGE_FIELD_NODE_NAME = "mergeField";
 
@@ -24,10 +25,15 @@ export const MergeField = Node.create({
   },
   renderHTML({ node, HTMLAttributes }) {
     const token = node.attrs["token"];
+    const appearance = appearanceForToken(token);
     const example = exampleValueForToken(token) || friendlyFieldLabel(token);
-    return ["merge-field", mergeAttributes(HTMLAttributes, { class: "merge-field-chip" }),
+    const classes = ["merge-field-chip",
+      appearance === MergeFieldAppearance.LINK ? "merge-field-chip-link" : "",
+      appearance === MergeFieldAppearance.IMAGE ? "merge-field-chip-image" : ""].filter(value => value).join(" ");
+    return ["merge-field", mergeAttributes(HTMLAttributes, { class: classes }),
       ["span", { class: "chip-name" }, friendlyFieldLabel(token)],
-      ["span", { class: "chip-example" }, example]];
+      ["span", { class: appearance === MergeFieldAppearance.IMAGE ? "chip-example merge-field-image-example" : "chip-example" },
+        appearance === MergeFieldAppearance.IMAGE ? "" : example]];
   },
   markdownTokenName: MERGE_FIELD_NODE_NAME,
   markdownTokenizer: {

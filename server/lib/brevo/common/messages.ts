@@ -323,10 +323,23 @@ export function renderBrandedTemplate(rawHtml: string,
   const wrappedHtml = ramblersEmailLayout(overriddenHtml);
   const personalisedHtml = campaign ? toCampaignContactTokens(wrappedHtml) : wrappedHtml;
   const substitutedHtmlContent = substituteTemplateParameters(personalisedHtml, params);
-  return normaliseEmailContentUrls(
+  const normalised = normaliseEmailContentUrls(
     escapeUnknownTemplateExpressions(inlineDefaultLinkStyles(removeEmptyParagraphs(applyBrevoConditionals(substitutedHtmlContent, params)))),
     params?.systemMergeFields?.APP_URL
   );
+  if (campaign) {
+    return normalised;
+  } else {
+    return resolveTransactionalMirrorLink(normalised, params?.systemMergeFields?.APP_URL);
+  }
+}
+
+export function resolveTransactionalMirrorLink(html: string, appUrl: string): string {
+  if (!html || !appUrl) {
+    return html;
+  } else {
+    return html.replace(/\{\{\s*mirror\s*\}\}/gi, stripTrailingSlash(appUrl));
+  }
 }
 
 function substituteTemplateParameters(html: string, params: any): string {
@@ -406,6 +419,12 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
         escapeUnknownTemplateExpressions(sendSmtpEmail.htmlContent),
         emailRequest.params?.systemMergeFields?.APP_URL
       );
+      if (!campaign) {
+        sendSmtpEmail.htmlContent = resolveTransactionalMirrorLink(
+          sendSmtpEmail.htmlContent,
+          emailRequest.params?.systemMergeFields?.APP_URL
+        );
+      }
       const relativeImages = Array.from(sendSmtpEmail.htmlContent.matchAll(/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi))
         .filter(match => !/^[a-z][a-z0-9+.-]*:|^\/\//i.test(match[1]));
       if (relativeImages.length > 0) {

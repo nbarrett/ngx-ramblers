@@ -26,11 +26,13 @@ export {TemplateSelectEvent} from "../../../models/content-text.model";
           }
         </select>
       </div>
+      @if (showViewAction) {
       <app-badge-button
         [icon]="faExternalLinkAlt"
         caption="View"
         [disabled]="!selectedTemplateFragmentId"
         (click)="openSelectedTemplate()"/>
+      }
       @if (showActionButtons) {
         <app-badge-button
           [icon]="faClone"
@@ -59,6 +61,8 @@ export {TemplateSelectEvent} from "../../../models/content-text.model";
 export class TemplateSelectorComponent implements OnInit {
 
   @Input() showActionButtons = true;
+  @Input() showViewAction = true;
+  @Input() selectFirstTemplate = true;
   @Input() label = "Select template";
   @Input() pathPrefix: string | null = null;
   @Input() showAppendAction = true;
@@ -75,7 +79,7 @@ export class TemplateSelectorComponent implements OnInit {
 
   public templateFragments: PageContent[] = [];
   public templateFragmentsLoading = false;
-  public selectedTemplateFragmentId = "";
+  @Input() selectedTemplateFragmentId = "";
 
   ngOnInit() {
     this.refresh();
@@ -94,7 +98,7 @@ export class TemplateSelectorComponent implements OnInit {
       if (!this.templateFragments.length) {
         this.selectedTemplateFragmentId = "";
       } else if (!this.selectedTemplateFragmentId || !this.templateFragments.some(fragment => fragment.id === this.selectedTemplateFragmentId)) {
-        this.selectedTemplateFragmentId = this.templateFragments[0].id;
+        this.selectedTemplateFragmentId = this.selectFirstTemplate ? this.templateFragments[0].id : "";
       }
       this.onSelectionChange();
     } catch (error) {
@@ -113,13 +117,10 @@ export class TemplateSelectorComponent implements OnInit {
   templateFragmentLabel(fragment: PageContent): string {
     const raw = fragment?.path || "Unknown";
     const normalised = this.normalisePath(raw);
-    if (normalised.startsWith(USER_TEMPLATES_PATH_PREFIX)) {
-      return normalised.replace(USER_TEMPLATES_PATH_PREFIX, "");
-    }
-    if (normalised.startsWith("fragments/")) {
-      return normalised.replace("fragments/", "");
-    }
-    return normalised;
+    const pathLabel = normalised.startsWith(USER_TEMPLATES_PATH_PREFIX)
+      ? normalised.replace(USER_TEMPLATES_PATH_PREFIX, "")
+      : normalised.startsWith("fragments/") ? normalised.replace("fragments/", "") : normalised;
+    return fragment?.migrationTemplate?.templateName || pathLabel;
   }
 
   private fragmentIsTemplate(fragment: PageContent): boolean {

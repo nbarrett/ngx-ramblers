@@ -5,6 +5,7 @@ import { faCircleExclamation, faEye, faLocationDot, faPenToSquare, faPersonWalki
 import { DisplayedWalk } from "../../../models/walk.model";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import {
+  eventHasWalkWorkflow,
   ProgrammeOverviewStatus,
   programmeStatusDescriptor,
   WalkProgrammeSummaryRow
@@ -52,13 +53,13 @@ import { WalkLeadEditButton } from "../walk-view/walk-lead-edit-button";
         <div class="walk-row-meta">
           @if (row.leaderName) {
             <span><fa-icon [icon]="faPersonWalking"/> {{ row.leaderName }}</span>
-          } @else if (!display.walkPopulationWalksManager()) {
+          } @else if (eventHasWalkWorkflow(row.itemType) && !display.walkPopulationWalksManager()) {
             <span><fa-icon [icon]="faPersonWalking"/> No leader</span>
           }
           @if (row.distanceMiles) {
             <span>{{ row.distanceMiles }} miles</span>
           }
-          @if (row.gradeDescription) {
+          @if (eventHasWalkWorkflow(row.itemType) && row.gradeDescription) {
             <span>{{ row.gradeDescription }}</span>
           }
           @if (!row.hasLocation) {
@@ -113,6 +114,7 @@ export class WalkProgrammeRowComponent {
   protected readonly faLocationDot = faLocationDot;
   protected readonly faCircleExclamation = faCircleExclamation;
   protected readonly ProgrammeOverviewStatus = ProgrammeOverviewStatus;
+  protected readonly eventHasWalkWorkflow = eventHasWalkWorkflow;
   protected readonly WalkLeadEditAppearance = WalkLeadEditAppearance;
 
   @Input({required: true}) row: WalkProgrammeSummaryRow;
@@ -167,8 +169,7 @@ export class WalkProgrammeRowComponent {
   }
 
   whatsMissing(): string[] {
-    const walk = !this.row.itemType || this.row.itemType === RamblersEventType.GROUP_WALK || this.row.itemType === RamblersEventType.WELLBEING_WALK;
-    return walk ? [
+    return eventHasWalkWorkflow(this.row.itemType) ? [
       this.row.leaderName || this.display.walkPopulationWalksManager() ? null : "leader",
       this.row.title ? null : "walk details",
       this.row.distanceMiles ? null : "distance",

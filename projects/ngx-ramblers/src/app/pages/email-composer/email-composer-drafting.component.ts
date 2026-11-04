@@ -58,7 +58,7 @@ import {NEWSLETTER_INTRO_DETAIL_OPTIONS, NewsletterIntroDetail} from "../../mode
                             @if (drafting.effectiveStartMode() === NewsletterStartMode.PERIOD) {
                               <div class="col-sm-6 col-lg-4">
                                 <label for="newsletter-start-period-select">{{ drafting.periodSelectLabel() }}</label>
-                                <ng-select id="newsletter-start-period-select"
+                                <ng-select dropdownPosition="bottom" id="newsletter-start-period-select"
                                            [items]="drafting.newsletterPeriodOptions"
                                            bindLabel="periodLabel"
                                            bindValue="key"
@@ -143,7 +143,7 @@ import {NEWSLETTER_INTRO_DETAIL_OPTIONS, NewsletterIntroDetail} from "../../mode
       <div class="row mb-3">
         <div class="col-sm-4">
           <label for="newsletter-cadence">How often this newsletter goes out:</label>
-          <ng-select id="newsletter-cadence"
+          <ng-select dropdownPosition="bottom" id="newsletter-cadence"
                      [items]="drafting.newsletterCadenceOptions"
                      bindLabel="label"
                      bindValue="key"

@@ -28,6 +28,7 @@ import { EventLeaderContactLinkComponent } from "./event-leader-contact-link";
 import { EventLeaderPhoneLinkComponent } from "./event-leader-phone-link";
 import { EventGroupComponent } from "./event-group";
 import { WalkStatus } from "../../../models/ramblers-walks-manager";
+import { eventHasWalkWorkflow } from "../../../models/walk-programme.model";
 import { Router, RouterLink } from "@angular/router";
 import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
 
@@ -55,7 +56,7 @@ import { JointLeaderNamesPipe } from "../../../pipes/joint-leader-names.pipe";
           <time>{{ displayedWalk.walk?.groupEvent?.start_date_time | displayDate }} {{ displayedWalk.walk?.groupEvent?.start_date_time | displayTime }}</time>
         </dl>
         @if (display.notAwaitingLeader(displayedWalk.walk)) {
-          @if (displayedWalk.walk?.groupEvent?.difficulty) {
+          @if (eventHasWalkWorkflow(displayedWalk.walk?.groupEvent?.item_type) && displayedWalk.walk?.groupEvent?.difficulty) {
             <dl class="d-flex mb-1">
               <dt class="font-weight-bold me-2">Difficulty:</dt>
               <dd>
@@ -183,6 +184,7 @@ export class WalkCardViewComponent implements OnInit, OnDestroy {
   public ascentValidationService = inject(AscentValidationService);
   public distanceValidationService = inject(DistanceValidationService);
   private logger = inject(LoggerFactory).createLogger("WalkCardViewComponent", NgxLoggerLevel.ERROR);
+  protected readonly eventHasWalkWorkflow = eventHasWalkWorkflow;
   protected notify: AlertInstance = this.notifierService.createAlertInstance(this.notifyTarget);
 
   @Input() displayedWalk!: DisplayedWalk;

@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 import { EventSource, ExtendedGroupEvent } from "./group-event.model";
 import { WalksAdminSegment, WALKS_ADMIN_SEGMENT, WALKS_LEADER_SEGMENT } from "./walks-route-paths.model";
 import { DisplayedWalk, LinkSource } from "./walk.model";
-import { WalkStatus } from "./ramblers-walks-manager";
+import { RamblersEventType, WalkStatus } from "./ramblers-walks-manager";
 
 export enum ProgrammeOverviewStatus {
   AWAITING_LEADER = "awaitingLeader",
@@ -65,8 +65,8 @@ export function walkProgrammeSummaryFromDisplayedWalk(displayedWalk: DisplayedWa
     title: groupEvent?.title || "",
     url: groupEvent?.url || "",
     distanceMiles: groupEvent?.distance_miles ?? null,
-    gradeCode: groupEvent?.difficulty?.code || "",
-    gradeDescription: groupEvent?.difficulty?.description || "",
+    gradeCode: eventHasWalkWorkflow(groupEvent?.item_type) ? groupEvent?.difficulty?.code || "" : "",
+    gradeDescription: eventHasWalkWorkflow(groupEvent?.item_type) ? groupEvent?.difficulty?.description || "" : "",
     shape: groupEvent?.shape || "",
     leaderName: contact?.displayName || groupEvent?.walk_leader?.name || "",
     leaderMemberId: contact?.memberId || "",
@@ -275,6 +275,10 @@ export function walkNeedsLeader(
     : walkIsEmptySlot(status, title);
 }
 
+export function eventHasWalkWorkflow(itemType: string | null | undefined): boolean {
+  return !itemType || itemType === RamblersEventType.GROUP_WALK || itemType === RamblersEventType.WELLBEING_WALK;
+}
+
 export function displayedWalkProgrammeStatus(extendedGroupEvent: ExtendedGroupEvent, derivedEventStatus: string): ProgrammeOverviewStatus {
   const ramblersStatus = (extendedGroupEvent?.groupEvent?.status || "").toLowerCase();
   const walksManagerSourced = extendedGroupEvent?.source === EventSource.WALKS_MANAGER;
@@ -282,6 +286,8 @@ export function displayedWalkProgrammeStatus(extendedGroupEvent: ExtendedGroupEv
     return ProgrammeOverviewStatus.CANCELLED;
   } else if (ramblersStatus === WalkStatus.CONFIRMED || derivedEventStatus === ProgrammeOverviewStatus.PUBLISHED || hasRamblersPublicationIdentity(extendedGroupEvent)) {
     return ProgrammeOverviewStatus.PUBLISHED;
+  } else if (!eventHasWalkWorkflow(extendedGroupEvent?.groupEvent?.item_type)) {
+    return ProgrammeOverviewStatus.ON_WEBSITE;
   } else if (walksManagerSourced && ramblersStatus === ProgrammeOverviewStatus.DRAFT) {
     return ProgrammeOverviewStatus.DRAFT;
   } else if (walksManagerSourced) {

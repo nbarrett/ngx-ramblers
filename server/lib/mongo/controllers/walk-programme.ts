@@ -166,6 +166,7 @@ function derivedStatusStages(): any[] {
               {case: "$__isCancelled", then: ProgrammeOverviewStatus.CANCELLED},
               {case: "$__isRamblersConfirmed", then: EventType.PUBLISHED_TO_RAMBLERS},
               {case: {$or: ["$__publishedAfterStatus", "$__hasRamblersPublicationIdentity"]}, then: EventType.PUBLISHED_TO_RAMBLERS},
+              {case: {$eq: [`$${GroupEventField.ITEM_TYPE}`, RamblersEventType.GROUP_EVENT]}, then: ProgrammeOverviewStatus.ON_WEBSITE},
               {case: {$and: ["$__isWalksManagerSourced", "$__isRamblersDraft"]}, then: ProgrammeOverviewStatus.DRAFT},
               {case: "$__isWalksManagerSourced", then: EventType.PUBLISHED_TO_RAMBLERS}
             ],
@@ -203,8 +204,20 @@ function summaryProjection(): any {
     title: {$ifNull: [`$${GroupEventField.TITLE}`, ""]},
     url: {$ifNull: [`$${GroupEventField.URL}`, ""]},
     distanceMiles: {$ifNull: [`$${GroupEventField.DISTANCE_MILES}`, null]},
-    gradeCode: {$ifNull: ["$groupEvent.difficulty.code", ""]},
-    gradeDescription: {$ifNull: ["$groupEvent.difficulty.description", ""]},
+    gradeCode: {
+      $cond: [
+        {$eq: [`$${GroupEventField.ITEM_TYPE}`, RamblersEventType.GROUP_EVENT]},
+        "",
+        {$ifNull: ["$groupEvent.difficulty.code", ""]}
+      ]
+    },
+    gradeDescription: {
+      $cond: [
+        {$eq: [`$${GroupEventField.ITEM_TYPE}`, RamblersEventType.GROUP_EVENT]},
+        "",
+        {$ifNull: ["$groupEvent.difficulty.description", ""]}
+      ]
+    },
     shape: {$ifNull: [`$${GroupEventField.SHAPE}`, ""]},
     leaderName: {$ifNull: ["$fields.contactDetails.displayName", {$ifNull: [`$${GroupEventField.WALK_LEADER_NAME}`, ""]}]},
     leaderMemberId: {$ifNull: ["$fields.contactDetails.memberId", ""]},

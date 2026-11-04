@@ -46,6 +46,23 @@ function omittedOverride(type: TemplateOverrideType): TemplateOverride {
 
 describe("brevo messages", () => {
 
+  it("renders an event preview through the same branded shell as outgoing email", async () => {
+    const body = "<h3>Hillside Park</h3><p>Walk details</p>";
+    const output = {} as Brevo.SendTransacEmailRequest;
+    await performTemplateSubstitution({templateName: EmailTemplateName.RAMBLERS_CAMPAIGN,
+      body: EMAIL_COMPOSER_BODY_PLACEHOLDER, htmlContent: body, showTitle: false,
+      params: {messageMergeFields: {BODY_CONTENT: body, BANNER_IMAGE_SOURCE: "https://group.example.org.uk/banner.jpg"},
+        memberMergeFields: {}, systemMergeFields: {APP_URL: "https://group.example.org.uk", APP_SHORTNAME: "Hillside Walking"}, accountMergeFields: {}} as any
+    }, output, debug("test:event-preview"));
+    expect(output.htmlContent).toContain("Hillside Park");
+    expect(output.htmlContent).toContain("email-body");
+    expect(output.htmlContent).toContain("Helvetica, Arial, sans-serif");
+    expect(output.htmlContent).toContain("600");
+    expect(output.htmlContent).toContain("#c05711");
+    expect(output.htmlContent).toContain('href="https://group.example.org.uk"');
+    expect(output.htmlContent).not.toContain("{{ mirror }}");
+  });
+
   describe("normaliseEmailContentUrls", () => {
 
     it("replaces local development origins throughout outgoing email content", () => {
@@ -319,6 +336,13 @@ describe("brevo messages", () => {
       const result = renderBrandedTemplate(template, paramsFor(passwordResetLink));
       expect(result).toContain(`href="${passwordResetLink}"`);
       expect(result).not.toContain("{{params.systemMergeFields.PW_RESET_LINK}}");
+      expect(result).toContain(`href="https://example.org.uk"`);
+      expect(result).not.toContain("{{ mirror }}");
+    });
+
+    it("leaves the campaign mirror placeholder for Brevo to replace when sending a campaign", () => {
+      const template = `<p>To reset your password, click <a href="{{params.systemMergeFields.PW_RESET_LINK}}" target="_blank">Reset Your Password</a>.</p>`;
+      const result = renderBrandedTemplate(template, paramsFor("https://example.org.uk/admin/set-password/abc-def-123"), undefined, true);
       expect(result).toContain(`href="{{ mirror }}"`);
     });
 

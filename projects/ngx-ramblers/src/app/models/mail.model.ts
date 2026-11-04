@@ -12,9 +12,9 @@ import { kebabCase } from "es-toolkit/compat";
 
 export enum MailSettingsTab {
   EMAIL_CONFIGURATIONS = "Email Configurations",
+  EVENT_TEMPLATES = "Event Templates",
   BUILT_IN_PROCESS_MAPPINGS = "Built-in Processes",
   MAIL_LIST_SETTINGS = "Lists",
-  MAIL_PROVIDER = "Provider",
   GMAIL_INBOX = "Inbox",
   SENDERS = "Senders",
   DOMAINS = "Domains",
@@ -26,7 +26,8 @@ export const MAIL_SETTINGS_TAB_REDIRECTS: Record<string, string> = {
   "built-in-process-mappings": kebabCase(MailSettingsTab.BUILT_IN_PROCESS_MAPPINGS),
   "mail-api-settings": kebabCase(MailSettingsTab.MAIL_API_SETTINGS),
   "mail-list-settings": kebabCase(MailSettingsTab.MAIL_LIST_SETTINGS),
-  "notifications": kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS)
+  "notifications": kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS),
+  "provider": kebabCase(MailSettingsTab.EMAIL_CONFIGURATIONS)
 };
 
 export const COMMITTEE_ROLE_CAMPAIGN_EXCLUSION_LIST_NAME = "NGX committee role-address campaign exclusion";

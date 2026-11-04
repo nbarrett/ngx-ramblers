@@ -88,8 +88,15 @@
 :host ::ng-deep .p-stepper .p-steplist .p-stepper-separator
   display: none
 
-.email-composer-step-title
+.email-composer-step-title-row
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  gap: 0.75rem
   margin: var(--space-3, 12px) 0
+
+.email-composer-step-title
+  margin: 0
   font-size: 1.25rem
   font-weight: 600
   color: #1f2933

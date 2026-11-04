@@ -26,6 +26,10 @@ describe("GoogleMapsService", () => {
     http.verify();
   });
 
+  it("percent-encodes a postcode in the maps query", () => {
+    expect(service.urlForPostcode("RG9 4HD")).toBe("https://maps.google.co.uk/maps?q=RG9%204HD");
+  });
+
   it("builds a driving directions embed, not a place pin", () => {
     const url = String(service.directionsEmbedUrl("AA11 1AA", "BB22 2BB"));
     expect(url).toContain("maps/embed/v1/directions");

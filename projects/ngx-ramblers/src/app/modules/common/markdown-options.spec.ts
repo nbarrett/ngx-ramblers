@@ -10,4 +10,9 @@ describe("website Markdown image rendering", () => {
     expect(html).toContain(`src="/api/aws/s3/logos/group.png"`);
     expect(markdown).not.toContain("api/aws/s3/");
   });
+
+  it("renders a postcode map link whose query is percent-encoded", () => {
+    const html = marked.parse("[RG9 4HD](https://maps.google.co.uk/maps?q=RG9%204HD)", {...markdownOptions(), async: false}) as string;
+    expect(html).toContain("<a href=\"https://maps.google.co.uk/maps?q=RG9%204HD\">RG9 4HD</a>");
+  });
 });

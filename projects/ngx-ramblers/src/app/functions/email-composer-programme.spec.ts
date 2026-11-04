@@ -52,6 +52,46 @@ describe("editable event programme", () => {
     expect(html).toContain("A second paragraph");
   });
 
+  it("substitutes end time, grade, ascent, shape, map, contact parts and event page", () => {
+    const event = {
+      ...first,
+      eventEndTime: "4:00 pm",
+      grade: "Moderate",
+      ascent: "450 ft / 137 m",
+      shape: "Circular",
+      eventUrl: "https://group.example.org.uk/walks/hillside-park",
+      contactHref: "mailto:alex.reed@example.com"
+    } as GroupEventSummary;
+    const custom = {
+      ...settings(ProgrammeEventFormat.CUSTOM),
+      customTemplate: "{{time}} – {{end-time}} · {{grade}} · {{ascent}} · {{shape}}\n\n{{map}}\n\n{{contact-name}} · {{contact-phone}} · {{contact-email}}\n\n{{event-url}}"
+    };
+    const markdown = programmeMarkdown([event], custom, null, dateLabel);
+    expect(markdown).toContain("10:30 – 4:00 pm · Moderate · 450 ft / 137 m · Circular");
+    expect(markdown).toContain("[Map](https://group.example.org.uk/locate?grid-ref=SU123456&lat=51.0000000&lon=-1.0000000)");
+    expect(markdown).toContain("Alex Reed · 01234 567890 · [alex.reed@example.com](mailto:alex.reed@example.com)");
+    expect(markdown).toContain("[Event page](https://group.example.org.uk/walks/hillside-park)");
+  });
+
+  it("keeps a chosen image height in the design token and still substitutes the image", () => {
+    const event = {...first, image: "site-content/walk.jpg"} as GroupEventSummary;
+    const custom = {
+      ...settings(ProgrammeEventFormat.CUSTOM),
+      customTemplate: "## {{title}}\n\n{{image:160}}"
+    };
+    const markdown = programmeMarkdown([event], custom, {includeImage: true} as GroupEventsFilter, dateLabel);
+    expect(markdown).toContain("![Hillside Park](");
+    expect(markdown).not.toContain("{{image");
+  });
+
+  it("drops missing contact parts when the format joins name, phone and email in the designer", () => {
+    const event = {...first, contactPhone: null, contactEmail: null} as GroupEventSummary;
+    const markdown = programmeMarkdown([event], settings(ProgrammeEventFormat.DETAILED), null, dateLabel);
+    expect(markdown).toContain("Alex Reed");
+    expect(markdown).not.toContain("Alex Reed ·");
+    expect(markdown).not.toContain("{{contact");
+  });
+
   it("supports per-event formats and a configurable event template", () => {
     const custom = {...settings(ProgrammeEventFormat.COMPACT), customTemplate: "## {{title}}\n\n{{grid-reference}}\n\n{{description}}",
       eventFormats: {[second.id]: ProgrammeEventFormat.CUSTOM}};

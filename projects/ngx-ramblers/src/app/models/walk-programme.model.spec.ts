@@ -1,5 +1,6 @@
 import { LinkSource } from "./walk.model";
-import { displayedWalkProgrammeStatus, ProgrammeOverviewStatus, walkIsMemberFacing, walkNeedsLeader } from "./walk-programme.model";
+import { RamblersEventType } from "./ramblers-walks-manager";
+import { displayedWalkProgrammeStatus, ProgrammeOverviewStatus, walkIsMemberFacing, walkNeedsLeader, walkProgrammeSummaryFromDisplayedWalk } from "./walk-programme.model";
 
 describe("displayedWalkProgrammeStatus", () => {
   it("treats a Ramblers id and group walk URL as published without a publication event", () => {
@@ -56,6 +57,15 @@ describe("displayedWalkProgrammeStatus", () => {
     expect(status).toBe(ProgrammeOverviewStatus.PUBLISHED);
   });
 
+  it("does not put group events through the walk details workflow", () => {
+    const status = displayedWalkProgrammeStatus({
+      groupEvent: {title: "PVR AGM", item_type: RamblersEventType.GROUP_EVENT},
+      fields: {links: [], publishing: {ramblers: {publish: false}}}
+    } as any, ProgrammeOverviewStatus.AWAITING_WALK_DETAILS);
+
+    expect(status).toBe(ProgrammeOverviewStatus.ON_WEBSITE);
+  });
+
   it("treats an approved walk that is not for Ramblers as website only", () => {
     const status = displayedWalkProgrammeStatus({
       groupEvent: {title: "Westwell Circular Walk"},
@@ -76,6 +86,40 @@ describe("displayedWalkProgrammeStatus", () => {
     } as any, ProgrammeOverviewStatus.APPROVED);
 
     expect(status).toBe(ProgrammeOverviewStatus.CANCELLED);
+  });
+});
+
+describe("walkProgrammeSummaryFromDisplayedWalk", () => {
+  it("omits grade for group events even when difficulty is stored", () => {
+    const row = walkProgrammeSummaryFromDisplayedWalk({
+      walk: {
+        groupEvent: {
+          item_type: RamblersEventType.GROUP_EVENT,
+          title: "PVR AGM",
+          difficulty: {code: "moderate", description: "Moderate"}
+        }
+      },
+      status: ProgrammeOverviewStatus.ON_WEBSITE
+    } as any);
+
+    expect(row.gradeCode).toBe("");
+    expect(row.gradeDescription).toBe("");
+  });
+
+  it("keeps grade for group walks", () => {
+    const row = walkProgrammeSummaryFromDisplayedWalk({
+      walk: {
+        groupEvent: {
+          item_type: RamblersEventType.GROUP_WALK,
+          title: "Sunday walk",
+          difficulty: {code: "moderate", description: "Moderate"}
+        }
+      },
+      status: ProgrammeOverviewStatus.APPROVED
+    } as any);
+
+    expect(row.gradeCode).toBe("moderate");
+    expect(row.gradeDescription).toBe("Moderate");
   });
 });
 

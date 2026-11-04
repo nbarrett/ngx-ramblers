@@ -25,14 +25,14 @@ import { CommitteeReferenceData } from "./committee-reference-data";
 import { MediaQueryService } from "./media-query.service";
 import { EventQueryParameters, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { EventSource, ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
-import { ProgrammeOverviewStatus, walkProgrammeSummaryFromDisplayedWalk } from "../../models/walk-programme.model";
+import { displayedWalkProgrammeStatus, eventHasWalkWorkflow, ProgrammeOverviewStatus, walkProgrammeSummaryFromDisplayedWalk } from "../../models/walk-programme.model";
 import { DisplayedWalk } from "../../models/walk.model";
 import { DateValue } from "../../models/date.model";
 import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { DistanceValidationService } from "../walks/distance-validation.service";
+import { AscentValidationService } from "../walks/ascent-validation.service";
 import { StringUtilsService } from "../string-utils.service";
 import { EventType, GroupEventField } from "../../models/walk.model";
-import { displayedWalkProgrammeStatus } from "../../models/walk-programme.model";
 import { GroupEventService } from "../walks-and-events/group-event.service";
 import { SystemConfigService } from "../system/system-config.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
@@ -60,6 +60,7 @@ export class CommitteeQueryService {
   private displayDatePipe = inject(DisplayDatePipe);
   private displayTimePipe = inject(DisplayTimePipe);
   public distanceValidationService = inject(DistanceValidationService);
+  public ascentValidationService = inject(AscentValidationService);
   private committeeReferenceData: CommitteeReferenceData;
   public committeeMembers: Member[] = [];
   private committeeConfig = inject(CommitteeConfigService);
@@ -115,7 +116,12 @@ export class CommitteeQueryService {
             eventType: this.display.groupEventType(event),
             eventDate: this.dateUtils.asDateTime(event?.groupEvent?.start_date_time).toMillis(),
             eventTime: this.displayTimePipe.transform(event?.groupEvent?.start_date_time),
+            eventEndTime: event?.groupEvent?.end_date_time ? this.displayTimePipe.transform(event.groupEvent.end_date_time) : null,
             distance: this.distanceValidationService.walkDistances(event),
+            grade: eventHasWalkWorkflow(event?.groupEvent?.item_type) ? event?.groupEvent?.difficulty?.description || null : null,
+            ascent: this.walkAscentForSummary(event),
+            shape: event?.groupEvent?.shape || null,
+            eventUrl: event?.groupEvent?.url || null,
             location: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.description,
             postcode: (event.groupEvent.start_location || event.groupEvent.location)?.postcode,
             ...programmeLocation(event.groupEvent.start_location || event.groupEvent.location),
@@ -183,6 +189,13 @@ export class CommitteeQueryService {
       this.logger.info("queried total of", promises.length, "events types containing total of", events.length, "events:", events);
       return events.sort(sortBy(groupEventsFilter.sortBy || "eventDate"));
     });
+  }
+
+  walkAscentForSummary(event: ExtendedGroupEvent): string | null {
+    const feet = this.ascentValidationService.walkAscentFeetAsString(event);
+    const metres = this.ascentValidationService.walkAscentMetresAsString(event);
+    const value = [feet, metres].filter(Boolean).join(" / ");
+    return value || null;
   }
 
   private walkContactFallback(event: ExtendedGroupEvent): string | null {

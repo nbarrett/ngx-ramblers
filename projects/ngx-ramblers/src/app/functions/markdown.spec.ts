@@ -1,4 +1,4 @@
-import { normaliseMarkdownText } from "./markdown";
+import { encodeMarkdownLinkUrls, normaliseMarkdownText } from "./markdown";
 
 describe("markdown", () => {
 
@@ -11,6 +11,11 @@ describe("markdown", () => {
     it("converts html anchors to markdown links", () => {
       expect(normaliseMarkdownText("<p>We meet at the <a href=\"https://thekingsarmselham.com/\">Kings Arms</a></p>"))
         .toBe("We meet at the [Kings Arms](https://thekingsarmselham.com/)");
+    });
+
+    it("encodes spaces in map urls so markdown can render the postcode link", () => {
+      expect(normaliseMarkdownText("<p>Location: Thames Valley <a href=\"https://maps.google.co.uk/maps?q=RG9 4HD\">RG9 4HD</a></p>"))
+        .toBe("Location: Thames Valley [RG9 4HD](https://maps.google.co.uk/maps?q=RG9%204HD)");
     });
 
     it("unescapes previously escaped markdown links in plain text", () => {
@@ -33,6 +38,11 @@ describe("markdown", () => {
         .toBe("meet at the [Kings Arms](https://thekingsarmselham.com/), parking available");
       expect(normaliseMarkdownText("<p>meet at BN21 3EL: <a href=\"https://goo.gl/maps/ksTQtZKn-LYRVQEQ36\">https://goo.gl/maps/ksTQtZKn-LYRVQEQ36</a></p>"))
         .toBe("meet at [BN21 3EL](https://goo.gl/maps/ksTQtZKn-LYRVQEQ36)");
+    });
+
+    it("encodes spaces in existing markdown link destinations", () => {
+      expect(encodeMarkdownLinkUrls("Thames Valley[RG9 4HD](https://maps.google.co.uk/maps?q=RG9 4HD)"))
+        .toBe("Thames Valley[RG9 4HD](https://maps.google.co.uk/maps?q=RG9%204HD)");
     });
 
     it("returns null for empty values and passes through non-strings", () => {

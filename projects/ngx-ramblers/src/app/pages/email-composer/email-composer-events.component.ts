@@ -88,7 +88,7 @@ import {EmailComposerProgrammeService} from "../../services/email-composer/email
       <div class="row mb-3">
         <div class="col-sm-4">
           <label for="date-range-preset">Quick range:</label>
-          <ng-select id="date-range-preset"
+          <ng-select dropdownPosition="bottom" id="date-range-preset"
                      [items]="events.dateRangePresetItems"
                      bindLabel="label"
                      [clearable]="false"
@@ -176,14 +176,18 @@ import {EmailComposerProgrammeService} from "../../services/email-composer/email
           @if (session.state.groupEvents.length > 0) {
             <div class="form-check mb-2">
               <input class="form-check-input" type="checkbox" id="select-all"
-                     [(ngModel)]="session.state.groupEventsFilter!.selectAll"
-                     (click)="toggleSelectAllGroupEvents()">
+                     [checked]="allGroupEventsSelected()"
+                     [indeterminate]="someGroupEventsSelected()"
+                     (change)="toggleSelectAllGroupEvents()">
               <label class="form-check-label" for="select-all">
                 <strong>Select / deselect all</strong> -
                 {{ selectedGroupEventCount() }} of
                 {{ stringUtils.pluraliseWithCount(session.state.groupEvents.length, "event") }}
               </label>
             </div>
+            @if (events.autoIncludesReadyEventsOnly()) {
+              <p class="text-muted small mb-2">Published and approved events are ticked automatically. Incomplete dates, empty slots and events still awaiting details are left off so they do not go in the email. Tick any extra events you want, or use Select all for the whole range.</p>
+            }
             <div class="walk-rows">
               @for (event of session.state.groupEvents; track event.id) {
                 @if (event.programmeRow) {
@@ -257,10 +261,19 @@ export class EmailComposerEventsComponent {
     return this.session.state.groupEvents.filter(event => event.selected).length;
   }
 
+  protected allGroupEventsSelected(): boolean {
+    return this.session.state.groupEvents.length > 0 && this.selectedGroupEventCount() === this.session.state.groupEvents.length;
+  }
+
+  protected someGroupEventsSelected(): boolean {
+    const selected = this.selectedGroupEventCount();
+    return selected > 0 && selected < this.session.state.groupEvents.length;
+  }
+
   protected toggleSelectAllGroupEvents(): void {
     const filter = this.session.state.groupEventsFilter;
     if (filter) {
-      filter.selectAll = !filter.selectAll;
+      filter.selectAll = !this.allGroupEventsSelected();
       this.session.state.groupEvents.forEach(event => event.selected = filter.selectAll);
       this.events.onGroupEventSelectionChanged();
     }

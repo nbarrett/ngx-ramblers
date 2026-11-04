@@ -53,6 +53,14 @@ describe("composerIncludesEvent", () => {
     expect(composerIncludesEvent({
       ramblersEventType: RamblersEventType.GROUP_EVENT
     }, true, NewsletterIntroPurpose.UPCOMING_EVENTS)).toBe(true);
+    expect(composerIncludesEvent({
+      programmeStatus: ProgrammeOverviewStatus.AWAITING_WALK_DETAILS,
+      ramblersEventType: RamblersEventType.GROUP_EVENT
+    }, true, NewsletterIntroPurpose.UPCOMING_EVENTS)).toBe(false);
+    expect(composerIncludesEvent({
+      programmeStatus: ProgrammeOverviewStatus.PUBLISHED,
+      ramblersEventType: RamblersEventType.GROUP_EVENT
+    }, true, NewsletterIntroPurpose.UPCOMING_EVENTS)).toBe(true);
   });
 
   it("keeps awaiting walks when the flag is off or the purpose is a leader request", () => {

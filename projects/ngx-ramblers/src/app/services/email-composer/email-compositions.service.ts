@@ -186,6 +186,7 @@ export class EmailCompositionsService {
       groupEventsFilter: filter,
       groupEvents: [],
       programme: state.programme ? {
+        templateId: state.programme.templateId ?? null,
         format: state.programme.format,
         customTemplate: state.programme.customTemplate,
         eventFormats: {...state.programme.eventFormats},
