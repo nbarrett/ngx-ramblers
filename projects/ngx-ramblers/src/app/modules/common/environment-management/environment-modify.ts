@@ -30,6 +30,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 import { SessionLogsComponent } from "../../../shared/components/session-logs";
 import { EnvironmentHostnames } from "./environment-hostnames";
 import { environmentOperationErrorDetail } from "./environment-operation-error";
+import { mailDomainSettingsUrl } from "../../../functions/brevo-domain-dns";
 import { PlatformSendControl } from "../../../models/mail.model";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 
@@ -208,12 +209,15 @@ export function modifyOptionsFromStatus(envStatus: EnvironmentStatus | null): En
               <fa-icon [icon]="faExclamationTriangle" class="me-2 mt-1"></fa-icon>
               <div>
                 <strong>Completed with {{ stringUtils.pluraliseWithCount(setupWarnings.length, "step") }} needing attention</strong>
-                <p class="mb-1 mt-2">The environment is usable. Finish these later (for Brevo domain auth, the Brevo UI is often required).</p>
+                <p class="mb-1 mt-2">The environment is usable. Review the remaining steps before completing setup.</p>
                 <ul class="mb-0">
                   @for (warning of setupWarnings; track warning) {
                     <li>{{ warning }}</li>
                   }
                 </ul>
+                @if (mailDnsSettingsUrl) {
+                  <a [href]="mailDnsSettingsUrl" target="_blank" rel="noopener" class="d-inline-block mt-2">Admin → Mail Settings → Domains</a>
+                }
               </div>
             </div>
           </div>
@@ -253,6 +257,7 @@ export class EnvironmentModify implements OnInit, OnChanges, OnDestroy {
   setupResult: EnvironmentAppResult | null = null;
   setupError: string | null = null;
   setupWarnings: string[] = [];
+  mailDnsSettingsUrl: string | null = null;
   passwordResetResult: AdminPasswordResetResult | null = null;
   generatingPasswordReset = false;
   sendControl: PlatformSendControl | null = null;
@@ -342,6 +347,7 @@ export class EnvironmentModify implements OnInit, OnChanges, OnDestroy {
       this.progressMessages = [];
       this.setupError = null;
       this.setupWarnings = [];
+      this.mailDnsSettingsUrl = null;
       this.setupResult = null;
       this.progressMessages.push(`Modifying environment: ${this.environment.name}`);
       try {
@@ -512,6 +518,7 @@ export class EnvironmentModify implements OnInit, OnChanges, OnDestroy {
         if (authResponse.authenticated) {
           this.progressMessages.push(authResponse.message);
         } else {
+          this.mailDnsSettingsUrl = authResponse.hostname ? mailDomainSettingsUrl(authResponse.hostname) : null;
           const warning = authResponse.message
             || "Brevo domain authentication did not complete via API; finish it in the Brevo UI and re-run this step later.";
           this.setupWarnings = [...this.setupWarnings, `Brevo sending domain: ${warning}`];
@@ -532,6 +539,7 @@ export class EnvironmentModify implements OnInit, OnChanges, OnDestroy {
     this.setupResult = null;
     this.setupError = null;
     this.setupWarnings = [];
+    this.mailDnsSettingsUrl = null;
     this.passwordResetResult = null;
   }
 

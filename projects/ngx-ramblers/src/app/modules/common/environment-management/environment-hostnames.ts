@@ -130,6 +130,7 @@ import { MailMxRecords } from "../../../pages/admin/system-settings/mail/mail-mx
           <app-mail-mx-records
             [domain]="mxStatus.subdomain"
             [status]="mxStatus"
+            [domainSettingsUrl]="hostnameHealthReport.emailRouting.mailSettingsUrl"
             [loading]="loadingHostnameHealth"/>
           @if (environment && mxStatus.extraRecords?.length) {
             <div class="mb-3">

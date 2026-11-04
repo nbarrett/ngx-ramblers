@@ -1,9 +1,18 @@
+import sinon from "sinon";
+import * as cloudflareDns from "../cloudflare/cloudflare-dns";
+import * as publicDns from "../shared/dns-nameservers";
+import * as routing from "../cloudflare/cloudflare-email-routing";
+import * as tokens from "../cloudflare/cloudflare-api-token";
+import { DnsRecordType } from "../cloudflare/cloudflare.model";
+import { MailDnsLookupStatus } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
+import { CLOUDFLARE_INBOUND_MX } from "../../../projects/ngx-ramblers/src/app/functions/mx-record-status";
 import expect from "expect";
-import { describe, it } from "mocha";
+import { afterEach, describe, it } from "mocha";
 import {
   annotateOptionalEnvironmentSubdomain,
   annotateOptionalPairHost,
   classifyHostnameHealth,
+  emailRoutingStatusFor,
   customDomainEligibilityFromLookup,
   validateRedirectTargets
 } from "./hostname-health";
@@ -13,6 +22,7 @@ import { SiteUrlPreference } from "../../../projects/ngx-ramblers/src/app/models
 import {
   DnsProvider,
   HostnameHealth,
+  HostnameEmailRoutingHealth,
   HostnameOrigin,
   HostnameStatus
 } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
@@ -303,5 +313,70 @@ describe("hostname-health", () => {
       expect(eligibility.dnsProvider).toEqual(DnsProvider.UNKNOWN);
       expect(eligibility.message).toContain("Public nameservers could not be determined");
     });
+  });
+});
+
+describe("incoming mail hostname diagnostics", () => {
+  const sandbox = sinon.createSandbox();
+  afterEach(() => sandbox.restore());
+
+  it("checks the site's mail subdomain and prevents readiness when delegation conflicts with MX", async () => {
+    const hostname = "group.example.org.uk";
+    sandbox.stub(cloudflareDns, "zoneForHostname").resolves({id: "zone-id", name: "example.org.uk", status: "active"});
+    const records = sandbox.stub(cloudflareDns, "listDnsRecords");
+    records.withArgs(sinon.match.any, hostname, DnsRecordType.MX).resolves(CLOUDFLARE_INBOUND_MX.map((record, index) => ({...record, id: `mx-${index}`, name: hostname, type: DnsRecordType.MX})));
+    records.withArgs(sinon.match.any, hostname, DnsRecordType.NS).resolves([{id: "ns-1", name: hostname, type: DnsRecordType.NS, content: "ns1.mail-provider.example.com"}]);
+    sandbox.stub(publicDns, "publicMailExchanges").resolves([{resolver: "1.1.1.1", status: MailDnsLookupStatus.FAILED, exchanges: [], error: "ESERVFAIL"}]);
+    sandbox.stub(routing, "getEmailRoutingSettings").resolves({enabled: true});
+    const result = await emailRoutingStatusFor("test-token", "account-id", hostname, "");
+    expect(result.mxRecordStatus.subdomain).toBe(hostname);
+    expect(result.cloudflareMx).toBe(true);
+    expect(result.inboundReady).toBe(false);
+    expect(result.repairable).toBe(false);
+    expect(result.health).toBe(HostnameEmailRoutingHealth.DNS_ERROR);
+  });
+
+  it("reports a routing permission error without trying to repair credentials during a health check", async () => {
+    sandbox.stub(cloudflareDns, "zoneForHostname").resolves({id: "zone-id", name: "example.org.uk", status: "active"});
+    sandbox.stub(cloudflareDns, "listDnsRecords").resolves([]);
+    sandbox.stub(publicDns, "publicMailExchanges").resolves([]);
+    sandbox.stub(routing, "getEmailRoutingSettings").rejects(new Error("Permission denied"));
+    const repair = sandbox.spy(tokens, "ensureCloudflareTokenCanManageEmailRouting");
+    const result = await emailRoutingStatusFor("test-token", "account-id", "example.org.uk", "");
+    expect(result.health).toBe(HostnameEmailRoutingHealth.API_DENIED);
+    expect(result.message).toContain("Incoming mail for example.org.uk");
+    expect(result.message).toContain("Permission denied");
+    expect(repair.called).toBe(false);
+  });
+
+  it("names the mail subdomain in extra MX diagnostics, not the Cloudflare zone", async () => {
+    const hostname = "group.example.org.uk";
+    sandbox.stub(cloudflareDns, "zoneForHostname").resolves({id: "zone-id", name: "example.org.uk", status: "active"});
+    const records = sandbox.stub(cloudflareDns, "listDnsRecords");
+    records.callsFake((_config, name, type) => type === DnsRecordType.MX && name === hostname
+      ? Promise.resolve([{id: "mx-old", name: hostname, type: DnsRecordType.MX, content: "inbound.mail-provider.example.com"}])
+      : Promise.resolve([]));
+    sandbox.stub(publicDns, "publicMailExchanges").resolves([]);
+    sandbox.stub(routing, "getEmailRoutingSettings").resolves({enabled: true});
+    const result = await emailRoutingStatusFor("test-token", "account-id", hostname, "");
+    expect(result.health).toBe(HostnameEmailRoutingHealth.MX_MISSING);
+    expect(result.message).toContain("Incoming mail for group.example.org.uk");
+    expect(result.message).toContain("inbound.mail-provider.example.com");
+    expect(result.message.includes("Incoming mail for example.org.uk is still")).toBe(false);
+  });
+
+  it("names the mail subdomain when incoming mail is ready", async () => {
+    const hostname = "group.example.org.uk";
+    sandbox.stub(cloudflareDns, "zoneForHostname").resolves({id: "zone-id", name: "example.org.uk", status: "active"});
+    const records = sandbox.stub(cloudflareDns, "listDnsRecords");
+    records.callsFake((_config, name, type) => type === DnsRecordType.MX && name === hostname
+      ? Promise.resolve(CLOUDFLARE_INBOUND_MX.map((record, index) => ({...record, id: `mx-${index}`, name: hostname, type: DnsRecordType.MX})))
+      : Promise.resolve([]));
+    sandbox.stub(publicDns, "publicMailExchanges").resolves([]);
+    sandbox.stub(routing, "getEmailRoutingSettings").resolves({enabled: true});
+    const result = await emailRoutingStatusFor("test-token", "account-id", hostname, "");
+    expect(result.inboundReady).toBe(true);
+    expect(result.health).toBe(HostnameEmailRoutingHealth.READY);
+    expect(result.message).toBe("Incoming mail for group.example.org.uk is accepted by Cloudflare Email Routing.");
   });
 });

@@ -14,7 +14,8 @@ import {
 } from "./cloudflare-email-routing";
 import { createDnsRecord, deleteDnsRecord, listDnsRecords, zoneForHostname } from "./cloudflare-dns";
 import { DnsRecordType } from "./cloudflare.model";
-import { buildMxRecordStatus, CLOUDFLARE_INBOUND_MX } from "../../../projects/ngx-ramblers/src/app/functions/mx-record-status";
+import { checkedMxRecordStatus } from "./mail-dns-health";
+import { CLOUDFLARE_INBOUND_MX } from "../../../projects/ngx-ramblers/src/app/functions/mx-record-status";
 import {
   ensureEmailAuthRecords,
   stripLeftoverSpfIncludes,
@@ -609,7 +610,7 @@ export async function getMxRecords(req: Request, res: Response): Promise<void> {
     throw new HttpError(400, `No Cloudflare zone found for ${subdomain}. Add the zone in Cloudflare first.`);
   }
   const existingRecords = await listDnsRecords({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, subdomain, DnsRecordType.MX);
-  res.json({request: {messageType}, response: buildMxRecordStatus(subdomain, existingRecords)});
+  res.json({request: {messageType}, response: await checkedMxRecordStatus({apiToken: cloudflareConfig.apiToken, zoneId: zone.id}, subdomain, zone, existingRecords)});
 }
 
 export async function postMxRecords(req: Request, res: Response): Promise<void> {
@@ -634,7 +635,7 @@ export async function postMxRecords(req: Request, res: Response): Promise<void> 
   }
 
   const updatedRecords = await listDnsRecords(dnsConfig, subdomain, DnsRecordType.MX);
-  res.json({request: {messageType}, response: buildMxRecordStatus(subdomain, updatedRecords)});
+  res.json({request: {messageType}, response: await checkedMxRecordStatus(dnsConfig, subdomain, zone, updatedRecords)});
 }
 
 export async function deleteMxRecord(req: Request, res: Response): Promise<void> {
@@ -661,7 +662,7 @@ export async function deleteMxRecord(req: Request, res: Response): Promise<void>
   }
   await deleteDnsRecord(dnsConfig, recordId);
   const updatedRecords = await listDnsRecords(dnsConfig, subdomain, DnsRecordType.MX);
-  res.json({request: {messageType}, response: buildMxRecordStatus(subdomain, updatedRecords)});
+  res.json({request: {messageType}, response: await checkedMxRecordStatus(dnsConfig, subdomain, zone, updatedRecords)});
 }
 
 export async function getAuthRecords(req: Request, res: Response): Promise<void> {

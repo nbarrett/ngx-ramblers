@@ -97,3 +97,50 @@ describe("inbox provider switch controls", () => {
     expect(apply).not.toHaveBeenCalled();
   });
 });
+
+describe("Direct to inbox DNS checks", () => {
+  it("checks shared-zone subdomain DNS without querying a local catch-all", async () => {
+    const status = {subdomain: "group.example.org.uk", allPresent: true, dnsHealth: {healthy: false}};
+    const queryMxRecordStatus = vi.fn().mockResolvedValue(status);
+    const queryCatchAllRule = vi.fn();
+    const queryInboxRouterHealth = vi.fn();
+    const component = Object.assign(Object.create(SystemGmailInboxSettingsComponent.prototype), {
+      cloudflareConfig: {configured: true, ownsZone: false},
+      cloudflareEmailRoutingService: {queryMxRecordStatus, queryCatchAllRule, queryInboxRouterHealth}
+    });
+    await component.loadDirectInboxChecks();
+    expect(component.mxRecordStatus).toBe(status);
+    expect(component.directInboxChecksLoading).toBe(false);
+    expect(queryCatchAllRule).not.toHaveBeenCalled();
+    expect(queryInboxRouterHealth).not.toHaveBeenCalled();
+  });
+
+  it("clears an earlier healthy result when a re-check cannot read DNS", async () => {
+    const component = Object.assign(Object.create(SystemGmailInboxSettingsComponent.prototype), {
+      mxRecordStatus: {subdomain: "group.example.org.uk", allPresent: true},
+      cloudflareConfig: {configured: true, ownsZone: false},
+      cloudflareEmailRoutingService: {queryMxRecordStatus: vi.fn().mockRejectedValue(new Error("DNS records unavailable"))},
+      logger: {warn: vi.fn()}
+    });
+    await component.loadDirectInboxChecks();
+    expect(component.mxRecordStatus).toBeNull();
+    expect(component.directInboxChecksError).toBe("DNS records unavailable");
+    expect(component.directInboxChecksLoading).toBe(false);
+  });
+});
+
+describe("inbox mail DNS summary", () => {
+  it("flags a DNS fault even when all Cloudflare MX records are present", () => {
+    const component = Object.assign(Object.create(SystemGmailInboxSettingsComponent.prototype), {
+      mxRecordStatus: {allPresent: true, extraRecords: [], dnsHealth: {healthy: false}}
+    });
+    expect(component.mailDnsNeedsAttention()).toBe(true);
+  });
+
+  it("does not show an issue when DNS checks pass", () => {
+    const component = Object.assign(Object.create(SystemGmailInboxSettingsComponent.prototype), {
+      mxRecordStatus: {allPresent: true, extraRecords: [], dnsHealth: {healthy: true}}
+    });
+    expect(component.mailDnsNeedsAttention()).toBe(false);
+  });
+});

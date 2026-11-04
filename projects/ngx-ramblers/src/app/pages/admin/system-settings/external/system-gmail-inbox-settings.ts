@@ -50,7 +50,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { StepperModule } from "primeng/stepper";
 import { StoredValue } from "../../../../models/ui-actions";
-import { isUndefined } from "es-toolkit/compat";
+import { isUndefined, kebabCase } from "es-toolkit/compat";
 import { Subject, Subscription } from "rxjs";
 import { InboxVisibilityComponent } from "./inbox-visibility";
 import { SectionToggle } from "../../../../shared/components/section-toggle";
@@ -58,6 +58,7 @@ import { CommitteeConfigService } from "../../../../services/committee/commitee-
 import { CommitteeConfig, CommitteeMember, RoleType } from "../../../../models/committee.model";
 import { debounceTime } from "rxjs/operators";
 import { SystemConfigService } from "../../../../services/system/system-config.service";
+import { MailSettingsTab } from "../../../../models/mail.model";
 import { MemberLoginService } from "../../../../services/member/member-login.service";
 
 
@@ -187,9 +188,19 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
         <div class="col-sm-12">
           <div class="mt-3">
             <h6 class="mb-2"><fa-icon [icon]="faCircleCheck" class="me-2"/>No Gmail setup needed</h6>
+            @if (!directInboxChecksLoading && mailDnsNeedsAttention()) {
+              <div class="alert alert-warning d-flex align-items-start mb-3">
+                <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
+                <div>
+                  <strong class="d-block">Incoming mail needs attention</strong>
+                  <div>Mail DNS checks found an issue or could not complete. Open Domains to review the details and maintenance actions.</div>
+                  <a [routerLink]="'/' + mailSettingsPath" [queryParams]="domainSettingsQueryParams">Admin → Mail Settings → Domains</a>
+                </div>
+              </div>
+            }
             @if (isSharedZoneSubdomain()) {
               <p class="text-muted small mb-2">
-                This site is a subdomain of the <strong>{{ parentZoneName() }}</strong> Cloudflare zone, which it shares with other sites. Direct delivery for this subdomain is provided by that zone's shared inbox router, not by anything you configure here.
+                This site is a subdomain of the <strong>{{ parentZoneName() }}</strong> Cloudflare zone, which it shares with other sites. Direct delivery for this subdomain is provided by that zone's shared inbox router. This subdomain still needs working public mail DNS.
               </p>
               <ol class="text-muted small">
                 <li>On the <strong>{{ parentZoneName() }}</strong> site, in Committee Settings, set the catch-all Action to <strong>Deliver unmatched mail to this site's inbox</strong>.</li>
@@ -209,22 +220,6 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
                 <div class="small text-muted"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Checking routing…</div>
               } @else {
                 <div class="d-flex flex-column gap-2">
-                  <div class="d-flex align-items-start">
-                    <fa-icon class="me-2 mt-1" [icon]="mxRecordsOk() ? faCircleCheck : faCircleExclamation"
-                             [class.text-success]="mxRecordsOk()" [class.text-warning]="!mxRecordsOk()"/>
-                    <div>
-                      <strong>MX records</strong> — {{ mxRecordsCheckDetail() }}
-                      @if (!mxRecordsOk() && mxRecordStatus && !mxRecordStatus.allPresent) {
-                        <button class="btn btn-primary btn-sm mt-2" type="button" [disabled]="mxRecordCreating"
-                                (click)="createMissingMxRecords()">
-                          @if (mxRecordCreating) {
-                            <fa-icon [icon]="faSpinner" animation="spin" class="me-1"/>
-                          }
-                          Add missing MX records
-                        </button>
-                      }
-                    </div>
-                  </div>
                   <div class="d-flex align-items-start">
                     <fa-icon class="me-2 mt-1" [icon]="catchAllDeliversToInbox() ? faCircleCheck : faCircleExclamation"
                              [class.text-success]="catchAllDeliversToInbox()" [class.text-warning]="!catchAllDeliversToInbox()"/>
@@ -536,6 +531,8 @@ import { MemberLoginService } from "../../../../services/member/member-login.ser
   ]
 })
 export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
+  protected readonly mailSettingsPath = AdminPath.MAIL_SETTINGS;
+  protected readonly domainSettingsQueryParams = {[StoredValue.TAB]: kebabCase(MailSettingsTab.DOMAINS)};
   adminInboxPath = AdminPath.INBOX;
   committeeSettingsPath = AdminSettingsPath.COMMITTEE_SETTINGS;
   committeeSettingsQueryParams = committeeMembersSettingsQueryParams();
@@ -576,7 +573,6 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
   protected readonly GmailInboxSetupStepKey = GmailInboxSetupStepKey;
   protected cloudflareConfig: NonSensitiveCloudflareConfig;
   protected mxRecordStatus: MxRecordStatus | null = null;
-  protected mxRecordCreating = false;
   protected catchAllRule: EmailRoutingRule | null = null;
   protected inboxRouterHealth: InboxRouterHealth | null = null;
   protected directInboxChecksLoading = false;
@@ -649,7 +645,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     this.subscriptions.push(this.cloudflareEmailRoutingService.cloudflareConfigNotifications()
       .subscribe(config => {
         this.cloudflareConfig = config;
-        if (this.inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS && config?.ownsZone) {
+        if (this.inboxProvider === InboxReaderProvider.CLOUDFLARE_INGRESS && config?.configured) {
           void this.loadDirectInboxChecks();
         }
       }));
@@ -715,14 +711,16 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     this.directInboxChecksLoading = true;
     this.directInboxChecksError = null;
     try {
-      const [mx, catchAll, health] = await Promise.all([
-        this.cloudflareEmailRoutingService.queryMxRecordStatus(),
-        this.cloudflareEmailRoutingService.queryCatchAllRule(),
-        this.cloudflareEmailRoutingService.queryInboxRouterHealth()
-      ]);
-      this.mxRecordStatus = mx;
-      this.catchAllRule = catchAll;
-      this.inboxRouterHealth = health;
+      this.mxRecordStatus = null;
+      this.mxRecordStatus = await this.cloudflareEmailRoutingService.queryMxRecordStatus();
+      if (this.ownsZoneConfirmed()) {
+        const [catchAll, health] = await Promise.all([
+          this.cloudflareEmailRoutingService.queryCatchAllRule(),
+          this.cloudflareEmailRoutingService.queryInboxRouterHealth()
+        ]);
+        this.catchAllRule = catchAll;
+        this.inboxRouterHealth = health;
+      }
     } catch (err) {
       this.logger.warn("Could not load Direct to inbox checks:", err);
       this.directInboxChecksError = (err as Error)?.message || String(err);
@@ -731,22 +729,9 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
     }
   }
 
-  mxRecordsOk(): boolean {
-    return !!this.mxRecordStatus?.allPresent && (this.mxRecordStatus?.extraRecords?.length || 0) === 0;
-  }
-
-  mxRecordsCheckDetail(): string {
-    if (this.directInboxChecksError && !this.mxRecordStatus) {
-      return this.directInboxChecksError;
-    } else if (!this.mxRecordStatus) {
-      return "Not checked yet.";
-    } else if (this.mxRecordsOk()) {
-      return `Cloudflare Email Routing MX records for ${this.mxRecordStatus.subdomain} are in place.`;
-    } else if (!this.mxRecordStatus.allPresent) {
-      return `Missing Cloudflare Email Routing MX records for ${this.mxRecordStatus.subdomain}.`;
-    } else {
-      return `Conflicting MX records on ${this.mxRecordStatus.subdomain} will block inbound mail.`;
-    }
+  mailDnsNeedsAttention(): boolean {
+    return !!this.directInboxChecksError || !this.mxRecordStatus?.allPresent
+      || !!this.mxRecordStatus?.extraRecords?.length || this.mxRecordStatus?.dnsHealth?.healthy === false;
   }
 
   catchAllDeliversToInbox(): boolean {
@@ -778,18 +763,6 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
       return "Cloudflare accepted mail that this site did not store. Redeploy the inbox router on Committee Settings.";
     } else {
       return "Recent inbound mail from the router is being stored.";
-    }
-  }
-
-  async createMissingMxRecords(): Promise<void> {
-    this.mxRecordCreating = true;
-    try {
-      this.mxRecordStatus = await this.cloudflareEmailRoutingService.createMissingMxRecords();
-    } catch (err) {
-      this.logger.error("Failed to create MX records:", err);
-      this.directInboxChecksError = (err as Error)?.message || String(err);
-    } finally {
-      this.mxRecordCreating = false;
     }
   }
 
@@ -976,7 +949,7 @@ export class SystemGmailInboxSettingsComponent implements OnInit, OnDestroy {
         await this.systemConfigService.refresh();
         await this.refreshProviderSwitchStatus();
         this.pendingProvider = null;
-        if (provider === InboxReaderProvider.CLOUDFLARE_INGRESS && this.ownsZoneConfirmed()) {
+        if (provider === InboxReaderProvider.CLOUDFLARE_INGRESS && this.cloudflareConfig?.configured) {
           void this.loadDirectInboxChecks();
         }
       } catch (error) {

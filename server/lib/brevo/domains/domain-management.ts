@@ -2,9 +2,11 @@ import debug from "debug";
 import { envConfig } from "../../env-config/env-config";
 import { brevoClient } from "../brevo-config";
 import { logBrevoError } from "../common/error-log";
-import { Brevo, BrevoClient, BrevoError } from "@getbrevo/brevo";
+import { BrevoClient, BrevoError } from "@getbrevo/brevo";
 import {
   BrevoDnsRecord,
+  BrevoDnsRecordResponse,
+  BrevoDomainDnsRecordsResponse,
   BrevoDomainConfiguration,
   BrevoDomainDnsRecords,
   BrevoDomainInfo,
@@ -22,7 +24,7 @@ async function domainsApi(client?: BrevoClient) {
   return resolved.domains;
 }
 
-function mapDnsRecord(record: { type: string; host_name: string; value: string; status: boolean } | null | undefined): BrevoDnsRecord {
+function mapDnsRecord(record: BrevoDnsRecordResponse | null): BrevoDnsRecord {
   if (!record) {
     return EMPTY_DNS_RECORD;
   }
@@ -34,9 +36,11 @@ function mapDnsRecord(record: { type: string; host_name: string; value: string; 
   };
 }
 
-function mapDnsRecords(records: Brevo.CreateDomainResponse.DnsRecords | Brevo.GetDomainConfigurationResponse.DnsRecords | undefined): BrevoDomainDnsRecords {
+function mapDnsRecords(records: BrevoDomainDnsRecordsResponse | null): BrevoDomainDnsRecords {
   return {
     dkimRecord: mapDnsRecord(records?.dkim_record),
+    dkim1Record: mapDnsRecord(records?.dkim1Record),
+    dkim2Record: mapDnsRecord(records?.dkim2Record),
     brevoCode: mapDnsRecord(records?.brevo_code)
   };
 }

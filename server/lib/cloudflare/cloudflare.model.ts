@@ -36,6 +36,7 @@ export enum DnsRecordType {
   CNAME = "CNAME",
   TXT = "TXT",
   MX = "MX",
+  NS = "NS",
 }
 
 export const REDIRECT_PLACEHOLDER_IPV4 = "192.0.2.1";

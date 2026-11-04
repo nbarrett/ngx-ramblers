@@ -1718,8 +1718,24 @@ export interface BrevoDnsRecord {
   status: boolean;
 }
 
+export interface BrevoDnsRecordResponse {
+  type: string;
+  host_name: string;
+  value: string;
+  status: boolean;
+}
+
+export interface BrevoDomainDnsRecordsResponse {
+  dkim_record?: BrevoDnsRecordResponse;
+  dkim1Record?: BrevoDnsRecordResponse;
+  dkim2Record?: BrevoDnsRecordResponse;
+  brevo_code?: BrevoDnsRecordResponse;
+}
+
 export interface BrevoDomainDnsRecords {
   dkimRecord: BrevoDnsRecord;
+  dkim1Record?: BrevoDnsRecord;
+  dkim2Record?: BrevoDnsRecord;
   brevoCode: BrevoDnsRecord;
 }
 

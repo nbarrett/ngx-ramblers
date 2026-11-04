@@ -1,4 +1,5 @@
-import dns from "dns/promises";
+import dns, { Resolver } from "dns/promises";
+import { MailDnsLookup, MailDnsLookupStatus } from "../../../projects/ngx-ramblers/src/app/models/cloudflare-email-routing.model";
 import { candidateZoneNames } from "../cloudflare/cloudflare-dns";
 
 const PUBLIC_SUFFIXES = new Set(["org.uk", "co.uk", "ac.uk", "gov.uk", "me.uk", "com", "org", "net", "uk"]);
@@ -62,4 +63,30 @@ async function publicAaaa(hostname: string): Promise<{ type: string; content: st
   } catch {
     return null;
   }
+}
+
+export async function publicMailExchanges(hostname: string, expectedExchanges: string[]): Promise<MailDnsLookup[]> {
+  const normalise = (value: string) => value.replace(/\.$/, "").toLowerCase();
+  const expected = expectedExchanges.map(normalise).sort();
+  return Promise.all(["1.1.1.1", "8.8.8.8"].map(async server => {
+    const resolver = new Resolver({timeout: 2500, tries: 1});
+    resolver.setServers([server]);
+    try {
+      const records = await resolver.resolveMx(hostname);
+      const exchanges = records.map(record => normalise(record.exchange)).sort();
+      return {
+        resolver: server,
+        status: exchanges.length > 0 && exchanges.join(",") === expected.join(",") ? MailDnsLookupStatus.MATCHED : MailDnsLookupStatus.DIFFERENT,
+        exchanges,
+        error: null
+      };
+    } catch (error) {
+      return {
+        resolver: server,
+        status: MailDnsLookupStatus.FAILED,
+        exchanges: [],
+        error: (error as NodeJS.ErrnoException).code || (error as Error).message
+      };
+    }
+  }));
 }

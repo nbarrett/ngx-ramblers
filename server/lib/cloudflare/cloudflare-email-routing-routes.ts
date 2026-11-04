@@ -1,6 +1,7 @@
 import express from "express";
 import * as authConfig from "../auth/auth-config";
 import * as controller from "./cloudflare-email-routing-controllers";
+import { removeMailDnsDelegation } from "./mail-dns-maintenance";
 import { asyncRoute } from "../shared/async-route";
 import { requireWorkerInventoryAccess, workerInventory } from "./cloudflare-worker-inventory-controllers";
 
@@ -33,6 +34,8 @@ router.put("/workers/:oldName/rename", authConfig.authenticate(), asyncRoute(mes
 router.get("/inbox-router-health", authConfig.authenticate(), asyncRoute(messageType, controller.getInboxRouterHealth));
 router.post("/logs/email-routing", authConfig.authenticate(), asyncRoute(messageType, controller.postEmailRoutingLogs));
 router.post("/logs/workers", authConfig.authenticate(), asyncRoute(messageType, controller.postWorkerLogs));
+
+router.post("/dns-delegation/remove", authConfig.authenticate(), asyncRoute(messageType, removeMailDnsDelegation));
 
 router.get("/mx-records", authConfig.authenticate(), asyncRoute(messageType, controller.getMxRecords));
 router.post("/mx-records", authConfig.authenticate(), asyncRoute(messageType, controller.postMxRecords));

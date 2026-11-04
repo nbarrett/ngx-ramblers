@@ -257,6 +257,43 @@ export interface MxRecordStatus {
   expectedRecords: MxRecordDetail[];
   existingRecords: MxExistingRecord[];
   extraRecords: MxExistingRecord[];
+  dnsHealth?: MailDnsHealth;
+}
+
+export enum MailDnsLookupStatus {
+  MATCHED = "matched",
+  DIFFERENT = "different",
+  FAILED = "failed"
+}
+
+export interface MailDnsLookup {
+  resolver: string;
+  status: MailDnsLookupStatus;
+  exchanges: string[];
+  error: string | null;
+}
+
+export interface MailDnsDelegation {
+  hostname: string;
+  records: MxExistingRecord[];
+}
+
+export interface MailDnsDelegationRemovalRequest {
+  hostname: string;
+  records: MxExistingRecord[];
+}
+
+export interface MailDnsDelegationRemovalResult {
+  removedRecords: MxExistingRecord[];
+  message: string;
+}
+
+export interface MailDnsHealth {
+  healthy: boolean;
+  checkedAt: number;
+  message: string;
+  delegations: MailDnsDelegation[];
+  lookups: MailDnsLookup[];
 }
 
 export interface MailMxTableRow {

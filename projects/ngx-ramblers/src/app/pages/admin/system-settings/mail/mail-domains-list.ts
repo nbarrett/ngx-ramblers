@@ -5,6 +5,7 @@ import { Subscription } from "rxjs";
 import { Logger, LoggerFactory } from "../../../../services/logger-factory.service";
 import { MailService } from "../../../../services/mail/mail.service";
 import { MailLinkService } from "../../../../services/mail/mail-link.service";
+import { extractErrorMessage } from "../../../../functions/strings";
 import { apexHost } from "../../../../functions/hosts";
 import { CloudflareEmailRoutingService } from "../../../../services/cloudflare/cloudflare-email-routing.service";
 import { MailMessagingService } from "../../../../services/mail/mail-messaging.service";
@@ -14,7 +15,8 @@ import {
   MailAuthNoteTone,
   MailAuthRecordType,
   MailAuthTableRow,
-  MxRecordStatus
+  MxRecordStatus,
+  MailDnsDelegationRemovalRequest
 } from "../../../../models/cloudflare-email-routing.model";
 import { SortableTableComponent } from "../../../../modules/common/sortable-table/sortable-table.component";
 import { SortableTableCellDirective } from "../../../../modules/common/sortable-table/sortable-table-cell.directive";
@@ -35,6 +37,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { BrevoButtonComponent } from "../../../../modules/common/third-parties/brevo-button";
 import { SessionLogsComponent } from "../../../../shared/components/session-logs";
 import { TooltipDirective } from "ngx-bootstrap/tooltip";
+import { MemberLoginService } from "../../../../services/member/member-login.service";
 import { MailMxRecords } from "./mail-mx-records";
 
 @Component({
@@ -104,7 +107,7 @@ import { MailMxRecords } from "./mail-mx-records";
                   <strong>Domain:</strong> {{ baseDomain }}
                   @if (domainStatus) {
                     @if (domainStatus.authenticated && domainStatus.verified) {
-                      <span class="badge bg-success ms-2">Authenticated</span>
+                      <span class="badge bg-success ms-2">Brevo reports authenticated</span>
                     } @else if (domainStatus.authenticated) {
                       <span class="badge bg-warning ms-2">Authenticated (not verified)</span>
                     } @else {
@@ -116,9 +119,14 @@ import { MailMxRecords } from "./mail-mx-records";
                 </div>
                 <app-brevo-button button title="Authenticate Domain"
                                   [loading]="domainAuthenticating"
-                                  [disabled]="domainAuthenticating || (domainStatus?.authenticated && domainStatus?.verified)"
+                                  [disabled]="domainAuthenticating"
                                   (click)="authenticateDomain()"/>
               </div>
+              <p class="small text-muted mt-2 mb-0">
+                NGX configures Brevo's individual signing and verification records in Cloudflare. If you continue setup in Brevo,
+                choose <strong>Individual DNS records</strong>. Keep DNS hosted in Cloudflare for this website and inbox;
+                Brevo-managed setup adds NS delegation and hands control of the whole subdomain to Brevo.
+              </p>
               @if (domainAuthResult) {
                 <div class="alert mt-2 mb-0" [class.alert-success]="domainAuthResult.authenticated" [class.alert-warning]="!domainAuthResult.authenticated">
                   <fa-icon [icon]="domainAuthResult.authenticated ? faCheck : faExclamationTriangle" class="me-2"></fa-icon>
@@ -230,6 +238,11 @@ import { MailMxRecords } from "./mail-mx-records";
             [creating]="mxRecordCreating"
             [deletingId]="mxRecordDeletingId"
             [error]="mxRecordError"
+            [allowMaintenance]="memberLoginService.allowMemberAdminEdits()"
+            [maintenanceBusy]="dnsMaintenanceBusy"
+            [maintenanceMessage]="dnsMaintenanceMessage"
+            (removeDelegation)="removeDelegation($event)"
+            (recheck)="recheckMailDns()"
             allowMutate
             (addMissing)="createMissingMxRecords()"
             (deleteExtra)="deleteExtraMxRecord($event.id)"/>
@@ -247,6 +260,7 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
   protected stringUtilsService = inject(StringUtilsService);
   private mailMessagingService = inject(MailMessagingService);
   private activatedRoute = inject(ActivatedRoute);
+  protected memberLoginService = inject(MemberLoginService);
   private router = inject(Router);
   private subscriptions: Subscription[] = [];
   public baseDomain: string;
@@ -258,6 +272,8 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
   public mxRecordCreating = false;
   public mxRecordDeletingId: string | null = null;
   public mxRecordError: string | null = null;
+  public dnsMaintenanceBusy = false;
+  public dnsMaintenanceMessage: string | null = null;
   public authRecordsStatus: EmailAuthRecordsStatus | null = null;
   public authRecordsLoading = false;
   public authRecordsCreating = false;
@@ -370,6 +386,7 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
     try {
       this.domainAuthResult = await this.mailService.authenticateDomain(this.baseDomain);
       await this.loadDomainStatus();
+      await this.loadMxRecordStatus();
     } catch (error) {
       this.logger.error("Failed to authenticate domain:", error);
       this.stringUtilsService.stringify(error);
@@ -398,6 +415,28 @@ export class MailDomainsListComponent implements OnInit, OnDestroy {
       this.mxRecordError = this.stringUtilsService.stringify(err);
     } finally {
       this.mxRecordLoading = false;
+    }
+  }
+
+  async recheckMailDns(): Promise<void> {
+    await this.loadMxRecordStatus();
+  }
+
+  async removeDelegation(request: MailDnsDelegationRemovalRequest): Promise<void> {
+    this.dnsMaintenanceBusy = true;
+    this.dnsMaintenanceMessage = null;
+    this.mxRecordError = null;
+    try {
+      const result = await this.cloudflareEmailRoutingService.removeMailDnsDelegation(request);
+      this.dnsMaintenanceMessage = result.message;
+    } catch (error) {
+      this.logger.error("Mail DNS maintenance failed:", error);
+      this.mxRecordError = extractErrorMessage(error);
+    } finally {
+      const maintenanceError = this.mxRecordError;
+      await this.loadMxRecordStatus();
+      this.mxRecordError = maintenanceError || this.mxRecordError;
+      this.dnsMaintenanceBusy = false;
     }
   }
 

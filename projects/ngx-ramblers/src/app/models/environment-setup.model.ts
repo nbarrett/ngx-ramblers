@@ -1105,6 +1105,7 @@ export interface HostnameHealthReport {
 }
 
 export enum HostnameEmailRoutingHealth {
+  DNS_ERROR = "dns-error",
   READY = "ready",
   ROUTING_DISABLED = "routing-disabled",
   MX_MISSING = "mx-missing",
