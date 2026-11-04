@@ -18,12 +18,12 @@ import { ScheduledTaskService } from "../../../../services/scheduled-task.servic
       <div class="row g-3 align-items-end">
         <div class="col-md-3">
           <label class="form-label" for="backup-mongo-concurrency">Mongo backups</label>
-          <input id="backup-mongo-concurrency" class="form-control" type="number" min="1" max="5"
+          <input id="backup-mongo-concurrency" class="form-control" type="number" min="1" max="1"
                  [(ngModel)]="settings.mongoDumpConcurrency" [disabled]="busy">
         </div>
         <div class="col-md-3">
           <label class="form-label" for="backup-s3-concurrency">S3 object backups</label>
-          <input id="backup-s3-concurrency" class="form-control" type="number" min="1" max="5"
+          <input id="backup-s3-concurrency" class="form-control" type="number" min="1" max="1"
                  [(ngModel)]="settings.s3ObjectBackupConcurrency" [disabled]="busy">
         </div>
         <div class="col-md-3">
@@ -96,8 +96,8 @@ export class BackupsTaskSettingsComponent {
   private normalisedSettings(): BackupsTaskSettings {
     return {
       ...this.settings,
-      mongoDumpConcurrency: this.bounded(this.settings.mongoDumpConcurrency, DEFAULT_BACKUPS_TASK_SETTINGS.mongoDumpConcurrency, 1, 5),
-      s3ObjectBackupConcurrency: this.bounded(this.settings.s3ObjectBackupConcurrency, DEFAULT_BACKUPS_TASK_SETTINGS.s3ObjectBackupConcurrency, 1, 5),
+      mongoDumpConcurrency: this.bounded(this.settings.mongoDumpConcurrency, DEFAULT_BACKUPS_TASK_SETTINGS.mongoDumpConcurrency, 1, 1),
+      s3ObjectBackupConcurrency: this.bounded(this.settings.s3ObjectBackupConcurrency, DEFAULT_BACKUPS_TASK_SETTINGS.s3ObjectBackupConcurrency, 1, 1),
       perEnvironmentTimeoutMinutes: this.bounded(this.settings.perEnvironmentTimeoutMinutes, DEFAULT_BACKUPS_TASK_SETTINGS.perEnvironmentTimeoutMinutes, 1, 180),
       maxRetries: this.bounded(this.settings.maxRetries, DEFAULT_BACKUPS_TASK_SETTINGS.maxRetries, 0, 5),
       retryDelaySeconds: this.bounded(this.settings.retryDelaySeconds, DEFAULT_BACKUPS_TASK_SETTINGS.retryDelaySeconds, 1, 3600)

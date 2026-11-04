@@ -163,26 +163,32 @@ async function manifestWithEntries(config: SiteConfig, manifest: S3BackupManifes
   return { ...manifest, entries };
 }
 
+async function listObjectPage(s3: S3Client, bucket: string, token: string | undefined, prefix?: string): Promise<{ items: S3ObjectInfo[]; nextToken: string | null }> {
+  const params: any = { Bucket: bucket, MaxKeys: 200, ContinuationToken: token };
+  if (prefix) {
+    params.Prefix = prefix;
+  }
+  const resp = await s3.send(new ListObjectsV2Command(params));
+  const items = (resp.Contents || [])
+    .filter(obj => obj.Key && !obj.Key.endsWith("/"))
+    .map(obj => ({
+      key: obj.Key!,
+      eTag: (obj.ETag || "").replace(/"/g, ""),
+      size: obj.Size || 0,
+      lastModified: obj.LastModified ? obj.LastModified.toISOString() : ""
+    }));
+  return { items, nextToken: resp.IsTruncated ? resp.NextContinuationToken || null : null };
+}
+
 async function listAllObjects(s3: S3Client, bucket: string, prefix?: string): Promise<S3ObjectInfo[]> {
   const collectPage = async (acc: S3ObjectInfo[], token: string | undefined): Promise<S3ObjectInfo[]> => {
-    const params: any = { Bucket: bucket, MaxKeys: 1000, ContinuationToken: token };
-    if (prefix) {
-      params.Prefix = prefix;
+    const page = await listObjectPage(s3, bucket, token, prefix);
+    const updated = [...acc, ...page.items];
+    if (page.nextToken) {
+      return collectPage(updated, page.nextToken);
+    } else {
+      return updated;
     }
-    const resp = await s3.send(new ListObjectsV2Command(params));
-    const pageItems = (resp.Contents || [])
-      .filter(obj => obj.Key && !obj.Key.endsWith("/"))
-      .map(obj => ({
-        key: obj.Key!,
-        eTag: (obj.ETag || "").replace(/"/g, ""),
-        size: obj.Size || 0,
-        lastModified: obj.LastModified ? obj.LastModified.toISOString() : ""
-      }));
-    const updated = [...acc, ...pageItems];
-    if (resp.IsTruncated) {
-      return collectPage(updated, resp.NextContinuationToken);
-    }
-    return updated;
   };
   return collectPage([], undefined);
 }
@@ -421,16 +427,6 @@ async function performIncrementalBackup(
     : new S3Client({ region: config.backupRegion, credentials: config.credentials });
 
   debugLog(`[${config.site}] Listing objects in source bucket ${config.sourceBucket}`);
-  const rawSourceObjects = await listAllObjects(sourceClient, config.sourceBucket);
-  const sourceObjects = rawSourceObjects.filter(object => !isSelfBackupKey(object.key));
-  const excludedCount = rawSourceObjects.length - sourceObjects.length;
-  debugLog(`[${config.site}] Found ${rawSourceObjects.length} raw objects, ${sourceObjects.length} after excluding ${excludedCount} self-backup paths`);
-  if (onProgress) {
-    if (excludedCount > 0) {
-      await onProgress(`S3 backup ${config.site}: excluded ${excludedCount} historical backup files (s3-backups/, database-backups/, <env>/<timestamp>/) from source`);
-    }
-    await onProgress(`S3 backup ${config.site}: discovered ${sourceObjects.length} source objects in ${config.sourceBucket}`);
-  }
   if (config.sourceBucket === config.backupBucket) {
     debugLog(`[${config.site}] WARNING: source bucket and backup bucket are identical (${config.sourceBucket}); relying on self-backup-key filter to prevent recursion`);
     if (onProgress) {
@@ -439,15 +435,12 @@ async function performIncrementalBackup(
   }
 
   const previous = await previousManifest(config);
-  const previousIndex = previous
-    ? buildETagIndex(previous.entries.map(previousEntry => ({
-        key: previousEntry.key,
-        eTag: previousEntry.eTag,
-        size: previousEntry.size,
-        lastModified: previousEntry.lastModified
-      })))
-    : new Map<string, S3ObjectInfo>();
-  debugLog(`[${config.site}] Previous manifest: ${previous ? `${previous.timestamp} with ${previousIndex.size} entries` : "none (first run, full backup)"}`);
+  const previousETags = new Map<string, string>();
+  if (previous) {
+    previous.entries.forEach(entry => previousETags.set(entry.key, entry.eTag));
+    previous.entries = [];
+  }
+  debugLog(`[${config.site}] Previous manifest: ${previous ? `${previous.timestamp} with ${previousETags.size} entries` : "none (first run, full backup)"}`);
 
   const manifestEntries: S3BackupManifestEntry[] = [];
   const state = {
@@ -456,82 +449,91 @@ async function performIncrementalBackup(
     copiedBytes: 0,
     totalBytes: 0,
     lastProgressMs: dateTimeNowAsValue(),
-    processed: 0
+    processed: 0,
+    excluded: 0
   };
-  const effectiveConcurrency = boundedConcurrency(concurrency);
+  const effectiveConcurrency = Math.min(boundedConcurrency(concurrency), 1);
 
-  const emitProgress = async (): Promise<void> => {
+  const emitProgress = async (finished: boolean): Promise<void> => {
     if (onProgress) {
       const nowMs = dateTimeNowAsValue();
-      const isLast = state.processed === sourceObjects.length;
-      if (isLast || nowMs - state.lastProgressMs >= PROGRESS_EVERY_MS) {
+      if (finished || nowMs - state.lastProgressMs >= PROGRESS_EVERY_MS) {
         state.lastProgressMs = nowMs;
-        await onProgress(`S3 backup ${config.site}: ${state.processed}/${sourceObjects.length} processed (${state.copiedCount} copied, ${state.skippedCount} skipped, ${formatBytes(state.copiedBytes)} transferred)`);
+        await onProgress(`S3 backup ${config.site}: ${state.processed} processed (${state.copiedCount} copied, ${state.skippedCount} skipped, ${formatBytes(state.copiedBytes)} transferred)`);
       }
     }
   };
 
-  const processObject = async (index: number): Promise<void> => {
-    const obj = sourceObjects[index];
+  const processObject = async (obj: S3ObjectInfo): Promise<void> => {
     state.totalBytes += obj.size;
-    const sequence = index + 1;
-    const previousEntry = previousIndex.get(obj.key);
-    const unchanged = previousEntry && previousEntry.eTag === obj.eTag;
+    state.processed++;
+    const sequence = state.processed;
+    const previousETag = previousETags.get(obj.key);
+    const unchanged = previousETag === obj.eTag;
 
     if (unchanged) {
-      manifestEntries[index] = {
+      manifestEntries.push({
         key: obj.key,
         eTag: obj.eTag,
         size: obj.size,
         lastModified: obj.lastModified,
         action: S3BackupAction.SKIPPED
-      };
+      });
       state.skippedCount++;
-      debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] SKIPPED ${obj.key} (${formatBytes(obj.size)}, eTag ${obj.eTag})`);
+      debugLog(`[${config.site}] [${sequence}] SKIPPED ${obj.key} (${formatBytes(obj.size)}, eTag ${obj.eTag})`);
     } else {
-      debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] COPY START ${obj.key} (${formatBytes(obj.size)}${previousEntry ? `, old eTag ${previousEntry.eTag} → new eTag ${obj.eTag}` : ", new"})`);
-      let recordedETag = obj.eTag;
-      if (!dryRun) {
-        try {
-          const destKey = `${backupPrefix}/${obj.key}`;
-          recordedETag = await copyObjectWithETagGuard(
-            backupClient,
-            config.sourceBucket,
-            obj.key,
-            config.backupBucket,
-            destKey,
-            obj.eTag,
-            config.site,
-            `[${sequence}/${sourceObjects.length}]`
-          );
-          if (recordedETag !== obj.eTag) {
-            debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] COPY DONE  ${obj.key} -> ${config.backupBucket}/${destKey} (eTag updated ${obj.eTag} -> ${recordedETag})`);
-          } else {
-            debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] COPY DONE  ${obj.key} -> ${config.backupBucket}/${destKey}`);
-          }
-        } catch (error: any) {
-          debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] COPY FAIL  ${obj.key}: ${error?.name || ""} ${error?.message || error}`);
-          throw error;
-        }
+      debugLog(`[${config.site}] [${sequence}] COPY START ${obj.key} (${formatBytes(obj.size)}${previousETag ? `, old eTag ${previousETag} → new eTag ${obj.eTag}` : ", new"})`);
+      const recordedETag = dryRun ? obj.eTag : await copyObjectWithETagGuard(
+        backupClient,
+        config.sourceBucket,
+        obj.key,
+        config.backupBucket,
+        `${backupPrefix}/${obj.key}`,
+        obj.eTag,
+        config.site,
+        `[${sequence}]`
+      ).catch((error: any) => {
+        debugLog(`[${config.site}] [${sequence}] COPY FAIL  ${obj.key}: ${error?.name || ""} ${error?.message || error}`);
+        throw error;
+      });
+      if (!dryRun && recordedETag !== obj.eTag) {
+        debugLog(`[${config.site}] [${sequence}] COPY DONE  ${obj.key} (eTag updated ${obj.eTag} -> ${recordedETag})`);
+      } else if (!dryRun) {
+        debugLog(`[${config.site}] [${sequence}] COPY DONE  ${obj.key}`);
       } else {
-        debugLog(`[${config.site}] [${sequence}/${sourceObjects.length}] COPY DRY-RUN ${obj.key}`);
+        debugLog(`[${config.site}] [${sequence}] COPY DRY-RUN ${obj.key}`);
       }
-      manifestEntries[index] = {
+      manifestEntries.push({
         key: obj.key,
         eTag: recordedETag,
         size: obj.size,
         lastModified: obj.lastModified,
         action: S3BackupAction.COPIED
-      };
+      });
       state.copiedCount++;
       state.copiedBytes += obj.size;
     }
-
-    state.processed++;
-    await emitProgress();
+    await emitProgress(false);
   };
 
-  await processIndexesConcurrently(sourceObjects.length, effectiveConcurrency, processObject);
+  const consumePages = async (token: string | undefined): Promise<void> => {
+    const page = await listObjectPage(sourceClient, config.sourceBucket, token);
+    const sourcePage = page.items.filter(object => !isSelfBackupKey(object.key));
+    state.excluded += page.items.length - sourcePage.length;
+    await processIndexesConcurrently(sourcePage.length, effectiveConcurrency, index => processObject(sourcePage[index]));
+    if (page.nextToken) {
+      await consumePages(page.nextToken);
+    }
+  };
+  await consumePages(undefined);
+  if (onProgress && state.excluded > 0) {
+    await onProgress(`S3 backup ${config.site}: excluded ${state.excluded} historical backup files (s3-backups/, database-backups/, <env>/<timestamp>/) from source`);
+  }
+  if (onProgress) {
+    await onProgress(`S3 backup ${config.site}: discovered ${state.processed} source objects in ${config.sourceBucket}`);
+  }
+  await emitProgress(true);
+  previousETags.clear();
 
   const durationMs = dateTimeNowAsValue() - startMs;
 
@@ -545,7 +547,7 @@ async function performIncrementalBackup(
     entriesObjectKey: buildManifestEntriesObjectKey(backupPrefix),
     entriesCount: manifestEntries.length,
     entries: dryRun ? manifestEntries : [],
-    totalObjects: sourceObjects.length,
+    totalObjects: state.processed,
     copiedObjects: state.copiedCount,
     skippedObjects: state.skippedCount,
     totalSizeBytes: state.totalBytes,

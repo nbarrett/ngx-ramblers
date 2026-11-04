@@ -14,14 +14,15 @@ import { createBackupAndRestoreService } from "../backup/backup-service-factory"
 import { dateTimeNowAsValue } from "../shared/dates";
 import { isNumber } from "es-toolkit/compat";
 import { registerScheduledTask, scheduledTaskSettings } from "./scheduled-task-registry";
+import { waitUntilMachineMemoryAllows } from "../health/memory-watchdog";
 
 const debugLog = debug(envConfig.logNamespace("cron:backups"));
 debugLog.enabled = true;
 
 const scheduledBackupUser = "scheduled-task";
 const pollIntervalMs = 5000;
-const maximumMongoDumpConcurrency = 5;
-const maximumS3ObjectBackupConcurrency = 5;
+const maximumMongoDumpConcurrency = 1;
+const maximumS3ObjectBackupConcurrency = 1;
 const maximumRetryCount = 5;
 const maximumTimeoutMinutes = 180;
 
@@ -78,6 +79,7 @@ async function waitForBackupCompletion(service: BackupAndRestoreService, session
 
 async function backupEnvironment(service: BackupAndRestoreService, environmentName: string, taskSettings: BackupsTaskSettings, attempt: number = 0): Promise<string | null> {
   try {
+    await waitUntilMachineMemoryAllows(70, `backup ${environmentName}`);
     const session = await service.startBackup({
       environment: environmentName,
       upload: taskSettings.uploadMongoDumpToS3ByDefault,

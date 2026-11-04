@@ -38,6 +38,24 @@ function machineMemory(): { usedMb: number; totalMb: number; percent: number } |
   }
 }
 
+export async function waitUntilMachineMemoryAllows(limitPercent: number, label: string): Promise<void> {
+  const pauseMs = 5000;
+  const attempt = async (remaining: number): Promise<void> => {
+    const machine = machineMemory();
+    if (!machine || machine.percent < limitPercent || remaining <= 0) {
+      if (machine && machine.percent >= limitPercent) {
+        debugLog(`${label} continuing at machine ${machine.percent.toFixed(0)}%`);
+      }
+      return;
+    } else {
+      debugLog(`${label} paused: machine ${machine.percent.toFixed(0)}% is at or above ${limitPercent}%`);
+      await new Promise(resolve => setTimeout(resolve, pauseMs));
+      return attempt(remaining - 1);
+    }
+  };
+  return attempt(12);
+}
+
 export function startMemoryWatchdog(): void {
   if (envConfig.value(Environment.MEMORY_WATCHDOG_ENABLED) === "false") {
     debugLog("memory watchdog disabled via MEMORY_WATCHDOG_ENABLED=false");

@@ -58,14 +58,27 @@ describe("backup database traffic", () => {
     expect(findById.called).toEqual(false);
   });
 
+  it("applies the same bounded history to individual upload progress lines", async () => {
+    sandbox.stub(backupEvents, "listenerCount").returns(0);
+    const update = sandbox.stub(backupSession, "updateOne").resolves({} as any);
+    await service["addLog"]("example-session", "Uploaded one dump file");
+    expect(update.firstCall.args).toEqual([
+      {_id: "example-session"},
+      {$push: {logs: {$each: ["Uploaded one dump file"], $slice: -200}}, $currentDate: {updatedAt: true}}
+    ]);
+  });
+
   it("continues to publish full progress to a connected observer", async () => {
     const session = { status: BackupSessionStatus.IN_PROGRESS, logs: ["Dump started"] };
     sandbox.stub(backupEvents, "listenerCount").returns(1);
-    sandbox.stub(backupSession, "findById").returns({ lean: sandbox.stub().resolves(session) } as any);
+    const lean = sandbox.stub().resolves(session);
+    const select = sandbox.stub().returns({ lean });
+    sandbox.stub(backupSession, "findById").returns({ select } as any);
     const emit = sandbox.stub(backupEvents, "emit");
 
     await service["emitSessionUpdated"]("example-session");
 
+    expect(select.calledOnceWithExactly({ logs: { $slice: -200 } })).toEqual(true);
     expect(emit.calledOnceWithExactly("session-updated", { session })).toEqual(true);
   });
 });

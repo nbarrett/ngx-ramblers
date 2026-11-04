@@ -54,6 +54,7 @@ const debugLog = debug(envConfig.logNamespace("backup-and-restore-service"));
 debugLog.enabled = true;
 
 const SERVER_START_TIME = dateTimeNow().toJSDate();
+const sessionLogLimit = 200;
 
 export interface BackupOptions {
   environment: string;
@@ -293,7 +294,7 @@ export class BackupAndRestoreService {
       const dumpArgs = [
         "--uri", mongoUri,
         "--gzip",
-        "--verbose",
+        "--numParallelCollections=1",
         "--out", outDir
       ];
 
@@ -342,7 +343,7 @@ export class BackupAndRestoreService {
         await uploadDirectoryToS3(client, outDir, bucket, s3Key, (bucketName, key) => {
           const message = `Uploaded: s3://${bucketName}/${key}`;
           debugLog(message);
-          this.addLog(sessionId, message);
+          return this.addLog(sessionId, message);
         });
         await this.updateSession(sessionId, { s3Location });
         await this.addLog(sessionId, `Uploaded to ${s3Location}`);
@@ -621,7 +622,7 @@ export class BackupAndRestoreService {
     messages.forEach(message => debugLog(message));
     await backupSession.updateOne(
       { _id: sessionId },
-      { $push: { logs: { $each: messages } }, $currentDate: { updatedAt: true } }
+      { $push: { logs: { $each: messages, $slice: -sessionLogLimit } }, $currentDate: { updatedAt: true } }
     );
     await this.emitSessionUpdated(sessionId);
   }
@@ -629,7 +630,7 @@ export class BackupAndRestoreService {
   private async emitSessionUpdated(sessionId: string): Promise<void> {
     if (backupEvents.listenerCount("session-updated") > 0) {
       try {
-        const fresh = await backupSession.findById(sessionId).lean() as BackupSession | null;
+        const fresh = await backupSession.findById(sessionId).select({ logs: { $slice: -sessionLogLimit } }).lean() as BackupSession | null;
         if (fresh) {
           backupEvents.emit("session-updated", { session: fresh });
         }
@@ -832,12 +833,7 @@ export class BackupAndRestoreService {
   }
 
   private async addLog(sessionId: string, message: string): Promise<void> {
-    debugLog(message);
-    await backupSession.updateOne(
-      { _id: sessionId },
-      { $push: { logs: message }, $currentDate: { updatedAt: true } }
-    );
-    await this.emitSessionUpdated(sessionId);
+    await this.addLogs(sessionId, [message]);
   }
 
   async cleanupStuckSessions(): Promise<number> {

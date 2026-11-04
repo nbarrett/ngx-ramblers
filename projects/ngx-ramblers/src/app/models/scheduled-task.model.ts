@@ -49,7 +49,7 @@ export interface BackupsTaskSettings {
 
 export const DEFAULT_BACKUPS_TASK_SETTINGS: BackupsTaskSettings = {
   mongoDumpConcurrency: 1,
-  s3ObjectBackupConcurrency: 8,
+  s3ObjectBackupConcurrency: 1,
   uploadMongoDumpToS3ByDefault: true,
   includeS3ObjectsByDefault: true,
   perEnvironmentTimeoutMinutes: 45,

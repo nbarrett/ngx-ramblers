@@ -1,8 +1,13 @@
 import * as fs from "fs/promises";
+import {createReadStream} from "fs";
 import * as path from "path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import debug from "debug";
+import {envConfig} from "../env-config/env-config";
+import {runWithRetries} from "../shared/run-with-retries";
+import {S3UploadItem, S3UploadProgressCallback} from "./s3-utils.model";
 
-export type S3UploadProgressCallback = (bucket: string, key: string) => unknown;
+const debugLog = debug(envConfig.logNamespace("s3-directory-upload"));
 
 const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -40,13 +45,6 @@ function contentTypeFor(fileName: string): string {
   return CONTENT_TYPE_BY_EXTENSION[ext] || "application/octet-stream";
 }
 
-interface S3UploadItem {
-  localPath: string;
-  key: string;
-  contentType: string;
-  entry: string;
-}
-
 async function collectUploadItems(localDir: string, prefix: string): Promise<S3UploadItem[]> {
   const entries = await fs.readdir(localDir);
   const nested = await Promise.all(entries.map(async (entry): Promise<S3UploadItem[]> => {
@@ -55,8 +53,9 @@ async function collectUploadItems(localDir: string, prefix: string): Promise<S3U
     const key = path.join(prefix, entry).replace(/\\/g, "/");
     if (stat.isDirectory()) {
       return collectUploadItems(localPath, key);
+    } else {
+      return [{ localPath, key, contentType: contentTypeFor(entry), contentLength: stat.size }];
     }
-    return [{ localPath, key, contentType: contentTypeFor(entry), entry }];
   }));
   return nested.flat();
 }
@@ -67,20 +66,22 @@ export async function uploadDirectoryToS3(
   bucket: string,
   prefix: string,
   onFileUploaded?: S3UploadProgressCallback,
-  concurrency: number = 20
+  concurrency: number = 1
 ): Promise<void> {
   const items = await collectUploadItems(localDir, prefix);
-  const effectiveConcurrency = Math.max(1, concurrency);
-  const state: { nextIndex: number; firstError: unknown } = { nextIndex: 0, firstError: undefined };
+  const effectiveConcurrency = Math.max(1, Math.floor(Number.isFinite(concurrency) ? concurrency : 1));
+  const state = {nextIndex: 0, failed: false, firstError: null as unknown};
 
   const uploadOne = async (item: S3UploadItem): Promise<void> => {
-    const fileContent = await fs.readFile(item.localPath);
-    await s3.send(new PutObjectCommand({
-      Bucket: bucket,
-      Key: item.key,
-      Body: fileContent,
-      ContentType: item.contentType
-    }));
+    await runWithRetries(async () => {
+      const body = createReadStream(item.localPath, {highWaterMark: 64 * 1024});
+      try {
+        await s3.send(new PutObjectCommand({Bucket: bucket, Key: item.key, Body: body,
+          ContentLength: item.contentLength, ContentType: item.contentType}));
+      } finally {
+        body.destroy();
+      }
+    }, 3, 250, (attempt, error) => debugLog("Retrying upload of %s after attempt %d: %s", item.key, attempt, error.message));
     if (onFileUploaded) {
       await onFileUploaded(bucket, item.key);
     }
@@ -88,24 +89,23 @@ export async function uploadDirectoryToS3(
 
   const worker = async (): Promise<void> => {
     const index = state.nextIndex++;
-    if (state.firstError !== undefined || index >= items.length) {
-      return;
-    }
-    try {
-      await uploadOne(items[index]);
-    } catch (error) {
-      if (state.firstError === undefined) {
-        state.firstError = error;
+    if (!state.failed && index < items.length) {
+      try {
+        await uploadOne(items[index]);
+      } catch (error) {
+        if (!state.failed) {
+          state.failed = true;
+          state.firstError = error;
+        }
       }
-      return;
+      await worker();
     }
-    return worker();
   };
 
   const workerCount = Math.min(effectiveConcurrency, items.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
-  if (state.firstError !== undefined) {
+  if (state.failed) {
     throw state.firstError;
   }
 }
