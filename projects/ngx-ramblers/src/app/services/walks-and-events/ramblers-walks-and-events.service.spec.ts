@@ -410,6 +410,43 @@ describe("RamblersWalksAndEventsService", () => {
       const walkExport = service.toWalkExport(exportableWalkWithContactName("Jenny Brown") as any);
       expect(walkExport.validationMessages.find(message => message.includes("contains accented or special characters"))).toBeUndefined();
     });
+
+    it("should return a validation message if the estimated finish time is not later than the start time", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walk = exportableWalkWithContactName("Jenny Brown");
+      (walk.localWalk.groupEvent as any).end_date_time = "09:00";
+      const walkExport = service.toWalkExport(walk as any);
+      expect(walkExport.validationMessages).toContain("Estimated Finish Time must be later than the start time");
+    });
+
+    it("validates a supplied finish time even when finish times are optional", () => {
+      vi.spyOn(TestBed.inject(WalksConfigService), "walksConfig").mockReturnValue({requireFinishTime: false} as any);
+      const service = TestBed.inject(RamblersWalksAndEventsService);
+      const walk = exportableWalkWithContactName("Alex Reed");
+      walk.localWalk.groupEvent.end_date_time = "09:00";
+      expect(service.toWalkExport(walk as any).validationMessages).toContain("Estimated Finish Time must be later than the start time");
+    });
+
+    it("rejects an estimated finish time equal to the start time", () => {
+      const service = TestBed.inject(RamblersWalksAndEventsService);
+      const walk = exportableWalkWithContactName("Alex Reed");
+      walk.localWalk.groupEvent.end_date_time = walk.localWalk.groupEvent.start_date_time;
+      expect(service.toWalkExport(walk as any).validationMessages).toContain("Estimated Finish Time must be later than the start time");
+    });
+
+    it("should allow an estimated finish time later than the start time", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walkExport = service.toWalkExport(exportableWalkWithContactName("Jenny Brown") as any);
+      expect(walkExport.validationMessages.find(message => message.includes("must be later than the start time"))).toBeUndefined();
+    });
+
+    it("treats a time-only finish after midnight as the next day for an evening start", () => {
+      const service: RamblersWalksAndEventsService = TestBed.inject(RamblersWalksAndEventsService);
+      const walk = exportableWalkWithContactName("Alex Reed");
+      walk.localWalk.groupEvent.start_date_time = "2026-07-04T21:00:00.000Z";
+      walk.localWalk.groupEvent.end_date_time = "01:00";
+      expect(service.toWalkExport(walk as any).validationMessages.find(message => message.includes("must be later than the start time"))).toBeUndefined();
+    });
   });
 
   describe("walkLeader", () => {

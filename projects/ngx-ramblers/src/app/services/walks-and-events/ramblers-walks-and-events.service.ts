@@ -1035,6 +1035,10 @@ export class RamblersWalksAndEventsService {
         }
       }
 
+      if (this.finishTimeNotAfterStart(walk)) {
+        validationMessages.push("Estimated Finish Time must be later than the start time");
+      }
+
       if (this.walksConfigService.walksConfig()?.requireWalkLeaderDisplayName !== false) {
         if (isEmpty(walk?.groupEvent?.shape)) {
           validationMessages.push("Display Name for walk leader is missing. This can be entered manually on the Walk Leader tab");
@@ -1351,6 +1355,34 @@ export class RamblersWalksAndEventsService {
 
   walkStartTime(extendedGroupEvent: ExtendedGroupEvent): string {
     return extendedGroupEvent?.groupEvent?.start_date_time ? this.dateUtils.asString(this.dateUtils.startTimeAsValue(extendedGroupEvent), null, UIDateFormat.RAMBLERS_TIME) : "";
+  }
+
+  private finishTimeNotAfterStart(walk: ExtendedGroupEvent): boolean {
+    const startMillis = this.dateUtils.startTimeAsValue(walk);
+    const finishMillis = this.finishTimeAsValue(walk);
+    return Boolean(startMillis && finishMillis && finishMillis <= startMillis);
+  }
+
+  private finishTimeAsValue(walk: ExtendedGroupEvent): number | null {
+    const end = walk?.groupEvent?.end_date_time?.trim();
+    if (!end) {
+      return null;
+    } else if (end.includes("T") && this.dateUtils.isDate(end)) {
+      return this.dateUtils.asDateTime(end).toMillis();
+    } else {
+      const start = this.dateUtils.asDateTime(walk?.groupEvent?.start_date_time);
+      const time = this.dateUtils.parseTime(end);
+      if (!start?.isValid || !time) {
+        return null;
+      } else {
+        const sameDay = this.dateUtils.calculateWalkDateAndTimeValue(start.startOf("day"), time);
+        if (sameDay <= start.toMillis() && start.hour >= 12 && time.hours < 12) {
+          return this.dateUtils.asDateTime(sameDay).plus({days: 1}).toMillis();
+        } else {
+          return sameDay;
+        }
+      }
+    }
   }
 
   private meetingPointChange(walk: ExtendedGroupEvent, ramblersEvent: ExtendedGroupEvent): WalkFieldChange | null {
