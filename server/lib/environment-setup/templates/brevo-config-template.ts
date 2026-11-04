@@ -29,6 +29,7 @@ export function createBrevoConfig(params: BrevoConfigTemplateParams): MailConfig
     volunteerNotificationConfigId: "",
     memberBulkLoadDigestConfigId: "",
     photoUploadNotificationConfigId: "",
+    meetingMinutesNotificationConfigId: "",
     registrationConfirmationConfigId: "",
     registrationInvitationConfigId: "",
     registrationReviewConfigId: ""

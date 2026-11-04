@@ -89,7 +89,7 @@ export async function writeMeetingMinutes(req: Request, res: Response): Promise<
           const member = await memberFromRequest(req);
           const notify = req.body?.notify === true;
           const note = transforms.toObjectWithId(await persistAiNote(room, source, member));
-          const published = await publishMeetingMinutes(room, source, false, true)
+          const published = await publishMeetingMinutes(room, source, false, true, member?.memberId)
             .catch(publishError => {
               debug("could not save the minutes as a committee document", publishError);
               return null;
@@ -122,14 +122,14 @@ async function replaceMinutesWithSummary(room: string, source: string, member: M
       if (finalText !== source) {
         await persistAiNote(room, finalText, member);
       }
-      await publishMeetingMinutes(room, finalText, notify, false);
+      await publishMeetingMinutes(room, finalText, notify, false, member?.memberId);
       debug("replaceMinutesWithSummary: saved:", {room, outputChars: finalText.length, summarised: finalText !== source, notify});
     }
   } catch (error) {
     debug("replaceMinutesWithSummary failed; the verbatim draft remains", {room, error});
     const pending = await minutesDraftStillPending(room).catch(() => false);
     if (pending) {
-      await publishMeetingMinutes(room, source, notify, false).catch(publishError => {
+      await publishMeetingMinutes(room, source, notify, false, member?.memberId).catch(publishError => {
         debug("could not notify from the verbatim draft", publishError);
       });
     }

@@ -461,6 +461,7 @@ export interface BuiltInProcessMappings {
   volunteerNotificationConfigId: string;
   memberBulkLoadDigestConfigId: string;
   photoUploadNotificationConfigId: string;
+  meetingMinutesNotificationConfigId: string;
   registrationConfirmationConfigId: string;
   registrationInvitationConfigId: string;
   registrationReviewConfigId: string;
@@ -469,6 +470,7 @@ export interface BuiltInProcessMappings {
 export const VOLUNTEER_NOTIFICATION_SUBJECT_TEXT = "Rights of Way Volunteer Correspondence";
 export const MEMBER_BULK_LOAD_DIGEST_SUBJECT_TEXT = "Member bulk load summary";
 export const PHOTO_UPLOAD_NOTIFICATION_SUBJECT_TEXT = "Walk photos added";
+export const MEETING_MINUTES_NOTIFICATION_SUBJECT_TEXT = "Meeting minutes ready";
 export const REGISTRATION_CONFIRMATION_SUBJECT_TEXT = "Confirm your NGX registration";
 export const REGISTRATION_INVITATION_SUBJECT_TEXT = "Your NGX site is ready to try";
 export const REGISTRATION_REVIEW_SUBJECT_TEXT = "NGX site ready for review";
@@ -482,6 +484,7 @@ export const BUILT_IN_PROCESS_NOTIFICATION_MAPPINGS: Partial<Record<keyof BuiltI
   memberSyncNotificationConfigId: "Member Sync Notification",
   volunteerNotificationConfigId: VOLUNTEER_NOTIFICATION_SUBJECT_TEXT,
   photoUploadNotificationConfigId: PHOTO_UPLOAD_NOTIFICATION_SUBJECT_TEXT,
+  meetingMinutesNotificationConfigId: MEETING_MINUTES_NOTIFICATION_SUBJECT_TEXT,
   registrationConfirmationConfigId: REGISTRATION_CONFIRMATION_SUBJECT_TEXT,
   registrationInvitationConfigId: REGISTRATION_INVITATION_SUBJECT_TEXT,
   registrationReviewConfigId: REGISTRATION_REVIEW_SUBJECT_TEXT
@@ -1817,6 +1820,7 @@ export enum SendPurpose {
   ADMIN_ALERT = "admin-alert",
   INBOX_DIGEST = "inbox-digest",
   MEETING_INVITE = "meeting-invite",
+  MEETING_MINUTES = "meeting-minutes",
   MEMBER_SYNC_NOTIFICATION = "member-sync-notification",
   BULK_LOAD_DIGEST = "bulk-load-digest",
   BOOKING = "booking",
@@ -1832,6 +1836,7 @@ export const SEND_PURPOSE_DESCRIPTIONS: Record<SendPurpose, string> = {
   [SendPurpose.ADMIN_ALERT]: "Admin alert",
   [SendPurpose.INBOX_DIGEST]: "Inbox digest",
   [SendPurpose.MEETING_INVITE]: "Video meeting invite",
+  [SendPurpose.MEETING_MINUTES]: "Meeting minutes ready",
   [SendPurpose.MEMBER_SYNC_NOTIFICATION]: "Member sync notification",
   [SendPurpose.BULK_LOAD_DIGEST]: "Member bulk load summary",
   [SendPurpose.BOOKING]: "Booking email",

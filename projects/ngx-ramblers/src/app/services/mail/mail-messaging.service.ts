@@ -301,6 +301,7 @@ export class MailMessagingService {
       mailConfig.volunteerNotificationConfigId,
       mailConfig.memberBulkLoadDigestConfigId,
       mailConfig.photoUploadNotificationConfigId,
+      mailConfig.meetingMinutesNotificationConfigId,
       mailConfig.registrationConfirmationConfigId,
       mailConfig.registrationInvitationConfigId,
       mailConfig.registrationReviewConfigId

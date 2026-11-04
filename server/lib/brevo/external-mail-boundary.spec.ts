@@ -50,12 +50,16 @@ describe("external transactional mail boundary", () => {
     expect(violations).toEqual([]);
   });
 
-  it("keeps video-meeting Brevo access inside the guest invitation boundary", () => {
+  it("keeps video-meeting Brevo access inside the guest invitation and minutes-ready adapters", () => {
     const videoMeetingRoot = resolve(libraryRoot, "video-meetings");
+    const allowed = new Set([
+      "send-guest-invite-email.ts",
+      "meeting-minutes-document.ts"
+    ]);
     const violations = sourceFiles(videoMeetingRoot)
       .filter(file => readFileSync(file, "utf8").includes("../brevo/"))
       .map(file => relativeSourcePath(videoMeetingRoot, file))
-      .filter(file => file !== "send-guest-invite-email.ts");
+      .filter(file => !allowed.has(file));
     expect(violations).toEqual([]);
   });
 });

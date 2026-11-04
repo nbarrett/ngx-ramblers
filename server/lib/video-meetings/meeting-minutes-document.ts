@@ -1,13 +1,10 @@
 import debugLib from "debug";
-import { randomUUID } from "crypto";
 import { envConfig } from "../env-config/env-config";
 import committeeFileModel from "../mongo/models/committee-file";
 import { meetingTranscriptLine } from "../mongo/models/meeting-transcript";
 import { transcriptTimeSpan } from "../../../projects/ngx-ramblers/src/app/functions/meeting-transcript";
 import { MEETING_MINUTES_TEMPLATE_ID, MeetingTranscriptLine } from "../../../projects/ngx-ramblers/src/app/models/video-meeting.model";
-import { InboxMessage, InboxMessageDirection, InboxReaderProvider } from "../../../projects/ngx-ramblers/src/app/models/inbox.model";
 import { meetingMinutesDocumentSlug } from "../../../projects/ngx-ramblers/src/app/functions/committee-documents-page";
-import { member as memberModel } from "../mongo/models/member";
 import { systemConfig } from "../config/system-config";
 import { queryKey } from "../mongo/controllers/config";
 import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
@@ -26,14 +23,8 @@ import {
 import { meetingMinutesDateLabel } from "../../../projects/ngx-ramblers/src/app/functions/video-meeting-minutes";
 import { dateTimeFromMillis, dateTimeNowAsValue, formatDateTime } from "../shared/dates";
 import { Environment } from "../../../projects/ngx-ramblers/src/app/models/environment.model";
-import { Member } from "../../../projects/ngx-ramblers/src/app/models/member.model";
 import { AdminPath } from "../../../projects/ngx-ramblers/src/app/models/admin-route-paths.model";
-import { senderForMemberId } from "./video-meetings-controllers";
-import { renderMarkdownToHtml } from "../shared/markdown-renderer";
-import { ensureCloudflareIngressConnection } from "../cloudflare/cloudflare-ingress-connection";
-import { cloudflareIngressAliasesForMessage, connectionIdentifier } from "../inbox/inbox-aliases";
-import { storeInboundMessage } from "../inbox/inbox-message-import";
-import { htmlToPlainText } from "../shared/string-utils";
+import { sendMeetingMinutesReadyEmail } from "../brevo/transactional-mail/send-meeting-minutes-ready-email";
 import { stripTrailingSlash } from "../../../projects/ngx-ramblers/src/app/functions/strings";
 
 const debug = debugLib(envConfig.logNamespace("video-meetings:minutes-document"));
@@ -71,65 +62,8 @@ async function minutesLink(committeeFile: CommitteeFile): Promise<string> {
   return base && room ? `${base}/${AdminPath.MEETING_MINUTES}/${encodeURIComponent(room)}` : "";
 }
 
-async function organizerMember(memberId: string): Promise<Member | null> {
-  if (!memberId) {
-    return null;
-  } else {
-    const byMemberId = await memberModel.findOne({memberId}).lean().exec() as unknown as Member;
-    if (byMemberId) {
-      return byMemberId;
-    } else {
-      return await memberModel.findById(memberId).lean().exec().catch(() => null) as unknown as Member;
-    }
-  }
-}
-
-async function notifyOrganizerInInbox(committeeFile: CommitteeFile, link: string): Promise<boolean> {
-  const memberId = committeeFile.meeting?.createdBy;
-  const organizer = await organizerMember(memberId);
-  const sender = await senderForMemberId(memberId);
-  const recipientEmail = sender?.email;
-  if (!recipientEmail) {
-    debug("not notifying organiser: organiser has no NGX address", {memberId});
-    return false;
-  } else {
-    const recipientName = [organizer?.firstName, organizer?.lastName].filter(Boolean).join(" ") || recipientEmail;
-    const title = committeeFile.document?.title || "Meeting minutes";
-    const minutesHtml = renderMarkdownToHtml(committeeFile.document?.markdown || "");
-    const linkHtml = link ? `<p><a href="${link}">Review the draft minutes</a></p>` : "";
-    const html = `<p>A draft of the minutes for "${title}" has been written up. Here they are:</p>`
-      + `<div style="border-left:4px solid #f9b104;padding:4px 16px;margin:16px 0;background:#fbfbfb">${minutesHtml}</div>`
-      + linkHtml
-      + `<p>Edit the draft if you need to, then save it onto the committee documents page.</p>`;
-    const now = dateTimeNowAsValue();
-    const connection = await ensureCloudflareIngressConnection();
-    const message: InboxMessage = {
-      threadId: "",
-      mailboxConnectionId: connectionIdentifier(connection),
-      direction: InboxMessageDirection.INBOUND,
-      messageId: `<meeting-minutes-${randomUUID()}@ngx-inbox>`,
-      inReplyTo: null,
-      references: [],
-      from: {name: "NGX Ramblers", email: recipientEmail},
-      replyTo: null,
-      autoReply: false,
-      to: [{name: recipientName, email: recipientEmail}],
-      cc: [],
-      subject: `Minutes ready: ${title}`,
-      bodyHtml: html,
-      bodyText: htmlToPlainText(html),
-      receivedAt: now,
-      sentAt: null,
-      externalSource: InboxReaderProvider.EMAIL_COMPOSER,
-      externalId: null,
-      attachments: [],
-      notifiedAt: now,
-      conversationKey: null
-    };
-    const aliases = await cloudflareIngressAliasesForMessage(message, connection);
-    await Promise.all(aliases.map(alias => storeInboundMessage(alias, {...message})));
-    return aliases.length > 0;
-  }
+export async function notifyOrganiserByEmail(committeeFile: CommitteeFile, link: string, recorderMemberId?: string): Promise<boolean> {
+  return sendMeetingMinutesReadyEmail({committeeFile, link, recorderMemberId});
 }
 
 export async function minutesDraftStillPending(room: string): Promise<boolean> {
@@ -140,7 +74,7 @@ export async function minutesDraftStillPending(room: string): Promise<boolean> {
   return target?.meeting?.minutesSummaryPending !== false;
 }
 
-export async function publishMeetingMinutes(room: string, markdown: string, notify: boolean, summaryPending = false): Promise<{ link: string; emailed: boolean; path: string | null; slug: string } | null> {
+export async function publishMeetingMinutes(room: string, markdown: string, notify: boolean, summaryPending = false, recorderMemberId?: string): Promise<{ link: string; emailed: boolean; path: string | null; slug: string } | null> {
   if (!room || !markdown?.trim()) {
     return null;
   } else {
@@ -202,7 +136,7 @@ export async function publishMeetingMinutes(room: string, markdown: string, noti
     const slug = minutesDocumentSlug(savedFile);
     const link = await minutesLink(savedFile);
     const emailed = notify && !saved.meeting?.minutesEmailedAt
-      ? await notifyOrganizerInInbox(savedFile, link)
+      ? await notifyOrganiserByEmail(savedFile, link, recorderMemberId)
       : false;
     if (emailed) {
       saved.set("meeting.minutesEmailedAt", dateTimeNowAsValue());

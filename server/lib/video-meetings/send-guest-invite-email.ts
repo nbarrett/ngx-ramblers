@@ -6,12 +6,12 @@ import { MailProvider } from "../../../projects/ngx-ramblers/src/app/models/syst
 import { EmailAddress, SendPurpose } from "../../../projects/ngx-ramblers/src/app/models/mail.model";
 import { assertSendAllowed } from "../brevo/send-permission";
 
-async function sendExternalGuestInviteEmail(sender: EmailAddress, toEmail: string, toName: string, subject: string, html: string): Promise<boolean> {
+async function sendVideoMeetingEmail(sender: EmailAddress, toEmail: string, toName: string, subject: string, html: string, purpose: SendPurpose): Promise<boolean> {
   const system = await systemConfig();
   const brevo = await configuredBrevo();
   const available = system?.mailDefaults?.mailProvider === MailProvider.BREVO && !!brevo?.apiKey && !!sender?.email;
   if (available) {
-    await assertSendAllowed(SendPurpose.MEETING_INVITE, {subject, recipientCount: 1});
+    await assertSendAllowed(purpose, {subject, recipientCount: 1});
     const client = await brevoClient();
     const email: Brevo.SendTransacEmailRequest = {
       subject,
@@ -27,5 +27,5 @@ async function sendExternalGuestInviteEmail(sender: EmailAddress, toEmail: strin
 }
 
 export async function sendGuestInviteEmail(sender: EmailAddress, toEmail: string, toName: string, subject: string, html: string): Promise<boolean> {
-  return sendExternalGuestInviteEmail(sender, toEmail, toName, subject, html);
+  return sendVideoMeetingEmail(sender, toEmail, toName, subject, html, SendPurpose.MEETING_INVITE);
 }

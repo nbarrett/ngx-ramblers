@@ -23,6 +23,7 @@ export class MailConfigService {
       volunteerNotificationConfigId: null,
       memberBulkLoadDigestConfigId: null,
       photoUploadNotificationConfigId: null,
+      meetingMinutesNotificationConfigId: null,
       registrationConfirmationConfigId: null,
       registrationInvitationConfigId: null,
       registrationReviewConfigId: null,

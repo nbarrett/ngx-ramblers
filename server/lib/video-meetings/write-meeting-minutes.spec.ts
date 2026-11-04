@@ -77,5 +77,6 @@ describe("writeMeetingMinutes", () => {
     expect(publish.callCount).toEqual(2);
     expect(publish.secondCall.args[1]).toContain("The group agreed to move the walk.");
     expect(publish.secondCall.args[2]).toEqual(true);
+    expect(publish.secondCall.args[4]).toEqual("m1");
   });
 });
