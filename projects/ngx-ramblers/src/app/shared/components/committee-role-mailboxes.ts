@@ -14,7 +14,7 @@ import {
 } from "../../models/committee.model";
 import { AlertTarget } from "../../models/alert-target.model";
 import { committeeOutboundEmailQueryParams } from "../../functions/committee-members";
-import { addressOnDomain, emailDomain, emailLocalPart, extractErrorMessage } from "../../functions/strings";
+import { addressOnDomain, EMAIL_LOCAL_PART_MAX_LENGTH, emailDomain, emailIsOnDomain, emailLocalPart, extractErrorMessage, sanitiseEmailLocalPart, validEmailLocalPart } from "../../functions/strings";
 import { AdminSettingsPath } from "../../models/admin-route-paths.model";
 import { CopyIconComponent } from "../../modules/common/copy-icon/copy-icon";
 import { CommitteeConfigService } from "../../services/committee/commitee-config.service";
@@ -69,21 +69,28 @@ import { AlertInstance, NotifierService } from "../../services/notifier.service"
                        [ngModelOptions]="{standalone: true}"
                        [disabled]="selectionDisabled || saving"
                        [attr.autofocus]="true"
+                       [attr.maxlength]="localPartMaxLength"
+                       spellcheck="false"
+                       (ngModelChange)="onRenameLocalPartChange($event)"
                        (keydown.escape)="cancelRename(); $event.stopPropagation()"
                        (keyup.enter)="commitRename(item)">
               } @else if (editable) {
                 <button type="button" class="mailbox-address text-start"
+                        [class.text-danger]="addressOffDomain(item)"
                         (click)="startRename(item)"
                         [disabled]="selectionDisabled || saving"
                         tooltip="Edit address" container="body">{{ item.email }}</button>
               } @else {
-                <span>{{ item.email }}</span>
+                <span [class.text-danger]="addressOffDomain(item)">{{ item.email }}</span>
               }
-              @if (canChangeDefault() && item.kind !== defaultKind) {
+              @if (addressOffDomain(item)) {
+                <span class="text-nowrap badge bg-danger">Not on group domain</span>
+              }
+              @if (canChangeDefault() && item.kind !== defaultKind && !addressOffDomain(item)) {
                 <button type="button" class="mailbox-chip text-nowrap badge-cloudy"
                         [disabled]="saving || selectionDisabled"
                         (click)="chooseDefault(group, item)">{{ caption(item) }}</button>
-              } @else {
+              } @else if (!addressOffDomain(item)) {
                 <span class="text-nowrap"
                       [class.badge-mintcake]="item.kind === defaultKind"
                       [class.badge-cloudy]="item.kind !== defaultKind">{{ caption(item) }}</span>
@@ -131,6 +138,7 @@ export class CommitteeRoleMailboxesComponent {
   protected selectionDisabled = false;
   protected editingEmail: string = null;
   protected editingLocalPart = "";
+  protected readonly localPartMaxLength = EMAIL_LOCAL_PART_MAX_LENGTH;
   @Input() domain = "";
   public notifyTarget: AlertTarget = {};
   private notify: AlertInstance = inject(NotifierService).createAlertInstance(this.notifyTarget);
@@ -174,8 +182,18 @@ export class CommitteeRoleMailboxesComponent {
     return !this.selectionDisabled && this.memberLoginService.allowMemberAdminEdits();
   }
 
+  protected addressOffDomain(item: CommitteeMailboxAddress): boolean {
+    return Boolean(this.domain) && !emailIsOnDomain(item.email, this.domain);
+  }
+
   protected chooseDefault(group: CommitteeAssignedMailboxGroup, item: CommitteeMailboxAddress): void {
-    if (this.canChangeDefault() && item.kind !== this.defaultKind && !this.saving) {
+    if (this.addressOffDomain(item)) {
+      this.notify.error({
+        title: "Committee emails",
+        message: `${item.email} is not on ${this.domain}. Choose a group address as the default sender.`,
+        continue: true
+      });
+    } else if (this.canChangeDefault() && item.kind !== this.defaultKind && !this.saving) {
       if (this.persistChanges) {
         this.saving = true;
         this.committeeConfigService.applyDefaultSender(group.roleType, item.email)
@@ -212,10 +230,14 @@ export class CommitteeRoleMailboxesComponent {
     }
   }
 
+  protected onRenameLocalPartChange(value: string): void {
+    this.editingLocalPart = sanitiseEmailLocalPart(value);
+  }
+
   protected startRename(item: CommitteeMailboxAddress): void {
     if (this.editable && !this.selectionDisabled) {
       this.editingEmail = item.email;
-      this.editingLocalPart = emailLocalPart(item.email);
+      this.editingLocalPart = sanitiseEmailLocalPart(emailLocalPart(item.email));
       afterNextRender(() => {
         const input = this.host.nativeElement.querySelector(".mailbox-rename-input") as HTMLInputElement;
         input?.focus();
@@ -230,12 +252,20 @@ export class CommitteeRoleMailboxesComponent {
   }
 
   protected commitRename(item: CommitteeMailboxAddress): void {
-    const host = emailDomain(item.email) || this.domain;
-    const renamed = addressOnDomain(this.editingLocalPart, host);
-    this.editingEmail = null;
-    this.editingLocalPart = "";
-    if (renamed && renamed !== item.email) {
-      this.addressRename.emit({from: item.email, to: renamed});
+    const local = sanitiseEmailLocalPart(this.editingLocalPart);
+    const renamed = addressOnDomain(local, this.domain || emailDomain(item.email));
+    if (!validEmailLocalPart(local) || !renamed) {
+      this.notify.error({
+        title: "Committee emails",
+        message: "Use letters, numbers, dots, hyphens, plus or underscore only, with no spaces, and start and end with a letter or number.",
+        continue: true
+      });
+    } else {
+      this.editingEmail = null;
+      this.editingLocalPart = "";
+      if (renamed !== item.email) {
+        this.addressRename.emit({from: item.email, to: renamed});
+      }
     }
   }
 }

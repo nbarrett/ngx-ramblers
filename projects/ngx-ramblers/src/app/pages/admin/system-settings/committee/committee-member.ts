@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { ALERT_SUCCESS, ALERT_WARNING } from "../../../../models/alert-target.model";
+import { ALERT_ERROR, ALERT_SUCCESS, ALERT_WARNING } from "../../../../models/alert-target.model";
 import {
   BuiltInRole,
   CommitteeMember,
@@ -42,9 +42,12 @@ import { enumKeyValues, KeyValue } from "../../../../functions/enums";
 import {
   addressOnDomain,
   EMAIL_LOCAL_PART_MAX_LENGTH,
+  emailIsOnDomain,
   emailLocalPart,
   emailLocalPartLengthMessage,
+  emailsOffDomain,
   extractErrorMessage,
+  sanitiseEmailLocalPart,
   normaliseEmail,
   toDotCase,
   toKebabCase,
@@ -337,6 +340,21 @@ import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/c
           @case (CommitteeMemberTab.OUTBOUND_EMAIL) {
             <div class="row">
               <div class="col-sm-12">
+                @if (offDomainMailboxAddresses(); as offDomain) {
+                  @if (offDomain.length) {
+                    <div class="alert alert-danger d-flex align-items-start mb-3" role="alert">
+                      <fa-icon [icon]="ALERT_ERROR.icon" class="me-2 mt-1"/>
+                      <div>
+                        <strong class="d-block">Address not on the group domain</strong>
+                        @if (defaultSenderOffDomain()) {
+                          <span>The default sender must be on @{{ baseDomain }}. {{ offDomain.join(", ") }} {{ offDomain.length === 1 ? "is" : "are" }} outside that domain. Choose a group address as Default, then remove the others from this list.</span>
+                        } @else {
+                          <span>{{ offDomain.join(", ") }} {{ offDomain.length === 1 ? "is" : "are" }} not on @{{ baseDomain }}. Outbound mail uses the group domain. Remove {{ offDomain.length === 1 ? "this address" : "these addresses" }} from the list.</span>
+                        }
+                      </div>
+                    </div>
+                  }
+                }
                 @if (omittedGeneratedAddressWarning(); as warning) {
                   <alert type="warning">
                     <fa-icon [icon]="ALERT_WARNING.icon"></fa-icon>
@@ -370,7 +388,7 @@ import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/c
                 }
                 <div class="d-flex align-items-center gap-2 mt-2">
                   <div class="mailbox-local-part form-control"
-                    [class.is-invalid]="mailboxAddAttempted && !canAddMailboxAddress()"
+                    [class.is-invalid]="mailboxLocalPartInvalid() || (mailboxAddAttempted && !canAddMailboxAddress())"
                     [class.disabled]="committeeMember.vacant"
                     (click)="mailboxAddressInput.focus()">
                     <input #mailboxAddressInput type="text" class="mailbox-local-part-input"
@@ -381,13 +399,14 @@ import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/c
                       autocomplete="one-time-code"
                       [attr.data-lpignore]="'true'"
                       spellcheck="false"
+                      [attr.maxlength]="EMAIL_LOCAL_PART_MAX_LENGTH"
                       placeholder="local-part"
-                      (ngModelChange)="mailboxAddAttempted = false"
+                      (ngModelChange)="onNewMailboxAddressChange($event)"
                       (keyup.enter)="addMailboxAddress()">
                     <span class="mailbox-local-part-overlay" aria-hidden="true"><span class="mailbox-local-part-sizer" [class.mailbox-local-part-placeholder]="!newMailboxAddress">{{ newMailboxAddress || "local-part" }}</span><span class="mailbox-local-part-domain">@{{baseDomain}}</span></span>
                   </div>
                   <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2 flex-shrink-0" (click)="addMailboxAddress()"
-                    [disabled]="committeeMember.vacant || mailboxSaving">
+                    [disabled]="committeeMember.vacant || mailboxSaving || mailboxLocalPartInvalid()">
                     @if (mailboxSaving) {
                       <fa-icon [icon]="faSpinner" animation="spin"/>
                     } @else {
@@ -396,7 +415,7 @@ import { CommitteeRoleMailboxesComponent } from "../../../../shared/components/c
                     Add
                   </button>
                 </div>
-                @if (mailboxAddAttempted && !canAddMailboxAddress()) {
+                @if (mailboxLocalPartInvalid() || (mailboxAddAttempted && !canAddMailboxAddress())) {
                   <div class="invalid-feedback d-block">{{mailboxAddressError()}}</div>
                 }
               </div>
@@ -584,6 +603,8 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   protected readonly builtInRoleLabel = builtInRoleLabel;
   protected readonly ALERT_WARNING = ALERT_WARNING;
   protected readonly ALERT_SUCCESS = ALERT_SUCCESS;
+  protected readonly ALERT_ERROR = ALERT_ERROR;
+  protected readonly EMAIL_LOCAL_PART_MAX_LENGTH = EMAIL_LOCAL_PART_MAX_LENGTH;
   protected readonly adminInboxPath = AdminPath.INBOX;
   protected readonly mailSettingsPath = AdminPath.MAIL_SETTINGS;
   protected internalInbox = false;
@@ -830,11 +851,13 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   }
 
   setDefaultSender(address: string) {
-    const updated = applyCommitteeRoleDefaultSender(this.committeeMember, address, this.baseDomain);
-    this.committeeMember.email = updated.email;
-    this.committeeMember.emailDerivation = updated.emailDerivation;
-    this.committeeMember.additionalEmails = updated.additionalEmails;
-    this.mailboxAddresses = roleEmailAddresses(this.committeeMember, this.baseDomain);
+    if (!this.baseDomain || !address || emailIsOnDomain(address, this.baseDomain)) {
+      const updated = applyCommitteeRoleDefaultSender(this.committeeMember, address, this.baseDomain);
+      this.committeeMember.email = updated.email;
+      this.committeeMember.emailDerivation = updated.emailDerivation;
+      this.committeeMember.additionalEmails = updated.additionalEmails;
+      this.mailboxAddresses = roleEmailAddresses(this.committeeMember, this.baseDomain);
+    }
   }
 
   protected mailboxGroup(): CommitteeAssignedMailboxGroup {
@@ -850,21 +873,32 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     return addressOnDomain(this.newMailboxAddress, this.baseDomain);
   }
 
+  onNewMailboxAddressChange(value: string) {
+    this.newMailboxAddress = sanitiseEmailLocalPart(value);
+    this.mailboxAddAttempted = false;
+  }
+
+  mailboxLocalPartInvalid(): boolean {
+    const typed = this.newMailboxAddress || "";
+    return typed.length > 0 && !validEmailLocalPart(typed);
+  }
+
   canAddMailboxAddress(): boolean {
+    const typed = this.newMailboxAddress || "";
     const address = this.typedMailboxAddress();
-    return Boolean(address && !this.mailboxAddresses.some(existing => normaliseEmail(existing) === normaliseEmail(address)));
+    return Boolean(address && validEmailLocalPart(typed) && !this.mailboxAddresses.some(existing => normaliseEmail(existing) === normaliseEmail(address)));
   }
 
   mailboxAddressError(): string {
-    const typed = (this.newMailboxAddress || "").trim();
+    const typed = this.newMailboxAddress || "";
     const lengthMessage = emailLocalPartLengthMessage(typed);
     const address = this.typedMailboxAddress();
     if (!typed) {
       return "Type the part before @, for example chair, then Add.";
-    } else if (typed.includes("@")) {
-      return "Enter only the local part, not the domain.";
     } else if (lengthMessage) {
       return lengthMessage;
+    } else if (!validEmailLocalPart(typed)) {
+      return "Use letters, numbers, dots, hyphens, plus or underscore only, with no spaces, and start and end with a letter or number.";
     } else if (address && this.mailboxAddresses.some(existing => normaliseEmail(existing) === normaliseEmail(address))) {
       return "That address is already in the list.";
     } else {
@@ -888,7 +922,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   }
 
   renameMailboxAddress(from: string, to: string) {
-    if (this.mailboxSaving || this.committeeMember.vacant || !to || normaliseEmail(from) === normaliseEmail(to)) {
+    if (this.mailboxSaving || this.committeeMember.vacant || !to || !validEmailLocalPart(emailLocalPart(to)) || normaliseEmail(from) === normaliseEmail(to)) {
       this.mailboxAddAttempted = false;
     } else {
       const previousType = this.committeeMember.type;
@@ -956,8 +990,16 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   private ensureDefaultSender() {
     const current = normaliseEmail(this.committeeMember.email ?? "");
     const currentValid = Boolean(current) && validEmailLocalPart(emailLocalPart(current));
+    const onDomain = (address: string) => !this.baseDomain || emailIsOnDomain(address, this.baseDomain);
     const match = currentValid ? this.mailboxAddresses.find(address => normaliseEmail(address) === current) : null;
-    if (match) {
+    const domainAddress = this.mailboxAddresses.find(onDomain);
+    if (match && onDomain(match)) {
+      if (match !== this.committeeMember.email) {
+        this.committeeMember.email = match;
+      }
+    } else if (domainAddress) {
+      this.setDefaultSender(domainAddress);
+    } else if (match) {
       if (match !== this.committeeMember.email) {
         this.committeeMember.email = match;
       }
@@ -966,6 +1008,14 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
     } else if (this.mailboxAddresses.length > 0) {
       this.setDefaultSender(this.mailboxAddresses[0]);
     }
+  }
+
+  offDomainMailboxAddresses(): string[] {
+    return emailsOffDomain(this.mailboxAddresses, this.baseDomain);
+  }
+
+  defaultSenderOffDomain(): boolean {
+    return Boolean(this.baseDomain) && Boolean(this.committeeMember?.email) && !emailIsOnDomain(this.committeeMember.email, this.baseDomain);
   }
 
   syncEmailDerivationFromEmail() {
@@ -983,7 +1033,7 @@ export class CommitteeMemberEditor implements OnInit, OnDestroy {
   }
 
   emailOnDomain(): boolean {
-    return !this.baseDomain || this.committeeMember.email?.endsWith(`@${this.baseDomain}`);
+    return !this.baseDomain || emailIsOnDomain(this.committeeMember.email, this.baseDomain);
   }
 
   protected readonly validEmail = validEmail;

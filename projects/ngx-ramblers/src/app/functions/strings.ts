@@ -50,6 +50,15 @@ export function emailIsOnDomain(email: string, domain: string): boolean {
   return Boolean(host) && emailDomain(email) === host;
 }
 
+export function emailsOffDomain(emails: string[], domain: string): string[] {
+  const host = (domain || "").trim().toLowerCase();
+  if (!host) {
+    return [];
+  } else {
+    return (emails || []).filter(email => Boolean(email) && !emailIsOnDomain(email, host));
+  }
+}
+
 export function emailLocalPart(value: string): string {
   const typed = (value ?? "").trim().toLowerCase();
   const at = typed.indexOf("@");
@@ -65,6 +74,11 @@ export const EMAIL_LOCAL_PART_MAX_LENGTH = 64;
 export function validEmailLocalPart(value: string): boolean {
   const local = (value ?? "").trim().toLowerCase();
   return local.length <= EMAIL_LOCAL_PART_MAX_LENGTH && /^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9])?$/.test(local);
+}
+
+export function sanitiseEmailLocalPart(value: string): string {
+  const beforeAt = (value ?? "").split("@")[0];
+  return beforeAt.toLowerCase().replace(/[^a-z0-9._+-]/g, "").slice(0, EMAIL_LOCAL_PART_MAX_LENGTH);
 }
 
 export function emailLocalPartLengthMessage(value: string): string | null {

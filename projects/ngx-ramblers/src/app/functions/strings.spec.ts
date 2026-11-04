@@ -1,4 +1,4 @@
-import { addressOnDomain, booleanOf, convertTitleToSlug, emailIsOnDomain, emailLocalPart, emailLocalPartLengthMessage, endsWithEllipsis, escapeHtml, firstLinkHref, firstLinkText, fitEmailLocalPart, indexCardDescription, isNullText, isQuoted, matchesAllowingTruncation, plainText, stripTrailingSlash, toKebabCase, toSlug, truncateAtWordBoundary, unescapeMarkdownLinks, unquote, validEmailLocalPart } from "./strings";
+import { addressOnDomain, booleanOf, convertTitleToSlug, emailIsOnDomain, emailLocalPart, emailLocalPartLengthMessage, emailsOffDomain, endsWithEllipsis, escapeHtml, firstLinkHref, firstLinkText, fitEmailLocalPart, indexCardDescription, isNullText, isQuoted, matchesAllowingTruncation, plainText, sanitiseEmailLocalPart, stripTrailingSlash, toKebabCase, toSlug, truncateAtWordBoundary, unescapeMarkdownLinks, unquote, validEmailLocalPart } from "./strings";
 
 describe("strings", () => {
 
@@ -12,15 +12,27 @@ describe("strings", () => {
   describe("validEmailLocalPart", () => {
     it("accepts a normal local part and rejects spaces, a leading dot, or a domain", () => {
       expect(validEmailLocalPart("walks.secretary")).toBe(true);
-      expect(validEmailLocalPart("nick barrett")).toBe(false);
-      expect(validEmailLocalPart(".nick")).toBe(false);
-      expect(validEmailLocalPart("nick@ngx-ramblers.org.uk")).toBe(false);
+      expect(validEmailLocalPart("alex reed")).toBe(false);
+      expect(validEmailLocalPart(".alex")).toBe(false);
+      expect(validEmailLocalPart("alex.reed@group.example.org.uk")).toBe(false);
     });
 
     it("rejects a local part longer than 64 characters", () => {
       expect(validEmailLocalPart("a".repeat(64))).toBe(true);
       expect(validEmailLocalPart("a".repeat(65))).toBe(false);
-      expect(validEmailLocalPart("kent-area-representative-deputy-web-master-ramblers-group-walks-manager")).toBe(false);
+      expect(validEmailLocalPart("area-representative-deputy-web-master-group-walks-manager-and-secretary")).toBe(false);
+    });
+  });
+
+  describe("sanitiseEmailLocalPart", () => {
+    it("drops spaces, the domain, and other characters that are not allowed in a local part", () => {
+      expect(sanitiseEmailLocalPart("test e err")).toEqual("testeerr");
+      expect(sanitiseEmailLocalPart("Chair Secretary@staging.example.org.uk")).toEqual("chairsecretary");
+      expect(sanitiseEmailLocalPart("walks.secretary+list")).toEqual("walks.secretary+list");
+    });
+
+    it("caps the local part at 64 characters", () => {
+      expect(sanitiseEmailLocalPart("a".repeat(70)).length).toEqual(64);
     });
   });
 
@@ -50,6 +62,19 @@ describe("strings", () => {
 
     it("is false for a personal address", () => {
       expect(emailIsOnDomain("nick.barrett36@me.com", "ngx-ramblers.org.uk")).toBe(false);
+    });
+  });
+
+  describe("emailsOffDomain", () => {
+    it("returns addresses that are not on the group domain", () => {
+      expect(emailsOffDomain(
+        ["secretary@group.example.org.uk", "alex.reed@gmail.com", "aminah@group.example.org.uk"],
+        "group.example.org.uk"
+      )).toEqual(["alex.reed@gmail.com"]);
+    });
+
+    it("returns an empty list when no domain is set", () => {
+      expect(emailsOffDomain(["alex.reed@gmail.com"], "")).toEqual([]);
     });
   });
 
