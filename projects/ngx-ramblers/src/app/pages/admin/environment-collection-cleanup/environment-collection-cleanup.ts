@@ -9,7 +9,9 @@ import { EmptyCollectionCandidate, EmptyCollectionCleanupPreview, EmptyCollectio
 import { ConsoleAccessUrlIconKey, MONGODB_ATLAS_CONSOLE_URLS, MongoClusterInfo } from "../../../models/environment-setup.model";
 import { resolveConsoleUrls } from "../../../functions/console-access-urls";
 import { StoredValue } from "../../../models/ui-actions";
+import { AlertPanelVariant } from "../../../models/alert-panel.model";
 import { PageComponent } from "../../../page/page.component";
+import { AlertPanelComponent } from "../../../modules/common/alert-panel/alert-panel";
 import { ASCENDING, DESCENDING } from "../../../models/table-filtering.model";
 import { SortableTableAlignment, SortableTableColumn, SortableTableSortState } from "../../../modules/common/sortable-table/sortable-table.model";
 import { SortableTableCellDirective, SortableTableExpandedRowDirective } from "../../../modules/common/sortable-table/sortable-table-cell.directive";
@@ -22,7 +24,7 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 
 @Component({
   selector: "app-environment-collection-cleanup",
-  imports: [ConsoleAccessLinksComponent, FontAwesomeModule, MongoClusterSelectComponent, PageComponent, SortableTableComponent, SortableTableCellDirective, SortableTableExpandedRowDirective],
+  imports: [AlertPanelComponent, ConsoleAccessLinksComponent, FontAwesomeModule, MongoClusterSelectComponent, PageComponent, SortableTableComponent, SortableTableCellDirective, SortableTableExpandedRowDirective],
   template: `
     <app-page autoTitle pageTitle="MongoDB Collection Cleanup">
       <div class="thumbnail-heading-frame thumbnail-heading-frame-compact mb-4">
@@ -77,16 +79,14 @@ import { StringUtilsService } from "../../../services/string-utils.service";
           <div class="text-muted small mb-3">Sites without eligible empty collections are hidden.</div>
         }
         @if (errorMessage) {
-          <div class="alert alert-danger d-flex align-items-start">
-            <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
-            <div><strong>Could not inspect collections</strong><div>{{ errorMessage }}</div></div>
-          </div>
+          <app-alert-panel class="mb-3" [title]="errorTitle" [icon]="faCircleExclamation" [variant]="AlertPanelVariant.DANGER">
+            <div>{{ errorMessage }}</div>
+          </app-alert-panel>
         }
         @if (resultMessage) {
-          <div class="alert alert-success d-flex align-items-start">
-            <fa-icon [icon]="faCircleCheck" class="me-2 mt-1"/>
-            <div><strong>Cleanup complete</strong><div>{{ resultMessage }}</div></div>
-          </div>
+          <app-alert-panel class="mb-3" title="Cleanup complete" [icon]="faCircleCheck" [variant]="AlertPanelVariant.SUCCESS">
+            <div>{{ resultMessage }}</div>
+          </app-alert-panel>
         }
         @if (confirming) {
           <div class="alert alert-warning p-2">
@@ -163,6 +163,7 @@ export class EnvironmentCollectionCleanupComponent implements OnInit {
   protected readonly faRotate = faRotate;
   protected readonly faTrash = faTrash;
   protected readonly faXmark = faXmark;
+  protected readonly AlertPanelVariant = AlertPanelVariant;
 
   columns: SortableTableColumn<EmptyCollectionEnvironmentGroup>[] = [
     {key: "selection", label: "", cellClass: "text-center", width: "4%"},
@@ -188,6 +189,7 @@ export class EnvironmentCollectionCleanupComponent implements OnInit {
   cleaning = false;
   confirming = false;
   errorMessage: string | null = null;
+  errorTitle = "Could not inspect collections";
   resultMessage: string | null = null;
 
   ngOnInit(): void {
@@ -213,12 +215,14 @@ export class EnvironmentCollectionCleanupComponent implements OnInit {
         }, queryParamsHandling: "merge", replaceUrl: true});
         await this.loadPreview();
       } else {
+        this.errorTitle = "Could not load configured MongoDB clusters";
         this.errorMessage = "No configured MongoDB clusters are available.";
       }
       await this.loadAtlasClusterInventory();
     } catch (error) {
       this.logger.error("Could not load configured MongoDB clusters", error);
-      this.errorMessage = error instanceof Error ? error.message : "Could not load configured MongoDB clusters.";
+      this.errorTitle = "Could not load configured MongoDB clusters";
+      this.errorMessage = this.stringUtils.userErrorMessage(error, "Could not load configured MongoDB clusters.");
     }
     this.loading = false;
   }
@@ -360,7 +364,8 @@ export class EnvironmentCollectionCleanupComponent implements OnInit {
         : [...this.preview.candidates];
     } catch (error) {
       this.logger.error("Could not load collection cleanup preview", error);
-      this.errorMessage = error instanceof Error ? error.message : "Could not inspect this cluster.";
+      this.errorTitle = "Could not inspect collections";
+      this.errorMessage = this.stringUtils.userErrorMessage(error, "Could not inspect this cluster.");
     }
     this.loading = false;
   }
@@ -387,7 +392,8 @@ export class EnvironmentCollectionCleanupComponent implements OnInit {
       this.resultMessage = `${this.stringUtils.pluraliseWithCount(result.removed.length, "collection")} removed; ${this.stringUtils.pluraliseWithCount(result.skipped.length, "collection")} skipped because they were no longer eligible.`;
     } catch (error) {
       this.logger.error("Could not remove empty collections", error);
-      this.errorMessage = error instanceof Error ? error.message : "Could not remove the selected collections.";
+      this.errorTitle = "Could not remove the selected collections";
+      this.errorMessage = this.stringUtils.userErrorMessage(error, "Could not remove the selected collections.");
     }
     this.cleaning = false;
   }

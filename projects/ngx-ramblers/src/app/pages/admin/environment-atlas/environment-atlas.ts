@@ -33,7 +33,8 @@ import { SectionToggle } from "../../../shared/components/section-toggle";
 import { SectionToggleTab } from "../../../models/section-toggle.model";
 import { VendorBrandMarkComponent } from "../../../modules/common/vendor-brand-mark/vendor-brand-mark.component";
 import { ConsoleAccessLinksComponent } from "../../../modules/common/console-access-links/console-access-links";
-import { ConsoleAccessUrlIconKey, MONGODB_ATLAS_CONSOLE_URLS } from "../../../models/environment-setup.model";
+import { MongoClusterSelectComponent } from "../../../modules/common/selectors/mongo-cluster-select";
+import { ConsoleAccessUrlIconKey, MONGODB_ATLAS_CONSOLE_URLS, MongoClusterInfo } from "../../../models/environment-setup.model";
 import { resolveConsoleUrls } from "../../../functions/console-access-urls";
 import { PageComponent } from "../../../page/page.component";
 import { EnvironmentSetupService } from "../../../services/environment-setup/environment-setup.service";
@@ -55,7 +56,8 @@ import { AlertTarget } from "../../../models/alert-target.model";
     SortableTableCellDirective,
     SectionToggle,
     VendorBrandMarkComponent,
-    ConsoleAccessLinksComponent
+    ConsoleAccessLinksComponent,
+    MongoClusterSelectComponent
   ],
   styles: [`
     .atlas-action-links
@@ -138,8 +140,13 @@ import { AlertTarget } from "../../../models/alert-target.model";
           </div>
           <div class="col-md-6 mb-2">
             <label class="form-label" for="atlas-default-cluster">Default cluster for new sites</label>
-            <input id="atlas-default-cluster" class="form-control" name="atlasDefaultCluster" [(ngModel)]="defaultCluster" autocomplete="off"
-                   placeholder="host prefix without .mongodb.net">
+            <app-mongo-cluster-select id="atlas-default-cluster"
+                                      [clusters]="defaultClusterChoices"
+                                      [selected]="selectedDefaultCluster"
+                                      [clearable]="true"
+                                      [disabled]="loading || saving"
+                                      placeholder="Select a cluster"
+                                      (selectedChange)="defaultClusterChanged($event)"/>
           </div>
         </div>
         <div class="atlas-action-links mt-2">
@@ -163,7 +170,7 @@ import { AlertTarget } from "../../../models/alert-target.model";
             </a>
           }
         </div>
-        @if (!view?.keysConfigured) {
+        @if (view && !view.keysConfigured) {
           <div class="alert alert-warning d-flex align-items-start mt-3 mb-0">
             <fa-icon [icon]="faCircleExclamation" class="me-2 mt-1"/>
             <div>
@@ -368,6 +375,8 @@ export class EnvironmentAtlasComponent implements OnInit, OnDestroy {
   errorMessage: string | null = null;
   projectId = "";
   defaultCluster = "";
+  selectedDefaultCluster: MongoClusterInfo | null = null;
+  defaultClusterChoices: MongoClusterInfo[] = [];
   clusterSortKey = AtlasClusterSortField.DEFAULT_FOR_NEW_SITES;
   clusterSortDirection = DESCENDING;
   environmentSortKey = AtlasEnvironmentSortField.ENVIRONMENT;
@@ -468,6 +477,7 @@ export class EnvironmentAtlasComponent implements OnInit, OnDestroy {
       this.view = await this.environmentSetupService.atlasClusters();
       this.projectId = this.view.projectId || "";
       this.defaultCluster = this.view.defaultCluster || "";
+      this.syncDefaultClusterSelect();
     } catch (error) {
       this.errorMessage = error?.error?.error || error?.message || "Could not load Atlas clusters";
       this.logger.error("load", error);
@@ -485,6 +495,7 @@ export class EnvironmentAtlasComponent implements OnInit, OnDestroy {
       });
       this.projectId = saved.atlas.projectId || "";
       this.defaultCluster = saved.atlas.defaultCluster || "";
+      this.syncDefaultClusterSelect();
       this.notify.success({title: "Saved", message: "Atlas project and default cluster have been saved."});
       await this.load();
     } catch (error) {
@@ -494,8 +505,32 @@ export class EnvironmentAtlasComponent implements OnInit, OnDestroy {
     }
   }
 
+  defaultClusterChanged(cluster: MongoClusterInfo | null): void {
+    this.selectedDefaultCluster = cluster;
+    this.defaultCluster = cluster?.cluster || "";
+  }
+
+  private syncDefaultClusterSelect(): void {
+    const fromView = (this.view?.clusters || [])
+      .filter(row => row.host)
+      .map(row => this.clusterInfoFromRow(row));
+    this.defaultClusterChoices = this.defaultCluster && !fromView.some(item => item.cluster === this.defaultCluster)
+      ? [this.clusterInfoFromHost(this.defaultCluster), ...fromView]
+      : fromView;
+    this.selectedDefaultCluster = this.defaultClusterChoices.find(item => item.cluster === this.defaultCluster) || null;
+  }
+
+  private clusterInfoFromRow(row: AtlasClusterRow): MongoClusterInfo {
+    return this.clusterInfoFromHost(row.host, row.environmentNames ? row.environmentNames.split(", ").filter(Boolean) : []);
+  }
+
+  private clusterInfoFromHost(host: string, environments: string[] = []): MongoClusterInfo {
+    return {cluster: host, username: "", password: "", databases: [], environments};
+  }
+
   async setDefaultCluster(host: string) {
     this.defaultCluster = host;
+    this.syncDefaultClusterSelect();
     await this.saveProvisioning();
   }
 
