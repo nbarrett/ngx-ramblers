@@ -4,7 +4,7 @@ import debug from "debug";
 import {
   BrandingMode,
   CreateCampaignRequest,
-  EmailTemplateName,
+  EMAIL_COMPOSER_BODY_PLACEHOLDER,
   extractOverrideKeys,
   overrideKeyToLabel,
   SendSmtpEmailRequest,
@@ -343,14 +343,8 @@ function substituteTemplateParameters(html: string, params: any): string {
 const BODY_CONTENT_TOKEN = /\{\{\s*params\.messageMergeFields\.BODY_CONTENT\s*\}\}/;
 
 function useStoredNotificationBody(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest | TemplateRenderRequest): boolean {
-  const stored = emailRequest.body;
-  const processContent = emailRequest.params?.messageMergeFields?.BODY_CONTENT;
-  const hasProcessContent = isString(processContent) && processContent.trim().length > 0;
-  const placesContent = BODY_CONTENT_TOKEN.test(stored ?? "");
-  const processOwnsBody = emailRequest.templateName === EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY && hasProcessContent && !placesContent;
-  if (!stored?.trim()) {
-    return false;
-  } else if (processOwnsBody) {
+  const stored = (emailRequest.body ?? "").trim();
+  if (!stored || stored === EMAIL_COMPOSER_BODY_PLACEHOLDER) {
     return false;
   } else {
     return true;

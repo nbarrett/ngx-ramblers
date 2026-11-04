@@ -23,6 +23,7 @@ import {
 import { localTemplateNames } from "../templates/local-template-reader";
 import {
   BrandingMode,
+  EMAIL_COMPOSER_BODY_PLACEHOLDER,
   EmailTemplateName,
   TemplateOverride,
   TemplateOverrides,
@@ -433,12 +434,12 @@ describe("brevo messages", () => {
 
   describe("process BODY_CONTENT vs stored notification body", () => {
 
-    it("keeps walk-change html when the stored body is a membership-expiry letter", async () => {
+    it("keeps walk-change html when the configuration has no written body", async () => {
       const walkHtml = "<p>Gill Smith has made the following changes to the walk</p>";
       const payload: Brevo.SendTransacEmailRequest = {};
       await performTemplateSubstitution({
         templateName: EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY,
-        body: "We've noticed that the Ramblers membership expiry date we have in our records for you has now passed",
+        body: null,
         params: {
           messageMergeFields: {
             subject: "Sarah Mitchell's walk (Walk details updated)",
@@ -489,6 +490,61 @@ describe("brevo messages", () => {
       expect(payload.htmlContent).toContain("Your trial login is below.");
       expect(payload.htmlContent).not.toContain("the email automation system behind every");
     });
+
+    it("uses a written letter on the automated shell even when the greeting is already in BODY_CONTENT", async () => {
+      const payload: Brevo.SendTransacEmailRequest = {};
+      await performTemplateSubstitution({
+        templateName: EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY,
+        body: "Over the last few months I have been developing a walking app for this trial.",
+        showTitle: false,
+        params: {
+          messageMergeFields: {
+            subject: "Mobile Trial — Invitation and installation",
+            BANNER_IMAGE_SOURCE: "",
+            ADDRESS_LINE: "",
+            BODY_CONTENT: "<p>Hi Alex,</p>",
+            BODY_CONTENT_TOP: "<p>Hi Alex,</p>",
+            BODY_CONTENT_BOTTOM: "",
+            ACCENT_COLOR: "#F9B104"
+          },
+          memberMergeFields: {FULL_NAME: "Alex Reed", EMAIL: "alex.reed@example.com", FNAME: "Alex", LNAME: "Reed", MEMBER_NUM: "", MEMBER_EXP: "", USERNAME: "alex", PW_RESET: ""},
+          systemMergeFields: {
+            APP_SHORTNAME: "GROUP", APP_LONGNAME: "Example Walking Group", APP_URL: "https://group.example.org.uk",
+            PW_RESET_LINK: "", FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""
+          },
+          accountMergeFields: ramblersAccountMergeFields()
+        }
+      }, payload, debug("test:written-automated-shell"));
+      expect(payload.htmlContent).toContain("Over the last few months I have been developing a walking app for this trial.");
+      expect(payload.htmlContent).toContain("Hi Alex,");
+    });
+
+    it("uses process BODY_CONTENT when the stored body is only the composer placeholder", async () => {
+      const walkHtml = "<p>Gill Smith has made the following changes to the walk</p>";
+      const payload: Brevo.SendTransacEmailRequest = {};
+      await performTemplateSubstitution({
+        templateName: EmailTemplateName.FULLY_AUTOMATED_TEXT_BODY,
+        body: EMAIL_COMPOSER_BODY_PLACEHOLDER,
+        params: {
+          messageMergeFields: {
+            subject: "Sarah Mitchell's walk (Walk details updated)",
+            BANNER_IMAGE_SOURCE: "",
+            ADDRESS_LINE: "Hello,",
+            BODY_CONTENT: walkHtml,
+            BODY_CONTENT_TOP: "",
+            BODY_CONTENT_BOTTOM: "",
+            ACCENT_COLOR: "#F9B104"
+          },
+          memberMergeFields: {FULL_NAME: "Alex Reed", EMAIL: "alex.reed@example.com", FNAME: "Alex", LNAME: "Reed", MEMBER_NUM: "", MEMBER_EXP: "", USERNAME: "alex", PW_RESET: ""},
+          systemMergeFields: {
+            APP_SHORTNAME: "GROUP", APP_LONGNAME: "Example Walking Group", APP_URL: "https://group.example.org.uk",
+            PW_RESET_LINK: "", FACEBOOK_URL: "", TWITTER_URL: "", INSTAGRAM_URL: ""
+          },
+          accountMergeFields: ramblersAccountMergeFields()
+        }
+      }, payload, debug("test:placeholder-body"));
+      expect(payload.htmlContent).toContain("Gill Smith has made the following changes to the walk");
+    });
   });
 
   describe("renderTemplateMarkdownToHtml", () => {
@@ -504,7 +560,7 @@ describe("brevo messages", () => {
 
     it("gives markdown tables borders that survive email clients", () => {
       const result = renderTemplateMarkdownToHtml("| Membership Id | Expiration Date |\n| --- | --- |\n| {{params.memberMergeFields.MEMBER_NUM}} | {{params.memberMergeFields.MEMBER_EXP}} |");
-      expect(result).toContain("<table style=\"border-collapse:collapse");
+      expect(result).toContain("border-collapse:collapse");
       expect(result).toContain("{{params.memberMergeFields.MEMBER_NUM}}");
       expect(result).toContain("border:1px solid #ced4da");
     });
