@@ -34,6 +34,7 @@ import {
   InboxAliasConfigView,
   InboxReplyComposeResponse,
   InboxThread,
+  InboxThreadMessagesResponse,
   InboxThreadFolder,
   InboxViewScope,
   InboxKeyboardRegion,
@@ -793,8 +794,8 @@ import { DELAYED_TOOLTIP_PROVIDERS } from "../../../modules/common/tooltip-confi
             <div class="text-muted">Drafts open in the email composer. Choose one on the left to carry on where you left off.</div>
           } @else if (!selectedThread) {
             <div class="text-muted">Select a conversation to read it.</div>
-          } @else if (loadingThread) {
-            <div class="text-muted">Loading conversation...</div>
+          } @else if (loadingThread && displayMessages.length === 0) {
+            <div class="text-muted"><fa-icon [icon]="faSpinner" animation="spin" class="me-2"/>Loading conversation...</div>
           } @else {
             @for (message of displayMessages; track message.messageId) {
               <app-inbox-message [message]="message" [busy]="busy" [fitToWidth]="readingOnMobile" [initiallyExpanded]="message.messageId === initiallyExpandedMessageId"
@@ -2042,29 +2043,34 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         this.threadListTotalCount = 0;
         this.selectedThread = null;
         this.selectedThreadId = null;
+        this.loadedOnce = true;
       } else if (this.viewingJunk && this.canReadJunk) {
         const junkResponse = await this.inboxService.listThreads(null, null, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.JUNK, null, this.conversationSearchTerm);
         this.threads = junkResponse.threads;
         this.threadListUnreadCount = junkResponse.unreadCount;
         this.threadListTotalCount = junkResponse.totalCount;
+        this.loadedOnce = true;
         await this.reloadVisibleConversation(this.threads[0] ?? null);
       } else if (this.viewingDeleted) {
         const deletedResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.DELETED, null, this.conversationSearchTerm);
         this.threads = deletedResponse.threads;
         this.threadListUnreadCount = deletedResponse.unreadCount;
         this.threadListTotalCount = deletedResponse.totalCount;
+        this.loadedOnce = true;
         await this.reloadVisibleConversation(this.threads[0] ?? null);
       } else if (this.viewingSent) {
         const sentResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, this.readFilter === InboxReadFilter.UNREAD, null, InboxThreadFolder.SENT, null, this.conversationSearchTerm);
         this.threads = sentResponse.threads;
         this.threadListUnreadCount = sentResponse.unreadCount;
         this.threadListTotalCount = sentResponse.totalCount;
+        this.loadedOnce = true;
         await this.reloadVisibleConversation(this.threads[0] ?? null);
       } else if (this.viewingAllFolders || this.viewingUserFolder) {
         const folderResponse = await this.inboxService.listThreads(null, InboxViewScope.ALL_ACCESSIBLE, this.readFilter === InboxReadFilter.UNREAD, null, null, null, this.conversationSearchTerm, this.listMailboxUserFolderId);
         this.threads = folderResponse.threads;
         this.threadListUnreadCount = folderResponse.unreadCount;
         this.threadListTotalCount = folderResponse.totalCount;
+        this.loadedOnce = true;
         const requestedFolderThread = await this.threadRequestedInUrl();
         await this.reloadVisibleConversation(requestedFolderThread ?? this.threads[0] ?? null);
       } else {
@@ -2085,6 +2091,7 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
         this.threads = listResponse.threads;
         this.threadListUnreadCount = listResponse.unreadCount;
         this.threadListTotalCount = listResponse.totalCount;
+        this.loadedOnce = true;
         const requestedThread = await this.threadRequestedInUrl();
         if (this.layout.mobile && !this.selectedThreadId && requestedThread) {
           this.layout.mobileShowDetail = true;
@@ -2331,8 +2338,11 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   siblingConversationThreads(thread: InboxThread): InboxThread[] {
-    const groupSentCopies = this.viewingSent && this.layout.groupingMode === InboxGroupingMode.CONVERSATIONS;
-    return this.conversations.siblingConversationThreads(thread, groupSentCopies);
+    if (this.layout.groupingMode === InboxGroupingMode.MESSAGES) {
+      return [thread];
+    } else {
+      return this.conversations.siblingConversationThreads(thread, this.viewingSent);
+    }
   }
 
 
@@ -2985,9 +2995,16 @@ export class InboxComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadingThread = true;
     this.syncThreadToUrl(representative);
     try {
-      const responses = await Promise.all(siblings.map(sibling => this.inboxService.getThread(this.threadIdOf(sibling))));
+      const outcomes = await Promise.all(siblings.map(sibling => this.inboxService.getThread(this.threadIdOf(sibling))
+        .then(response => ({response, error: null as unknown}))
+        .catch(error => ({response: null, error}))));
       if (requestId !== this.openThreadRequestId) {
         return;
+      }
+      const responses = outcomes.map(outcome => outcome.response).filter((response): response is InboxThreadMessagesResponse => !!response);
+      const representativeFailure = outcomes.find((outcome, index) => this.threadIdOf(siblings[index]) === threadId && outcome.error);
+      if (responses.length === 0) {
+        throw representativeFailure?.error ?? new Error("Failed to open conversation");
       }
       const representativeResponse = responses.find(response => this.threadIdOf(response.thread) === threadId) ?? responses[0];
       this.selectedThread = this.withSentFocus(representativeResponse.thread);
