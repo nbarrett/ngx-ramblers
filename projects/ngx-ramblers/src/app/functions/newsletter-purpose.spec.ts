@@ -1,5 +1,7 @@
 import { NewsletterIntroEvent, NewsletterIntroPurpose, WalkTimeOfDay } from "../models/ai.model";
-import { emptyDraftPurposeCopy, emptyDraftPurposeMessage, eventsMatchingDraftPurpose, introPurposeFrom, RESEND_WITHIN_PERIOD_LABEL, walkTimeOfDayFromHour } from "./newsletter-purpose";
+import { composerIncludesEvent, emptyDraftPurposeCopy, emptyDraftPurposeMessage, eventsMatchingDraftPurpose, introPurposeFrom, RESEND_WITHIN_PERIOD_LABEL, walkTimeOfDayFromHour } from "./newsletter-purpose";
+import { ProgrammeOverviewStatus } from "../models/walk-programme.model";
+import { RamblersEventType } from "../models/ramblers-walks-manager";
 
 describe("walkTimeOfDayFromHour", () => {
   it("treats hours before midday as morning", () => {
@@ -35,6 +37,31 @@ describe("introPurposeFrom", () => {
 
   it("falls back to upcoming events", () => {
     expect(introPurposeFrom({})).toEqual(NewsletterIntroPurpose.UPCOMING_EVENTS);
+  });
+});
+
+describe("composerIncludesEvent", () => {
+  it("hides walks still awaiting details when only approved walks is on", () => {
+    expect(composerIncludesEvent({
+      programmeStatus: ProgrammeOverviewStatus.AWAITING_WALK_DETAILS,
+      ramblersEventType: RamblersEventType.GROUP_WALK
+    }, true, NewsletterIntroPurpose.UPCOMING_EVENTS)).toBe(false);
+    expect(composerIncludesEvent({
+      programmeStatus: ProgrammeOverviewStatus.APPROVED,
+      ramblersEventType: RamblersEventType.GROUP_WALK
+    }, true, NewsletterIntroPurpose.UPCOMING_EVENTS)).toBe(true);
+    expect(composerIncludesEvent({
+      ramblersEventType: RamblersEventType.GROUP_EVENT
+    }, true, NewsletterIntroPurpose.UPCOMING_EVENTS)).toBe(true);
+  });
+
+  it("keeps awaiting walks when the flag is off or the purpose is a leader request", () => {
+    const awaiting = {
+      programmeStatus: ProgrammeOverviewStatus.AWAITING_LEADER,
+      ramblersEventType: RamblersEventType.GROUP_WALK
+    };
+    expect(composerIncludesEvent(awaiting, false, NewsletterIntroPurpose.UPCOMING_EVENTS)).toBe(true);
+    expect(composerIncludesEvent(awaiting, true, NewsletterIntroPurpose.WALK_LEADER_REQUEST)).toBe(true);
   });
 });
 

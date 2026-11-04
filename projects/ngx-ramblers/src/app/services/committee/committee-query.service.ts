@@ -25,6 +25,8 @@ import { CommitteeReferenceData } from "./committee-reference-data";
 import { MediaQueryService } from "./media-query.service";
 import { EventQueryParameters, RamblersEventType } from "../../models/ramblers-walks-manager";
 import { EventSource, ExtendedGroupEvent, InputSource } from "../../models/group-event.model";
+import { ProgrammeOverviewStatus, walkProgrammeSummaryFromDisplayedWalk } from "../../models/walk-programme.model";
+import { DisplayedWalk } from "../../models/walk.model";
 import { DateValue } from "../../models/date.model";
 import { DisplayTimePipe } from "../../pipes/display-time.pipe";
 import { DistanceValidationService } from "../walks/distance-validation.service";
@@ -36,6 +38,7 @@ import { SystemConfigService } from "../system/system-config.service";
 import { EventPopulation, Organisation } from "../../models/system.model";
 import { validEmail } from "../../functions/strings";
 import {groupEventIdsCriteria} from "../../functions/group-event-id-criteria";
+import {programmeLocation} from "../../functions/email-composer-programme";
 
 @Injectable({
   providedIn: "root"
@@ -115,6 +118,7 @@ export class CommitteeQueryService {
             distance: this.distanceValidationService.walkDistances(event),
             location: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.description,
             postcode: (event.groupEvent.start_location || event.groupEvent.location)?.postcode,
+            ...programmeLocation(event.groupEvent.start_location || event.groupEvent.location),
             title: event.groupEvent.title || "Awaiting " + event.groupEvent.item_type + " details",
             description: event.groupEvent.description,
             contactName: event.fields?.contactDetails?.displayName || this.walkContactFallback(event),
@@ -125,6 +129,7 @@ export class CommitteeQueryService {
             media: event.groupEvent?.media ?? [],
             selectedMediaIndex: 0,
             programmeStatus: displayedWalkProgrammeStatus(event, derivedEventStatus),
+            programmeRow: walkProgrammeSummaryFromDisplayedWalk({walk: event, status: derivedEventStatus} as DisplayedWalk),
             deleted: derivedEventStatus === EventType.DELETED
           });
           })));
@@ -153,7 +158,25 @@ export class CommitteeQueryService {
             title: this.committeeDisplayService.fileTitle(committeeFile),
             contactName: committeeContactDetails?.fullName,
             contactEmail: committeeContactDetails?.email,
-            contactHref: this.contactHref(committeeContactDetails?.email)
+            contactHref: this.contactHref(committeeContactDetails?.email),
+            programmeRow: {
+              id: committeeFile.id,
+              status: ProgrammeOverviewStatus.APPROVED,
+              startDateTime: this.dateUtils.asDateTime(committeeFile.eventDate).toISO() || "",
+              title: this.committeeDisplayService.fileTitle(committeeFile),
+              url: "",
+              distanceMiles: null,
+              gradeCode: "",
+              gradeDescription: "",
+              shape: "",
+              leaderName: committeeContactDetails?.fullName || "",
+              leaderMemberId: "",
+              hasLocation: !!committeeFile.postcode,
+              itemType: GroupEventTypes.COMMITTEE.eventType,
+              groupCode: "",
+              groupName: "",
+              thumbnailUrl: ""
+            }
           }))));
     }
     return Promise.all(promises).then(() => {

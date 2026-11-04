@@ -91,6 +91,64 @@ export enum EventInclusionMode {
   SINGLE_EVENT = "single-event"
 }
 
+export enum ProgrammeEventFormat {
+  EMAIL = "email-layout",
+  LISTING = "programme-listing",
+  DETAILED = "detailed",
+  COMPACT = "compact",
+  CUSTOM = "custom"
+}
+
+export const EVENT_EMAIL_IMAGE_HEIGHT = 240;
+export const PROGRAMME_EVENT_TEMPLATE_PATH_PREFIX = "fragments/templates/event-programme/";
+export const EVENT_EMAIL_IMAGE_STYLE = `width:100%;max-width:100%;height:${EVENT_EMAIL_IMAGE_HEIGHT}px;object-fit:cover;object-position:center;display:block;border:0;`;
+
+export enum EmailImageLayout {
+  NATURAL = "natural",
+  EVENT = "event"
+}
+
+export enum ProgrammeEventToken {
+  TITLE = "title",
+  DATE = "date",
+  TIME = "time",
+  DISTANCE = "distance",
+  LOCATION = "location",
+  GRID_REFERENCE = "grid-reference",
+  POSTCODE = "postcode",
+  CONTACT = "contact",
+  DESCRIPTION = "description",
+  IMAGE = "image"
+}
+
+export interface EmailComposerProgramme {
+  format: ProgrammeEventFormat;
+  customTemplate: string;
+  eventFormats: Record<string, ProgrammeEventFormat | null>;
+  markdown: string | null;
+}
+
+export interface ProgrammeEventSection {
+  format: ProgrammeEventFormat;
+  markdown: string;
+}
+
+export const PROGRAMME_EVENT_FORMATS = [
+  {value: ProgrammeEventFormat.EMAIL, label: "Existing email layout"},
+  {value: ProgrammeEventFormat.LISTING, label: "Programme listing (three columns)"},
+  {value: ProgrammeEventFormat.DETAILED, label: "Detailed"},
+  {value: ProgrammeEventFormat.COMPACT, label: "Compact"},
+  {value: ProgrammeEventFormat.CUSTOM, label: "Custom template"}
+];
+
+export const PROGRAMME_EVENT_TEMPLATES: Record<ProgrammeEventFormat, string> = {
+  [ProgrammeEventFormat.EMAIL]: "",
+  [ProgrammeEventFormat.LISTING]: "| Date, start and distance | Walk and leader | Description |\n| --- | --- | --- |\n| {{date}}<br>{{time}}<br>{{grid-reference}}<br>{{distance}} | **{{title}}**<br>{{contact}} | {{description}} |",
+  [ProgrammeEventFormat.DETAILED]: "## {{title}}\n\n**{{date}} · {{time}} · {{distance}}**\n\n{{location}}\n\n{{grid-reference}} {{postcode}}\n\n{{contact}}\n\n{{description}}\n\n{{image}}",
+  [ProgrammeEventFormat.COMPACT]: "### {{title}}\n\n{{date}} · {{time}} · {{distance}}\n\n{{grid-reference}} {{postcode}} · {{contact}}",
+  [ProgrammeEventFormat.CUSTOM]: "## {{title}}\n\n{{date}} · {{time}} · {{distance}}\n\n{{location}}\n\n{{grid-reference}} {{postcode}}\n\n{{contact}}\n\n{{description}}"
+};
+
 export enum EmailCompositionKind {
   STANDARD = "standard",
   NEWSLETTER = "newsletter",
@@ -431,6 +489,7 @@ export interface EmailComposerState {
   eventInclusion: EventInclusionMode;
   groupEventsFilter: GroupEventsFilter | null;
   groupEvents: GroupEventSummary[];
+  programme?: EmailComposerProgramme | null;
   singleEvent: ExtendedGroupEvent | null;
   introDividerAfter: SectionDividerStyle;
   eventsDividerAfter: SectionDividerStyle;

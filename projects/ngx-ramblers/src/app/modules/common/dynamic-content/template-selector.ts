@@ -3,16 +3,13 @@ import { FormsModule } from "@angular/forms";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faAdd, faClone, faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
-import { ContentTemplateType, PageContent, USER_TEMPLATES_PATH_PREFIX } from "../../../models/content-text.model";
+import { ContentTemplateType, PageContent, TemplateSelectEvent, USER_TEMPLATES_PATH_PREFIX } from "../../../models/content-text.model";
 import { Logger, LoggerFactory } from "../../../services/logger-factory.service";
 import { PageContentService } from "../../../services/page-content.service";
 import { UrlService } from "../../../services/url.service";
 import { BadgeButtonComponent } from "../badge-button/badge-button";
 
-export interface TemplateSelectEvent {
-  template: PageContent;
-  replace: boolean;
-}
+export {TemplateSelectEvent} from "../../../models/content-text.model";
 
 @Component({
   selector: "app-template-selector",
@@ -41,12 +38,14 @@ export interface TemplateSelectEvent {
           [tooltip]="'Replace content with template'"
           [disabled]="!selectedTemplateFragmentId"
           (click)="selectTemplate(true)"/>
+        @if (showAppendAction) {
         <app-badge-button
           [icon]="faAdd"
           caption="Append"
           [tooltip]="'Append template to content'"
           [disabled]="!selectedTemplateFragmentId"
           (click)="selectTemplate(false)"/>
+        }
       }
     </div>
     @if (templateFragmentsLoading) {
@@ -61,6 +60,8 @@ export class TemplateSelectorComponent implements OnInit {
 
   @Input() showActionButtons = true;
   @Input() label = "Select template";
+  @Input() pathPrefix: string | null = null;
+  @Input() showAppendAction = true;
   @Output() templateSelected = new EventEmitter<TemplateSelectEvent>();
   @Output() selectionChanged = new EventEmitter<PageContent | null>();
 
@@ -87,7 +88,8 @@ export class TemplateSelectorComponent implements OnInit {
     try {
       const allContent = await this.pageContentService.all();
       const fragments = allContent.filter(p => this.normalisePath(p.path || "").startsWith("fragments/"));
-      this.templateFragments = fragments.filter(fragment => this.fragmentIsTemplate(fragment));
+      this.templateFragments = fragments.filter(fragment => this.fragmentIsTemplate(fragment)
+        && (!this.pathPrefix || this.normalisePath(fragment.path || "").startsWith(this.pathPrefix)));
       this.logger.info("refresh: found", this.templateFragments.length, "templates from", fragments.length, "fragments");
       if (!this.templateFragments.length) {
         this.selectedTemplateFragmentId = "";

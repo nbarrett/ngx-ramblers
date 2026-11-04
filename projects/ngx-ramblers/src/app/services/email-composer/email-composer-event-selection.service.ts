@@ -17,7 +17,8 @@ import { MediaQueryService } from "../../services/committee/media-query.service"
 import { CommitteeDisplayService } from "../../pages/committee/committee-display.service";
 import { ExtendedGroupEvent } from "../../models/group-event.model";
 import { EventType } from "../../models/walk.model";
-import { displayedWalkProgrammeStatus, walkIsMemberFacing } from "../../models/walk-programme.model";
+import { displayedWalkProgrammeStatus } from "../../models/walk-programme.model";
+import { composerIncludesEvent, introPurposeFrom } from "../../functions/newsletter-purpose";
 import { GroupEventService } from "../walks-and-events/group-event.service";
 import { eventSlug } from "../../functions/walks/event-slug";
 import { DateValue } from "../../models/date.model";
@@ -25,6 +26,7 @@ import { DateRange, dateRangeSliderBounds } from "../../components/date-range-sl
 import { StoredValue } from "../../models/ui-actions";
 import { AdvancedSearchPreset, createAllTimePreset, createFuturePreset, createPastPreset } from "../../models/search.model";
 import { DateTime } from "luxon";
+import {programmeLocation} from "../../functions/email-composer-programme";
 import { Injectable } from "@angular/core";
 
 
@@ -97,6 +99,8 @@ export class EmailComposerEventSelectionService {
         : null,
       location: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.description,
       postcode: (event?.groupEvent?.start_location || event?.groupEvent?.location)?.postcode,
+      ...programmeLocation(event?.groupEvent?.start_location || event?.groupEvent?.location),
+      distance: this.committeeQueryService.distanceValidationService.walkDistances(event),
       title: event?.groupEvent?.title || "Awaiting " + this.stringUtils.asTitle(event?.groupEvent?.item_type ?? "event") + " details",
       description: event?.groupEvent?.description,
       contactName: event?.fields?.contactDetails?.displayName,
@@ -306,10 +310,16 @@ export class EmailComposerEventSelectionService {
     return this.session.state.groupEvents.filter(event => event.selected);
   }
 
+  selectedByDefault(event: GroupEventSummary): boolean {
+    const drafting = this.session.state.notificationConfig?.composerDrafting;
+    const included = composerIncludesEvent(event, drafting?.onlyApprovedWalks ?? true, introPurposeFrom(drafting));
+    return !!this.session.state.groupEventsFilter?.selectAll && included;
+  }
+
   mergePriorSelection(event: GroupEventSummary, prior?: GroupEventSummary): GroupEventSummary {
     const merged: GroupEventSummary = {
       ...event,
-      selected: prior?.selected ?? this.session.state.groupEventsFilter!.selectAll
+      selected: prior ? prior.selected : this.selectedByDefault(event)
     };
     applyMediaSelection(merged, clampMediaIndex(merged, prior?.selectedMediaIndex));
     return merged;

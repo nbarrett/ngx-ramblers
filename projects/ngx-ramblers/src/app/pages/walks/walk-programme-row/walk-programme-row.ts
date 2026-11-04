@@ -10,6 +10,7 @@ import {
   WalkProgrammeSummaryRow
 } from "../../../models/walk-programme.model";
 import { WalkLeadEditAppearance } from "../../../models/walk-edit-mode.model";
+import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { WalksReferenceService } from "../../../services/walks/walks-reference-data.service";
 import { WalkDisplayService } from "../walk-display.service";
 import { DateUtilsService } from "../../../services/date-utils.service";
@@ -21,8 +22,14 @@ import { WalkLeadEditButton } from "../walk-view/walk-lead-edit-button";
   imports: [FontAwesomeModule, WalkLeadEditButton],
   styleUrls: ["./walk-programme-row.sass"],
   template: `
-    <div class="walk-row" role="button" tabindex="0" [style.--status-colour]="descriptor().colour"
-         (click)="openWalk()" (keydown.enter)="openWalk()" (keydown.space)="openWalk()">
+    <div class="walk-row" [class.selectable]="selectable" [attr.role]="selectable ? null : 'button'" [attr.tabindex]="selectable ? null : 0"
+         [style.--status-colour]="descriptor().colour"
+         (click)="activateRow()" (keydown.enter)="activateRow()" (keydown.space)="activateRow()">
+      @if (selectable) {
+        <div class="walk-row-select" (click)="$event.stopPropagation()">
+          <ng-content/>
+        </div>
+      }
       <div class="walk-row-date">
         <span class="walk-day">{{ dayName() }}</span>
         <span class="walk-date">{{ dateShort() }}</span>
@@ -69,6 +76,7 @@ import { WalkLeadEditButton } from "../walk-view/walk-lead-edit-button";
         <span class="status-badge" [style.background-color]="descriptor().colour"
               [style.color]="descriptor().textColour">{{ descriptor().title }}</span>
       </div>
+      @if (!selectable) {
       <div class="walk-row-view" (click)="$event.stopPropagation()">
         <button type="button" class="btn pager-btn d-flex align-items-center justify-content-center gap-1 text-nowrap"
                 (click)="openWalk(); $event.stopPropagation()"
@@ -90,6 +98,7 @@ import { WalkLeadEditButton } from "../walk-view/walk-lead-edit-button";
           </button>
         }
       </div>
+      }
     </div>
   `
 })
@@ -110,6 +119,7 @@ export class WalkProgrammeRowComponent {
   allowEdit = false;
   showGroup = false;
   reserveThumbnail = false;
+  selectable = false;
 
   @Input("allowEdit") set allowEditValue(value: boolean) {
     this.allowEdit = coerceBooleanProperty(value);
@@ -121,6 +131,10 @@ export class WalkProgrammeRowComponent {
 
   @Input("reserveThumbnail") set reserveThumbnailValue(value: boolean) {
     this.reserveThumbnail = coerceBooleanProperty(value);
+  }
+
+  @Input("selectable") set selectableValue(value: boolean) {
+    this.selectable = coerceBooleanProperty(value);
   }
 
   @HostBinding("class.with-thumbnail")
@@ -153,13 +167,20 @@ export class WalkProgrammeRowComponent {
   }
 
   whatsMissing(): string[] {
-    return [
+    const walk = !this.row.itemType || this.row.itemType === RamblersEventType.GROUP_WALK || this.row.itemType === RamblersEventType.WELLBEING_WALK;
+    return walk ? [
       this.row.leaderName || this.display.walkPopulationWalksManager() ? null : "leader",
       this.row.title ? null : "walk details",
       this.row.distanceMiles ? null : "distance",
       this.row.gradeDescription ? null : "grade",
       this.row.hasLocation ? null : "start location"
-    ].filter(item => item);
+    ].filter(item => item) : [];
+  }
+
+  protected activateRow(): void {
+    if (!this.selectable) {
+      this.openWalk();
+    }
   }
 
   actionLabel(): string {

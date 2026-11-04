@@ -391,11 +391,18 @@
 
 .tiptap-content img
   display: block
+  width: 100%
+  height: 240px
+  object-fit: cover
+  object-position: center
+  border: 0
+  padding: 0
+  background: transparent
+
+.tiptap-content img[data-sized]
   width: auto
-  border: 1px solid #ced4da
-  border-radius: 4px
-  padding: 2px
-  background-color: #f8f9fa
+  height: auto
+  object-fit: contain
 
 .tiptap-content .ProseMirror code
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace

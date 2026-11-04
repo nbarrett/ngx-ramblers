@@ -259,6 +259,8 @@ import { ReleaseNoteUpdateConfigService } from "../../services/email-composer/re
 import { NotificationConfigSelectorComponent } from "../admin/system-settings/mail/notification-config-selector";
 import { SenderRepliesAndSignoff } from "../admin/send-emails/sender-replies-and-signoff";
 import { EmailPreviewComponent } from "../../modules/common/email-preview/email-preview.component";
+import {EmailComposerProgrammeService} from "../../services/email-composer/email-composer-programme.service";
+import {EmailComposerProgrammeComponent} from "./email-composer-programme.component";
 import { NotificationDirective } from "../../notifications/common/notification.directive";
 import { SystemConfig } from "../../models/system.model";
 import { CommitteeReferenceData } from "../../services/committee/committee-reference-data";
@@ -313,6 +315,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
   },
   providers: [
     EmailComposerDocumentsService,
+    EmailComposerProgrammeService,
     EmailComposerSessionService,
     EmailComposerRecipientSourcesService,
     EmailComposerRecipientResolutionService,
@@ -327,6 +330,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
   imports: [
     EmailComposerDraftingComponent,
     EmailComposerDocumentComponent,
+    EmailComposerProgrammeComponent,
     FocusInputDirective,
     SuppressAutofillDirective,
     AlertMessageComponent,
@@ -1204,6 +1208,7 @@ const TRACKING_PIXEL_MAX_DIMENSION = 2;
                       <app-section-divider-select label="Divider between consecutive events"
                                                   [value]="state.betweenEventsDivider"
                                                   (valueChange)="onBetweenEventsDividerChange($event)"/>
+                      <app-email-composer-programme/>
                     </div>
                   }
                   @case (ComposerFragmentKind.COMMITTEE_FILE) {
@@ -1399,6 +1404,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   }
 
   protected documents = inject(EmailComposerDocumentsService);
+  protected programme = inject(EmailComposerProgrammeService);
   protected events = inject(EmailComposerEventSelectionService);
   protected drafting = inject(EmailComposerDraftingService);
   protected sender = inject(EmailComposerSenderService);
@@ -1597,6 +1603,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
       this.changeDetector.detectChanges();
       this.maybeAutoRefreshPreview();
     }));
+    this.subscriptions.push(this.programme.edited.subscribe(() => this.userHasEditedComposer = true));
     void this.loadSavedExternalRecipients();
     const identityAndSalesforceConfig = Promise.all([
       this.sender.loadLoggedInMemberRecord(),
@@ -1985,6 +1992,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
   private renderedEventsHtml(): string {
     if (this.eventsStepOmitted() || this.session.state.eventInclusion === EventInclusionMode.NONE) {
       return "";
+    } else if (this.programme.generated()) {
+      return this.programme.emailHtml();
     } else {
       return this.eventsContent?.nativeElement?.innerHTML ?? "";
     }
@@ -3275,7 +3284,8 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
 
   eventsStepErrors(): string[] {
     const errors: string[] = [];
-    if (this.session.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.events.selectedGroupEventCount() === 0) {
+    if (this.session.state.eventInclusion === EventInclusionMode.AUTO_INCLUDE && this.events.selectedGroupEventCount() === 0
+      && !this.session.state.programme?.markdown?.trim()) {
       errors.push("Either select at least one event or choose 'No events'");
     }
     return errors;
@@ -3675,6 +3685,7 @@ export class EmailComposer implements OnInit, DoCheck, OnDestroy, ComposerLeaveC
 
   private hasUnsavedChanges(): boolean {
     return !!this.session.state.subject?.trim()
+      || !!this.session.state.programme?.markdown?.trim()
       || !!this.session.state.introMarkdown?.trim()
       || !!this.session.state.signoffTextMarkdown?.trim()
       || (this.session.state.articleBlocks ?? []).length > 0

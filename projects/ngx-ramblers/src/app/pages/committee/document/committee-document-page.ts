@@ -1,10 +1,10 @@
-import { Component, inject, NgZone, OnDestroy, OnInit, Renderer2 } from "@angular/core";
-import { ActivatedRoute, Router } from "@angular/router";
+import { Component, inject, NgZone, OnDestroy, OnInit, Renderer2, ViewChild } from "@angular/core";
 import { DOCUMENT } from "@angular/common";
+import { ActivatedRoute, Router } from "@angular/router";
 import { DomSanitizer, SafeResourceUrl } from "@angular/platform-browser";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
-import { faArrowLeft, faDownload, faFileLines, faPrint, faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faDownload, faFileLines, faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { CommitteeFile } from "../../../models/committee.model";
 import { StoredValue } from "../../../models/ui-actions";
@@ -13,7 +13,7 @@ import { Logger, LoggerFactory } from "../../../services/logger-factory.service"
 import { MemberLoginService } from "../../../services/member/member-login.service";
 import { CommitteeDisplayService } from "../committee-display.service";
 import { CommitteeReferenceData } from "../../../services/committee/committee-reference-data";
-import { CommitteeDocumentView } from "./committee-document-view";
+import { CommitteeDocumentEditor } from "./committee-document-editor";
 import { PageComponent } from "../../../page/page.component";
 import { AlertPanelComponent } from "../../../modules/common/alert-panel/alert-panel";
 import { VideoMeetingsService } from "../../../services/video-meetings/video-meetings.service";
@@ -33,12 +33,8 @@ const PRINT_MODE_BODY_CLASS = "committee-document-print-mode";
               <fa-icon [icon]="faArrowLeft" class="me-1"/>
               Back
             </button>
-            <button type="button" class="btn btn-primary btn-sm" (click)="print()">
-              <fa-icon [icon]="faPrint" class="me-1"/>
-              Print / A4
-            </button>
           </div>
-          <app-committee-document-view [committeeFile]="committeeFile"/>
+          <app-committee-document-editor [committeeFile]="committeeFile" [editable]="false"/>
           @if (hasCallTranscript) {
             <div class="mt-4 d-print-none">
               <button type="button" class="btn btn-quiet mb-3" (click)="toggleTranscript()">
@@ -94,7 +90,7 @@ const PRINT_MODE_BODY_CLASS = "committee-document-print-mode";
         </app-alert-panel>
       }
     </app-page>`,
-  imports: [PageComponent, CommitteeDocumentView, FontAwesomeModule, AlertPanelComponent, ThumbnailHeadingFrameComponent],
+  imports: [PageComponent, CommitteeDocumentEditor, FontAwesomeModule, AlertPanelComponent, ThumbnailHeadingFrameComponent],
   styles: [`
     .committee-call-transcript
       white-space: pre-wrap
@@ -118,6 +114,7 @@ export class CommitteeDocumentPage implements OnInit, OnDestroy {
   display = inject(CommitteeDisplayService);
   private subscriptions: Subscription[] = [];
   private committeeReferenceData: CommitteeReferenceData;
+  @ViewChild(CommitteeDocumentEditor) private documentEditor: CommitteeDocumentEditor;
   public committeeFile: CommitteeFile;
   public embedUrl: SafeResourceUrl;
   public allowViewing = false;
@@ -130,7 +127,6 @@ export class CommitteeDocumentPage implements OnInit, OnDestroy {
   public showTranscript = false;
   public transcript = "";
   public transcriptLoading = false;
-  protected readonly faPrint = faPrint;
   protected readonly faDownload = faDownload;
   protected readonly faArrowLeft = faArrowLeft;
   protected readonly faUpRightFromSquare = faUpRightFromSquare;
@@ -235,7 +231,7 @@ export class CommitteeDocumentPage implements OnInit, OnDestroy {
   }
 
   print(): void {
-    window.print();
+    void this.documentEditor?.print();
   }
 
   navigateBack(): void {

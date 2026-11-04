@@ -49,7 +49,7 @@ import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 
 @if (selectedGroupEvents().length > 0) {
   @for (event of selectedGroupEvents(); track event.id; let last = $last) {
-    <app-committee-notification-ramblers-message-item [notificationItem]="toNotificationItem(event, notification)">
+    <app-committee-notification-ramblers-message-item [attr.data-composer-event-id]="event.id" [notificationItem]="toNotificationItem(event, notification)">
       <app-committee-notification-group-event-message-item [notification]="notification" [event]="event"/>
     </app-committee-notification-ramblers-message-item>
     @if (!last && betweenEventsDividerHtml()) {

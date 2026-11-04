@@ -1,6 +1,7 @@
 import { Marked } from "marked";
 import { escapeHtml } from "./strings";
 import { resourceAwsImageUrls } from "./aws-image-paths";
+import {EmailImageLayout, EVENT_EMAIL_IMAGE_HEIGHT, EVENT_EMAIL_IMAGE_STYLE} from "../models/email-composer.model";
 
 const emailComposerMarked = new Marked({
   extensions: [
@@ -15,31 +16,31 @@ const emailComposerMarked = new Marked({
   ]
 });
 
-export function renderEmailComposerMarkdown(markdown: string): string {
+export function renderEmailComposerMarkdown(markdown: string, imageLayout = EmailImageLayout.NATURAL): string {
   if (!markdown) {
     return "";
   }
   try {
     const rendered = emailComposerMarked.parse(markdown, {async: false}) as string;
-    return formatEmailComposerHtml(rendered);
+    return formatEmailComposerHtml(rendered, imageLayout);
   } catch {
     return `<pre>${escapeHtml(markdown)}</pre>`;
   }
 }
 
-export function formatEmailComposerHtml(html: string): string {
-  return resourceAwsImageUrls(styleMarkdownElements(constrainQuotedImages(constrainInlineImages(html))));
+export function formatEmailComposerHtml(html: string, imageLayout = EmailImageLayout.NATURAL): string {
+  return resourceAwsImageUrls(styleMarkdownElements(constrainQuotedImages(constrainInlineImages(html, imageLayout))));
 }
 
 function styleMarkdownElements(html: string): string {
   const withWhitespace = html.replace(/<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi, paragraph =>
     / {2,}|\t|&#(?:32|9);/.test(paragraph) ? addInlineStyle(paragraph, "p", "white-space:pre-wrap;") : paragraph);
-  return [
+  const withQuotes = addInlineStyle(withWhitespace, "blockquote", "border-left:4px solid #9bc8ab;margin:16px 0;padding:12px 20px;background-color:#f7fbf8;color:#343a40;font-style:italic;");
+  return withQuotes.replace(/<table\b[^>]*>[\s\S]*?<\/table>/gi, table => /role\s*=\s*"presentation"/i.test(table) ? table : [
     {tag: "table", style: "border-collapse:collapse;margin:8px 0;width:100%;max-width:100%;"},
     {tag: "th", style: "border:1px solid #ced4da;padding:6px 8px;vertical-align:top;overflow-wrap:break-word;background-color:#f8f9fa;font-weight:bold;text-align:left;"},
-    {tag: "td", style: "border:1px solid #ced4da;padding:6px 8px;vertical-align:top;overflow-wrap:break-word;"},
-    {tag: "blockquote", style: "border-left:4px solid #9bc8ab;margin:16px 0;padding:12px 20px;background-color:#f7fbf8;color:#343a40;font-style:italic;"}
-  ].reduce((styledHtml, element) => addInlineStyle(styledHtml, element.tag, element.style), withWhitespace);
+    {tag: "td", style: "border:1px solid #ced4da;padding:6px 8px;vertical-align:top;overflow-wrap:break-word;"}
+  ].reduce((styledHtml, element) => addInlineStyle(styledHtml, element.tag, element.style), table));
 }
 
 function addInlineStyle(html: string, tag: string, style: string): string {
@@ -71,21 +72,22 @@ function constrainQuotedImages(html: string): string {
     }, {depth: 0, html: ""}).html;
 }
 
-function constrainInlineImages(html: string): string {
-  return constrainImages(html, "max-width:100%;height:auto;");
+function constrainInlineImages(html: string, imageLayout: EmailImageLayout): string {
+  return constrainImages(html, imageLayout === EmailImageLayout.EVENT ? EVENT_EMAIL_IMAGE_STYLE : "max-width:100%;height:auto;", imageLayout);
 }
 
-function constrainImages(html: string, style: string): string {
+function constrainImages(html: string, style: string, imageLayout = EmailImageLayout.NATURAL): string {
   return html.replace(/<img\b([^>]*)>/gi, (match, attrs) => {
     const styled = /style\s*=/i.test(attrs)
       ? match.replace(/style\s*=\s*"([^"]*)"/i, (_styleMatch, existing) => styleAttribute(existing as string, `${style};background-color:#ffffff`))
       : `<img${attrs} style="${style};background-color:#ffffff">`;
-    return wrapEmailImageOnWhite(styled);
+    return wrapEmailImageOnWhite(styled, imageLayout);
   });
 }
 
-export function wrapEmailImageOnWhite(imgTag: string): string {
-  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background-color:#ffffff;"><tr><td bgcolor="#ffffff" align="center" style="background-color:#ffffff;">${imgTag}</td></tr></table>`;
+export function wrapEmailImageOnWhite(imgTag: string, imageLayout = EmailImageLayout.NATURAL): string {
+  const sizing = imageLayout === EmailImageLayout.EVENT ? ` height="${EVENT_EMAIL_IMAGE_HEIGHT}" valign="middle"` : "";
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background-color:#ffffff;"><tr><td bgcolor="#ffffff" align="center"${sizing} style="background-color:#ffffff;">${imgTag}</td></tr></table>`;
 }
 
 function styleAttribute(existing: string, style: string): string {

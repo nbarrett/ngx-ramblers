@@ -57,8 +57,14 @@
     padding-left: 1rem
     color: rgb(108, 117, 125)
   img
+    display: block
+    width: 100%
     max-width: 100%
-    height: auto
+    height: 480px
+    object-fit: cover
+    object-position: center
+    margin: 0 0 1rem
+    border: 0
 
 .committee-document-backdrop
   background-color: #525659
@@ -209,6 +215,7 @@
   +committee-document-content
 
 .committee-file-editor-actions
+  width: 100%
   padding-top: 0.5rem
   padding-bottom: 1.5rem
   .btn + .btn

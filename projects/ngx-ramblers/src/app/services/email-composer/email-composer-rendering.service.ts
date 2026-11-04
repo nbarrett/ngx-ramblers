@@ -5,6 +5,7 @@ import {
   ArticleBlock,
   ArticleBlockImageAlignment,
   ArticleBlockPosition,
+  EmailImageLayout,
   SectionDividerStyle,
   SideImagePlacement
 } from "../../models/email-composer.model";
@@ -19,8 +20,8 @@ export class EmailComposerRenderingService {
   private logger: Logger = inject(LoggerFactory).createLogger("EmailComposerRenderingService", NgxLoggerLevel.ERROR);
   private urlService = inject(UrlService);
 
-  markdownToHtml(markdown: string): string {
-    const rendered = renderEmailComposerMarkdown(markdown).replace(/(<img\b[^>]*\bsrc=["'])(\/?api\/aws\/s3\/[^"']+)(["'])/gi,
+  markdownToHtml(markdown: string, imageLayout = EmailImageLayout.NATURAL): string {
+    const rendered = renderEmailComposerMarkdown(markdown, imageLayout).replace(/(<img\b[^>]*\bsrc=["'])(\/?api\/aws\/s3\/[^"']+)(["'])/gi,
       (_match, before, path, after) => `${before}${this.urlService.absoluteUrlFor(path)}${after}`);
     this.logger.off("markdownToHtml input length:", markdown.length, "output length:", rendered.length);
     return rendered;

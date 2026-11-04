@@ -9,7 +9,7 @@ import { SystemConfigService } from "../../../services/system/system-config.serv
 import { Subscription } from "rxjs";
 import { Organisation } from "../../../models/system.model";
 import { MailMessagingService } from "../../../services/mail/mail-messaging.service";
-import { NgStyle } from "@angular/common";
+import {EVENT_EMAIL_IMAGE_HEIGHT, EVENT_EMAIL_IMAGE_STYLE} from "../../../models/email-composer.model";
 import { UrlService } from "../../../services/url.service";
 
 @Component({
@@ -22,25 +22,17 @@ import { UrlService } from "../../../services/url.service";
         @if (notificationItem?.image?.src) {
           <tr>
             <td align="center"
+                [attr.height]="eventImageHeight"
                 style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;"
-                valign="top">
+                valign="middle">
               <a href="{{notificationItem.image.link.href}}"
                  style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;"
                  target="_blank" title="">
                 <img
                   alt="{{notificationItem.image.alt}}"
                   src="{{urlService.imageSource(notificationItem.image.src, true)}}"
-                  [ngStyle]="{
-                    'object-fit': 'cover',
-                    'object-position': 'center',
-                    'max-width': '100%',
-                    'border': '0',
-                    'height': 'auto',
-                    'outline': 'none',
-                    'text-decoration': 'none',
-                    '-ms-interpolation-mode': 'bicubic',
-                    'vertical-align': 'bottom'
-                  }"
+                  [style]="eventImageStyle"
+                  [attr.height]="eventImageHeight"
                   width="100%"/>
               </a>
             </td>
@@ -93,9 +85,11 @@ import { UrlService } from "../../../services/url.service";
       </table>
     }
     `,
-    imports: [NgStyle]
+    imports: []
 })
 export class CommitteeNotificationRamblersMessageItemComponent implements OnInit, OnDestroy {
+  protected readonly eventImageHeight = EVENT_EMAIL_IMAGE_HEIGHT;
+  protected readonly eventImageStyle = EVENT_EMAIL_IMAGE_STYLE;
   private logger: Logger = inject(LoggerFactory).createLogger("CommitteeNotificationRamblersMessageItemComponent", NgxLoggerLevel.ERROR);
   protected mailMessagingService = inject(MailMessagingService);
   protected googleMapsService = inject(GoogleMapsService);

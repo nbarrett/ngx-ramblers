@@ -1,6 +1,15 @@
 import { renderEmailComposerMarkdown } from "./email-composer-markdown";
+import {EmailImageLayout, EVENT_EMAIL_IMAGE_HEIGHT} from "../models/email-composer.model";
 
 describe("renderEmailComposerMarkdown", () => {
+  it("centres programme images in a fixed height area without cropping", () => {
+    const html = renderEmailComposerMarkdown("![Walk](https://example.com/walk.jpg)", EmailImageLayout.EVENT);
+    expect(html).toContain(`height:${EVENT_EMAIL_IMAGE_HEIGHT}px`);
+    expect(html).toContain("object-fit:cover");
+    expect(html).toContain("object-position:center");
+    expect(html).toContain(`height="${EVENT_EMAIL_IMAGE_HEIGHT}" valign="middle"`);
+    expect(html).not.toContain("height:auto");
+  });
   it("renders tables with self-contained email-safe styling", () => {
     const html = renderEmailComposerMarkdown("| Heading | Value |\n| --- | --- |\n| One | Two |");
 

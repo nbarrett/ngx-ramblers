@@ -185,6 +185,12 @@ export class EmailCompositionsService {
       eventInclusion: state.eventInclusion,
       groupEventsFilter: filter,
       groupEvents: [],
+      programme: state.programme ? {
+        format: state.programme.format,
+        customTemplate: state.programme.customTemplate,
+        eventFormats: {...state.programme.eventFormats},
+        markdown: state.programme.markdown
+      } : null,
       singleEvent: state.singleEvent?.id ? { id: state.singleEvent.id } : null,
       introDividerAfter: state.introDividerAfter,
       eventsDividerAfter: state.eventsDividerAfter,

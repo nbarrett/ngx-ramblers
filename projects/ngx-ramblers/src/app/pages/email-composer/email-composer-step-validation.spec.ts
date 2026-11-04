@@ -2,9 +2,18 @@ import {describe, expect, it, vi} from "vitest";
 import {Member} from "../../models/member.model";
 import {EmailComposer} from "./email-composer";
 import {defaultEmailComposerState} from "../../functions/email-composer";
-import {EmailComposerStepKey, RecipientMode} from "../../models/email-composer.model";
+import {EmailComposerStepKey, EventInclusionMode, ProgrammeEventFormat, RecipientMode} from "../../models/email-composer.model";
 
 describe("composer step validation", () => {
+  it("allows an edited programme saved with the draft even if the original events are no longer selected", () => {
+    const instance = Object.create(EmailComposer.prototype);
+    const state = defaultEmailComposerState();
+    state.eventInclusion = EventInclusionMode.AUTO_INCLUDE;
+    Object.assign(instance, {session: {state}, events: {selectedGroupEventCount: () => 0}});
+    expect(instance.eventsStepErrors()).toHaveLength(1);
+    state.programme = {format: ProgrammeEventFormat.LISTING, customTemplate: "", eventFormats: {}, markdown: "Reviewed programme"};
+    expect(instance.eventsStepErrors()).toEqual([]);
+  });
   it("blocks later steps and direct tab changes until the automatic subject is changed", () => {
     const state = defaultEmailComposerState();
     state.subject = "Automatic heading";

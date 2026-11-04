@@ -189,6 +189,11 @@ export interface PageContent extends HasPageContentRows {
   debugLogs?: string[];
 }
 
+export interface TemplateSelectEvent {
+  template: PageContent;
+  replace: boolean;
+}
+
 export interface PageContentPatch {
   path?: string;
   [field: string]: unknown;

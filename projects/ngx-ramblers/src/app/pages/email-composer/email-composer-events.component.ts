@@ -1,36 +1,28 @@
 import {Component, inject} from "@angular/core";
 import {FormsModule} from "@angular/forms";
-import {FontAwesomeModule} from "@fortawesome/angular-fontawesome";
-import {faArrowLeft, faArrowRight} from "@fortawesome/free-solid-svg-icons";
-import {MarkdownComponent} from "ngx-markdown";
 import {NgSelectModule} from "@ng-select/ng-select";
 import {DateInputMode, EmailComposerDraftingMode, EventInclusionMode} from "../../models/email-composer.model";
-import {GroupEventSummary} from "../../models/committee.model";
-import {LinkComponent} from "../../link/link";
-import {DisplayDatePipe} from "../../pipes/display-date.pipe";
 import {StringUtilsService} from "../../services/string-utils.service";
-import {GoogleMapsService} from "../../services/google-maps.service";
-import {UrlService} from "../../services/url.service";
-import {applyMediaSelection} from "../../functions/email-composer-event-media";
+import {WalkProgrammeRowComponent} from "../walks/walk-programme-row/walk-programme-row";
 import {DatePicker} from "../../date-and-time/date-picker";
 import {DateRangeSlider} from "../../components/date-range-slider/date-range-slider";
 import {EmailComposerEventSelectionService} from "../../services/email-composer/email-composer-event-selection.service";
 import {EmailComposerSessionService} from "../../services/email-composer/email-composer-session.service";
 import {EmailComposerDraftingService} from "../../services/email-composer/email-composer-drafting.service";
 import {EmailComposerDraftingComponent} from "./email-composer-drafting.component";
+import {EmailComposerProgrammeComponent} from "./email-composer-programme.component";
+import {EmailComposerProgrammeService} from "../../services/email-composer/email-composer-programme.service";
 
 @Component({
   selector: "app-email-composer-events",
   imports: [
     FormsModule,
-    FontAwesomeModule,
-    MarkdownComponent,
-    LinkComponent,
-    DisplayDatePipe,
     NgSelectModule,
+    WalkProgrammeRowComponent,
     DatePicker,
     DateRangeSlider,
-    EmailComposerDraftingComponent
+    EmailComposerDraftingComponent,
+    EmailComposerProgrammeComponent
   ],
   styleUrls: ["./email-composer-events.sass"],
   template: `
@@ -192,59 +184,19 @@ import {EmailComposerDraftingComponent} from "./email-composer-drafting.componen
                 {{ stringUtils.pluraliseWithCount(session.state.groupEvents.length, "event") }}
               </label>
             </div>
-            <ul class="list-unstyled events-scroll">
-              @for (event of session.state.groupEvents; let idx = $index; track event.id) {
-                <li class="mb-2 event-row">
-                  <div class="event-meta">
-                    <div class="form-check">
-                      <input type="checkbox" class="form-check-input"
-                             [id]="'event-' + idx"
-                             [(ngModel)]="event.selected"
-                             (ngModelChange)="events.onGroupEventSelectionChanged()">
-                      <label class="form-check-label" [for]="'event-' + idx">
-                        @if (event.newSinceLastNewsletter) {
-                          <span class="badge bg-warning text-dark me-1">New</span>
-                        }
-                        <strong>{{ event.eventDate | displayDate }}</strong>
-                        @if (event.eventTime) { <span> &bull; {{ event.eventTime }}</span> }
-                        &bull; {{ event?.eventType?.description }}
-                        &bull;
-                        <app-link [area]="event?.eventType?.area" [id]="event?.slug || event?.id" [text]="event?.title"></app-link>
-                        @if (event.distance) { <span> &bull; {{ event.distance }}</span> }
-                        @if (session.state.groupEventsFilter!.includeContact && event.contactName) {
-                          <span> &bull; <a [href]="event.contactHref"
-                                            [target]="event.contactHref?.startsWith('http') ? '_blank' : '_self'">{{ event.contactName || event.contactEmail }}</a></span>
-                        }
-                        @if (session.state.groupEventsFilter!.includeLocation && event.postcode) {
-                          <span> &bull; <a [href]="googleMapsService.urlForPostcode(event.postcode)" target="_blank">{{ event.postcode }}</a></span>
-                        }
-                      </label>
-                    </div>
-                    @if (session.state.groupEventsFilter!.includeDescription && event.description) {
-                      <div markdown [data]="event.description" class="ms-4 small text-muted"></div>
-                    }
-                  </div>
-                  @if (session.state.groupEventsFilter!.includeImage && event.image) {
-                    <div class="event-image">
-                      <img [src]="urlService.imageSource(event.image, true)" [alt]="event.title || ''"/>
-                      @if ((event.media?.length ?? 0) > 1) {
-                        <div class="event-image-controls">
-                          <button type="button" class="btn btn-primary"
-                                  (click)="cycleEventMedia(event, -1)">
-                            <fa-icon [icon]="faArrowLeft"/>
-                          </button>
-                          <span class="small text-muted">{{ (event.selectedMediaIndex ?? 0) + 1 }} of {{ event.media?.length }}</span>
-                          <button type="button" class="btn btn-primary"
-                                  (click)="cycleEventMedia(event, 1)">
-                            <fa-icon [icon]="faArrowRight"/>
-                          </button>
-                        </div>
-                      }
-                    </div>
-                  }
-                </li>
+            <div class="walk-rows">
+              @for (event of session.state.groupEvents; track event.id) {
+                @if (event.programmeRow) {
+                  <app-walk-programme-row [row]="event.programmeRow" selectable [reserveThumbnail]="anyThumbnails()">
+                    <input type="checkbox" class="form-check-input"
+                           [id]="'event-' + event.id"
+                           [attr.aria-label]="'Include ' + (event.title || 'event')"
+                           [(ngModel)]="event.selected"
+                           (ngModelChange)="events.onGroupEventSelectionChanged()">
+                  </app-walk-programme-row>
+                }
               }
-            </ul>
+            </div>
           } @else {
             <div class="text-muted">No events found in the current date range.</div>
           }
@@ -282,20 +234,24 @@ import {EmailComposerDraftingComponent} from "./email-composer-drafting.componen
         </div>
       </div>
     }
+    @if (session.state.eventInclusion !== EventInclusionMode.NONE && (selectedGroupEventCount() > 0 || programme.generated())) {
+      <app-email-composer-programme/>
+    }
   `
 })
 export class EmailComposerEventsComponent {
   protected session = inject(EmailComposerSessionService);
   protected events = inject(EmailComposerEventSelectionService);
   protected drafting = inject(EmailComposerDraftingService);
+  protected programme = inject(EmailComposerProgrammeService);
   protected stringUtils = inject(StringUtilsService);
-  protected googleMapsService = inject(GoogleMapsService);
-  protected urlService = inject(UrlService);
   protected readonly EventInclusionMode = EventInclusionMode;
   protected readonly DateInputMode = DateInputMode;
   protected readonly EmailComposerDraftingMode = EmailComposerDraftingMode;
-  protected readonly faArrowLeft = faArrowLeft;
-  protected readonly faArrowRight = faArrowRight;
+
+  protected anyThumbnails(): boolean {
+    return this.session.state.groupEvents.some(event => !!event.programmeRow?.thumbnailUrl);
+  }
 
   protected selectedGroupEventCount(): number {
     return this.session.state.groupEvents.filter(event => event.selected).length;
@@ -310,12 +266,4 @@ export class EmailComposerEventsComponent {
     }
   }
 
-  cycleEventMedia(event: GroupEventSummary, direction: number): void {
-    const media = event.media ?? [];
-    if (!(media.length === 0)) {
-      const currentIndex = event.selectedMediaIndex ?? 0;
-      const nextIndex = (currentIndex + direction + media.length) % media.length;
-      applyMediaSelection(event, nextIndex);
-    }
-  }
 }

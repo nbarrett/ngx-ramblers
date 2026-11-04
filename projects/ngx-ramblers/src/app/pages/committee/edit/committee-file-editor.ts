@@ -5,7 +5,7 @@ import { NgClass, NgStyle } from "@angular/common";
 import { first, isString } from "es-toolkit/compat";
 import { FileUploader, FileUploadModule } from "ng2-file-upload";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
-import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+import { faFileImport, faSave, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { NgxLoggerLevel } from "ngx-logger";
 import { Subscription } from "rxjs";
 import { AlertTarget } from "../../../models/alert-target.model";
@@ -25,9 +25,7 @@ import { DatePicker } from "../../../date-and-time/date-picker";
 import { TimePicker } from "../../../date-and-time/time-picker";
 import { LabelledFieldRowComponent } from "../../../modules/common/labelled-field-row/labelled-field-row";
 import { LabelledFieldComponent } from "../../../modules/common/labelled-field-row/labelled-field";
-import { TiptapMarkdownEditor } from "../../../modules/common/tiptap-editor/tiptap-markdown-editor";
-import { StickyControlsDirective } from "../../../modules/common/tiptap-editor/sticky-controls.directive";
-import { CommitteeDocumentView } from "../document/committee-document-view";
+import { CommitteeDocumentEditor } from "../document/committee-document-editor";
 import { committeeFileForSave } from "../../../functions/committee-file-save";
 
 @Component({
@@ -132,50 +130,30 @@ import { committeeFileForSave } from "../../../functions/committee-file-save";
         }
       </div>
     } @else {
-      <div appStickyControls class="committee-file-editor-actions">
+      <app-committee-document-editor [committeeFile]="committeeFile"
+                                     [value]="committeeFile.document.markdown"
+                                     [previewing]="previewing"
+                                     [disabled]="notifyTarget.busy"
+                                     (previewingChange)="setPreviewing($event)"
+                                     (valueChange)="markdownChanged($event)">
         <div class="d-flex gap-2 flex-wrap">
-            <input type="submit" value="Save File"
-                   [disabled]="notifyTarget.busy"
-                   (click)="save()"
-                   class="btn btn-primary">
-            <input type="submit" value="Cancel"
-                   [disabled]="notifyTarget.busy"
-                   (click)="cancelled.emit()"
-                   class="btn btn-secondary">
-            <input type="submit" [disabled]="notifyTarget.busy"
-                   value="Start from a file"
-                   title="Pre-fill the editor from an existing Word or PDF document"
-                   (click)="browseToConversionFile(conversionFileElement)"
-                   class="btn btn-sunset">
+          <button type="button" class="btn btn-primary" [disabled]="notifyTarget.busy" (click)="save()">
+            <fa-icon [icon]="faSave" class="me-2"/>Save File
+          </button>
+          <button type="button" class="btn btn-quiet" [disabled]="notifyTarget.busy" (click)="cancelled.emit()">
+            <fa-icon [icon]="faXmark" class="me-2"/>Cancel
+          </button>
+          <button type="button" class="btn btn-quiet" [disabled]="notifyTarget.busy"
+                  title="Pre-fill the editor from an existing Word or PDF document"
+                  (click)="browseToConversionFile(conversionFileElement)">
+            <fa-icon [icon]="faFileImport" class="me-2"/>Start from a file
+          </button>
             <input #conversionFileElement class="d-none"
                    type="file"
                    [accept]="conversionAccept"
                    (change)="onConversionFileSelected($event)">
-            <button type="button" [disabled]="notifyTarget.busy"
-                    (click)="togglePreview()"
-                    class="btn btn-secondary">
-              <fa-icon [icon]="previewing ? faEyeSlash : faEye" class="me-1"/>
-              {{ previewing ? "Hide Preview" : "Preview" }}
-            </button>
         </div>
-      </div>
-      <div class="row">
-        <div class="col-md-12 mb-3">
-          @if (!previewing) {
-            <div class="committee-document-editing">
-              <app-tiptap-markdown-editor
-                showPageBreak
-                [value]="committeeFile.document.markdown"
-                placeholder="Write your document here…"
-                (valueChange)="markdownChanged($event)"/>
-            </div>
-          } @else {
-            <div class="border rounded">
-              <app-committee-document-view [committeeFile]="committeeFile"/>
-            </div>
-          }
-        </div>
-      </div>
+      </app-committee-document-editor>
     }
     @if (showAlertMessage()) {
       <div class="alert {{notifyTarget.alert.class}} mb-3">
@@ -198,7 +176,7 @@ import { committeeFileForSave } from "../../../functions/committee-file-save";
                class="btn btn-secondary">
       </div>
     }`,
-  imports: [DatePicker, TimePicker, LabelledFieldRowComponent, LabelledFieldComponent, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule, TiptapMarkdownEditor, CommitteeDocumentView, SectionToggle, StickyControlsDirective]
+  imports: [DatePicker, TimePicker, LabelledFieldRowComponent, LabelledFieldComponent, FormsModule, NgClass, FileUploadModule, NgStyle, FontAwesomeModule, CommitteeDocumentEditor, SectionToggle]
 })
 export class CommitteeFileEditor implements OnInit, OnDestroy {
 
@@ -225,8 +203,9 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
   @Input() previewing = false;
   private subscriptions: Subscription[] = [];
   protected readonly CommitteeFileKind = CommitteeFileKind;
-  protected readonly faEye = faEye;
-  protected readonly faEyeSlash = faEyeSlash;
+  protected readonly faSave = faSave;
+  protected readonly faXmark = faXmark;
+  protected readonly faFileImport = faFileImport;
 
   @Input() committeeFile: CommitteeFile;
   @Output() saved = new EventEmitter<CommitteeFile>();
@@ -294,11 +273,7 @@ export class CommitteeFileEditor implements OnInit, OnDestroy {
     this.committeeFile.document.markdown = markdown;
   }
 
-  togglePreview() {
-    this.setPreviewing(!this.previewing);
-  }
-
-  private setPreviewing(previewing: boolean): void {
+  protected setPreviewing(previewing: boolean): void {
     this.previewing = previewing;
     this.previewingChange.emit(previewing);
   }

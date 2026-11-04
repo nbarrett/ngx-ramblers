@@ -26,6 +26,18 @@
 :host.with-thumbnail .walk-row
   grid-template-columns: 92px 64px minmax(0, 1fr) 10.5rem 6.25rem 6.5rem
 
+.walk-row.selectable
+  grid-template-columns: 2.5rem 92px minmax(0, 1fr) 10.5rem
+  cursor: default
+
+:host.with-thumbnail .walk-row.selectable
+  grid-template-columns: 2.5rem 92px 64px minmax(0, 1fr) 10.5rem
+
+.walk-row-select
+  display: flex
+  align-items: center
+  justify-content: center
+
 .walk-row-date
   display: flex
   flex-direction: column
