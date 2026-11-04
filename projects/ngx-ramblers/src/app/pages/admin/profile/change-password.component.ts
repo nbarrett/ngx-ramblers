@@ -64,106 +64,87 @@ export class ChangePasswordComponent implements OnInit, OnDestroy {
   }
 
   private processResetPasswordResponse(loginResponse: LoginResponse): LoginResponse {
-    this.logger.debug("processResetPasswordResponse:", loginResponse);
-    this.notify.clearBusy();
-    delete this.enteredMemberCredentials.newPassword;
-    delete this.enteredMemberCredentials.newPasswordConfirm;
     if (loginResponse.showResetPassword) {
-      this.logger.debug("reset password failed", loginResponse);
       this.notify.showContactUs(true);
-      this.notify.error({
-        continue: true,
-        title: "Reset password failed",
-        message: loginResponse.alertMessage
-      });
       throw new Error(loginResponse.alertMessage || "Reset password failed");
+    } else {
+      delete this.enteredMemberCredentials.newPassword;
+      delete this.enteredMemberCredentials.newPasswordConfirm;
+      this.notify.success({title: "Password changed", message: loginResponse.alertMessage});
+      return loginResponse;
     }
-    this.logger.debug("reset password success", loginResponse);
-    this.notify.success({
-      title: "Reset password success",
-      message: loginResponse.alertMessage
-    });
-    return loginResponse;
   }
 
-  undoLoginDetails() {
+  undoLoginDetails(): Promise<void> {
     return this.profileService.undoChangesTo(this.notify, ProfileUpdateType.LOGIN_DETAILS, this.member).then(member => {
+      this.member = member;
       this.enteredMemberCredentials.userName = member.userName;
       delete this.enteredMemberCredentials.newPassword;
       delete this.enteredMemberCredentials.newPasswordConfirm;
     });
   }
 
-  validateUserNameExistence(): Promise<any> {
-    return new Promise((resolve, reject) => {
-      if (this.enteredMemberCredentials.userName !== this.member.userName) {
-        this.memberService.getMemberForUserName(this.enteredMemberCredentials.userName)
-          .then(member => {
-            const reason = `The user name ${this.enteredMemberCredentials.userName} is already used by another member${pleaseTryAgain}`;
-            this.enteredMemberCredentials.userName = this.member.userName;
-            reject(reason);
-          })
-          .catch(error => {
-            if (error instanceof HttpErrorResponse && error.status === 404) {
-              this.logger.debug("validateUserNameExistence:", this.enteredMemberCredentials.userName, "available")
-              return resolve(null);
-            }
-          });
-      } else {
-        this.logger.debug("validateUserNameExistence:", this.enteredMemberCredentials.userName, "no changes")
-        return resolve(null);
+  async validateUserNameExistence(): Promise<void> {
+    if (this.enteredMemberCredentials.userName !== this.member.userName) {
+      try {
+        const existing = await this.memberService.getMemberForUserName(this.enteredMemberCredentials.userName);
+        if (existing.id !== this.member.id) {
+          throw new Error(`The user name ${this.enteredMemberCredentials.userName} is already used by another member${pleaseTryAgain}`);
+        }
+      } catch (error) {
+        if (error instanceof HttpErrorResponse && error.status === 404) {
+          this.logger.debug("User name is available");
+        } else {
+          throw error;
+        }
       }
-    });
-  }
-
-  resetPassword(): Promise<any> {
-    if (this.enteredMemberCredentials.newPassword || this.enteredMemberCredentials.newPasswordConfirm) {
-      this.notify.showContactUs(false);
-      this.notify.setBusy();
-      this.notify.progress({
-        title: "Reset password",
-        message: "Attempting reset of password for " + this.enteredMemberCredentials.userName
-      });
-      return this.authService.resetPassword(this.enteredMemberCredentials.userName, this.enteredMemberCredentials.newPassword, this.enteredMemberCredentials.newPasswordConfirm)
-        .then(loginResponse => this.processResetPasswordResponse(loginResponse));
-    } else {
-      return Promise.resolve(this.logger.debug("resetPassword:no changes"));
     }
   }
 
-  validateUserName(): Promise<any> {
-    return new Promise((resolve, reject) => {
-      if (this.enteredMemberCredentials.userName !== this.member.userName) {
-        this.enteredMemberCredentials.userName = this.enteredMemberCredentials.userName.trim();
-        if (this.enteredMemberCredentials.userName.length === 0) {
-          reject("The new user name cannot be blank.");
-        } else {
-          this.member.userName = this.enteredMemberCredentials.userName;
-          resolve(true);
-        }
-      } else {
-        resolve(this.logger.debug("validateUserName:no changes"));
-      }
-    });
+  async resetPassword(): Promise<void> {
+    if (this.enteredMemberCredentials.newPassword || this.enteredMemberCredentials.newPasswordConfirm) {
+      this.notify.progress({title: "Change password", message: "Saving your new password"});
+      const response = await this.authService.resetPassword(this.member.userName, this.enteredMemberCredentials.newPassword, this.enteredMemberCredentials.newPasswordConfirm);
+      this.processResetPasswordResponse(response);
+    }
   }
 
-  saveLoginDetails(): Promise<void> {
-    this.logger.debug("saveLoginDetails");
+  async saveLoginDetails(): Promise<void> {
     this.notify.hide();
-    return this.validateUserNameExistence()
-      .then(() => this.resetPassword())
-      .then(() => undefined)
-      .catch(response => {
-        if (!(response instanceof Error)) {
-          this.notify.error({title: "Profile", message: response});
+    this.notify.showContactUs(false);
+    this.notify.setBusy();
+    const saved = {userName: false};
+    try {
+      this.enteredMemberCredentials.userName = (this.enteredMemberCredentials.userName || "").trim().toLowerCase();
+      if (!this.enteredMemberCredentials.userName) {
+        throw new Error("The new user name cannot be blank.");
+      } else {
+        await this.validateUserNameExistence();
+        const passwordChanged = !!(this.enteredMemberCredentials.newPassword || this.enteredMemberCredentials.newPasswordConfirm);
+        if (this.enteredMemberCredentials.userName !== this.member.userName) {
+          const updatedMember = {...this.member, userName: this.enteredMemberCredentials.userName};
+          await this.profileService.saveMemberDetails(this.notify, ProfileUpdateType.LOGIN_DETAILS, updatedMember);
+          this.member = updatedMember;
+          saved.userName = true;
         }
-        throw response;
+        await this.resetPassword();
+        if (!saved.userName && !passwordChanged) {
+          this.notify.success({title: "Login details", message: "There are no changes to save."});
+        }
+      }
+    } catch (error) {
+      const message = error instanceof HttpErrorResponse ? error.error?.message || error.message : error instanceof Error ? error.message : String(error);
+      this.notify.error({
+        title: saved.userName ? "User name saved, password not changed" : "Login details not saved",
+        message: saved.userName ? `Your user name was saved successfully. The password change failed: ${message}` : message
       });
+      throw error;
+    } finally {
+      this.notify.clearBusy();
+    }
   }
 
   saveAndExit(): Promise<void> {
-    return this.saveLoginDetails().then(() => {
-      this.profileService.backToAdmin();
-    }).catch(() => null);
+    return this.saveLoginDetails().then(() => this.profileService.backToAdmin());
   }
 }
