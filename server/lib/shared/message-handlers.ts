@@ -4,7 +4,7 @@ import isEmpty from "lodash/isEmpty";
 import querystring from "querystring";
 import { envConfig } from "../env-config/env-config";
 import { MessageHandlerOptions } from "../../../projects/ngx-ramblers/src/app/models/server-models";
-import { isArray } from "es-toolkit/compat";
+import { isArray, isString } from "es-toolkit/compat";
 import { maskedApiRequest, maskOAuthWireParameters } from "./mask-secrets";
 
 const logRawData = false;
@@ -15,6 +15,20 @@ export function optionalParameter(key: string, value: any): string {
     return `${key}=${encodeURIComponent(appliedValue)}`;
   } else {
     return "";
+  }
+}
+
+function upstreamErrorDetail(error: any): string {
+  const code = isString(error?.code) ? error.code : "";
+  const detail = isString(error?.message) ? error.message : String(error || "");
+  if (code && detail && !detail.includes(code)) {
+    return `${code}: ${detail}`;
+  } else if (detail) {
+    return detail;
+  } else if (code) {
+    return code;
+  } else {
+    return "The upstream request failed";
   }
 }
 
@@ -88,12 +102,13 @@ export function httpRequest(options: MessageHandlerOptions) {
       request.destroy(new Error(`upstream request to ${options.apiRequest?.hostname}${maskOAuthWireParameters(options.apiRequest?.path)} timed out after ${options.timeoutMillis || DEFAULT_UPSTREAM_TIMEOUT_MILLIS}ms`));
     });
     request.on("error", error => {
+      const detail = upstreamErrorDetail(error);
       const rejectedResponse = {
         ...requestAudit,
-        message: "request.on error event occurred",
-        response: {error}
+        message: detail,
+        response: {error: detail, code: "code" in error && isString(error.code) ? error.code : null}
       };
-      options.debug("ERROR:", JSON.stringify(rejectedResponse));
+      options.debug("ERROR:", detail, JSON.stringify(rejectedResponse));
       reject(rejectedResponse);
     });
     if (!isEmpty(options.body)) {

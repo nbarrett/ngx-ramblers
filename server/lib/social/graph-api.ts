@@ -9,6 +9,7 @@ export interface GraphApiCall {
   method: GraphApiMethod;
   path: string;
   params?: Record<string, any>;
+  timeoutMillis?: number;
   debug: (...args: any) => void;
 }
 
@@ -19,9 +20,9 @@ function queryString(params: Record<string, any>): string {
     .join("&");
 }
 
-export async function graphApiRequest({method, path, params, debug}: GraphApiCall): Promise<any> {
+export async function graphApiRequest({method, path, params, timeoutMillis, debug}: GraphApiCall): Promise<any> {
   const query = queryString(params);
-  const fullPath = `https://${GRAPH_API_HOST}/${GRAPH_API_VERSION}${path}${query ? `?${query}` : ""}`;
+  const fullPath = `/${GRAPH_API_VERSION}${path}${query ? `?${query}` : ""}`;
   const response: any = await messageHandlers.httpRequest({
     apiRequest: {
       hostname: GRAPH_API_HOST,
@@ -30,6 +31,7 @@ export async function graphApiRequest({method, path, params, debug}: GraphApiCal
       method,
       path: fullPath
     },
+    timeoutMillis,
     successStatusCodes: [200, 201],
     debug
   });

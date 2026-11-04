@@ -96,7 +96,7 @@ export class FacebookComponent implements OnInit, OnDestroy {
   public loading = false;
   public loadError = "";
   private loadInFlight = false;
-  private readonly feedSize = 5;
+  private readonly feedSize = 9;
   private subscriptions: Subscription[] = [];
   protected readonly skeletonRows = Array.from({length: this.feedSize}, (ignored, index) => index);
   protected readonly faCircleExclamation = faCircleExclamation;

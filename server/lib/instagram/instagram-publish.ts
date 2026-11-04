@@ -22,6 +22,7 @@ debugLog.enabled = true;
 
 const CONTAINER_POLL_ATTEMPTS = 40;
 const CONTAINER_POLL_INTERVAL_MILLIS = 3000;
+const MEDIA_REQUEST_TIMEOUT_MILLIS = 120000;
 const READY_STATUS_CODES = ["FINISHED", "PUBLISHED"];
 const FAILED_STATUS_CODES = ["ERROR", "EXPIRED"];
 
@@ -66,6 +67,7 @@ async function waitForContainerReady(
       method: GraphApiMethod.GET,
       path: `/${containerId}`,
       params: {fields: "status_code,status", access_token: accessToken},
+      timeoutMillis: MEDIA_REQUEST_TIMEOUT_MILLIS,
       debug: debugLog
     });
     progress.lastStatus = containerStatusLabel(status);
@@ -99,6 +101,7 @@ export async function instagramConnectionStatus(instagram: Instagram, accessToke
         method: GraphApiMethod.GET,
         path: `/${instagram.igUserId}`,
         params: {fields: "username", access_token: accessToken},
+        timeoutMillis: MEDIA_REQUEST_TIMEOUT_MILLIS,
         debug: debugLog
       });
       status = {network: SocialNetwork.INSTAGRAM, connected: true, name: account.username ? `@${account.username}` : undefined};
@@ -145,6 +148,7 @@ export async function publishSingleImageToInstagram(
     method: GraphApiMethod.POST,
     path: `/${igUserId}/media`,
     params: {image_url: preparedImages[0].url, caption, access_token: accessToken},
+    timeoutMillis: MEDIA_REQUEST_TIMEOUT_MILLIS,
     debug: debugLog
   });
   if (!container?.id) {
@@ -170,12 +174,14 @@ export async function publishSingleImageToInstagram(
     method: GraphApiMethod.POST,
     path: `/${igUserId}/media_publish`,
     params: {creation_id: container.id, access_token: accessToken},
+    timeoutMillis: MEDIA_REQUEST_TIMEOUT_MILLIS,
     debug: debugLog
   });
   const permalinkResponse = await graphApiRequest({
     method: GraphApiMethod.GET,
     path: `/${published.id}`,
     params: {fields: "permalink", access_token: accessToken},
+    timeoutMillis: MEDIA_REQUEST_TIMEOUT_MILLIS,
     debug: debugLog
   }).catch(error => {
     debugLog("permalink lookup failed:", error);
@@ -259,6 +265,7 @@ export async function publishAlbumToInstagram(
         is_carousel_item: "true",
         access_token: accessToken
       },
+      timeoutMillis: MEDIA_REQUEST_TIMEOUT_MILLIS,
       debug: debugLog
     });
     if (!container?.id) {
@@ -301,6 +308,7 @@ export async function publishAlbumToInstagram(
       caption,
       access_token: accessToken
     },
+    timeoutMillis: MEDIA_REQUEST_TIMEOUT_MILLIS,
     debug: debugLog
   });
   if (!carousel?.id) {
@@ -328,12 +336,14 @@ export async function publishAlbumToInstagram(
     method: GraphApiMethod.POST,
     path: `/${igUserId}/media_publish`,
     params: {creation_id: carousel.id, access_token: accessToken},
+    timeoutMillis: MEDIA_REQUEST_TIMEOUT_MILLIS,
     debug: debugLog
   });
   const permalinkResponse = await graphApiRequest({
     method: GraphApiMethod.GET,
     path: `/${published.id}`,
     params: {fields: "permalink", access_token: accessToken},
+    timeoutMillis: MEDIA_REQUEST_TIMEOUT_MILLIS,
     debug: debugLog
   }).catch(error => {
     debugLog("permalink lookup failed:", error);

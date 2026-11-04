@@ -1314,6 +1314,7 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
       } else if (this.results.length > 0) {
         this.notify.error({
           title: "Publish failed",
+          continue: true,
           message: this.results.map(result => result.error).filter(Boolean).join("; ") || "All selected networks failed"
         });
       }
@@ -1321,6 +1322,7 @@ export class SocialShareAlbumComponent implements OnInit, OnDestroy {
       this.logger.error("publish failed", error);
       this.notify.error({
         title: "Publish failed",
+        continue: true,
         message: error?.message || String(error)
       });
     } finally {
