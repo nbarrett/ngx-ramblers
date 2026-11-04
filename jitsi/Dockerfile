@@ -54,7 +54,8 @@ COPY --from=jvb /defaults /defaults
 COPY --from=jvb /etc/services.d/jvb /etc/services.d/jvb
 COPY --from=jvb /etc/cont-init.d/10-config /etc/cont-init.d/10-config-jvb
 
+COPY jitsi/docker/98-configure-fly-media /etc/cont-init.d/98-configure-fly-media
 COPY jitsi/docker/99-fix-config-perms /etc/cont-init.d/99-fix-config-perms
-RUN chmod +x /etc/cont-init.d/99-fix-config-perms
+RUN chmod +x /etc/cont-init.d/98-configure-fly-media /etc/cont-init.d/99-fix-config-perms
 
 EXPOSE 80 443 10000/udp

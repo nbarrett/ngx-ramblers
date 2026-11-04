@@ -191,7 +191,25 @@ the same config-driven pattern as the integration worker.
 The combined image has been verified locally end to end: all four services start and
 authenticate, the web front end serves, an NGX-issued JWT is accepted, and a 3-participant
 call negotiates media through jvb over UDP 10000 (`docker build jitsi/ -f jitsi/Dockerfile`
-then run with the secrets, and join the room from a few browser tabs). If UDP proves painful
-on Fly, Jitsi falls back to TCP 443, which is fine for small infrequent calls.
+then run with the secrets, and join the room from a few browser tabs).
+
+On Fly, `98-configure-fly-media` resolves `fly-global-services` at each boot, restricts
+ICE host candidates to that address, and maps it to the dedicated public IPv4 on UDP 10000.
+It runs after the upstream config generators and before services start. The default outbound
+address is unsuitable for this mapping: inbound UDP arrives on a different interface, leaving
+Jitsi unable to send its media handshake through the selected socket. STUN discovery is
+disabled for the bridge because its discovered outbound address competes with the dedicated
+inbound mapping. See [Fly UDP networking](https://fly.io/docs/networking/udp-and-tcp/).
+
+HTTPS on port 443 serves the meeting page and signalling; it does not provide a media fallback
+by itself. Networks that block UDP need a separately configured TURN relay.
+
+After deploying networking changes, verify that the bridge logs one UDP harvester on the
+resolved `fly-global-services` address and a static mapping from that address to the public
+IPv4. Run a two-device call across different networks, exercise screen sharing and a third
+participant so the bridge is used, and keep it running for at least 30 minutes. Both endpoints
+must complete ICE and DTLS negotiation, carry media, and remain connected beyond the
+three-minute expiry cycle. There must be no `No valid socket` errors or repeated endpoint
+expiry. Two participants using peer-to-peer media alone do not verify the bridge.
 
 `docker-compose.yml` remains the simplest route on a plain Docker host / small VM.
