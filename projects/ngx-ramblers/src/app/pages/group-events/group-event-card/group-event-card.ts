@@ -18,7 +18,7 @@ import { EventLeaderContactLinkComponent } from "../../walks/walk-view/event-lea
 @Component({
     selector: "app-group-event-card",
     template: `
-      <div class="card shadow clickable h-100">
+      <div class="card shadow clickable h-100 overflow-hidden">
         <app-card-image-or-map imageNavigationEnabled [displayedWalk]="displayedWalk" [notify]="notify" [maxColumns]="maxColumns"
                                [navigationHref]="display.groupEventLink(groupEvent, true)"/>
         <div class="card-body">
@@ -39,6 +39,12 @@ import { EventLeaderContactLinkComponent } from "../../walks/walk-view/event-lea
           }
         </div>
       </div>`,
+  styles: [`
+    :host
+      display: block
+      width: 100%
+      min-width: 0
+  `],
   providers: [DateUtilsService],
   imports: [EventDatesAndTimesPipe, CardImageOrMap, EventGroupComponent, EventLeaderContactLinkComponent]
 })

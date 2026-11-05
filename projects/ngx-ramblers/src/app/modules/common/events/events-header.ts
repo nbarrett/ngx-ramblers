@@ -39,29 +39,23 @@ import { StoredValue } from "../../../models/ui-actions";
     </div>
   </div>
 
-  <div class="row">
-    <div class="col-sm-10">
-      @if (!eventsData || eventsData?.allow?.autoTitle) {
-        <h2>{{ display.groupEventsTitle(filterParameters?.selectType || eventsData?.filterCriteria, fromAndTo()) }}</h2>
-      }
-    </div>
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    @if (!eventsData || eventsData?.allow?.autoTitle) {
+      <h2 class="mb-0">{{ display.groupEventsTitle(filterParameters?.selectType || eventsData?.filterCriteria, fromAndTo()) }}</h2>
+    }
     @if (display.allow.edits && (!eventsData || eventsData?.allow?.addNew) && display.eventTypesPopulatedLocally(eventsData)) {
-      <div class="col-lg-2 col-md-3 col-sm-4 col-12">
-        @if (display.confirm.noneOutstanding()) {
-          <input type="submit" [disabled]="notifyTarget.busy"
-                 class="btn btn-primary float-lg-end mb-3"
-                 value="Add New Event"
-                 (click)="addNewEvent()"/>
-        }
-      </div>
+      @if (display.confirm.noneOutstanding()) {
+        <input type="submit" [disabled]="notifyTarget.busy"
+               class="btn btn-primary ms-auto"
+               value="Add New Event"
+               (click)="addNewEvent()"/>
+      }
     }
     @if (walkDisplay.memberCanAddWalk(eventsData)) {
-      <div class="col-lg-2 col-md-3 col-sm-4 col-12">
-        <input type="submit" [disabled]="notifyTarget.busy"
-               class="btn btn-primary float-lg-end mb-3"
-               [value]="walkDisplay.memberWalkButtonLabel()"
-               (click)="walkDisplay.addMemberLedWalk()"/>
-      </div>
+      <input type="submit" [disabled]="notifyTarget.busy"
+             class="btn btn-primary ms-auto"
+             [value]="walkDisplay.memberWalkButtonLabel()"
+             (click)="walkDisplay.addMemberLedWalk()"/>
     }
   </div>
   <ng-template #alert>
@@ -124,6 +118,10 @@ import { StoredValue } from "../../../models/ui-actions";
   </ng-template>
   `,
   styles: `
+    :host
+      display: block
+      width: 100%
+      min-width: 0
     .inline-label
       padding-left: 20px
       margin-right: 8px

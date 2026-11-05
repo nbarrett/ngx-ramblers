@@ -4,39 +4,41 @@
       <div [ngClass]="{'busy': notifyTarget.busy}" class="admin-frame rounded">
         <div class="admin-header-background rounded">
           <div class="admin-header-container">
-            <div class="rsm-toolbar mb-0">
-              <div class="rsm-toolbar-grow">
-                <div class="input-group">
-                  <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
-                  <input id="quick-search" [(ngModel)]="quickSearch"
-                         (ngModelChange)="onSearchChange($event)"
-                         name="quickSearch"
-                         class="form-control"
-                         type="text" placeholder="Quick Search">
+            <div class="d-flex flex-column gap-3 mb-3">
+              <div class="rsm-toolbar mb-0">
+                <div class="rsm-toolbar-grow">
+                  <div class="input-group">
+                    <span class="input-group-text"><fa-icon [icon]="faSearch"></fa-icon></span>
+                    <input id="quick-search" [(ngModel)]="quickSearch"
+                           (ngModelChange)="onSearchChange($event)"
+                           name="quickSearch"
+                           class="form-control"
+                           type="text" placeholder="Quick Search">
+                  </div>
                 </div>
+                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                  <label class="form-label mb-0 text-muted text-nowrap" for="filter-audit">Filter logins since</label>
+                  <app-date-picker startOfDay id="filter-audit" size="md"
+                                   (change)="onFilterDateChange($event)"
+                                   [value]="filterDateValue">
+                  </app-date-picker>
+                </div>
+                <input type="submit" [disabled]="notifyTarget.busy"
+                       value="Back to admin"
+                       (click)="backToAdmin()"
+                       class="btn btn-secondary flex-shrink-0">
               </div>
-              <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                <label class="form-label mb-0 text-muted text-nowrap" for="filter-audit">Filter logins since</label>
-                <app-date-picker startOfDay id="filter-audit" size="md"
-                                 (change)="onFilterDateChange($event)"
-                                 [value]="filterDateValue">
-                </app-date-picker>
-              </div>
-              <input type="submit" [disabled]="notifyTarget.busy"
-                     value="Back to admin"
-                     (click)="backToAdmin()"
-                     class="btn btn-secondary flex-shrink-0">
-            </div>
-            @if (notifyTarget.showAlert) {
-              <div class="mt-2 mb-3">
-                <div class="alert {{notifyTarget.alertClass}} mb-0">
+              @if (notifyTarget.showAlert) {
+                <div class="alert {{notifyTarget.alertClass}} mb-0 d-flex align-items-center gap-2">
                   <fa-icon [icon]="notifyTarget.alert.icon"></fa-icon>
-                  @if (notifyTarget.alertTitle) {
-                    <strong>{{ notifyTarget.alertTitle }}: </strong>
-                  } {{ notifyTarget.alertMessage }}
+                  <span>
+                    @if (notifyTarget.alertTitle) {
+                      <strong>{{ notifyTarget.alertTitle }}: </strong>
+                    } {{ notifyTarget.alertMessage }}
+                  </span>
                 </div>
-              </div>
-            }
+              }
+            </div>
           </div>
           <div class="table-responsive">
             <div class="ngx-data-table-card">

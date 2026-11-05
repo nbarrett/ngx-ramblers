@@ -2,11 +2,9 @@ import { Component, inject, Input } from "@angular/core";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { AlertTarget } from "../../../models/alert-target.model";
 import { EventsData } from "../../../models/group-events.model";
-import { CARD_MARGIN_BOTTOM, cardClasses } from "../../../services/card-utils";
 import { DateUtilsService } from "../../../services/date-utils.service";
 import { AlertInstance } from "../../../services/notifier.service";
 import { GroupEventCard } from "../../../pages/group-events/group-event-card/group-event-card";
-import { NgClass } from "@angular/common";
 import { ExtendedGroupEvent } from "../../../models/group-event.model";
 import { RamblersEventType } from "../../../models/ramblers-walks-manager";
 import { WalkCardViewComponent } from "../../../pages/walks/walk-view/walk-card-view";
@@ -16,9 +14,10 @@ import { StringUtilsService } from "../../../services/string-utils.service";
 @Component({
   selector: "app-event-cards-list",
   template: `
-    <div class="row" [class.opacity-50]="notifyTarget?.busy" [class.pe-none]="notifyTarget?.busy">
+    <div class="event-cards" [style.--event-cols]="columnCount()" [class.opacity-50]="notifyTarget?.busy"
+         [class.pe-none]="notifyTarget?.busy">
       @for (extendedGroupEvent of currentPageFilteredEvents; track eventKey(extendedGroupEvent); let index = $index) {
-        <div [ngClass]="slideClasses()">
+        <div class="event-card-slot">
           @if (extendedGroupEvent.groupEvent.item_type === RamblersEventType.GROUP_EVENT) {
             <app-group-event-card [groupEvent]="extendedGroupEvent" [maxColumns]="eventsData?.maxColumns"/>
           } @else {
@@ -31,13 +30,22 @@ import { StringUtilsService } from "../../../services/string-utils.service";
       }
     </div>`,
   styles: [`
-    .row
-      max-width: 100%
-    .row > [class*="col-"]
+    :host
+      display: block
+      width: 100%
       min-width: 0
-      max-width: 100%
+    .event-cards
+      display: grid
+      grid-template-columns: minmax(0, 1fr)
+      column-gap: var(--bs-gutter-x, 1.5rem)
+    .event-card-slot
+      min-width: 0
+      margin-bottom: 1.5rem
+    @media (min-width: 768px)
+      .event-cards
+        grid-template-columns: repeat(var(--event-cols, 1), minmax(0, 1fr))
   `],
-  imports: [GroupEventCard, WalkCardViewComponent, NgClass]
+  imports: [GroupEventCard, WalkCardViewComponent]
 })
 export class EventCardsList {
 
@@ -53,12 +61,11 @@ export class EventCardsList {
 
   protected readonly RamblersEventType = RamblersEventType;
 
-  slideClasses() {
-    const eventCount = this.currentPageFilteredEvents.length;
+  columnCount(): number {
+    const eventCount = this.currentPageFilteredEvents?.length || 1;
     const minCols = this.eventsData?.minColumns || 1;
     const maxCols = this.eventsData?.maxColumns || 2;
-    const columns = Math.max(minCols, Math.min(eventCount, maxCols));
-    return cardClasses(columns, CARD_MARGIN_BOTTOM);
+    return Math.max(minCols, Math.min(eventCount, maxCols));
   }
 
   eventKey(extendedGroupEvent: ExtendedGroupEvent): string {
