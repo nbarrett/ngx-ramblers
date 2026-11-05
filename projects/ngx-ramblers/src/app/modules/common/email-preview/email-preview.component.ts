@@ -84,7 +84,7 @@ export class EmailPreviewComponent implements OnDestroy {
     this.loading = false;
     this.error = null;
     this.previewHtml = html;
-    this.previewUrl = this.toPreviewUrl(this.withBaseHref(this.rewriteDevHostUrls(html)));
+    this.previewUrl = this.toPreviewUrl(this.withBaseHref(this.rewriteDevHostUrls(this.neutralisePreviewMirrorLinks(html))));
   }
 
   async render(request: TemplateRenderRequest): Promise<void> {
@@ -97,7 +97,7 @@ export class EmailPreviewComponent implements OnDestroy {
       if (revision === this.renderRevision) {
         this.clearObservers();
         this.previewHtml = response.htmlContent;
-        this.previewUrl = this.toPreviewUrl(this.withBaseHref(this.rewriteDevHostUrls(response.htmlContent)));
+        this.previewUrl = this.toPreviewUrl(this.withBaseHref(this.rewriteDevHostUrls(this.neutralisePreviewMirrorLinks(response.htmlContent))));
       }
     } catch (error) {
       if (revision === this.renderRevision) {
@@ -174,18 +174,25 @@ export class EmailPreviewComponent implements OnDestroy {
     return html.replace(/https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?\//gi, `${window.location.origin}/`);
   }
 
-  private withBaseHref(html: string): string {
-    if (/<base\b/i.test(html)) {
+  private neutralisePreviewMirrorLinks(html: string): string {
+    if (!html) {
       return html;
+    } else {
+      return html.replace(/(\s(?:href)\s*=\s*)(["'])(?:\{\{\s*mirror\s*\}\}|#view-in-browser)\2/gi, "$1$2#$2");
     }
-    const baseTag = `<base href="${window.location.origin}/">`;
-    if (/<head[^>]*>/i.test(html)) {
+  }
+
+  private withBaseHref(html: string): string {
+    const baseTag = `<base href="./">`;
+    if (/<base\b/i.test(html)) {
+      return html.replace(/<base\b[^>]*>/i, baseTag);
+    } else if (/<head[^>]*>/i.test(html)) {
       return html.replace(/<head[^>]*>/i, head => `${head}${baseTag}`);
-    }
-    if (/<html[^>]*>/i.test(html)) {
+    } else if (/<html[^>]*>/i.test(html)) {
       return html.replace(/<html[^>]*>/i, htmlTag => `${htmlTag}<head>${baseTag}</head>`);
+    } else {
+      return `${baseTag}${html}`;
     }
-    return `${baseTag}${html}`;
   }
 
   private toPreviewUrl(html: string): SafeResourceUrl {

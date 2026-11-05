@@ -12,6 +12,7 @@ const REQUEST_TIMEOUT_MS = 8000;
 
 const ALLOWED_TRACKING_HOST_PATTERNS = [
   /^[^\s/]*\.sendibt2\.com$/i,
+  /^[^\s/]*\.sendibt3\.com$/i,
   /^[^\s/]*\.sendinblue\.com$/i,
   /^[^\s/]*\.brevo\.com$/i,
   /^link\.mailinblue\.com$/i,

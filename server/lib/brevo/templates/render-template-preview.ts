@@ -14,7 +14,7 @@ export async function renderTemplatePreview(req: Request, res: Response, next: N
   try {
     const renderRequest: TemplateRenderRequest = req.body;
     const sendSmtpEmail: Brevo.SendTransacEmailRequest = {};
-    await performTemplateSubstitution(renderRequest, sendSmtpEmail, debugLog);
+    await performTemplateSubstitution(renderRequest, sendSmtpEmail, debugLog, false, true);
     const response: TemplateRenderResponse = {
       htmlContent: sendSmtpEmail.htmlContent || ""
     };

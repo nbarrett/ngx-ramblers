@@ -323,22 +323,20 @@ export function renderBrandedTemplate(rawHtml: string,
   const wrappedHtml = ramblersEmailLayout(overriddenHtml);
   const personalisedHtml = campaign ? toCampaignContactTokens(wrappedHtml) : wrappedHtml;
   const substitutedHtmlContent = substituteTemplateParameters(personalisedHtml, params);
-  const normalised = normaliseEmailContentUrls(
+  return normaliseEmailContentUrls(
     escapeUnknownTemplateExpressions(inlineDefaultLinkStyles(removeEmptyParagraphs(applyBrevoConditionals(substitutedHtmlContent, params)))),
     params?.systemMergeFields?.APP_URL
   );
-  if (campaign) {
-    return normalised;
-  } else {
-    return resolveTransactionalMirrorLink(normalised, params?.systemMergeFields?.APP_URL);
-  }
 }
 
-export function resolveTransactionalMirrorLink(html: string, appUrl: string): string {
-  if (!html || !appUrl) {
+const PREVIEW_BROWSER_COPY_HREF = "#";
+
+function previewTransactionalMirrorLink(html: string): string {
+  if (!html) {
     return html;
   } else {
-    return html.replace(/\{\{\s*mirror\s*\}\}/gi, stripTrailingSlash(appUrl));
+    return html.replace(/(\s(?:href)\s*=\s*)(["'])\{\{\s*mirror\s*\}\}\2/gi, `$1$2${PREVIEW_BROWSER_COPY_HREF}$2`)
+      .replace(/\{\{\s*mirror\s*\}\}/gi, PREVIEW_BROWSER_COPY_HREF);
   }
 }
 
@@ -388,7 +386,8 @@ export function renderLocalBrandedTemplate(templateName: string,
 export async function performTemplateSubstitution(emailRequest: SendSmtpEmailRequest | CreateCampaignRequest | TemplateRenderRequest,
                                                   sendSmtpEmail: Brevo.SendTransacEmailRequest | Brevo.CreateEmailCampaignRequest,
                                                   debugLog: debug.Debugger,
-                                                  campaign: boolean = false): Promise<Brevo.SendTransacEmailRequest | Brevo.CreateEmailCampaignRequest> {
+                                                  campaign: boolean = false,
+                                                  preview: boolean = false): Promise<Brevo.SendTransacEmailRequest | Brevo.CreateEmailCampaignRequest> {
   const priorDebugValue = debugLog.enabled;
   debugLog.enabled = false;
   try {
@@ -419,11 +418,8 @@ export async function performTemplateSubstitution(emailRequest: SendSmtpEmailReq
         escapeUnknownTemplateExpressions(sendSmtpEmail.htmlContent),
         emailRequest.params?.systemMergeFields?.APP_URL
       );
-      if (!campaign) {
-        sendSmtpEmail.htmlContent = resolveTransactionalMirrorLink(
-          sendSmtpEmail.htmlContent,
-          emailRequest.params?.systemMergeFields?.APP_URL
-        );
+      if (preview) {
+        sendSmtpEmail.htmlContent = previewTransactionalMirrorLink(sendSmtpEmail.htmlContent);
       }
       const relativeImages = Array.from(sendSmtpEmail.htmlContent.matchAll(/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi))
         .filter(match => !/^[a-z][a-z0-9+.-]*:|^\/\//i.test(match[1]));

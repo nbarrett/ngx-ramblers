@@ -40,4 +40,19 @@ describe("rendered email previews", () => {
     await fixture.whenStable();
     expect(mail.renderTemplate).toHaveBeenCalledOnce();
   });
+
+  it("does not turn the Brevo mirror placeholder into a site path in the preview iframe", () => {
+    TestBed.configureTestingModule({imports: [EmailPreviewComponent, LoggerTestingModule], providers: [{provide: MailService, useValue: {renderTemplate: vi.fn()}}]});
+    const fixture = TestBed.createComponent(EmailPreviewComponent);
+    const captured: string[] = [];
+    vi.spyOn(fixture.componentInstance as any, "toPreviewUrl").mockImplementation((html: string) => {
+      captured.push(html);
+      return html;
+    });
+    fixture.componentInstance.renderHtml(`<html><head></head><body><a href="{{ mirror }}">View this email in your browser</a></body></html>`);
+    expect(captured[0]).toContain(`href="#"`);
+    expect(captured[0]).toContain(`<base href="./">`);
+    expect(captured[0]).not.toContain("{{ mirror }}");
+    expect(captured[0]).not.toContain(`${window.location.origin}/`);
+  });
 });

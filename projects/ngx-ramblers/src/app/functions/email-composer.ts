@@ -61,6 +61,7 @@ export function dividerHtml(style: SectionDividerStyle, marginCss: string = "6px
 
 const RECYCLED_TRACKING_HOST_PATTERNS = [
   /https?:\/\/[^\s"')<>]*\.sendibt2\.com\/[^\s"')<>]+/gi,
+  /https?:\/\/[^\s"')<>]*\.sendibt3\.com\/[^\s"')<>]+/gi,
   /https?:\/\/[^\s"')<>]*\.sendinblue\.com\/[^\s"')<>]+/gi,
   /https?:\/\/[^\s"')<>]*\.brevo\.com\/tr\/[^\s"')<>]+/gi,
   /https?:\/\/link\.mailinblue\.com\/[^\s"')<>]+/gi,

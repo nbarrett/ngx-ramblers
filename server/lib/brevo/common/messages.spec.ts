@@ -53,14 +53,59 @@ describe("brevo messages", () => {
       body: EMAIL_COMPOSER_BODY_PLACEHOLDER, htmlContent: body, showTitle: false,
       params: {messageMergeFields: {BODY_CONTENT: body, BANNER_IMAGE_SOURCE: "https://group.example.org.uk/banner.jpg"},
         memberMergeFields: {}, systemMergeFields: {APP_URL: "https://group.example.org.uk", APP_SHORTNAME: "Hillside Walking"}, accountMergeFields: {}} as any
-    }, output, debug("test:event-preview"));
+    }, output, debug("test:event-preview"), false, true);
     expect(output.htmlContent).toContain("Hillside Park");
     expect(output.htmlContent).toContain("email-body");
     expect(output.htmlContent).toContain("Helvetica, Arial, sans-serif");
     expect(output.htmlContent).toContain("600");
     expect(output.htmlContent).toContain("#c05711");
     expect(output.htmlContent).toContain('href="https://group.example.org.uk"');
+    expect(output.htmlContent).toContain('href="#"');
     expect(output.htmlContent).not.toContain("{{ mirror }}");
+    expect(output.htmlContent).not.toContain("/mirror");
+  });
+
+  it("leaves the Brevo mirror placeholder on a transactional send so View in browser is not the group site", async () => {
+    const body = "<h3>Hillside Park</h3><p>Walk details</p>";
+    const output = {} as Brevo.SendTransacEmailRequest;
+    await performTemplateSubstitution({
+      templateName: EmailTemplateName.RAMBLERS_CAMPAIGN,
+      body: EMAIL_COMPOSER_BODY_PLACEHOLDER,
+      htmlContent: body,
+      showTitle: false,
+      to: [{name: "Alex Reed", email: "alex.reed@example.com"}],
+      params: {
+        messageMergeFields: {BODY_CONTENT: body, BANNER_IMAGE_SOURCE: "https://group.example.org.uk/banner.jpg"},
+        memberMergeFields: {},
+        systemMergeFields: {APP_URL: "https://group.example.org.uk", APP_SHORTNAME: "Hillside Walking"},
+        accountMergeFields: {}
+      } as any
+    }, output, debug("test:transactional-mirror"));
+    expect(output.htmlContent).toContain('href="{{ mirror }}"');
+    expect(output.htmlContent).not.toContain("/api/mail/view/");
+    expect(output.htmlContent).not.toContain("/mirror");
+    expect(output.htmlContent).not.toMatch(/href="https:\/\/group\.example\.org\.uk">View this email in your browser/);
+  });
+
+  it("does not turn View in browser into a site path when previewing a request that already has recipients", async () => {
+    const body = "<h3>Hillside Park</h3><p>Walk details</p>";
+    const output = {} as Brevo.SendTransacEmailRequest;
+    await performTemplateSubstitution({
+      templateName: EmailTemplateName.RAMBLERS_CAMPAIGN,
+      body: EMAIL_COMPOSER_BODY_PLACEHOLDER,
+      htmlContent: body,
+      showTitle: false,
+      to: [{name: "Alex Reed", email: "alex.reed@example.com"}],
+      params: {
+        messageMergeFields: {BODY_CONTENT: body, BANNER_IMAGE_SOURCE: "https://group.example.org.uk/banner.jpg"},
+        memberMergeFields: {},
+        systemMergeFields: {APP_URL: "https://group.example.org.uk", APP_SHORTNAME: "Hillside Walking"},
+        accountMergeFields: {}
+      } as any
+    } as any, output, debug("test:preview-with-recipients"), false, true);
+    expect(output.htmlContent).toContain('href="#"');
+    expect(output.htmlContent).not.toContain("{{ mirror }}");
+    expect(output.htmlContent).not.toContain("/mirror");
   });
 
   describe("normaliseEmailContentUrls", () => {
@@ -337,7 +382,7 @@ describe("brevo messages", () => {
       expect(result).toContain(`href="${passwordResetLink}"`);
       expect(result).not.toContain("{{params.systemMergeFields.PW_RESET_LINK}}");
       expect(result).toContain(`href="https://example.org.uk"`);
-      expect(result).not.toContain("{{ mirror }}");
+      expect(result).toContain(`href="{{ mirror }}"`);
     });
 
     it("leaves the campaign mirror placeholder for Brevo to replace when sending a campaign", () => {
