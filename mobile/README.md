@@ -52,7 +52,7 @@ One-time repository secrets:
 
 Signing material stays in secrets and temporary runner files, never in the repository or build artifacts. The workflow cleans up temporary keys. Apple certificates and provisioning profiles need renewal before expiry; Google and Apple account verification or agreements are account setup, not recurring build steps.
 
-Both platforms use a build number derived from the native workflow run number and attempt (`run_number * 100 + run_attempt`). A rerun therefore gets a new number. Source SHA is included in artifact names and workflow summaries. The app remains version `1.0` until a deliberate version change; website Docker tags have their own numbering.
+Both platforms use a build number derived from the native workflow run number and attempt (`run_number * 100 + run_attempt`). A rerun therefore gets a new number. Source SHA is included in artifact names and workflow summaries. The app remains version `1.1` until a deliberate version change; website Docker tags have their own numbering.
 
 The native application is a separate installation, so do not assume that the browser app's sign-in, unsaved recording or downloaded routes and maps will transfer. Saved routes on the website are accessed through the same group account. Download anything needed offline again inside the native app before walking.
 
