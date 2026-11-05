@@ -11,10 +11,10 @@ This session added a second way to install the walking app: an actual iPhone or 
 | Installation | How it reaches the phone | Recording with Home pressed or the screen locked |
 | --- | --- | --- |
 | Website or browser Home Screen app | Visit the website and use its install / Add to Home Screen option | Cannot provide reliable continuous background GPS; keep the recording screen open |
-| Native iPhone app | Install a development build, a TestFlight beta or an App Store release | Uses iOS background location updates |
+| Native iPhone app | Install a development build or an App Store release | Uses iOS background location updates |
 | Native Android app | Install an APK or a Play Store release | Uses an Android location foreground service with a recording notification |
 
-An APK is an Android application installation file. TestFlight is Apple's way to distribute an iPhone app for testing before its App Store release. The new native app can have a similar icon to the browser app; how it was installed determines which one it is.
+An APK is an Android application installation file. The new native app can have a similar icon to the browser app; how it was installed determines which one it is.
 
 Browsers restrict location updates when a document is hidden. Installing a website on the Home Screen does not give it native background location access. See the [W3C geolocation specification](https://www.w3.org/TR/geolocation/#request-a-position).
 
@@ -24,22 +24,21 @@ The app is generic: walkers select an area, optionally a group, or a test websit
 
 Walkers do not need Xcode, Android Studio or a development computer. They install the distributed app, choose a site and sign in using their existing account.
 
-## Automated builds and pilot releases
+## Automated builds and App Store releases
 
 `build-and-release-mobile.yml` runs automatically after the main website workflow succeeds for a push to `main`. It checks out that workflow's exact source revision, prepares the generic mobile bundle once, and builds iOS and Android in parallel. No developer workstation is used. A manual dispatch is available for retrying a release from `main`.
 
-The workflow tests the native journals and retains an iOS simulator archive and an unsigned Android bundle. Pilot uploads are disabled by default while account and signing setup is incomplete; the workflow summary explicitly reports that only the build ran. Enable each platform's upload independently after its credentials are configured. Enabled uploads check all required credentials and fail on missing configuration or a genuine upload error. The iPhone job signs and uploads to App Store Connect, waits for Apple to validate it, enables automatic availability and Apple update notifications, assigns that exact build to the existing external pilot group and submits it for TestFlight review through the API. Approved updates become available in TestFlight for existing testers without recreating tester accounts or resending introductory emails. Apple sends its own build-update notifications. After a manual release request, the script polls for up to 15 seconds to confirm testing availability without resending the notification; a notification conflict is accepted only when Apple confirms the build is in testing. A successful upload is not proof of external availability: Apple review can still be pending. The Android job signs and uploads to Google Play's closed Alpha testing track, which supplies the existing mobile trial install link. Public store review and release are separate from these pilot uploads.
+The workflow tests the native journals and retains an iOS simulator archive and an unsigned Android bundle. Store uploads are off until each platform's publish variable is `true`. Enabled uploads check credentials and fail on missing configuration or a genuine upload error. The iPhone job signs and uploads to App Store Connect, waits for Apple to validate the build, attaches it to store version `1.1`, and submits that version for App Review. After Apple approves it, the version releases on the App Store. There is no TestFlight distribution. The Android job signs and uploads to Google Play's closed Alpha testing track.
 
-The Google service account must also have app-scoped Play Console access to view app information and release apps to testing tracks. A valid service-account key in repository secrets does not itself grant Play Console access. Store processing and review can delay availability after a successful upload; check the target track or TestFlight group before telling testers that an update is available.
+The Google service account must also have app-scoped Play Console access to view app information and release apps to testing tracks. A valid service-account key in repository secrets does not itself grant Play Console access. Apple review can delay availability after a successful upload.
 
 One-time repository variables:
 
-- `MOBILE_IOS_PUBLISH_ENABLED`: set to `true` after Apple signing and API credentials are configured. Unset or any other value builds without uploading.
+- `MOBILE_IOS_PUBLISH_ENABLED`: set to `true` after Apple signing and API credentials are configured. That uploads the iPhone build and submits it for App Review. Unset or any other value builds without uploading.
 - `MOBILE_ANDROID_PUBLISH_ENABLED`: set to `true` after Google account setup, initial upload and signing/API credentials are configured. Unset or any other value builds without uploading.
 - `MOBILE_DIRECTORY_URL`: public HTTPS origin providing the initial area/group lookup, not a selected group website.
 - `APPLE_TEAM_ID`: Apple Developer team identifier.
 - `APP_STORE_CONNECT_APP_ID`: application record identifier in App Store Connect.
-- `TESTFLIGHT_GROUP_ID`: existing **external** TestFlight trial group identifier. The workflow assigns each validated iPhone build to that group and enables Apple build-update notifications. It does not create testers or broaden their account roles.
 
 One-time repository secrets:
 
@@ -99,7 +98,7 @@ The output is `mobile/android/app/build/outputs/apk/debug/app-debug.apk`. After 
 
 ## Use it on a walk
 
-1. Open the native app installed through Xcode, TestFlight, an APK or an app store.
+1. Open the native app installed through Xcode, an APK or an app store.
 2. Sign in and download any routes and maps needed offline.
 3. Start a recording in the existing walking screens and wait until several GPS points appear.
 4. Press Home, switch apps or lock the screen. The native recorder is designed to continue collecting and storing GPS points.
@@ -111,7 +110,7 @@ The recording screen says that recording continues with the screen locked when t
 
 ## Distribute it to other walkers
 
-For iPhone testing, create a signed archive in Xcode, upload it to App Store Connect and distribute it through TestFlight using an Apple Developer Program account. Testers install Apple's TestFlight application and accept the invitation to install the walking app. A public App Store release requires a separate submission and review. See [Apple's TestFlight guide](https://developer.apple.com/testflight/).
+For iPhone, CI uploads a signed archive to App Store Connect and submits store version `1.1` for App Review. Walkers install from the App Store after Apple approves it.
 
 For Android, an APK can be supplied for a controlled device trial. Public Play Store distribution requires a signed release app bundle and a Play Console release. Keep signing credentials outside this repository and retain the release signing identity for future updates.
 
