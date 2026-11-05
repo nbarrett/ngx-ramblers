@@ -25,13 +25,14 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
   styles: [`
     :host
       display: flex
-      min-width: 0
+      min-width: min-content
       position: relative
       box-sizing: border-box
 
     :host-context(.composer-workspace-actions)
       display: flex
       width: 100%
+      min-width: 0
       height: var(--btn-min-height)
 
     :host-context(.composer-workspace-actions) .btn-group
@@ -51,6 +52,7 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
 
     :host.full-width
       width: 100%
+      min-width: 0
 
     :host.compact
       display: inline-flex
@@ -84,6 +86,17 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
       max-width: 100%
       min-width: 0
       box-sizing: border-box
+
+    :host:not(.full-width):not(.compact) .btn-group
+      flex: 0 0 auto
+      width: auto
+      max-width: none
+      min-width: min-content
+
+    :host:not(.full-width):not(.compact) .btn-group > .btn:not(.dropdown-toggle-split)
+      flex: 0 1 auto
+      width: auto
+      min-width: min-content
 
     .btn-group > .dropdown-toggle:not(.dropdown-toggle-split)
       display: inline-flex
@@ -121,6 +134,8 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
       justify-content: center
       min-height: var(--btn-min-height)
       box-sizing: border-box
+      position: relative
+      z-index: 1
 
     .btn-group:hover > .btn:not(:disabled),
     .btn-group.show > .btn:not(:disabled),
@@ -196,27 +211,10 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
          [placement]="placement"
          [insideClick]="insideClick"
          [isDisabled]="disabled">
-      @if (disabled) {
+      @if (hasDefaultAction()) {
         <button type="button"
                 class="{{ buttonClass }}"
-                [class.w-100]="fullWidth"
-                disabled
-                [tooltip]="tooltip"
-                [container]="tooltipContainer || 'body'"
-                [delay]="tooltipDelay ?? TOOLTIP_SHOW_DELAY_MS"
-                [adaptivePosition]="false"
-                [placement]="tooltipPlacement"
-                [attr.aria-label]="ariaLabel || tooltip || label">
-          @if (icon) {
-            <fa-icon [icon]="icon" [animation]="iconSpin ? 'spin' : undefined"/>
-          }
-          @if (label) {
-            <span>{{ label }}</span>
-          }
-        </button>
-      } @else if (hasDefaultAction()) {
-        <button type="button"
-                class="{{ buttonClass }}"
+                [disabled]="disabled"
                 [tooltip]="tooltip"
                 [container]="tooltipContainer || 'body'"
                 [delay]="tooltipDelay ?? TOOLTIP_SHOW_DELAY_MS"
@@ -234,6 +232,7 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
         <button type="button"
                 class="dropdown-toggle dropdown-toggle-split {{ buttonClass }}"
                 dropdownToggle
+                [disabled]="disabled"
                 [attr.aria-label]="'More ' + (label || 'options')">
         </button>
       } @else {
@@ -241,6 +240,7 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
                 class="dropdown-toggle {{ buttonClass }}"
                 [class.w-100]="fullWidth"
                 dropdownToggle
+                [disabled]="disabled"
                 [tooltip]="tooltip"
                 [container]="tooltipContainer || 'body'"
                 [delay]="tooltipDelay ?? TOOLTIP_SHOW_DELAY_MS"
@@ -255,7 +255,6 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
           }
         </button>
       }
-      @if (!disabled) {
       <ul *dropdownMenu class="dropdown-menu" [class.dropdown-menu-end]="menuEnd"
           [ngClass]="menuClass" role="menu">
         @for (item of items; track item.id) {
@@ -298,7 +297,6 @@ import { TOOLTIP_SHOW_DELAY_MS } from "../tooltip-config";
           }
         }
       </ul>
-      }
     </div>
     <ng-template #itemBody let-item>
       @if (item.icon) {

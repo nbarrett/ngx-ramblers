@@ -105,7 +105,7 @@ import {NEWSLETTER_INTRO_DETAIL_OPTIONS, NewsletterIntroDetail} from "../../mode
                             {{ drafting.draftingIntro ? "Drafting…" : drafting.introDraftUndoAvailable() ? "Draft it again" : "Draft the intro" }}
                           </button>
                         } @else {
-                          <div class="d-inline-flex">
+                          <div class="d-inline-flex flex-shrink-0">
                             <app-button-dropdown [label]="drafting.draftingIntro ? 'Drafting…' : drafting.introDraftUndoAvailable() ? 'Draft it again' : 'Draft the intro'"
                                                  [icon]="drafting.draftingIntro ? faSpinner : faWandMagicSparkles"
                                                  [iconSpin]="drafting.draftingIntro"
