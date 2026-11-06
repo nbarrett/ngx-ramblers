@@ -746,7 +746,7 @@ async function buildWorkbook(
   [
     ["NGX-Ramblers platform configuration values", ""],
     ["Generated", generatedAtUtc],
-    ["Issue", "https://github.com/nbarrett/ngx-ramblers/issues/287"],
+    ["Issue", "https://github.com/Ramblers-GB/ngx-ramblers/issues/287"],
     ["Rule", includeSecrets
       ? "SECRETS INCLUDED. This pack contains live passwords, API keys and tokens so environments can be rebuilt. Store only in a password manager. Do not commit to git or email."
       : "Secret values omitted: secrets show as SET or empty. Re-download with Include secrets for full configuration values."],

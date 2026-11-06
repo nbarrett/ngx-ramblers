@@ -203,8 +203,8 @@ Hever Castle`;
       expect(service.isViewSourceUrl("plain text")).toBe(false);
     });
 
-    it("should return false for standalone url https://github.com/nbarrett/ngx-ramblers/issues/67", () => {
-      expect(service.isViewSourceUrl("https://github.com/nbarrett/ngx-ramblers/issues/67")).toBe(false);
+    it("should return false for standalone url https://github.com/Ramblers-GB/ngx-ramblers/issues/67", () => {
+      expect(service.isViewSourceUrl("https://github.com/Ramblers-GB/ngx-ramblers/issues/67")).toBe(false);
     });
 
     it("should return false for http URLs", () => {

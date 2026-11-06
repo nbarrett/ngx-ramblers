@@ -35,7 +35,7 @@ const DEFAULT_CONFIG: ReleaseNotesConfig = {
   cmsUrl: process.env[Environment.CMS_URL] || DEFAULT_CMS_BASE_URL,
   username: process.env[Environment.CMS_USERNAME] || "",
   password: process.env[Environment.CMS_PASSWORD] || "",
-  githubRepo: "nbarrett/ngx-ramblers",
+  githubRepo: "Ramblers-GB/ngx-ramblers",
   githubToken: process.env[Environment.GITHUB_TOKEN] || process.env[Environment.GH_TOKEN] || process.env[Environment.GITHUB_PAT] || new GitHubTokenProvider().token(),
   indexPath: "how-to/committee/release-notes"
 };

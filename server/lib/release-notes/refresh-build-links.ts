@@ -136,7 +136,7 @@ async function main(): Promise<void> {
     .option("--cms-url <url>", "CMS base URL", process.env[Environment.CMS_URL] || DEFAULT_CMS_BASE_URL)
     .option("--username <username>", "CMS username")
     .option("--password <password>", "CMS password")
-    .option("--github-repo <repo>", "GitHub repository (owner/name)", "nbarrett/ngx-ramblers")
+    .option("--github-repo <repo>", "GitHub repository (owner/name)", "Ramblers-GB/ngx-ramblers")
     .option("--github-token <token>", "GitHub token for workflow-run lookups")
     .option("--dry-run", "Preview changes without saving", false);
 

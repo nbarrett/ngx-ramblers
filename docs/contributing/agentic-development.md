@@ -32,7 +32,7 @@ enough to stand behind it.
 ## Getting the code
 
 ```
-git clone https://github.com/nbarrett/ngx-ramblers.git
+git clone https://github.com/Ramblers-GB/ngx-ramblers.git
 cd ngx-ramblers
 ```
 
@@ -125,7 +125,7 @@ service.
 
 ## A typical change
 
-1. Pick or raise a [GitHub issue](https://github.com/nbarrett/ngx-ramblers/issues)
+1. Pick or raise a [GitHub issue](https://github.com/Ramblers-GB/ngx-ramblers/issues)
    describing what you want to change.
 2. Ask your agent to make the change. Point it at the issue and let it follow
    [AGENTS.md](../../AGENTS.md).
@@ -155,7 +155,7 @@ The maintainers run a trunk-based workflow and commit straight to `main`; there 
 no internal pull requests. As an external contributor you cannot push to `main`, so
 the route in is:
 
-- Raise a [GitHub issue](https://github.com/nbarrett/ngx-ramblers/issues) for
+- Raise a [GitHub issue](https://github.com/Ramblers-GB/ngx-ramblers/issues) for
   anything non-trivial first, so the approach can be agreed.
 - Submit code as a pull request from your fork, or send a patch. A maintainer
   reviews it and integrates it onto `main`.
@@ -169,7 +169,7 @@ npm run setup:hooks
 
 ## Getting help
 
-- [GitHub issues](https://github.com/nbarrett/ngx-ramblers/issues) — questions,
+- [GitHub issues](https://github.com/Ramblers-GB/ngx-ramblers/issues) — questions,
   bugs, and proposals
 - [AGENTS.md](../../AGENTS.md) — the rules
 - The [project website](https://ngx-ramblers.org.uk/) — the how-to documentation

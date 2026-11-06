@@ -6,7 +6,7 @@ export interface BuildVersion {
 export const DEVELOPMENT_BUILD_NUMBER = "development";
 
 export const VERSION_CHECK_INTERVAL_MS = 60000;
-export const REPOSITORY_URL = "https://github.com/nbarrett/ngx-ramblers";
+export const REPOSITORY_URL = "https://github.com/Ramblers-GB/ngx-ramblers";
 export const LEGACY_VERSION_PAGE_PATH = "version";
 export const VERSION_PAGE_PATH = AdminPath.VERSION;
 
