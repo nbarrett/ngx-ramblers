@@ -46,6 +46,16 @@ describe("environment-hostname-display", () => {
     expect(hostnameActionStatement(hostname, "group.ngx-ramblers.org.uk")).toBe("Not used.");
   });
 
+  it("should leave the proxied row without What to do text", () => {
+    const hostname = status({
+      health: HostnameHealth.PROXIED,
+      healthy: false,
+      proxied: true
+    });
+    expect(hostnameHealthBadgeClass(hostname)).toBe("badge bg-warning text-dark");
+    expect(hostnameActionStatement(hostname, "group.ngx-ramblers.org.uk")).toBe("");
+  });
+
   it("should not offer Use as Site URL unless the host is serving", () => {
     const dead = status({
       origin: HostnameOrigin.ENVIRONMENT_SUBDOMAIN,

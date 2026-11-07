@@ -4,6 +4,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import {
   faCircleCheck,
   faCircleExclamation,
+  faCloud,
   faEraser,
   faExclamationTriangle,
   faGlobe,
@@ -27,6 +28,7 @@ import {
   HostnameSituation,
   HostnameSituationAlert,
   ConversionNextStep,
+  HostnameHealth,
   HostnameSituationKind,
   HostnameStatus
 } from "../../../models/environment-setup.model";
@@ -43,6 +45,7 @@ import { SortableTableColumn, SortableTableSortState } from "../sortable-table/s
 import {
   canAttachUnmappedHostname,
   canRepairRedirect,
+  canSetDnsOnly,
   canUseAsSiteUrl,
   hostnameActionStatement,
   hostnameDnsProviderBadgeClass,
@@ -183,8 +186,10 @@ import { MailMxRecords } from "../../../pages/admin/system-settings/mail/mail-mx
               <fa-icon [icon]="outcome.alert === HostnameSituationAlert.SUCCESS ? faCircleCheck : faCircleExclamation"
                        class="me-2 mt-1"></fa-icon>
               <div>
-                <strong>{{ outcome.title }}</strong>
-                <div class="mt-1">{{ outcome.detail }}</div>
+                <div>
+                  <strong>{{ outcome.title }}</strong>
+                  <span class="ms-2">{{ outcome.detail }}</span>
+                </div>
                 @if (outcome.action) {
                   <div class="mt-2">{{ outcome.action }}</div>
                 }
@@ -196,6 +201,18 @@ import { MailMxRecords } from "../../../pages/admin/system-settings/mail/mail-mx
                       <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
                     }
                     Attach {{ siteUrlHost.hostname }}
+                  </button>
+                }
+                @if (proxiedHostToFix(); as proxiedHost) {
+                  <button type="button" class="btn btn-primary mt-2"
+                          (click)="setDnsOnly(proxiedHost)"
+                          [disabled]="customDomainsBusy() || operationBusy || siteUrlBusy || dnsOnlyBusy === proxiedHost.hostname">
+                    @if (dnsOnlyBusy === proxiedHost.hostname) {
+                      <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
+                    } @else {
+                      <fa-icon [icon]="faCloud" class="me-1"></fa-icon>
+                    }
+                    Turn off Cloudflare proxy
                   </button>
                 }
               </div>
@@ -240,7 +257,9 @@ import { MailMxRecords } from "../../../pages/admin/system-settings/mail/mail-mx
               }
             </ng-template>
             <ng-template appSortableTableCell="action" let-row>
-              <div class="small">{{ actionStatement(row) }}</div>
+              @if (actionStatement(row)) {
+                <div class="small">{{ actionStatement(row) }}</div>
+              }
               @if (hasActions(row)) {
                 <div class="d-inline-flex gap-1 mt-2">
                   @if (repairRedirect(row)) {
@@ -254,6 +273,20 @@ import { MailMxRecords } from "../../../pages/admin/system-settings/mail/mail-mx
                         <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
                       } @else {
                         <fa-icon [icon]="faWrench"></fa-icon>
+                      }
+                    </button>
+                  }
+                  @if (offerDnsOnly(row)) {
+                    <button class="btn btn-primary btn-icon"
+                            (click)="setDnsOnly(row)"
+                            [disabled]="customDomainsBusy() || operationBusy || siteUrlBusy || dnsOnlyBusy === row.hostname"
+                            tooltip="Turn off Cloudflare proxy"
+                            container="body"
+                            aria-label="Turn off Cloudflare proxy">
+                      @if (dnsOnlyBusy === row.hostname) {
+                        <fa-icon [icon]="faSpinner" animation="spin"></fa-icon>
+                      } @else {
+                        <fa-icon [icon]="faCloud"></fa-icon>
                       }
                     </button>
                   }
@@ -425,6 +458,7 @@ export class EnvironmentHostnames implements OnChanges {
   inboundMailBusy = false;
   estateMailBusy = false;
   attachingHostname: string | null = null;
+  dnsOnlyBusy: string | null = null;
   removingNgxSubdomain = false;
   removeNgxSubdomainConfirming = false;
   hostnameSortKey = "healthy";
@@ -440,6 +474,7 @@ export class EnvironmentHostnames implements OnChanges {
   protected readonly ConversionNextStep = ConversionNextStep;
   protected readonly faCircleCheck = faCircleCheck;
   protected readonly faCircleExclamation = faCircleExclamation;
+  protected readonly faCloud = faCloud;
   protected readonly faEraser = faEraser;
   protected readonly faExclamationTriangle = faExclamationTriangle;
   protected readonly faGlobe = faGlobe;
@@ -566,6 +601,7 @@ export class EnvironmentHostnames implements OnChanges {
   dnsProviderOurs = hostnameDnsProviderOurs;
   dnsProviderBadgeClass = hostnameDnsProviderBadgeClass;
   repairRedirect = canRepairRedirect;
+  offerDnsOnly = canSetDnsOnly;
 
   actionStatement(hostname: HostnameStatus): string {
     return hostnameActionStatement(hostname, this.environmentSubdomainHint());
@@ -623,6 +659,34 @@ export class EnvironmentHostnames implements OnChanges {
       return this.hostnameStatuses().find(hostname => hostname.origin === HostnameOrigin.SITE_URL) || null;
     } else {
       return null;
+    }
+  }
+
+  proxiedHostToFix(): HostnameStatus | null {
+    if (this.situation()?.kind === HostnameSituationKind.LIVE_SITE_PROXIED) {
+      return this.hostnameStatuses().find(hostname => hostname.health === HostnameHealth.PROXIED) || null;
+    } else {
+      return null;
+    }
+  }
+
+  async setDnsOnly(hostname: HostnameStatus): Promise<void> {
+    if (this.environment) {
+      this.dnsOnlyBusy = hostname.hostname;
+      this.notify.hide();
+      try {
+        const result = await this.environmentSetupService.setDnsOnly(this.environment.name, hostname.hostname);
+        if (result.success) {
+          this.notify.success({title: "Cloudflare proxy off", message: result.message});
+          await this.refresh();
+        } else {
+          this.notify.error({title: "Could not set DNS only", message: result.message});
+        }
+      } catch (error) {
+        this.notify.error({title: "Could not set DNS only", message: environmentOperationErrorDetail(error)});
+      } finally {
+        this.dnsOnlyBusy = null;
+      }
     }
   }
 

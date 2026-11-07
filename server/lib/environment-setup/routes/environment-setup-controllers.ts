@@ -50,6 +50,7 @@ import { environmentSendControl, updateEnvironmentSendControl } from "../environ
 import { environmentHostnameHealth, updateEnvironmentSiteUrl } from "../hostname-health";
 import { moveMailToCustomDomainForEnvironment } from "../rewrite-mail-domain-for-environment";
 import { enableInboundMailForEnvironment } from "../enable-inbound-mail";
+import { setHostnameDnsOnly } from "../set-dns-only";
 import { appIpAddresses, queryCertificates } from "../../fly/fly-certificates";
 import { probeFlyOrgMigrationStatus } from "../../fly/fly-org-migration";
 import { booleanOf } from "../../shared/string-utils";
@@ -401,9 +402,9 @@ export async function environmentStatus(req: Request, res: Response) {
         ? (await queryCertificates({ apiToken: flyToken, appName })).some(cert => cert.hostname === environmentHostname)
         : false;
       const customDomainLive = report.hostnames.some(hostname =>
-        hostname.healthy
-        && hostname.hostname !== environmentHostname
-        && (hostname.origin === HostnameOrigin.SITE_URL || hostname.origin === HostnameOrigin.CUSTOM_DOMAIN || hostname.health === HostnameHealth.SERVING || hostname.health === HostnameHealth.REDIRECTING));
+        hostname.hostname !== environmentHostname
+        && (hostname.origin === HostnameOrigin.SITE_URL || hostname.origin === HostnameOrigin.CUSTOM_DOMAIN || hostname.health === HostnameHealth.SERVING || hostname.health === HostnameHealth.PROXIED || hostname.health === HostnameHealth.REDIRECTING)
+        && (hostname.healthy || hostname.health === HostnameHealth.PROXIED));
       return {
         subdomainConfigured: envHostHealthy || envHostHasDns || flyCertPresent,
         subdomainOptional: envHostOptional || customDomainLive,
@@ -1027,6 +1028,35 @@ export async function removeApexRedirectRequest(req: Request, res: Response) {
     }
     errorDebugLog("Error removing apex redirect:", error.message);
     res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function setDnsOnlyRequest(req: Request, res: Response) {
+  try {
+    const environmentName = req.params.environmentName;
+    const hostname = req.body?.hostname;
+    debugLog("Set DNS only request received for:", environmentName, hostname);
+    if (!isString(hostname) || !hostname.trim()) {
+      res.status(400).json({ success: false, message: "hostname is required" });
+    } else {
+      const result = await setHostnameDnsOnly(environmentName, hostname);
+      res.json({
+        success: true,
+        message: result.updated > 0
+          ? `Cloudflare proxy is off for ${result.hostname}. Mail apps can use IMAP and SMTP on this host.`
+          : `${result.hostname} already has the Cloudflare proxy off`,
+        hostname: result.hostname,
+        updated: result.updated,
+        logs: result.logs
+      });
+    }
+  } catch (error) {
+    if (error instanceof EnvironmentNotFoundError) {
+      res.status(404).json({ success: false, message: error.message });
+    } else {
+      errorDebugLog("Error setting DNS only:", error.message);
+      res.status(500).json({ success: false, message: error.message });
+    }
   }
 }
 

@@ -30,6 +30,7 @@ import {
   PlatformSendControlResponse,
   RamblersAreaLookup,
   ResumeEnvironmentResponse,
+  SetDnsOnlyResponse,
   SetupStatusResponse,
   ValidateRequestResponse,
   ValidationResult
@@ -598,6 +599,15 @@ export class EnvironmentSetupService {
       this.notifications
     );
     return response as unknown as ApexRedirectResponse;
+  }
+
+  async setDnsOnly(environmentName: string, hostname: string): Promise<SetDnsOnlyResponse> {
+    const response = await this.commonDataService.responseFrom(
+      this.logger,
+      this.http.post<ApiResponse>(`${this.BASE_URL}/set-dns-only/${environmentName}`, {hostname}, this.opts),
+      this.notifications
+    );
+    return response as unknown as SetDnsOnlyResponse;
   }
 
 }

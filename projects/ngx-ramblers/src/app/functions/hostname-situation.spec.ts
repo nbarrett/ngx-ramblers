@@ -163,7 +163,7 @@ describe("hostname-situation", () => {
     expect(situation.alert).toBe(HostnameSituationAlert.SUCCESS);
     expect(situation.action).toBeNull();
     expect(situation.detail).toContain("group.org.uk");
-    expect(situation.detail).toContain("www.group.org.uk");
+    expect(situation.detail).not.toContain("www.group.org.uk");
   });
 
   it("should treat a proxied redirect with no HTTPS yet as waiting, not as a problem", () => {
@@ -231,6 +231,45 @@ describe("hostname-situation", () => {
     ]);
     expect(situation.kind).toBe(HostnameSituationKind.LIVE_REDIRECT_TARGET_MISSING);
     expect(situation.action).toContain("Apex / www redirect");
+  });
+
+  it("should tell you to set DNS only when the live Site URL is Cloudflare-proxied", () => {
+    const situation = analyseHostnameSituation([
+      status({
+        hostname: "www.group.example.org.uk",
+        origin: HostnameOrigin.SITE_URL,
+        health: HostnameHealth.PROXIED,
+        healthy: false,
+        proxied: true,
+        message: "Serving through Cloudflare HTTP proxy"
+      })
+    ]);
+    expect(situation.kind).toBe(HostnameSituationKind.LIVE_SITE_PROXIED);
+    expect(situation.alert).toBe(HostnameSituationAlert.WARNING);
+    expect(situation.title).toContain("Turn off the Cloudflare proxy");
+    expect(situation.title).toContain("www.group.example.org.uk");
+    expect(situation.action).toBeNull();
+  });
+
+  it("should still ask for DNS only when the apex redirect points at a proxied live Site URL", () => {
+    const situation = analyseHostnameSituation([
+      status({
+        hostname: "www.group.example.org.uk",
+        origin: HostnameOrigin.SITE_URL,
+        health: HostnameHealth.PROXIED,
+        healthy: false,
+        proxied: true
+      }),
+      status({
+        hostname: "group.example.org.uk",
+        origin: HostnameOrigin.SIBLING,
+        health: HostnameHealth.REDIRECTING,
+        healthy: true,
+        redirectRuleTarget: "www.group.example.org.uk"
+      })
+    ]);
+    expect(situation.kind).toBe(HostnameSituationKind.LIVE_SITE_PROXIED);
+    expect(situation.title).toContain("Turn off the Cloudflare proxy");
   });
 
   it("should tell you to use the live host as Site URL when Site URL is not that host", () => {

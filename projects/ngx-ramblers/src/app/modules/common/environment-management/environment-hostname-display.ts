@@ -12,6 +12,8 @@ import { ramblersNationalUrl } from "../../../functions/hosts";
 export function hostnameHealthBadgeClass(hostname: HostnameStatus): string {
   if (hostname.health === HostnameHealth.NOT_CREATED) {
     return "badge bg-warning";
+  } else if (hostname.health === HostnameHealth.PROXIED) {
+    return "badge bg-warning text-dark";
   } else if (hostname.healthy) {
     return "badge bg-success";
   } else if (hostname.health === HostnameHealth.NO_DNS
@@ -85,8 +87,13 @@ export function canRepairRedirect(hostname: HostnameStatus): boolean {
   return hostname.health === HostnameHealth.REDIRECT_NOT_PROXIED && !!hostname.redirectRuleTarget;
 }
 
+export function canSetDnsOnly(hostname: HostnameStatus): boolean {
+  return hostname.health === HostnameHealth.PROXIED;
+}
+
 export function shouldOfferClearSiteUrl(hostname: HostnameStatus, environmentSubdomainHint: string): boolean {
   return !hostname.healthy
+    && hostname.health !== HostnameHealth.PROXIED
     && hostname.origin === HostnameOrigin.SITE_URL
     && !isEnvironmentSubdomainHost(hostname, environmentSubdomainHint);
 }
@@ -104,7 +111,9 @@ export function canUseAsSiteUrl(hostname: HostnameStatus, statuses: HostnameStat
 }
 
 export function hostnameActionStatement(hostname: HostnameStatus, environmentSubdomainHint: string): string {
-  if (hostname.healthy && hostname.origin === HostnameOrigin.SITE_URL) {
+  if (hostname.health === HostnameHealth.PROXIED) {
+    return "";
+  } else if (hostname.healthy && hostname.origin === HostnameOrigin.SITE_URL) {
     return "This is the public site.";
   } else if (hostname.health === HostnameHealth.REDIRECTING) {
     return "Sends visitors to the live site.";
@@ -147,6 +156,7 @@ export function hostnameHasActions(
   hasCustomDomain = false
 ): boolean {
   return canRepairRedirect(hostname)
+    || canSetDnsOnly(hostname)
     || shouldOfferClearSiteUrl(hostname, environmentSubdomainHint)
     || canUseAsSiteUrl(hostname, statuses)
     || canAttachUnmappedHostname(hostname)

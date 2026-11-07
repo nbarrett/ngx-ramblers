@@ -34,6 +34,16 @@ import { mailDomainSettingsUrl } from "../../../functions/brevo-domain-dns";
 import { PlatformSendControl } from "../../../models/mail.model";
 import { DisplayDateAndTimePipe } from "../../../pipes/display-date-and-time.pipe";
 
+export function hasSelectedModifySteps(options: EnvironmentModifyOptions): boolean {
+  return options.runDbInit
+    || options.runFlyDeployment
+    || options.copyStandardAssets
+    || options.setupSubdomain
+    || options.includeSamplePages
+    || options.includeNotificationConfigs
+    || options.authenticateBrevoDomain;
+}
+
 export function emptyModifyOptions(): EnvironmentModifyOptions {
   return {
     runDbInit: false,
@@ -93,7 +103,7 @@ export function modifyOptionsFromStatus(envStatus: EnvironmentStatus | null): En
     <div class="row mt-3">
       <div class="col-md-12 d-flex gap-2 align-items-start flex-wrap">
         <button class="btn btn-primary" (click)="resumeSetup()"
-                [disabled]="operationBusy">
+                [disabled]="operationBusy || !hasSelectedSteps()">
           @if (resuming) {
             <fa-icon [icon]="faSpinner" animation="spin" class="me-1"></fa-icon>
           }
@@ -278,6 +288,10 @@ export class EnvironmentModify implements OnInit, OnChanges, OnDestroy {
 
   get operationBusy(): boolean {
     return this.operationInProgress !== OperationInProgress.NONE;
+  }
+
+  hasSelectedSteps(): boolean {
+    return hasSelectedModifySteps(this.resumeOptions);
   }
 
   async ngOnInit() {

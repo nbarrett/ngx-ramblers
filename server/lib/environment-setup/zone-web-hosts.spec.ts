@@ -38,6 +38,14 @@ describe("webFacingHostnamesFromDns", () => {
     ], "fhramblers.org.uk");
     expect(names).toEqual(["www.fhramblers.org.uk"]);
   });
+
+  it("drops Zoho verification CNAMEs", () => {
+    const names = webFacingHostnamesFromDns([
+      rec("A", "www.group.example.org.uk"),
+      rec("CNAME", "zb34305925.group.example.org.uk", "zmverify.zoho.eu")
+    ], "group.example.org.uk");
+    expect(names).toEqual(["www.group.example.org.uk"]);
+  });
 });
 
 describe("unmappedHostsToOffer", () => {

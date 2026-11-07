@@ -75,6 +75,17 @@ export function rewriteCommitteeMailAddresses(committee: CommitteeConfig, oldDom
   return { ...committee, roles, contactUs };
 }
 
+export function committeeNeedsMailMove(committee: CommitteeConfig | null, oldDomain: string, newDomain: string): boolean {
+  const from = (oldDomain || "").trim().toLowerCase();
+  const to = (newDomain || "").trim().toLowerCase();
+  if (!committee || !from || !to || from === to || to.endsWith(".ngx-ramblers.org.uk")) {
+    return false;
+  } else {
+    return committeeMailboxDomains(committee).some(domain =>
+      domain === from || domain.endsWith(".ngx-ramblers.org.uk"));
+  }
+}
+
 export function committeeMailboxDomains(committee: CommitteeConfig): string[] {
   const roles = committee?.roles || [];
   const domains = roles

@@ -190,6 +190,7 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
           </button>
         </div>
       }
+      @if (showMoveMail()) {
       <div class="hostname-part mt-4 pt-3 border-top">
         <div class="fw-bold">Move mail to this domain</div>
         <p class="small text-muted mb-2">
@@ -222,6 +223,7 @@ import { environmentOperationErrorDetail } from "./environment-operation-error";
           </div>
         }
       </div>
+      }
       @if (apexRedirectError) {
         <p class="small text-danger mt-2 mb-0">{{ apexRedirectError }}</p>
       }
@@ -349,6 +351,10 @@ export class EnvironmentCustomDomains implements OnChanges {
 
   ngxMailDomain(): string {
     return ngxRamblersMailDomain(this.environment?.name || "");
+  }
+
+  showMoveMail(): boolean {
+    return !!this.hostnameHealthReport?.mailMoveNeeded && !!this.mailDomain();
   }
 
   mailDomain(): string {
@@ -582,7 +588,8 @@ export class EnvironmentCustomDomains implements OnChanges {
   }
 
   private suggestedApexRedirectHostname(): string {
-    const serving = this.hostnameStatuses().find(hostname => hostname.health === HostnameHealth.SERVING);
+    const serving = this.hostnameStatuses().find(hostname =>
+      hostname.health === HostnameHealth.SERVING || hostname.health === HostnameHealth.PROXIED);
     const attached = this.customDomains().find(domain => domain.status === CustomDomainStatus.ATTACHED);
     return serving?.hostname || attached?.hostname || "";
   }

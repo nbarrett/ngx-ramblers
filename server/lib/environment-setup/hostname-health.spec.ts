@@ -90,6 +90,27 @@ describe("hostname-health", () => {
       expect(result[0].health).toEqual(HostnameHealth.REDIRECTING);
     });
 
+    it("should treat a proxied serving host as a working redirect target", () => {
+      const result = validateRedirectTargets([
+        status({
+          hostname: "group.example.org.uk",
+          health: HostnameHealth.REDIRECTING,
+          healthy: true,
+          redirectRuleTarget: "www.group.example.org.uk",
+          message: "Redirects to https://www.group.example.org.uk via a Cloudflare rule"
+        }),
+        status({
+          hostname: "www.group.example.org.uk",
+          health: HostnameHealth.PROXIED,
+          healthy: false,
+          proxied: true,
+          message: "Serving through Cloudflare HTTP proxy"
+        })
+      ]);
+      expect(result[0].health).toEqual(HostnameHealth.REDIRECTING);
+      expect(result[0].healthy).toEqual(true);
+    });
+
     it("should leave non-redirecting hostnames untouched", () => {
       const result = validateRedirectTargets([status({ hostname: "www.example.co.uk" })]);
       expect(result[0].health).toEqual(HostnameHealth.SERVING);
@@ -133,6 +154,18 @@ describe("hostname-health", () => {
         ""
       );
       expect(result.health).toEqual(HostnameHealth.SERVING);
+    });
+
+    it("should mark a proxied hostname that returns 200 as blocking mail apps", () => {
+      const result = classifyHostnameHealth(
+        "www.group.example.org.uk",
+        [{ type: "A", content: "66.241.124.94", proxied: true }],
+        "",
+        200,
+        ""
+      );
+      expect(result.health).toEqual(HostnameHealth.PROXIED);
+      expect(result.message).toContain("IMAP");
     });
 
     it("should mark a hostname with no DNS record as having no DNS", () => {

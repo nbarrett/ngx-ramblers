@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CommitteeConfig, CommitteeMember, RoleType } from "../models/committee.model";
 import {
   committeeMailRewriteCount,
+  committeeNeedsMailMove,
   mailDomainForSiteHost,
   ngxRamblersMailDomain,
   replaceEmailDomain,
@@ -59,6 +60,30 @@ describe("rewriteCommitteeMailAddresses", () => {
     };
     const after = rewriteCommitteeMailAddresses(before, "https://fhramblers.org.uk", "fhramblers.org.uk");
     expect(after.roles[0].email).toEqual("chairman@fhramblers.org.uk");
+  });
+
+});
+
+describe("committeeNeedsMailMove", () => {
+
+  it("is needed when a role still uses the NGX mailbox domain", () => {
+    const committee: CommitteeConfig = {
+      contactUs: {},
+      roles: [role("chair@group.ngx-ramblers.org.uk")],
+      fileTypes: [],
+      expenses: {costPerMile: 0.28}
+    };
+    expect(committeeNeedsMailMove(committee, "group.ngx-ramblers.org.uk", "group.example.org.uk")).toEqual(true);
+  });
+
+  it("is not needed when roles already use the group domain", () => {
+    const committee: CommitteeConfig = {
+      contactUs: {},
+      roles: [role("chair@group.example.org.uk")],
+      fileTypes: [],
+      expenses: {costPerMile: 0.28}
+    };
+    expect(committeeNeedsMailMove(committee, "group.ngx-ramblers.org.uk", "group.example.org.uk")).toEqual(false);
   });
 
 });

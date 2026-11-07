@@ -588,6 +588,14 @@ export interface ApexRedirectResponse {
   logs?: string[];
 }
 
+export interface SetDnsOnlyResponse {
+  success: boolean;
+  message: string;
+  hostname?: string;
+  updated?: number;
+  logs?: string[];
+}
+
 export interface ExistingEnvironmentsResponse extends ApiResponse {
   environments: ExistingEnvironment[];
 }
@@ -996,6 +1004,7 @@ export interface EnvironmentStatus {
 
 export enum HostnameHealth {
   SERVING = "serving",
+  PROXIED = "proxied",
   REDIRECTING = "redirecting",
   NO_DNS = "no-dns",
   REDIRECT_TARGET_MISSING = "redirect-target-missing",
@@ -1024,7 +1033,8 @@ export enum HostnameSituationKind {
   LIVE_BOTH_SERVING = "live-both-serving",
   LIVE_REMOVE_SUBDOMAIN = "live-remove-subdomain",
   LIVE_CHECK_CUSTOM_DOMAIN = "live-check-custom-domain",
-  LIVE_SETUP_PAIR_REDIRECT = "live-setup-pair-redirect"
+  LIVE_SETUP_PAIR_REDIRECT = "live-setup-pair-redirect",
+  LIVE_SITE_PROXIED = "live-site-proxied"
 }
 
 export enum HostnameSituationAlert {
@@ -1102,6 +1112,7 @@ export interface HostnameHealthReport {
   problemCount: number;
   checkedAt: number;
   emailRouting?: HostnameEmailRoutingStatus;
+  mailMoveNeeded?: boolean;
 }
 
 export enum HostnameEmailRoutingHealth {
@@ -1136,6 +1147,7 @@ export interface CrossEnvironmentHostnameHealth {
 
 export const hostnameHealthLabels: Record<HostnameHealth, string> = {
   [HostnameHealth.SERVING]: "Serving",
+  [HostnameHealth.PROXIED]: "Blocks mail",
   [HostnameHealth.REDIRECTING]: "Redirecting",
   [HostnameHealth.NO_DNS]: "No DNS record",
   [HostnameHealth.REDIRECT_TARGET_MISSING]: "Redirect missing",

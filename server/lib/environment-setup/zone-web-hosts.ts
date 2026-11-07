@@ -8,7 +8,9 @@ function mailVendorCname(content: string): boolean {
   const target = (content || "").toLowerCase();
   return target.includes("brevosend.com")
     || target.includes("sendinblue.com")
-    || target.includes(".brevo.com");
+    || target.includes(".brevo.com")
+    || target.includes("zmverify.zoho.")
+    || target.includes("zohoverify.");
 }
 
 export function webFacingHostnamesFromDns(records: DnsRecordResult[], zoneName: string): string[] {

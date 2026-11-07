@@ -15,10 +15,14 @@ export function hostnameNeedsAction(hostname: HostnameStatus): boolean {
     && hostname.health !== HostnameHealth.NOT_CREATED;
 }
 
+export function hostnameServesSite(hostname: HostnameStatus): boolean {
+  return hostname.health === HostnameHealth.SERVING || hostname.health === HostnameHealth.PROXIED;
+}
+
 function servingHost(hostnames: HostnameStatus[]): HostnameStatus | null {
   const bySiteUrl = hostnames.find(hostname =>
-    hostname.health === HostnameHealth.SERVING && hostname.origin === HostnameOrigin.SITE_URL);
-  const anyServing = hostnames.find(hostname => hostname.health === HostnameHealth.SERVING);
+    hostnameServesSite(hostname) && hostname.origin === HostnameOrigin.SITE_URL);
+  const anyServing = hostnames.find(hostname => hostnameServesSite(hostname));
   return bySiteUrl || anyServing || null;
 }
 
@@ -125,7 +129,6 @@ export function analyseHostnameSituation(hostnames: HostnameStatus[]): HostnameS
     const notProxied = ofHealth(hostnames, HostnameHealth.REDIRECT_NOT_PROXIED);
     const missingTarget = ofHealth(hostnames, HostnameHealth.REDIRECT_TARGET_MISSING);
     const pending = ofHealth(hostnames, HostnameHealth.REDIRECT_PENDING);
-    const redirecting = ofHealth(hostnames, HostnameHealth.REDIRECTING);
     const ngx = hostnames.find(hostname => hostname.origin === HostnameOrigin.ENVIRONMENT_SUBDOMAIN);
     const deadCustom = hostnames.find(hostname =>
       hostname.origin === HostnameOrigin.CUSTOM_DOMAIN && hostnameNeedsAction(hostname));
@@ -134,11 +137,12 @@ export function analyseHostnameSituation(hostnames: HostnameStatus[]): HostnameS
       && hostname.health !== HostnameHealth.REDIRECT_NOT_PROXIED
       && hostname.health !== HostnameHealth.REDIRECT_TARGET_MISSING);
     const otherServing = hostnames.filter(hostname =>
-      hostname.health === HostnameHealth.SERVING && hostname.hostname !== site?.hostname);
+      hostnameServesSite(hostname) && hostname.hostname !== site?.hostname);
     const leftoverNgx = ngx
       && site
       && !isPlatformHost(site)
-      && (ngx.health === HostnameHealth.SERVING || hostnameNeedsAction(ngx));
+      && (hostnameServesSite(ngx) || hostnameNeedsAction(ngx));
+    const proxiedServing = ofHealth(hostnames, HostnameHealth.PROXIED);
 
     const siteUrlHost = hostnames.find(hostname => hostname.origin === HostnameOrigin.SITE_URL);
 
@@ -202,6 +206,14 @@ export function analyseHostnameSituation(hostnames: HostnameStatus[]): HostnameS
         `${named(site)} is serving visitors. The stored Site URL is not this host, so links the group publishes may be wrong.`,
         `Press Use as Site URL on the ${named(site)} row.`
       );
+    } else if (proxiedServing.length > 0) {
+      return situation(
+        HostnameSituationKind.LIVE_SITE_PROXIED,
+        HostnameSituationAlert.WARNING,
+        `Turn off the Cloudflare proxy on ${named(proxiedServing[0])}`,
+        `The website is fine. Mail apps cannot connect because Cloudflare only forwards web traffic, not IMAP or SMTP. The yellow button turns the proxy off so those apps reach Fly on this hostname.`,
+        null
+      );
     } else if (leftoverNgx && ngx && hostnameNeedsAction(ngx)) {
       return situation(
         HostnameSituationKind.LIVE_REMOVE_SUBDOMAIN,
@@ -210,7 +222,7 @@ export function analyseHostnameSituation(hostnames: HostnameStatus[]): HostnameS
         `${named(site)} is serving visitors. ${named(ngx)} still has DNS but is not serving.`,
         `Press Remove subdomain on the ${named(ngx)} row.`
       );
-    } else if (leftoverNgx && ngx && ngx.health === HostnameHealth.SERVING) {
+    } else if (leftoverNgx && ngx && hostnameServesSite(ngx)) {
       return situation(
         HostnameSituationKind.LIVE_REMOVE_SUBDOMAIN,
         HostnameSituationAlert.WARNING,
@@ -241,14 +253,6 @@ export function analyseHostnameSituation(hostnames: HostnameStatus[]): HostnameS
         "The site is live. The other half of the pair is not",
         `${named(site)} is serving visitors. ${named(deadSibling)} does not.`,
         `Use Apex / www redirect below with ${named(site)} as the serving host.`
-      );
-    } else if (redirecting.length > 0) {
-      return situation(
-        HostnameSituationKind.LIVE,
-        HostnameSituationAlert.SUCCESS,
-        "The site is live",
-        `${named(site)} is serving visitors. ${named(redirecting[0])} sends people there.`,
-        null
       );
     } else {
       return situation(

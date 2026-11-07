@@ -72,6 +72,21 @@ import { EnvironmentDestroy } from "./environment-destroy";
     :host ::ng-deep .resume-step-badge
       flex: 0 0 4.5rem
       text-align: center
+
+    .env-details
+      display: grid
+      grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr))
+      gap: 1rem 1.5rem
+      align-items: start
+
+    .env-details-label
+      font-size: 0.8125rem
+      color: var(--bs-secondary-color, #6c757d)
+      margin-bottom: 0.2rem
+
+    .env-details-value
+      font-weight: 600
+      word-break: break-word
   `],
   template: `
     @if (!enabled) {
@@ -109,32 +124,38 @@ import { EnvironmentDestroy } from "./environment-destroy";
             <div class="row thumbnail-heading-frame mt-2">
               <div class="thumbnail-heading">Environment Details</div>
               <div class="col-12">
-              <div class="row">
-                <div class="col-md-3 mb-2">
-                  <strong>Name:</strong> {{ selectedExistingEnv.name }}
+                <div class="env-details">
+                  <div>
+                    <div class="env-details-label">Name</div>
+                    <div class="env-details-value">{{ selectedExistingEnv.name }}</div>
+                  </div>
+                  <div>
+                    <div class="env-details-label">App</div>
+                    <div class="env-details-value">{{ selectedExistingEnv.appName }}</div>
+                  </div>
+                  <div>
+                    <div class="env-details-label">Memory</div>
+                    <div class="env-details-value">{{ selectedExistingEnv.memory }}</div>
+                  </div>
+                  <div>
+                    <div class="env-details-label">Scale</div>
+                    <div class="env-details-value">{{ selectedExistingEnv.scaleCount }}</div>
+                  </div>
+                  <div>
+                    <div class="env-details-label">Organisation</div>
+                    <div class="env-details-value">{{ selectedExistingEnv.organisation || "personal" }}</div>
+                  </div>
+                  <div>
+                    <div class="env-details-label">Fly.io token</div>
+                    <div class="env-details-value">
+                      @if (selectedExistingEnv.hasApiKey) {
+                        <span class="text-success">Configured</span>
+                      } @else {
+                        <span class="text-warning">Missing</span>
+                      }
+                    </div>
+                  </div>
                 </div>
-                <div class="col-md-3 mb-2">
-                  <strong>App:</strong> {{ selectedExistingEnv.appName }}
-                </div>
-                <div class="col-md-2 mb-2">
-                  <strong>Memory:</strong> {{ selectedExistingEnv.memory }}
-                </div>
-                <div class="col-md-2 mb-2">
-                  <strong>Scale:</strong> {{ selectedExistingEnv.scaleCount }}
-                </div>
-                <div class="col-md-2 mb-2">
-                  <strong>Fly.io Token:</strong>
-                  @if (selectedExistingEnv.hasApiKey) {
-                    <span class="text-success ms-1">Configured</span>
-                  } @else {
-                    <span class="text-warning ms-1">Missing</span>
-                  }
-                </div>
-                <div class="col-md-3 mb-2">
-                  <strong>Organisation:</strong>
-                  <span class="ms-1">{{ selectedExistingEnv.organisation || "personal" }}</span>
-                </div>
-              </div>
               </div>
             </div>
 

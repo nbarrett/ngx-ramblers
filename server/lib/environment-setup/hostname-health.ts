@@ -20,11 +20,13 @@ import {
   HostnameOrigin,
   HostnameStatus
 } from "../../../projects/ngx-ramblers/src/app/models/environment-setup.model";
-import { hostnameNeedsAction } from "../../../projects/ngx-ramblers/src/app/functions/hostname-situation";
+import { hostnameNeedsAction, hostnameServesSite } from "../../../projects/ngx-ramblers/src/app/functions/hostname-situation";
 import { checkedMxRecordStatus } from "../cloudflare/mail-dns-health";
 import { mailDomainSettingsUrl } from "../../../projects/ngx-ramblers/src/app/functions/brevo-domain-dns";
-import { mailDomainForSiteHost } from "../../../projects/ngx-ramblers/src/app/functions/rewrite-mail-domain";
+import { committeeNeedsMailMove, mailDomainForSiteHost, ngxRamblersMailDomain } from "../../../projects/ngx-ramblers/src/app/functions/rewrite-mail-domain";
 import { CustomDomainEntry, EnvironmentConfig } from "../../../projects/ngx-ramblers/src/app/models/environment-config.model";
+import { ConfigKey } from "../../../projects/ngx-ramblers/src/app/models/config.model";
+import { CommitteeConfig } from "../../../projects/ngx-ramblers/src/app/models/committee.model";
 import { apexHost, dnsProviderFromNameservers, hostFromUrl, ramblersNationalUrl, registrableApex } from "../../../projects/ngx-ramblers/src/app/functions/hosts";
 import { unmappedHostsToOffer, webFacingHostnamesFromDns } from "./zone-web-hosts";
 import { nameserversForHostname, publicAddressRecord } from "../shared/dns-nameservers";
@@ -96,6 +98,27 @@ async function relatedGroupSiteHostname(environmentName: string, environments: E
   } catch (error) {
     debugLog("Could not read related group site URL for %s: %s", environmentName, error instanceof Error ? error.message : String(error));
     return "";
+  }
+}
+
+async function mailMoveNeededFor(environmentEntry: EnvironmentConfig, siteHostname: string): Promise<boolean> {
+  const newDomain = mailDomainForSiteHost(siteHostname || "");
+  const oldDomain = ngxRamblersMailDomain(environmentEntry.environment);
+  if (!newDomain || newDomain === oldDomain || newDomain.endsWith(".ngx-ramblers.org.uk")) {
+    return false;
+  } else {
+    try {
+      const { client, db } = await connectToEnvironmentMongo(environmentEntry);
+      try {
+        const committeeDoc = await db.collection("config").findOne({ key: ConfigKey.COMMITTEE });
+        return committeeNeedsMailMove((committeeDoc?.value || null) as CommitteeConfig, oldDomain, newDomain);
+      } finally {
+        await client.close();
+      }
+    } catch (error) {
+      debugLog("Could not read committee mailboxes for %s: %s", environmentEntry.environment, error instanceof Error ? error.message : String(error));
+      return false;
+    }
   }
 }
 
@@ -203,10 +226,17 @@ export function classifyHostnameHealth(
       message: `Redirects to ${httpRedirectLocation} (sent by the site itself, not a Cloudflare rule, so nothing needs setting up here)`
     };
   } else if (httpStatus >= 200 && httpStatus < 400) {
-    return {
-      health: HostnameHealth.SERVING,
-      message: "Serving the site"
-    };
+    if (primaryRecord.proxied) {
+      return {
+        health: HostnameHealth.PROXIED,
+        message: `${hostname} is serving the site through Cloudflare's HTTP proxy. Mail apps cannot reach IMAP (port 993) or SMTP (port 465) on this host.`
+      };
+    } else {
+      return {
+        health: HostnameHealth.SERVING,
+        message: "Serving the site"
+      };
+    }
   } else if (httpStatus === 0) {
     return {
       health: HostnameHealth.UNREACHABLE,
@@ -307,20 +337,19 @@ export function validateRedirectTargets(statuses: HostnameStatus[]): HostnameSta
   return statuses.map(status => {
     if (status.health !== HostnameHealth.REDIRECTING) {
       return status;
+    } else {
+      const target = statuses.find(candidate => candidate.hostname === status.redirectRuleTarget);
+      if (!target || target.healthy || hostnameServesSite(target)) {
+        return status;
+      } else {
+        return {
+          ...status,
+          health: HostnameHealth.REDIRECT_TARGET_MISSING,
+          healthy: false,
+          message: `Redirects to https://${status.redirectRuleTarget}, but that hostname is not working: ${target.message}`
+        };
+      }
     }
-    const target = statuses.find(candidate => candidate.hostname === status.redirectRuleTarget);
-    if (!target) {
-      return status;
-    }
-    if (target.healthy) {
-      return status;
-    }
-    return {
-      ...status,
-      health: HostnameHealth.REDIRECT_TARGET_MISSING,
-      healthy: false,
-      message: `Redirects to https://${status.redirectRuleTarget}, but that hostname is not working: ${target.message}`
-    };
   });
 }
 
@@ -335,6 +364,10 @@ export async function environmentHostnameHealth(environmentName: string): Promis
   const environmentSubdomain = baseDomain ? `${environmentName}.${baseDomain}` : "";
   const primaries = primaryCandidates(siteHostname, environmentEntry?.customDomains || [], environmentSubdomain);
 
+  const mailMoveNeeded = environmentEntry
+    ? await mailMoveNeededFor(environmentEntry, siteHostname)
+    : false;
+
   if (!apiToken) {
     return {
       environmentName,
@@ -342,7 +375,8 @@ export async function environmentHostnameHealth(environmentName: string): Promis
       relatedGroupSiteUrl,
       hostnames: [],
       problemCount: 0,
-      checkedAt: dateTimeNowAsValue()
+      checkedAt: dateTimeNowAsValue(),
+      mailMoveNeeded
     };
   } else {
     const zoneCache = new Map<string, CloudflareZone>();
@@ -414,7 +448,8 @@ export async function environmentHostnameHealth(environmentName: string): Promis
       hostnames,
       problemCount: hostnames.filter(hostnameNeedsAction).length + (emailRouting && !emailRouting.inboundReady ? 1 : 0),
       checkedAt: dateTimeNowAsValue(),
-      emailRouting
+      emailRouting,
+      mailMoveNeeded
     };
   }
 }
@@ -422,8 +457,7 @@ export async function environmentHostnameHealth(environmentName: string): Promis
 const neverCreatedStates = [HostnameHealth.NO_DNS, HostnameHealth.ZONE_NOT_FOUND];
 
 export function annotateOptionalPairHost(hostnames: HostnameStatus[]): HostnameStatus[] {
-  const siteServed = hostnames.some(hostname =>
-    hostname.healthy && hostname.health === HostnameHealth.SERVING);
+  const siteServed = hostnames.some(hostname => hostnameServesSite(hostname));
   return hostnames.map(status => {
     if (status.origin !== HostnameOrigin.SIBLING) {
       return status;
@@ -446,8 +480,7 @@ export function annotateOptionalPairHost(hostnames: HostnameStatus[]): HostnameS
 
 export function annotateOptionalEnvironmentSubdomain(hostnames: HostnameStatus[]): HostnameStatus[] {
   const siteServedElsewhere = hostnames.some(hostname =>
-    hostname.healthy
-    && hostname.health === HostnameHealth.SERVING
+    hostnameServesSite(hostname)
     && hostname.origin !== HostnameOrigin.ENVIRONMENT_SUBDOMAIN);
   return hostnames.filter(status => {
     if (status.origin !== HostnameOrigin.ENVIRONMENT_SUBDOMAIN) {
