@@ -624,19 +624,19 @@
 
         <div class="stats-hero">
             <div class="stat-card">
-                <div class="stat-value highlight">436,346</div>
+                <div class="stat-value highlight">436,854</div>
                 <div class="stat-label">Lines of Code</div>
                 <div class="stat-detail">November 2026</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">2,402</div>
+                <div class="stat-value">2,408</div>
                 <div class="stat-label">Total Commits</div>
                 <div class="stat-detail">Across all repos</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">3,018</div>
+                <div class="stat-value">3,021</div>
                 <div class="stat-label">TypeScript Files</div>
-                <div class="stat-detail">436,346 LOC</div>
+                <div class="stat-detail">436,854 LOC</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value highlight">13</div>
@@ -698,7 +698,7 @@
                     <div class="repo-period">Aug 2023 - Present</div>
                     <div class="repo-stats">
                         <div class="repo-stat">
-                            <div class="repo-stat-value">1,217</div>
+                            <div class="repo-stat-value">1,223</div>
                             <div class="repo-stat-label">Commits</div>
                         </div>
                         <div class="repo-stat">
@@ -765,7 +765,7 @@
                 <div class="timeline-item modern">
                     <div class="timeline-year">November 2026</div>
                     <div class="timeline-title">Moved to Ramblers GitHub <span class="growth-badge">Ramblers-GB</span></div>
-                    <div class="timeline-desc">The ngx-ramblers repository moved into the Ramblers-GB organisation. The codebase evolution stats page is published from GitHub Pages at <a href="https://ramblers-gb.github.io/ngx-ramblers/">ramblers-gb.github.io/ngx-ramblers</a>. 880 commits in 2026 so far, more than four times the entire 2025 total.</div>
+                    <div class="timeline-desc">The ngx-ramblers repository moved into the Ramblers-GB organisation. The codebase evolution stats page is published from GitHub Pages at <a href="https://ramblers-gb.github.io/ngx-ramblers/">ramblers-gb.github.io/ngx-ramblers</a>. 886 commits in 2026 so far, more than four times the entire 2025 total.</div>
                 </div>
                 <div class="timeline-item modern">
                     <div class="timeline-year">October 2026</div>
@@ -822,8 +822,8 @@
                     <p>From a humble AngularJS app in December 2013 to a modern 436K LOC TypeScript monorepo across three major repository transitions.</p>
                 </div>
                 <div class="insight-card">
-                    <h4>2,402 Commits</h4>
-                    <p>Consistent development: 750 in ekwg, 435 in ng-ekwg, 1,217 in ngx-ramblers. Peak years: 2014 (370) and 2026 (880 so far).</p>
+                    <h4>2,408 Commits</h4>
+                    <p>Consistent development: 750 in ekwg, 435 in ng-ekwg, 1,223 in ngx-ramblers. Peak years: 2014 (370) and 2026 (886 so far).</p>
                 </div>
                 <div class="insight-card">
                     <h4>21x Code Growth</h4>
@@ -831,7 +831,7 @@
                 </div>
                 <div class="insight-card">
                     <h4>Server Transformation</h4>
-                    <p>Server grew from 6K to 143K lines (+2,244%) since July 2024. Complete JS to TypeScript migration with a Salesforce API layer and email composer.</p>
+                    <p>Server grew from 6K to 144K lines (+2,249%) since July 2024. Complete JS to TypeScript migration with a Salesforce API layer and email composer.</p>
                 </div>
                 <div class="insight-card">
                     <h4>Clean Code Philosophy</h4>
@@ -852,7 +852,7 @@
 
     <footer class="footer">
         NGX-Ramblers | Open-source framework for Ramblers Group and Area websites<br>
-        Snapshot generated 6 November 2026
+        Snapshot generated 7 November 2026
     </footer>
 
     <script>
@@ -911,7 +911,7 @@
                 datasets: [
                     {
                         label: 'Total LOC',
-                        data: [2000, 8000, 22572, 41223, 57974, 128584, 436346],
+                        data: [2000, 8000, 22572, 41223, 57974, 128584, 436854],
                         borderColor: chartColors.mintcake,
                         backgroundColor: chartColors.mintcakeLight,
                         fill: true,
@@ -923,7 +923,7 @@
                     },
                     {
                         label: 'Client',
-                        data: [1800, 7000, 19546, 35641, 50477, 98033, 287919],
+                        data: [1800, 7000, 19546, 35641, 50477, 98033, 288138],
                         borderColor: chartColors.mintcakeBright || chartColors.mintcake,
                         backgroundColor: 'transparent',
                         tension: 0.4,
@@ -933,7 +933,7 @@
                     },
                     {
                         label: 'Server',
-                        data: [200, 1000, 1518, 4305, 6122, 28683, 143471],
+                        data: [200, 1000, 1518, 4305, 6122, 28683, 143760],
                         borderColor: chartColors.sunset,
                         backgroundColor: 'transparent',
                         tension: 0.4,
@@ -984,7 +984,7 @@
                     },
                     {
                         label: 'ngx-ramblers (Modern)',
-                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 99, 197, 880],
+                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 99, 197, 886],
                         backgroundColor: chartColors.mintcakeBright || chartColors.mintcake,
                         borderWidth: 0,
                         borderRadius: 4
@@ -1013,9 +1013,9 @@
             charts.componentChart = new Chart(document.getElementById('componentChart'), {
             type: 'doughnut',
             data: {
-                labels: ['Client (288K)', 'Server (143K)', 'Serenity E2E (5K)'],
+                labels: ['Client (288K)', 'Server (144K)', 'Serenity E2E (5K)'],
                 datasets: [{
-                    data: [287919, 143471, 4956],
+                    data: [288138, 143760, 4956],
                     backgroundColor: [chartColors.mintcakeBright || chartColors.mintcake, chartColors.sunset, chartColors.sunrise],
                     borderWidth: 0,
                     hoverOffset: 10
@@ -1036,9 +1036,9 @@
             charts.languageChart = new Chart(document.getElementById('languageChart'), {
             type: 'doughnut',
             data: {
-                labels: ['TypeScript (436K)', 'Sass (15.5K)', 'HTML (4.7K)', 'Other (1.4K)'],
+                labels: ['TypeScript (437K)', 'Sass (15.6K)', 'HTML (4.7K)', 'Other (1.4K)'],
                 datasets: [{
-                    data: [436346, 15497, 4734, 1426],
+                    data: [436854, 15557, 4732, 1426],
                     backgroundColor: [chartColors.mintcakeBright || chartColors.mintcake, chartColors.sunrise, chartColors.sunset, chartColors.rosycheeks],
                     borderWidth: 0,
                     hoverOffset: 10
@@ -1070,7 +1070,7 @@
                     },
                     {
                         label: 'TypeScript',
-                        data: [0, 15000, 35000, 436346],
+                        data: [0, 15000, 35000, 436854],
                         backgroundColor: chartColors.mintcake,
                         borderWidth: 0,
                         borderRadius: 4
@@ -1113,7 +1113,7 @@
                     },
                     {
                         label: 'TypeScript',
-                        data: [0, 550, 5365, 28619, 143471],
+                        data: [0, 550, 5365, 28619, 143760],
                         backgroundColor: chartColors.mintcake,
                         borderWidth: 0,
                         borderRadius: 4
