@@ -38,22 +38,47 @@ function machineMemory(): { usedMb: number; totalMb: number; percent: number } |
   }
 }
 
-export async function waitUntilMachineMemoryAllows(limitPercent: number, label: string): Promise<void> {
+const watchdogRestartHold = {count: 0, reason: null as string | null};
+
+export function holdMemoryWatchdogRestart(reason: string): void {
+  watchdogRestartHold.count += 1;
+  watchdogRestartHold.reason = reason;
+  debugLog(`watchdog restart held (${watchdogRestartHold.count}): ${reason}`);
+}
+
+export function releaseMemoryWatchdogRestart(): void {
+  watchdogRestartHold.count = Math.max(0, watchdogRestartHold.count - 1);
+  if (watchdogRestartHold.count === 0) {
+    watchdogRestartHold.reason = null;
+  }
+  debugLog(`watchdog restart hold count ${watchdogRestartHold.count}`);
+}
+
+export function memoryWatchdogRestartHeld(): boolean {
+  return watchdogRestartHold.count > 0;
+}
+
+export function machineMemoryUsage(): { usedMb: number; totalMb: number; percent: number } | null {
+  return machineMemory();
+}
+
+export async function waitUntilMachineMemoryAllows(limitPercent: number, label: string): Promise<boolean> {
   const pauseMs = 5000;
-  const attempt = async (remaining: number): Promise<void> => {
+  const maximumAttempts = 60;
+  const attempt = async (remaining: number): Promise<boolean> => {
     const machine = machineMemory();
-    if (!machine || machine.percent < limitPercent || remaining <= 0) {
-      if (machine && machine.percent >= limitPercent) {
-        debugLog(`${label} continuing at machine ${machine.percent.toFixed(0)}%`);
-      }
-      return;
+    if (!machine || machine.percent < limitPercent) {
+      return true;
+    } else if (remaining <= 0) {
+      debugLog(`${label} still at machine ${machine.percent.toFixed(0)}% after waiting`);
+      return false;
     } else {
       debugLog(`${label} paused: machine ${machine.percent.toFixed(0)}% is at or above ${limitPercent}%`);
       await new Promise(resolve => setTimeout(resolve, pauseMs));
       return attempt(remaining - 1);
     }
   };
-  return attempt(12);
+  return attempt(maximumAttempts);
 }
 
 export function startMemoryWatchdog(): void {
@@ -94,9 +119,13 @@ export function startMemoryWatchdog(): void {
       trips += 1;
       debugLog(`WARNING trip ${trips}/${consecutiveTrips}: ${breaches.join(", ")} (machine ${machine ? machine.percent.toFixed(0) + "%" : "n/a"}, rss ${rssMb.toFixed(0)}MB, heap ${heapPercent.toFixed(0)}%, loopLag ${loopLagMs.toFixed(0)}ms)`);
       if (trips >= consecutiveTrips) {
-        console.error(`[memory-watchdog] restarting: ${breaches.join(", ")} — exiting so Fly restarts a fresh machine (machine ${machine ? machine.usedMb.toFixed(0) + "/" + machine.totalMb.toFixed(0) + "MB" : "n/a"}, heap ${heapUsedMb.toFixed(0)}/${heapLimitMb.toFixed(0)}MB, rss ${rssMb.toFixed(0)}MB, loopLag ${loopLagMs.toFixed(0)}ms).`);
-        clearInterval(timer);
-        process.exit(1);
+        if (memoryWatchdogRestartHeld()) {
+          debugLog(`restart deferred (${watchdogRestartHold.reason}): ${breaches.join(", ")} (machine ${machine ? machine.percent.toFixed(0) + "%" : "n/a"}, rss ${rssMb.toFixed(0)}MB, heap ${heapPercent.toFixed(0)}%, loopLag ${loopLagMs.toFixed(0)}ms)`);
+        } else {
+          console.error(`[memory-watchdog] restarting: ${breaches.join(", ")} — exiting so Fly restarts a fresh machine (machine ${machine ? machine.usedMb.toFixed(0) + "/" + machine.totalMb.toFixed(0) + "MB" : "n/a"}, heap ${heapUsedMb.toFixed(0)}/${heapLimitMb.toFixed(0)}MB, rss ${rssMb.toFixed(0)}MB, loopLag ${loopLagMs.toFixed(0)}ms).`);
+          clearInterval(timer);
+          process.exit(1);
+        }
       }
     } else if (trips > 0) {
       trips = 0;

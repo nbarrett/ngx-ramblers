@@ -14,7 +14,12 @@ import { createBackupAndRestoreService } from "../backup/backup-service-factory"
 import { dateTimeNowAsValue } from "../shared/dates";
 import { isNumber } from "es-toolkit/compat";
 import { registerScheduledTask, scheduledTaskSettings } from "./scheduled-task-registry";
-import { waitUntilMachineMemoryAllows } from "../health/memory-watchdog";
+import {
+  holdMemoryWatchdogRestart,
+  machineMemoryUsage,
+  releaseMemoryWatchdogRestart,
+  waitUntilMachineMemoryAllows
+} from "../health/memory-watchdog";
 
 const debugLog = debug(envConfig.logNamespace("cron:backups"));
 debugLog.enabled = true;
@@ -79,22 +84,27 @@ async function waitForBackupCompletion(service: BackupAndRestoreService, session
 
 async function backupEnvironment(service: BackupAndRestoreService, environmentName: string, taskSettings: BackupsTaskSettings, attempt: number = 0): Promise<string | null> {
   try {
-    await waitUntilMachineMemoryAllows(70, `backup ${environmentName}`);
-    const session = await service.startBackup({
-      environment: environmentName,
-      upload: taskSettings.uploadMongoDumpToS3ByDefault,
-      includeS3: taskSettings.includeS3ObjectsByDefault,
-      s3ObjectBackupConcurrency: taskSettings.s3ObjectBackupConcurrency,
-      user: scheduledBackupUser,
-      triggeredBy: BackupSessionTrigger.SCHEDULED
-    });
-    const deadline = dateTimeNowAsValue() + taskSettings.perEnvironmentTimeoutMinutes * 60 * 1000;
-    const status = await waitForBackupCompletion(service, session._id!.toString(), deadline, taskSettings.perEnvironmentTimeoutMinutes);
-    if (status === BackupSessionStatus.FAILED) {
-      const failed = await service.sessionStatus(session._id!.toString());
-      return failed?.error || "unknown error";
+    const memoryReady = await waitUntilMachineMemoryAllows(70, `backup ${environmentName}`);
+    const machine = machineMemoryUsage();
+    if (!memoryReady && machine && machine.percent >= 85) {
+      return `machine memory ${machine.percent.toFixed(0)}% is too high to start a backup`;
     } else {
-      return null;
+      const session = await service.startBackup({
+        environment: environmentName,
+        upload: taskSettings.uploadMongoDumpToS3ByDefault,
+        includeS3: taskSettings.includeS3ObjectsByDefault,
+        s3ObjectBackupConcurrency: taskSettings.s3ObjectBackupConcurrency,
+        user: scheduledBackupUser,
+        triggeredBy: BackupSessionTrigger.SCHEDULED
+      });
+      const deadline = dateTimeNowAsValue() + taskSettings.perEnvironmentTimeoutMinutes * 60 * 1000;
+      const status = await waitForBackupCompletion(service, session._id!.toString(), deadline, taskSettings.perEnvironmentTimeoutMinutes);
+      if (status === BackupSessionStatus.FAILED) {
+        const failed = await service.sessionStatus(session._id!.toString());
+        return failed?.error || "unknown error";
+      } else {
+        return null;
+      }
     }
   } catch (error: any) {
     const reason = error?.message || `${error}`;
@@ -132,18 +142,23 @@ async function runBackupPool(service: BackupAndRestoreService, environments: { n
 }
 
 async function backupAllEnvironments(): Promise<void> {
-  const service = await createBackupAndRestoreService();
-  const taskSettings = await settings();
-  const environments = (await service.listEnvironments()).filter(environment => environment.hasMongoConfig);
-  if (environments.length === 0) {
-    debugLog("No environments with a mongo config found - nothing to back up");
-    return;
-  }
-  debugLog(`Starting scheduled backup for ${environments.length} environments with concurrency ${taskSettings.mongoDumpConcurrency}: ${environments.map(environment => environment.name).join(", ")}`);
-  const failures = await runBackupPool(service, environments, taskSettings);
-  debugLog(`Scheduled backup finished: ${environments.length - failures.length} of ${environments.length} environments succeeded`);
-  if (failures.length > 0) {
-    throw new Error(`Backup failed for ${failures.length} of ${environments.length} environments: ${failures.join("; ")}`);
+  holdMemoryWatchdogRestart("scheduled all-environments backup");
+  try {
+    const service = await createBackupAndRestoreService();
+    const taskSettings = await settings();
+    const environments = (await service.listEnvironments()).filter(environment => environment.hasMongoConfig);
+    if (environments.length === 0) {
+      debugLog("No environments with a mongo config found - nothing to back up");
+    } else {
+      debugLog(`Starting scheduled backup for ${environments.length} environments with concurrency ${taskSettings.mongoDumpConcurrency}: ${environments.map(environment => environment.name).join(", ")}`);
+      const failures = await runBackupPool(service, environments, taskSettings);
+      debugLog(`Scheduled backup finished: ${environments.length - failures.length} of ${environments.length} environments succeeded`);
+      if (failures.length > 0) {
+        throw new Error(`Backup failed for ${failures.length} of ${environments.length} environments: ${failures.join("; ")}`);
+      }
+    }
+  } finally {
+    releaseMemoryWatchdogRestart();
   }
 }
 
