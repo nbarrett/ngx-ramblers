@@ -40,14 +40,14 @@ describe("applyHeadingAnchors", () => {
     const root = page();
     applyHeadingAnchors(root, "/how-to/article");
     const titles = root.querySelectorAll("h1, app-dynamic-content-view h2");
-    expect(titles[0].id).toBe("walk-notes");
+    expect(titles[0].id).toBe("");
     expect(titles[1].id).toBe("intro");
     expect(titles[2].id).toBe("intro-1");
+    expect(root.querySelector("h1.content-page-title .heading-anchor-controls")).toBeNull();
     expect(root.querySelector("app-dynamic-content-view")?.nextElementSibling?.id || "").toBe("");
     expect(root.querySelector("a[href='#intro']")).toBeNull();
     expect(root.querySelector("p a")?.getAttribute("href")).toBe("/how-to/article#intro");
-    expect(root.querySelectorAll("a.heading-permalink")[0].getAttribute("href")).toBe("/how-to/article#walk-notes");
-    expect(root.querySelectorAll("a.heading-permalink")[1].getAttribute("href")).toBe("/how-to/article#intro");
+    expect(root.querySelectorAll("a.heading-permalink")[0].getAttribute("href")).toBe("/how-to/article#intro");
     expect(root.querySelector("a[href='/how-to/other#missing']")).toBeTruthy();
   });
 
@@ -55,7 +55,7 @@ describe("applyHeadingAnchors", () => {
     const root = page();
     applyHeadingAnchors(root, "/how-to/article");
     applyHeadingAnchors(root, "/how-to/article");
-    expect(root.querySelectorAll(".heading-permalink").length).toBe(3);
+    expect(root.querySelectorAll(".heading-permalink").length).toBe(2);
     expect(root.querySelectorAll("#intro").length).toBe(1);
   });
 
@@ -70,7 +70,7 @@ describe("applyHeadingAnchors", () => {
     applyHeadingAnchors(root, "/");
     expect(root.querySelectorAll(".heading-anchor-controls").length).toBe(0);
     applyHeadingAnchors(root, "/walks/example");
-    expect(root.querySelector("h1 .heading-anchor-controls")).toBeTruthy();
+    expect(root.querySelector("h1 .heading-anchor-controls")).toBeNull();
     expect(root.querySelector("app-carousel .heading-anchor-controls")).toBeNull();
   });
 

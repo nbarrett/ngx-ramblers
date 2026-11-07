@@ -56,7 +56,6 @@
   text-decoration: none
   color: $ramblers-colour-granite
 
-.page-heading .content-page-title,
 app-dynamic-content-view h1,
 app-dynamic-content-view h2,
 app-dynamic-content-view h3,
@@ -87,8 +86,9 @@ h6:hover > .heading-anchor-controls,
   .heading-anchor-controls
     opacity: 1
 
-.heading-permalink,
-.heading-copy
+a.heading-permalink,
+button.heading-copy
+  appearance: none
   display: inline-flex
   align-items: center
   justify-content: center
@@ -96,27 +96,46 @@ h6:hover > .heading-anchor-controls,
   height: 1.35rem
   min-width: 0
   min-height: 0
+  max-width: 1.35rem
+  max-height: 1.35rem
+  margin: 0
   padding: 0
   border: 0
   border-radius: 0
   background: transparent
+  background-image: none
   box-shadow: none
   color: rgba($ramblers-colour-granite, 0.55)
+  font-size: 1rem
+  font-weight: 400
+  font-family: inherit
   line-height: 1
+  text-align: center
   text-decoration: none
+  white-space: nowrap
 
-.heading-permalink svg,
-.heading-copy svg
+a.heading-permalink svg,
+button.heading-copy svg
   width: 0.9rem
   height: 0.9rem
+  flex: 0 0 auto
 
-.heading-permalink:hover,
-.heading-permalink:focus,
-.heading-copy:hover,
-.heading-copy:focus
+a.heading-permalink:hover,
+a.heading-permalink:focus,
+a.heading-permalink:focus-visible,
+a.heading-permalink:active,
+button.heading-copy:hover,
+button.heading-copy:focus,
+button.heading-copy:focus-visible,
+button.heading-copy:active
+  appearance: none
   background: transparent
+  background-image: none
+  border: 0
+  box-shadow: none
   color: $ramblers-colour-granite
   text-decoration: none
+  outline: none
 
 .heading-anchor-tooltip
   position: fixed

@@ -1,12 +1,12 @@
 import { headingAnchorId } from "./heading-slug";
 
-const HEADING_SELECTOR = ".content-page-title, app-dynamic-content-view h1, app-dynamic-content-view h2, app-dynamic-content-view h3, app-dynamic-content-view h4, app-dynamic-content-view h5, app-dynamic-content-view h6";
-const LINK_REGION_SELECTOR = ".page-heading, app-dynamic-content-view";
+const HEADING_SELECTOR = "app-dynamic-content-view h1, app-dynamic-content-view h2, app-dynamic-content-view h3, app-dynamic-content-view h4, app-dynamic-content-view h5, app-dynamic-content-view h6";
+const LINK_REGION_SELECTOR = "app-dynamic-content-view";
 
 function headingControlsAllowed(heading: HTMLElement, path: string): boolean {
   const pathname = path.split("?")[0].replace(/\/$/, "") || "/";
   const home = pathname === "/" || pathname === "/home";
-  if (home || heading.closest("app-carousel")) {
+  if (home || heading.closest("app-carousel") || heading.tagName === "H1") {
     return false;
   } else {
     return true;
