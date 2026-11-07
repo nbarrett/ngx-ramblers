@@ -58,7 +58,7 @@
     "@getbrevo/brevo": "5.0.4",
     "@mailchimp/mailchimp_marketing": "3.0.80",
     "@playwright/test": "1.62.1",
-    "@ramblers/sf-contract": "github:nbarrett/ramblers-salesforce-contract#v1.0.2",
+    "@ramblers/sf-contract": "github:Ramblers-GB/ramblers-salesforce-contract#v1.0.3",
     "@serenity-js/console-reporter": "3.44.2",
     "@serenity-js/core": "3.44.2",
     "@serenity-js/mocha": "3.44.2",

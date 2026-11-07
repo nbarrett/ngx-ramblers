@@ -33,7 +33,7 @@ function supporter(overrides: Partial<SalesforceMember> = {}): SalesforceMember 
     canEmailMembers: true,
     canEmailWellbeingWalkers: false,
     canViewMemberData: true,
-    canViewMemberDate: true,
+    canViewVolunteerData: true,
     emailConsent: true,
     emailConsentLastUpdated: "2023-07-15",
     postConsent: true,
@@ -56,6 +56,7 @@ describe("salesforce-member-mapper", () => {
     expect(result.emailPermissionLastUpdated).toEqual("15/07/2023");
     expect(result.canEmailMembers).toEqual(true);
     expect(result.canViewMemberData).toEqual(true);
+    expect(result.canViewVolunteerData).toEqual(true);
   });
 
   it("keeps a non-member supporter stable without a membership number", () => {

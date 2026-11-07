@@ -1,8 +1,8 @@
-# Ramblers Team Emails 1.0.0 cutover
+# Ramblers Team Emails 1.0.2 cutover
 
 ## Preconditions
 
-- The published API still matches the pinned contract checked by [`@ramblers/sf-contract`](https://github.com/nbarrett/ramblers-salesforce-contract).
+- The published API still matches the pinned contract checked by [`@ramblers/sf-contract`](https://github.com/Ramblers-GB/ramblers-salesforce-contract) (v1.0.3 mirrors Head office 1.0.2).
 - The [live mock](https://github.com/nbarrett/ramblers-salesforce-mock) passes its API, fixture and writeback tests.
 - Head Office has supplied a base URL, API key and confirmed team code for the target environment.
 - Unsubscribe writeback remains disabled until Head Office confirms which preference it changes and whether that change is team-specific or organisation-wide.
@@ -28,7 +28,7 @@
 4. Test the connection before enabling synchronisation.
 5. Enable Ramblers Team Emails and run the initial full snapshot.
 6. Review new, changed, unchanged and missing-supporter counts before applying the prepared records.
-7. Verify the signed-in administrators' `canViewMemberData` and audience permissions before sending email.
+7. Verify the signed-in administrators' `canViewMemberData`, `canViewVolunteerData` and audience permissions before sending email.
 8. Monitor synchronisation and bounce writeback audit records after cutover.
 
 ## Rollback

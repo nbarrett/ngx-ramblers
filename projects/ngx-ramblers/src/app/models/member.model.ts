@@ -161,6 +161,7 @@ export interface Member extends HasEmailFirstAndLastName, MemberPrivileges, Audi
   canEmailMembers?: boolean;
   canEmailWellbeingWalkers?: boolean;
   canViewMemberData?: boolean;
+  canViewVolunteerData?: boolean;
   doNotEmail?: boolean;
   noWalkProgram?: boolean;
   noCampaigning?: boolean;
@@ -208,6 +209,7 @@ export const HEAD_OFFICE_SENDING_PERMISSION_FIELDS = [
   "canEmailVolunteers",
   "canEmailWellbeingWalkers",
   "canViewMemberData",
+  "canViewVolunteerData",
 ] as const satisfies readonly (keyof Member)[];
 
 export const HEAD_OFFICE_SUPPORTER_FIELDS: (keyof Member)[] = [
@@ -325,6 +327,7 @@ export interface RamblersMember extends HasEmailFirstAndLastName {
   canEmailMembers?: boolean;
   canEmailWellbeingWalkers?: boolean;
   canViewMemberData?: boolean;
+  canViewVolunteerData?: boolean;
   doNotEmail?: boolean;
   noWalkProgram?: boolean;
   noCampaigning?: boolean;

@@ -39,6 +39,7 @@ export function mapSalesforceMemberToRamblersMember(supporter: SalesforceMember)
     canEmailMembers: supporter.canEmailMembers,
     canEmailWellbeingWalkers: supporter.canEmailWellbeingWalkers,
     canViewMemberData: supporter.canViewMemberData,
+    canViewVolunteerData: supporter.canViewVolunteerData,
     doNotEmail: supporter.doNotEmail,
     noWalkProgram: supporter.noWalkProgram,
     noCampaigning: supporter.noCampaigning,

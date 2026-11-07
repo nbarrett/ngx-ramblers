@@ -49,7 +49,8 @@ describe("applyHeadOfficeSendingPermissionBounds", () => {
       canEmailMembers: true,
       canEmailVolunteers: false,
       canEmailWellbeingWalkers: false,
-      canViewMemberData: false
+      canViewMemberData: false,
+      canViewVolunteerData: false
     }));
   });
 
@@ -59,7 +60,8 @@ describe("applyHeadOfficeSendingPermissionBounds", () => {
       canEmailMembers: false,
       canEmailVolunteers: false,
       canEmailWellbeingWalkers: false,
-      canViewMemberData: false
+      canViewMemberData: false,
+      canViewVolunteerData: false
     }));
   });
 });

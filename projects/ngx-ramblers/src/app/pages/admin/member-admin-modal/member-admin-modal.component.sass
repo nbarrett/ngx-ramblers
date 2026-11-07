@@ -36,7 +36,37 @@ app-member-admin-modal
 :host ::ng-deep .custom-tabset .nav-tabs > li > a
   white-space: nowrap
 
+.ho-supporter-fields
+  display: grid
+  grid-template-columns: repeat(3, minmax(0, 1fr))
+  column-gap: 1rem
+  align-items: stretch
+
+.ho-volunteer-roles
+  grid-column: 3
+  grid-row: 1 / span 2
+  display: flex
+  flex-direction: column
+  min-height: 0
+
+.ho-volunteer-roles-value
+  flex: 1 1 auto
+  height: auto !important
+  min-height: 6.75rem
+  resize: none
+  white-space: pre-wrap
+  overflow-wrap: anywhere
+  overflow-y: auto
+  line-height: 1.5
+
 @media (max-width: 767.98px)
+  .ho-supporter-fields
+    grid-template-columns: 1fr
+
+  .ho-volunteer-roles
+    grid-column: 1
+    grid-row: auto
+
   .modal-lg, .modal-content, app-member-admin-modal
     min-width: 0 !important
     max-width: 100% !important

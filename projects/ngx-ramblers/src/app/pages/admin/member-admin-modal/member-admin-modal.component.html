@@ -343,6 +343,12 @@
                       <label class="form-check-label" for="can-view-member-data">Can View Member Data
                       </label>
                     </div>
+                    <div class="form-check">
+                      <input name="canViewVolunteerData" [disabled]="!allowSendingPermissionEdits()" [(ngModel)]="member.canViewVolunteerData"
+                             type="checkbox" class="form-check-input" id="can-view-volunteer-data">
+                      <label class="form-check-label" for="can-view-volunteer-data">Can View Volunteer Data
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -458,43 +464,31 @@
               <div class="col-sm-12">
                 <p>The fields below come directly from Ramblers head office via the Ramblers Team Emails API. They are
                   read-only here and are refreshed on each supporter sync.</p>
-                <div class="row">
-                  <div class="col col-sm-4">
-                    <div class="form-group">
-                      <label for="ho-team-status">Team Status</label>
-                      <input disabled [value]="member.salesforceTeamStatus || '—'" type="text"
-                             class="form-control input-sm" id="ho-team-status">
-                    </div>
+                <div class="ho-supporter-fields">
+                  <div class="form-group">
+                    <label for="ho-team-status">Team Status</label>
+                    <input disabled [value]="member.salesforceTeamStatus || '—'" type="text"
+                           class="form-control input-sm" id="ho-team-status">
                   </div>
-                  <div class="col col-sm-4">
-                    <div class="form-group">
-                      <label for="ho-team-from">Team Relationship From</label>
-                      <input disabled [value]="member.salesforceTeamRelationshipFrom ? (member.salesforceTeamRelationshipFrom | displayDate) : '—'"
-                             type="text" class="form-control input-sm" id="ho-team-from">
-                    </div>
+                  <div class="form-group">
+                    <label for="ho-team-from">Team Relationship From</label>
+                    <input disabled [value]="member.salesforceTeamRelationshipFrom ? (member.salesforceTeamRelationshipFrom | displayDate) : '—'"
+                           type="text" class="form-control input-sm" id="ho-team-from">
                   </div>
-                  <div class="col col-sm-4">
-                    <div class="form-group">
-                      <label for="ho-volunteer-roles">Volunteer Roles</label>
-                      <input disabled [value]="volunteerRolesText()" type="text"
-                             class="form-control input-sm" id="ho-volunteer-roles">
-                    </div>
+                  <div class="form-group ho-volunteer-roles">
+                    <label for="ho-volunteer-roles">Volunteer Roles</label>
+                    <textarea disabled [value]="volunteerRolesText()" class="form-control input-sm ho-volunteer-roles-value"
+                              id="ho-volunteer-roles" rows="4"></textarea>
                   </div>
-                </div>
-                <div class="row">
-                  <div class="col col-sm-4">
-                    <div class="form-group">
-                      <label for="ho-join-date">Membership Join Date</label>
-                      <input disabled [value]="member.membershipJoinDate ? (member.membershipJoinDate | displayDate) : '—'"
-                             type="text" class="form-control input-sm" id="ho-join-date">
-                    </div>
+                  <div class="form-group">
+                    <label for="ho-join-date">Membership Join Date</label>
+                    <input disabled [value]="member.membershipJoinDate ? (member.membershipJoinDate | displayDate) : '—'"
+                           type="text" class="form-control input-sm" id="ho-join-date">
                   </div>
-                  <div class="col col-sm-4">
-                    <div class="form-group">
-                      <label for="ho-end-date">Membership End Date</label>
-                      <input disabled [value]="member.membershipEndDate ? (member.membershipEndDate | displayDate) : '—'"
-                             type="text" class="form-control input-sm" id="ho-end-date">
-                    </div>
+                  <div class="form-group">
+                    <label for="ho-end-date">Membership End Date</label>
+                    <input disabled [value]="member.membershipEndDate ? (member.membershipEndDate | displayDate) : '—'"
+                           type="text" class="form-control input-sm" id="ho-end-date">
                   </div>
                 </div>
                 <div class="row thumbnail-heading-frame">

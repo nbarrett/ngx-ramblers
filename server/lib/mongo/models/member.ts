@@ -39,6 +39,7 @@ export const memberSchema = new mongoose.Schema({
   canEmailMembers: {type: Boolean},
   canEmailWellbeingWalkers: {type: Boolean},
   canViewMemberData: {type: Boolean},
+  canViewVolunteerData: {type: Boolean},
   doNotEmail: {type: Boolean},
   noWalkProgram: {type: Boolean},
   noCampaigning: {type: Boolean},

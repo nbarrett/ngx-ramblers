@@ -76,6 +76,7 @@ export const AUDIT_FIELDS: AuditField[] = [
   {fieldName: "canEmailMembers", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
   {fieldName: "canEmailWellbeingWalkers", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
   {fieldName: "canViewMemberData", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
+  {fieldName: "canViewVolunteerData", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
   {fieldName: "doNotEmail", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
   {fieldName: "noWalkProgram", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},
   {fieldName: "noCampaigning", writeDataIf: WriteDataRule.CHANGED, type: WriteDataType.BOOLEAN},

@@ -43,7 +43,7 @@ function supporter(memberRef: string, overrides: Partial<SalesforceMember> = {})
     canEmailMembers: false,
     canEmailWellbeingWalkers: false,
     canViewMemberData: false,
-    canViewMemberDate: false,
+    canViewVolunteerData: false,
     emailConsent: true,
     emailConsentLastUpdated: null,
     postConsent: false,
